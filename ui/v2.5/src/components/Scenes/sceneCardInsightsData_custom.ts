@@ -273,9 +273,6 @@ function markerIsHighlight(
   marker: SceneCardInsightMarker,
   roleTagIds: IUIConfig["roleTagIds"]
 ) {
-  // CUSTOM: non-role markers make overlapping activity Outstanding.
-  if (!activityCategoryForMarker(marker, roleTagIds)) return true;
-
   // CUSTOM: An orgasm (including Facial descendants) is not Outstanding by
   // itself. It needs an explicit quality qualifier; GOAT remains exceptional.
   if (markerHasConfiguredTag(marker, roleTagIds?.orgasmTagId)) {
@@ -284,6 +281,8 @@ function markerIsHighlight(
       markerHasConfiguredTag(marker, roleTagIds?.reallyHotTagId)
     );
   }
+  // CUSTOM: other non-role markers make overlapping activity Outstanding.
+  if (!activityCategoryForMarker(marker, roleTagIds)) return true;
   return (
     markerHasConfiguredTag(marker, roleTagIds?.goatTagId) ||
     markerHasConfiguredTag(marker, roleTagIds?.reallyHotTagId) ||

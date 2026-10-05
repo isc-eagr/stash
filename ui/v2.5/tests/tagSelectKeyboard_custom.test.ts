@@ -55,34 +55,16 @@ const tagSelectSource = readFileSync(
 );
 assert.match(
   tagSelectSource,
-  /selectProps\.createOnClickOnly && object\.id === ""[\s\S]*?data-tag-create-option/,
-  "the create option is marked for opted-in tag selectors"
+  /const isCreateOption = object\.id === "";[\s\S]*?data-tag-create-option/,
+  "the create option is marked in every tag selector"
 );
 assert.match(
   tagSelectSource,
-  /props\.createOnClickOnly &&[\s\S]*?shouldPreventCreateOptionEnter\([\s\S]*?onKeyDown=\{onKeyDown\}/,
+  /if \(\s*shouldPreventCreateOptionEnter\([\s\S]*?event\.preventDefault\(\)[\s\S]*?onKeyDown=\{onKeyDown\}/,
   "TagSelect prevents the keyboard selection before react-select handles it"
 );
 assert.match(
   tagSelectSource,
-  /tabSelectsValue=\{props\.createOnClickOnly \? false : undefined\}/,
+  /tabSelectsValue=\{false\}/,
   "Tab navigates away without selecting the create option"
-);
-
-const markerFormSource = readFileSync(
-  new URL(
-    "../src/components/Scenes/SceneDetails/SceneMarkerForm.tsx",
-    import.meta.url
-  ),
-  "utf8"
-);
-assert.match(
-  markerFormSource,
-  /function renderPrimaryTagField\(\)[\s\S]*?<TagSelect[\s\S]*?createOnClickOnly[\s\S]*?function renderTimeField\(\)/,
-  "the marker Primary Tag selector requires clicking to create"
-);
-assert.match(
-  markerFormSource,
-  /function renderTagsField\(\)[\s\S]*?<TagSelect\s+isMulti[\s\S]*?createOnClickOnly[\s\S]*?return renderField\("tag_ids"/,
-  "the marker Tags selector requires clicking to create"
 );

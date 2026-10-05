@@ -133,7 +133,7 @@ AND sm.end_seconds > sm.seconds`
 	require.InDelta(t, 100, outstanding+standard+unclassified+unusable, 0.001)
 }
 
-func TestOutstandingMarkerConditionCustomCountsEveryNonRoleMarker(t *testing.T) {
+func TestOutstandingMarkerConditionCustomRequiresQualifiedOrgasms(t *testing.T) {
 	db, err := sql.Open("sqlite3", ":memory:")
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
@@ -154,8 +154,19 @@ INSERT INTO scene_markers (id, scene_id, primary_tag_id, seconds, end_seconds) V
   (1, 1, 700, 0, 10),
   (2, 1, 700, 10, 20),
   (3, 1, 99, 20, 30),
-  (4, 1, 10, 25, 35);
-INSERT INTO scene_markers_tags (scene_marker_id, tag_id) VALUES (2, 701);
+  (4, 1, 10, 25, 35),
+  (5, 1, 702, 40, 50),
+  (6, 1, 702, 50, 60),
+  (7, 1, 10, 60, 70),
+  (8, 1, 10, 70, 80),
+  (9, 1, 703, 80, 90),
+  (10, 1, 700, 90, NULL),
+  (11, 1, 700, 95, 90),
+  (12, 1, 702, 10, 20);
+INSERT INTO tags_relations VALUES (700, 702), (700, 701), (701, 703), (500, 501);
+INSERT INTO scene_markers_tags (scene_marker_id, tag_id) VALUES
+  (2, 701), (5, 99), (6, 501), (7, 702), (8, 702), (8, 703),
+  (10, 500), (11, 701), (12, 703);
 `)
 	require.NoError(t, err)
 
@@ -173,7 +184,7 @@ INSERT INTO scene_markers_tags (scene_marker_id, tag_id) VALUES (2, 701);
 		ids = append(ids, id)
 	}
 	require.NoError(t, rows.Err())
-	require.Equal(t, []int{1, 2, 3}, ids)
+	require.Equal(t, []int{2, 3, 6, 8, 9, 12}, ids)
 	require.NoError(t, rows.Close())
 
 	condition = activityPercentOutstandingMarkerConditionForTagIDsCustom(
@@ -190,5 +201,5 @@ INSERT INTO scene_markers_tags (scene_marker_id, tag_id) VALUES (2, 701);
 		ids = append(ids, id)
 	}
 	require.NoError(t, rows.Err())
-	require.Equal(t, []int{1, 2, 3, 4}, ids)
+	require.Equal(t, []int{2, 3, 4, 6, 8, 9, 12}, ids)
 }

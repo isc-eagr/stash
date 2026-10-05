@@ -99,6 +99,21 @@ func TestCalculateStudioListActivityStatsCustom(t *testing.T) {
 	}
 }
 
+func TestCalculateStudioListActivityStatsCustomScene9836(t *testing.T) {
+	got := calculateStudioListActivityStatsCustom(
+		map[int]float64{9836: 561.45},
+		[]studioListActivityMarkerCustom{
+			{sceneID: 9836, start: 65.521034, end: 480.17501, primaryTagID: 24},
+			{sceneID: 9836, start: 447.626705, end: 460.807515, primaryTagID: 15, isOrgasm: true},
+		},
+		nil, 268, 196, 24,
+	)
+	assertStudioListFloatCustom(t, "outstanding seconds", got.OutstandingSeconds, 0)
+	assertStudioListFloatCustom(t, "outstanding percent", got.OutstandingPercent, 0)
+	assertStudioListFloatCustom(t, "standard seconds", got.StandardSeconds, 480.17501-65.521034)
+	assertStudioListFloatCustom(t, "unclassified seconds", got.OtherSeconds, 561.45-(480.17501-65.521034))
+}
+
 func TestCalculateStudioListActivityStatsCustomExcludesScenesWithoutTimedRoleMarkers(t *testing.T) {
 	got := calculateStudioListActivityStatsCustom(
 		map[int]float64{1: 100, 2: 250, 3: 300},

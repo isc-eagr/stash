@@ -62,6 +62,50 @@ INSERT INTO scene_negative_markers VALUES(1, 15, 35), (1, 25, 45),
 	return db
 }
 
+func TestSceneActivityPercentCustomScene9836(t *testing.T) {
+	db := sceneActivityFixtureCustom(t)
+	sceneSortTestConfigCustom(t, map[string]interface{}{
+		"sexTagId": "268", "oralTagId": "196", "soloTagId": "24",
+		"goatTagId": "10", "orgasmTagId": "15", "reallyHotTagId": "9",
+	})
+	_, err := db.Exec(`
+INSERT INTO scenes VALUES (9836, 'Regression');
+INSERT INTO scenes_files VALUES (9836, 9836);
+INSERT INTO video_files VALUES (9836, 561.45);
+INSERT INTO scene_markers VALUES
+  (30710, 9836, 24, 65.521034, 480.17501),
+  (30711, 9836, 15, 447.626705, 460.807515);`)
+	require.NoError(t, err)
+	for _, sortOnly := range []bool{false, true} {
+		for _, qualityTagID := range []int{0, 9, 10} {
+			_, err := db.Exec("DELETE FROM scene_markers_tags WHERE scene_marker_id = 30711")
+			require.NoError(t, err)
+			if qualityTagID != 0 {
+				_, err = db.Exec("INSERT INTO scene_markers_tags VALUES (30711, ?)", qualityTagID)
+				require.NoError(t, err)
+			}
+			outstandingSeconds := 0.0
+			if qualityTagID != 0 {
+				outstandingSeconds = 460.807515 - 447.626705
+			}
+			for category, want := range map[activityPercentCategoryCustom]float64{
+				activityPercentOutstandingCustom:  100 * outstandingSeconds / 561.45,
+				activityPercentStandardCustom:     100 * (480.17501 - 65.521034 - outstandingSeconds) / 561.45,
+				activityPercentUnclassifiedCustom: 100 * (561.45 - (480.17501 - 65.521034)) / 561.45,
+			} {
+				query := sceneRepository.newQuery()
+				distinctIDs(&query, sceneTable)
+				query.addWhere("scenes.id = 9836")
+				expr := sceneActivityPercentExpressionCustom(&query, category, sortOnly)
+				query.columns = []string{"scenes.id", expr}
+				got := readSceneSortValuesCustom(t, db, query.toSQL(true), query.allArgs())
+				require.Len(t, got, 1)
+				require.InDelta(t, want, got[0].Value, 0.000001, "category=%s sort=%v qualifier=%d", category, sortOnly, qualityTagID)
+			}
+		}
+	}
+}
+
 func TestSceneActivitySortCustomMatchesScalarMetrics(t *testing.T) {
 	db := sceneActivityFixtureCustom(t)
 	for _, profile := range []map[string]interface{}{

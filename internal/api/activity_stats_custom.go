@@ -104,13 +104,13 @@ func activityStatsCategoryCustom(primaryTagID int, sexTagID int, oralTagID int, 
 }
 
 func activityStatsIsOutstandingMarkerCustom(primaryTagID int, secondaryTagCount int, isGoat bool, isOrgasm bool, isReallyHot bool, sexTagID int, oralTagID int, soloTagID int) bool {
+	// CUSTOM: Every Orgasm marker needs an explicit Really Hot/GOAT qualifier.
+	if isOrgasm {
+		return isGoat || isReallyHot
+	}
 	_, isRoleMarker := activityStatsCategoryCustom(primaryTagID, sexTagID, oralTagID, soloTagID)
 	if !isRoleMarker {
 		return true
-	}
-	// CUSTOM: Orgasm-tagged activity markers need an explicit Really Hot/GOAT qualifier.
-	if isOrgasm {
-		return isGoat || isReallyHot
 	}
 	return isGoat || secondaryTagCount > 0
 }

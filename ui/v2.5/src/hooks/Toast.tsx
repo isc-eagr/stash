@@ -10,6 +10,7 @@ import { ModalComponent } from "src/components/Shared/Modal";
 import { errorToString } from "src/utils";
 import cx from "classnames";
 import { useToastQueueCustom } from "./toastQueue_custom"; // CUSTOM
+import "./toast_custom.scss"; // CUSTOM
 
 export interface IToast {
   content: JSX.Element | string;
@@ -18,6 +19,7 @@ export interface IToast {
   priority?: number; // higher is more important
   enqueue?: boolean; // CUSTOM: Queue behind equal/higher priorities; interrupt lower priorities.
   className?: string; // CUSTOM: Optional achievement color, retaining the standard toast layout.
+  placement?: "left" | "right"; // CUSTOM: Achievements enter from the left; system toasts keep their placement.
 }
 // CUSTOM: Active toast IDs and optional queues are managed in toastQueue_custom.ts.
 
@@ -103,9 +105,21 @@ export const ToastProvider: React.FC = ({ children }) => {
           {toast?.content}
         </ModalComponent>
       )}
-      {/* CUSTOM: Queued notifications share the native toast container. */}
-      <div className={cx("toast-container row", { hidden: !toast })}>
-        {toastItem}
+      {/* CUSTOM: Persistent containers preserve each entrance when priorities change. */}
+      <div
+        className={cx("toast-container row", {
+          hidden: !toast || toast.placement === "left",
+        })}
+      >
+        {toast?.placement !== "left" && toastItem}
+      </div>
+      {/* CUSTOM */}
+      <div
+        className={cx("toast-container toast-container-left row", {
+          hidden: !toast || toast.placement !== "left",
+        })}
+      >
+        {toast?.placement === "left" && toastItem}
       </div>
     </ToastContext.Provider>
   );

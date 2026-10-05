@@ -54,6 +54,7 @@ export const TaskProgressAchievementMonitor: React.FC = () => {
             enqueue: true,
             priority: taskProgressAchievementToastPriority,
             delay: 6000,
+            placement: "left",
             className: achievement.tier
               ? `progress-toast-tier-${achievement.threshold}`
               : "progress-toast-achievement",

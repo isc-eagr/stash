@@ -1716,6 +1716,47 @@ test("activity-only Insight Stats buckets remain available without card chips", 
   );
 });
 
+test("activity quality only counts orgasms with a Really Hot or GOAT qualifier", () => {
+  for (const qualifier of [undefined, "really-hot", "goat"]) {
+    const sets = getSceneCardInsightSets(
+      makeScene(
+        [
+          marker("sex", tag("sex", "Sex"), 0, 50),
+          marker("oral", tag("oral", "Oral"), 50, 100),
+          marker(
+            "orgasm",
+            tag("orgasm-child", "Orgasm child", [tag("orgasm", "Orgasm")]),
+            25,
+            75,
+            qualifier ? [tag(qualifier, qualifier)] : []
+          ),
+        ],
+        100
+      ),
+      roleTagIds,
+      defaultThresholds
+    );
+    const quality = sets.candidates.find(
+      (candidate) => candidate.kind === "activity-quality"
+    );
+    assert.equal(
+      quality?.label,
+      qualifier
+        ? "41-60% outstanding sex, 41-60% outstanding oral"
+        : "0-20% outstanding sex, 0-20% outstanding oral"
+    );
+    assert.equal(
+      sets.all.find(({ key }) => key === "orgasm-facial-report")?.label,
+      qualifier === "goat"
+        ? "1 orgasm (1 GOAT)"
+        : qualifier
+        ? "1 orgasm (1 Really Hot)"
+        : "1 orgasm",
+      "event counts remain independent of Outstanding qualification"
+    );
+  }
+});
+
 test("activity quality and sex/oral split are stats-only range buckets", () => {
   const sets = getSceneCardInsightSets(
     makeScene(

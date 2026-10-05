@@ -11,6 +11,7 @@ const esbuild = createRequire(require.resolve("vite"))("esbuild");
 const ui = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const css = [
   "src/index.scss",
+  "src/hooks/toast_custom.scss",
   "src/components/TaskProgress/taskProgressCheckpoints_custom.scss",
   "src/components/TaskProgress/taskProgressAchievements_custom.scss",
 ]
@@ -136,8 +137,63 @@ try {
   );
   assert.equal(await page.locator('[title="Alpha Sapphire"]').count(), 1);
   const toast = page.locator(".toast-container:not(.hidden) .toast");
+  async function assertToastEntrance(side) {
+    await page.waitForFunction(
+      (property) =>
+        document
+          .querySelector(".toast-container:not(.hidden)")
+          .getAnimations()
+          .some((animation) => animation.transitionProperty === property),
+      side
+    );
+    const entrance = await page
+      .locator(".toast-container:not(.hidden)")
+      .evaluate((element, property) => {
+        const animation = element
+          .getAnimations()
+          .find((item) => item.transitionProperty === property);
+        animation.pause();
+        const positions = [0, 250, 500].map((time) => {
+          animation.currentTime = time;
+          return element.getBoundingClientRect().x;
+        });
+        const result = {
+          positions,
+          frames: animation.effect
+            .getKeyframes()
+            .map((frame) => frame[property]),
+          duration: animation.effect.getTiming().duration,
+          side: getComputedStyle(element)[property],
+          edge: `${
+            2 * parseFloat(getComputedStyle(document.documentElement).fontSize)
+          }px`,
+        };
+        animation.play();
+        return result;
+      }, side);
+    assert.equal(
+      entrance.duration,
+      500,
+      "native half-second slide is preserved"
+    );
+    assert.deepEqual(entrance.frames, ["-350px", entrance.edge]);
+    assert.equal(entrance.side, entrance.edge);
+    const [start, middle, end] = entrance.positions;
+    assert.ok(
+      side === "left"
+        ? start < middle && middle < end
+        : start > middle && middle > end,
+      `the toast slides in from the ${side}`
+    );
+    assert.equal(
+      await page.locator(".toast-container.hidden .toast").count(),
+      0,
+      "the opposite container stays empty during interruption/resume"
+    );
+  }
   await page.evaluate(() => window.saveToast());
   await toast.getByText("Scene saved", { exact: true }).waitFor();
+  await assertToastEntrance("right");
   assert.equal(
     await toast.locator(".progress-achievement-emblem").count(),
     0,
@@ -158,6 +214,7 @@ try {
   await toast
     .getByText("Bronze · 25% achieved · Organize scenes", { exact: true })
     .waitFor();
+  await assertToastEntrance("left");
   assert.ok(
     (await toast.textContent()).includes("Bronze · 25% achieved"),
     "achievements interrupt the existing success toast"
@@ -284,12 +341,14 @@ try {
         );
         await page.evaluate(() => window.errorToast());
         await toast.getByText("Save failed", { exact: true }).waitFor();
+        await assertToastEntrance("right");
         assert.equal(
           await toast.locator(".progress-achievement-emblem").count(),
           0
         );
         await toast.getByRole("button", { name: "Close", exact: true }).click();
         await toast.getByText(message, { exact: true }).waitFor();
+        await assertToastEntrance("left");
       }
       for (const width of [320, 393, 1280]) {
         await page.setViewportSize({ width, height: 800 });
@@ -299,11 +358,18 @@ try {
           "achievements retain native toast sizing at every viewport"
         );
         const placement = await page
-          .locator(".toast-container")
-          .evaluate((element) => ({
-            top: getComputedStyle(element).top,
-            bottom: getComputedStyle(element).bottom,
-          }));
+          .locator(".toast-container:not(.hidden)")
+          .evaluate((element) => {
+            element.getAnimations().forEach((animation) => animation.finish());
+            const style = getComputedStyle(element);
+            return {
+              top: style.top,
+              bottom: style.bottom,
+              left: style.left,
+              marginLeft: style.marginLeft,
+              transition: style.transitionProperty,
+            };
+          });
         assert.equal(
           width < 576 ? placement.bottom : placement.top,
           `${await page.evaluate(
@@ -313,6 +379,20 @@ try {
           )}px`,
           "achievements use native mobile/desktop placement"
         );
+        assert.equal(
+          placement.left,
+          width < 576
+            ? `${width / 2}px`
+            : `${await page.evaluate(
+                () =>
+                  2 *
+                  parseFloat(
+                    getComputedStyle(document.documentElement).fontSize
+                  )
+              )}px`
+        );
+        assert.equal(placement.transition, "left");
+        if (width < 576) assert.equal(placement.marginLeft, "-175px");
         const messageBox = await toast
           .locator(".progress-achievement-message")
           .boundingBox();
@@ -361,6 +441,7 @@ try {
     "medals share the four checkpoint metal palettes"
   );
   await toast.getByText("Scene saved", { exact: true }).waitFor();
+  await assertToastEntrance("right");
   assert.equal(
     await toast.locator(".progress-achievement-emblem").count(),
     0,
@@ -386,7 +467,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: existing save-toast component, header layout, mobile/desktop placement, metallic medals and Alpha Sapphire trophy, shimmer/glow animations, reduced motion, teal 10% tracker and 5% milestone achievements, all 26 queued achievements with percentages/names, errors > achievements > successes, error interruption/resume, deferred success delivery, six-second autohide, dismissal, and duplicate suppression."
+    "PASS: left achievement and right system entrance animations, preserved height and mobile placement, existing save-toast component, header layout, metallic medals and Alpha Sapphire trophy, shimmer/glow animations, reduced motion, teal 10% tracker and 5% milestone achievements, all 26 queued achievements with percentages/names, errors > achievements > successes, error interruption/resume, deferred success delivery, six-second autohide, dismissal, and duplicate suppression."
   );
 } finally {
   await browser.close();

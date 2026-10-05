@@ -90,13 +90,13 @@ func activityPercentExprCustom(numeratorExpr string, denominatorExpr string) str
 func activityPercentOutstandingMarkerConditionForTagIDsCustom(markerAlias string, tagIDs []int, goatTagID int, orgasmTagID int, reallyHotTagID int) string {
 	validRange := fmt.Sprintf(`%[1]s.end_seconds IS NOT NULL
 AND %[1]s.end_seconds > %[1]s.seconds`, markerAlias)
-	if len(tagIDs) == 0 {
-		return validRange
-	}
-
 	parts := make([]string, 0, len(tagIDs))
 	for _, id := range tagIDs {
 		parts = append(parts, fmt.Sprintf("%d", id))
+	}
+	nonRoleCondition := "1"
+	if len(parts) > 0 {
+		nonRoleCondition = fmt.Sprintf("%s.primary_tag_id NOT IN (%s)", markerAlias, strings.Join(parts, ","))
 	}
 
 	goatCondition := "0"
@@ -112,21 +112,15 @@ AND %[1]s.end_seconds > %[1]s.seconds`, markerAlias)
 		reallyHotCondition = sceneMarkerEffectiveTagHierarchyConditionCustom(markerAlias, reallyHotTagID)
 	}
 
+	// Orgasm qualification takes precedence over the non-role marker rule.
 	return fmt.Sprintf(`%[1]s
-AND (
-	%[2]s.primary_tag_id NOT IN (%[3]s)
-	OR (
-		%[2]s.primary_tag_id IN (%[3]s)
-		AND (
-			%[4]s
-			OR (NOT %[5]s AND EXISTS (
-				SELECT 1 FROM scene_markers_tags smt_quality
-				WHERE smt_quality.scene_marker_id = %[2]s.id
-			))
-			OR (%[5]s AND %[6]s)
-		)
+AND CASE WHEN %[5]s THEN (%[4]s OR %[6]s)
+ELSE (
+	%[3]s OR %[4]s OR EXISTS (
+		SELECT 1 FROM scene_markers_tags smt_quality
+		WHERE smt_quality.scene_marker_id = %[2]s.id
 	)
-)`, validRange, markerAlias, strings.Join(parts, ","), goatCondition, orgasmCondition, reallyHotCondition)
+) END`, validRange, markerAlias, nonRoleCondition, goatCondition, orgasmCondition, reallyHotCondition)
 }
 
 func activityPercentIntersectionSourceSQLCustom(firstSourceSQL string, secondSourceSQL string) string {

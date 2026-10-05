@@ -157,21 +157,20 @@ export function sceneActivityMarkerIsOutstanding(
   roleTagIds: SceneActivityRoleTagIds,
   ancestors: SceneActivityTagAncestors
 ): boolean {
-  // CUSTOM: every timed non-activity marker is Outstanding across its full range.
-  if (!sceneActivityMarkerCategory(marker, roleTagIds)) return true;
-
   const isGoat = sceneActivityMarkerHasTag(
     marker,
     roleTagIds.goatTagId,
     ancestors
   );
-  // Orgasm-tagged activity markers need an explicit Really Hot/GOAT qualifier.
+  // Every Orgasm marker needs an explicit Really Hot/GOAT qualifier.
   if (sceneActivityMarkerHasTag(marker, roleTagIds.orgasmTagId, ancestors)) {
     return (
       isGoat ||
       sceneActivityMarkerHasTag(marker, roleTagIds.reallyHotTagId, ancestors)
     );
   }
+  // Other timed non-activity markers are Outstanding across their full range.
+  if (!sceneActivityMarkerCategory(marker, roleTagIds)) return true;
   return isGoat || marker.tags.length > 0;
 }
 

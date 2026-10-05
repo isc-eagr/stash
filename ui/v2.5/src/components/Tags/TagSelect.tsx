@@ -71,8 +71,6 @@ export type TagSelectProps = IFilterProps &
     disableHoverPopovers?: boolean;
     // Optional extra tag filter constraints applied server-side when loading options
     tagFilter?: Partial<GQL.TagFilterType>;
-    // Require clicking the create option instead of pressing Enter // CUSTOM
-    createOnClickOnly?: boolean; // CUSTOM
     // CUSTOM: end
   };
 
@@ -83,13 +81,10 @@ const TagOption: React.FC<OptionProps<Option, boolean>> = (optionProps) => {
   const { object } = optionProps.data;
   const selectProps =
     optionProps.selectProps as typeof optionProps.selectProps &
-      Pick<
-        TagSelectProps,
-        "disableHoverPopovers" | "hoverPlacement" | "createOnClickOnly"
-      >;
+      Pick<TagSelectProps, "disableHoverPopovers" | "hoverPlacement">;
 
   const { name } = object;
-  const isCreateOption = selectProps.createOnClickOnly && object.id === ""; // CUSTOM
+  const isCreateOption = object.id === ""; // CUSTOM
 
   // if name does not match the input value but an alias does, show the alias
   const { inputValue } = selectProps;
@@ -273,12 +268,9 @@ const _TagSelect: React.FC<TagSelectProps> = (props) => {
     return true;
   };
 
-  // CUSTOM: prevent Enter from creating a tag in opted-in fields
+  // CUSTOM: tag creation requires a click in every tag selector
   const onKeyDown: React.KeyboardEventHandler<HTMLDivElement> = (event) => {
-    if (
-      props.createOnClickOnly &&
-      shouldPreventCreateOptionEnter(event.key, event.currentTarget)
-    ) {
+    if (shouldPreventCreateOptionEnter(event.key, event.currentTarget)) {
       event.preventDefault();
     }
   };
@@ -305,7 +297,7 @@ const _TagSelect: React.FC<TagSelectProps> = (props) => {
       creatable={props.creatable ?? defaultCreatable}
       onCreate={onCreate}
       onKeyDown={onKeyDown} // CUSTOM
-      tabSelectsValue={props.createOnClickOnly ? false : undefined} // CUSTOM
+      tabSelectsValue={false} // CUSTOM
       placeholder={
         props.noSelectionString ??
         intl.formatMessage(

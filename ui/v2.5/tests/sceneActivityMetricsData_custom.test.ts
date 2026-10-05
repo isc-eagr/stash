@@ -181,12 +181,12 @@ assert.deepEqual(
     duration,
   })),
   [
-    { key: "outstanding", duration: 340 },
+    { key: "outstanding", duration: 330 },
     { key: "standard", duration: 30 },
-    { key: "unclassified", duration: 10 },
+    { key: "unclassified", duration: 20 },
     { key: "unusable", duration: 20 },
   ],
-  "non-activity markers are Outstanding both inside and outside activity"
+  "non-activity highlights count inside and outside activity; plain orgasms remain Unclassified outside activity"
 );
 
 const ordinaryOrgasmMetrics = getSceneActivityMetrics(
@@ -201,9 +201,69 @@ const ordinaryOrgasmMetrics = getSceneActivityMetrics(
 assert.equal(
   ordinaryOrgasmMetrics?.quality.find((metric) => metric.key === "outstanding")
     ?.percent,
-  20,
-  "a standalone Orgasm marker counts as Outstanding"
+  0,
+  "a standalone Orgasm marker needs a quality qualifier to count as Outstanding"
 );
+
+// Production scene 9836: the plain orgasm overlaps an unqualified Solo range.
+const scene9836Metrics = getSceneActivityMetrics(
+  {
+    id: "9836",
+    files: [{ duration: 561.45 }],
+    scene_markers: [
+      marker("24", 65.521034, 480.17501),
+      marker("15", 447.626705, 460.807515),
+    ],
+  },
+  { soloTagId: "24", orgasmTagId: "15", reallyHotTagId: "9", goatTagId: "10" }
+);
+assert.equal(
+  scene9836Metrics?.quality.find(({ key }) => key === "outstanding")?.duration,
+  0
+);
+assert.equal(scene9836Metrics?.activity[0].outstandingDuration, 0);
+assert.equal(
+  scene9836Metrics?.quality.find(({ key }) => key === "standard")?.duration,
+  480.17501 - 65.521034
+);
+
+for (const qualifier of [undefined, "really-hot-child", "goat-child"]) {
+  const descendantMetrics = getSceneActivityMetrics(
+    {
+      id: "qualified-orgasm-descendant",
+      files: [{ duration: 100 }],
+      scene_markers: [
+        marker("solo", 0, 50),
+        {
+          ...marker("facial-child", 40, 60, ["facial"]),
+          tags: qualifier ? [{ id: qualifier, parents: [] }] : [],
+        },
+      ],
+      scene_marker_tag_ancestors: [
+        { tag_id: "facial-child", ancestor_ids: ["facial", "orgasm"] },
+        { tag_id: "really-hot-child", ancestor_ids: ["really-hot"] },
+        { tag_id: "goat-child", ancestor_ids: ["goat"] },
+      ],
+    },
+    {
+      soloTagId: "solo",
+      orgasmTagId: "orgasm",
+      reallyHotTagId: "really-hot",
+      goatTagId: "goat",
+    }
+  );
+  assert.equal(
+    descendantMetrics?.quality.find(({ key }) => key === "outstanding")
+      ?.duration,
+    qualifier ? 20 : 0,
+    "Orgasm descendants need a quality tag on the same marker, including qualifier descendants"
+  );
+  assert.equal(
+    descendantMetrics?.activity[0].outstandingDuration,
+    qualifier ? 10 : 0,
+    "only the qualified overlap contributes to Outstanding Solo activity"
+  );
+}
 
 const hotOrgasmMetrics = getSceneActivityMetrics(
   {
