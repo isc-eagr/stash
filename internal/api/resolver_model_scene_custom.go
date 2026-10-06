@@ -84,3 +84,13 @@ func (r *sceneResolver) OTimestamps(ctx context.Context, obj *models.Scene) ([]*
 	}
 	return ret, nil
 }
+
+func (r *sceneResolver) StashdbMatches(ctx context.Context, obj *models.Scene) (ret *int, err error) {
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		ret, err = r.repository.Scene.GetStashDBMatchesCustom(ctx, obj.ID)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}

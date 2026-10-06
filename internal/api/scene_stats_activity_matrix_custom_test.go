@@ -1,6 +1,7 @@
 package api
 
 import (
+	"database/sql"
 	"strings"
 	"testing"
 
@@ -87,11 +88,50 @@ func TestSceneStatsActivityMatrixPerformerScopeCustom(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, markerPerformerID)
 	assert.Equal(t, 47, *markerPerformerID)
-	assert.Contains(t, scope, "FROM performers_scenes WHERE performer_id = ?")
 	assert.Equal(t, []interface{}{47}, args)
 
 	markerQuery := sceneStatsActivityMatrixMarkerQueryCustom(scope, markerPerformerID)
 	assert.Equal(t, 2, strings.Count(markerQuery, "smp.performer_id = ?"))
+
+	db, err := sql.Open("sqlite3", ":memory:")
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
+	_, err = db.Exec(`
+CREATE TABLE scenes(id INTEGER PRIMARY KEY);
+CREATE TABLE performers(id INTEGER PRIMARY KEY);
+CREATE TABLE performers_scenes(scene_id INTEGER, performer_id INTEGER);
+INSERT INTO scenes VALUES(10),(20),(30);
+INSERT INTO performers VALUES(5),(47);
+INSERT INTO performers_scenes VALUES(10,47),(10,47),(20,47),(20,5),(30,5);`)
+	require.NoError(t, err)
+
+	// The scope selects from scenes so cohort conditions on scenes.id can be
+	// appended to it; each scene appears once even with duplicate links.
+	for _, tt := range []struct {
+		name   string
+		cohort *StatsCohortInput
+		want   []int
+	}{
+		{name: "performer only", want: []int{10, 20}},
+		{name: "scene cohort", cohort: &StatsCohortInput{SceneIds: []string{"20", "30"}}, want: []int{20}},
+		{name: "vato cohort", cohort: &StatsCohortInput{PerformerIds: []string{"5"}}, want: []int{20}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			cohortScope, cohortArgs, err := applyStatsCohortCustom(scope, args, tt.cohort)
+			require.NoError(t, err)
+			rows, err := db.Query(cohortScope+" SELECT id FROM selected_scenes ORDER BY id", cohortArgs...)
+			require.NoError(t, err)
+			defer rows.Close()
+			got := []int{}
+			for rows.Next() {
+				var id int
+				require.NoError(t, rows.Scan(&id))
+				got = append(got, id)
+			}
+			require.NoError(t, rows.Err())
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }
 
 func TestSceneStatsActivityMatrixPerformerScopeCustomRejectsMixedScope(t *testing.T) {

@@ -332,6 +332,13 @@ export const SceneListTable: React.FC<ISceneListTableProps> = (
       sortBy: "play_duration", // CUSTOM
       render: PlayDurationCell,
     },
+    // CUSTOM: StashDB Matches
+    {
+      value: "stashdb_matches",
+      label: intl.formatMessage({ id: "stashdb_matches" }),
+      sortBy: "stashdb_matches",
+      render: (s) => <>{s.stashdb_matches}</>,
+    },
     // CUSTOM: begin - O Count shown by default; activity, quality, and marker count columns
     metricColumn("o_counter", true),
     metricColumn("sex_activity_percent"),

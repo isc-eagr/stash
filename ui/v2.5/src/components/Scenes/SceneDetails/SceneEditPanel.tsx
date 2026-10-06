@@ -149,6 +149,7 @@ export const SceneEditPanel: React.FC<IProps> = ({
     details: yup.string().ensure(),
     cover_image: yup.string().nullable().optional(),
     custom_fields: yup.object().required().defined(),
+    stashdb_matches: yup.number().integer().nullable().defined(), // CUSTOM
   });
 
   const initialValues = useMemo(
@@ -169,6 +170,7 @@ export const SceneEditPanel: React.FC<IProps> = ({
       details: scene.details ?? "",
       cover_image: initialCoverImage,
       custom_fields: cloneDeep(scene.custom_fields ?? {}),
+      stashdb_matches: scene.stashdb_matches ?? null, // CUSTOM
     }),
     [scene, initialCoverImage]
   );
@@ -558,6 +560,11 @@ export const SceneEditPanel: React.FC<IProps> = ({
       formik.setFieldValue("cover_image", updatedScene.image);
     }
 
+    // CUSTOM: only stashdb.org results carry a count
+    if (updatedScene.stashdb_matches != null) {
+      formik.setFieldValue("stashdb_matches", updatedScene.stashdb_matches);
+    }
+
     if (updatedScene.remote_site_id && endpoint) {
       let found = false;
       formik.setFieldValue(
@@ -752,6 +759,18 @@ export const SceneEditPanel: React.FC<IProps> = ({
     return renderField("tag_ids", title, tagsControl(), fullWidthProps);
   }
 
+  // CUSTOM: read-only; set by StashDB scrapes
+  function maybeRenderStashDBMatchesField() {
+    if (formik.values.stashdb_matches == null) return;
+
+    const title = intl.formatMessage({ id: "stashdb_matches" });
+    const control = (
+      <Form.Control plaintext readOnly value={formik.values.stashdb_matches} />
+    );
+
+    return renderField("stashdb_matches", title, control);
+  }
+
   function renderDetailsField() {
     const props = {
       labelProps: {
@@ -892,6 +911,8 @@ export const SceneEditPanel: React.FC<IProps> = ({
                 <Icon icon={faPlus} />
               </Button>
             )}
+            {/* CUSTOM */}
+            {maybeRenderStashDBMatchesField()}
           </Col>
           <Col lg={5} xl={12}>
             {renderDetailsField()}

@@ -1,0 +1,29 @@
+# CUSTOM: latest StashDB Matches refresh report.
+query StashDBMatchesReport {
+  stashDBMatchesReport {
+    started_at
+    finished_at
+    checked
+    changed
+    unchanged
+    not_found
+    failed
+    cancelled
+    changes {
+      previous
+      current
+      scene {
+        id
+        title
+        date
+        files {
+          path
+        }
+        studio {
+          id
+          name
+        }
+      }
+    }
+  }
+}

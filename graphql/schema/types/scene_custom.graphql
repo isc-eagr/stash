@@ -23,6 +23,45 @@ extend type Scene {
 
   "Flattened tag ancestry for every direct scene-marker tag"
   scene_marker_tag_ancestors: [SceneMarkerTagAncestors!]!
+
+  "Users who matched this scene on StashDB (summed PHASH submissions); null until scraped"
+  stashdb_matches: Int
+}
+
+extend type ScrapedScene {
+  "Users who matched this scene on StashDB (summed PHASH submissions); only set by stashdb.org"
+  stashdb_matches: Int
+}
+
+extend input SceneCreateInput {
+  stashdb_matches: Int
+}
+
+extend input SceneUpdateInput {
+  "Null clears the stored value"
+  stashdb_matches: Int
+}
+
+type StashDBMatchesReport {
+  started_at: Time!
+  finished_at: Time!
+  checked: Int!
+  changed: Int!
+  unchanged: Int!
+  "Linked scenes StashDB no longer has"
+  not_found: Int!
+  "Scenes skipped because their request failed"
+  failed: Int!
+  "True when the job was stopped before checking every scene"
+  cancelled: Boolean!
+  changes: [StashDBMatchesChange!]!
+}
+
+type StashDBMatchesChange {
+  scene: Scene!
+  "Null for a first-time count"
+  previous: Int
+  current: Int!
 }
 
 type SceneMarkerTagAncestors {

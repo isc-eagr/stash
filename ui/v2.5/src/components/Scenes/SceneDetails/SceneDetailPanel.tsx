@@ -102,6 +102,13 @@ export const SceneDetailPanel: React.FC<ISceneDetailProps> = (props) => {
               <DirectorLink director={props.scene.director} linkType="scene" />
             </h6>
           )}
+          {/* CUSTOM */}
+          {props.scene.stashdb_matches != null && (
+            <h6>
+              <FormattedMessage id="stashdb_matches" />:{" "}
+              {props.scene.stashdb_matches}
+            </h6>
+          )}
         </div>
       </div>
       <div className="row">

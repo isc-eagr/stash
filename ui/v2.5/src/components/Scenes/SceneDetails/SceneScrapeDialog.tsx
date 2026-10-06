@@ -5,6 +5,7 @@ import {
   ScrapedTextAreaRow,
   ScrapedImageRow,
   ScrapedStringListRow,
+  ScrapedNumberRow, // CUSTOM
 } from "src/components/Shared/ScrapeDialog/ScrapeDialogRow";
 import { ScrapeDialog } from "src/components/Shared/ScrapeDialog/ScrapeDialog";
 import { useIntl } from "react-intl";
@@ -15,6 +16,7 @@ import {
   ObjectListScrapeResult,
   ObjectScrapeResult,
   ScrapeResult,
+  ZeroableScrapeResult, // CUSTOM
 } from "src/components/Shared/ScrapeDialog/scrapeResult";
 import {
   ScrapedGroupsRow,
@@ -145,6 +147,14 @@ export const SceneScrapeDialog: React.FC<ISceneScrapeDialogProps> = ({
     new ScrapeResult<string>(scene.cover_image, scraped.image)
   );
 
+  // CUSTOM: zero is a real StashDB Matches count
+  const [stashDBMatches, setStashDBMatches] = useState<ScrapeResult<number>>(
+    new ZeroableScrapeResult<number>(
+      scene.stashdb_matches,
+      scraped.stashdb_matches
+    )
+  );
+
   const createNewStudio = useCreateScrapedStudio({
     scrapeResult: studio,
     setScrapeResult: setStudio,
@@ -185,6 +195,7 @@ export const SceneScrapeDialog: React.FC<ISceneScrapeDialogProps> = ({
       details,
       image,
       stashID,
+      stashDBMatches, // CUSTOM
     ].every((r) => !r.scraped) &&
     newTags.length === 0 &&
     newPerformers.length === 0 &&
@@ -211,6 +222,7 @@ export const SceneScrapeDialog: React.FC<ISceneScrapeDialogProps> = ({
       details: details.getNewValue(),
       image: image.getNewValue(),
       remote_site_id: stashID.getNewValue(),
+      stashdb_matches: stashDBMatches.getNewValue(), // CUSTOM
     };
   }
 
@@ -286,6 +298,14 @@ export const SceneScrapeDialog: React.FC<ISceneScrapeDialogProps> = ({
           result={stashID}
           locked
           onChange={(value) => setStashID(value)}
+        />
+        {/* CUSTOM */}
+        <ScrapedNumberRow
+          field="stashdb_matches"
+          title={intl.formatMessage({ id: "stashdb_matches" })}
+          result={stashDBMatches}
+          locked
+          onChange={(value) => setStashDBMatches(value)}
         />
         <ScrapedImageRow
           field="cover_image"

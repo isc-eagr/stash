@@ -142,6 +142,50 @@ assert.deepEqual(
   "clearing the tag selector is previewed as removal"
 );
 
+const withMatches = {
+  ...options,
+  remote: { ...options.remote, stashdb_matches: 5 },
+};
+const matchesInput = buildSceneSaveInput(withMatches);
+assert.equal(matchesInput.stashdb_matches, 5);
+assert.deepEqual(
+  getSceneSaveChanges(local, matchesInput).find(
+    (c) => c.key === "stashdb_matches"
+  ),
+  {
+    key: "stashdb_matches",
+    label: "StashDB Matches",
+    before: [],
+    after: ["5"],
+    status: "Added",
+  }
+);
+assert.equal(
+  buildSceneSaveInput({
+    ...withMatches,
+    remote: { ...withMatches.remote, stashdb_matches: 0 },
+  }).stashdb_matches,
+  0,
+  "zero is a real StashDB count"
+);
+assert.equal(
+  buildSceneSaveInput({ ...withMatches, excluded: { stashdb_matches: true } })
+    .stashdb_matches,
+  undefined,
+  "excluded StashDB Matches keep the stored count"
+);
+assert.equal(
+  "stashdb_matches" in input,
+  false,
+  "results without a count (other stash-boxes) never clear the stored one"
+);
+assert.equal(
+  getSceneSaveChanges({ ...local, stashdb_matches: 3 }, input).find(
+    (c) => c.key === "stashdb_matches"
+  )?.status,
+  "Unchanged"
+);
+
 const unchanged = getSceneSaveChanges(local, {
   id: local.id,
   stash_ids: [...local.stash_ids]

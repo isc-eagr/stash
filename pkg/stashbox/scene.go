@@ -167,6 +167,8 @@ func (c Client) sceneFragmentToScrapedScene(ctx context.Context, s *graphql.Scen
 		Duration:     s.Duration,
 		RemoteSiteID: &stashID,
 		Fingerprints: getFingerprints(s),
+		// CUSTOM: StashDB Matches
+		StashDBMatches: stashDBMatchesCustom(c.box.Endpoint, s.Fingerprints),
 		// Image
 		// stash_id
 	}

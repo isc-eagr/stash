@@ -34,6 +34,7 @@ import SceneQueue, { QueuedScene } from "src/models/sceneQueue";
 import { ListFilterModel } from "src/models/list-filter/filter";
 import Mousetrap from "mousetrap";
 import { OrganizedButton } from "./OrganizedButton";
+import { StashDBMatchesCount } from "./StashDBMatchesCount"; // CUSTOM
 import { useConfigurationContext } from "src/hooks/Config";
 import {
   getAbLoopPlugin,
@@ -1129,6 +1130,11 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
                   onIncrement={() => onIncrementOClick()}
                 />
               </span>
+              {/* CUSTOM */}
+              <StashDBMatchesCount
+                value={scene.stashdb_matches}
+                stashIDs={scene.stash_ids}
+              />
               <span>
                 <OrganizedButton
                   loading={organizedLoading}

@@ -25,7 +25,9 @@ All custom code follows [`CUSTOM_CODE_CONVENTIONS.md`](CUSTOM_CODE_CONVENTIONS.m
 17. [Mobile production deploy workflow](#17-mobile-production-deploy-workflow)
 18. [Mobile Remote O Recording](#18-mobile-remote-o-recording)
 19. [Scene Tagger save preview](#19-scene-tagger-save-preview)
-20. [Merge and maintenance guidance](#20-merge-and-maintenance-guidance)
+20. [Scene Rating Playground](#20-scene-rating-playground)
+21. [StashDB Matches](#21-stashdb-matches)
+22. [Merge and maintenance guidance](#22-merge-and-maintenance-guidance)
 
 ---
 
@@ -184,7 +186,7 @@ The custom statistics experience is split into hidden, focused destinations inst
 
 `internal/api/o_stats_timeline_custom_test.go` covers stable page boundaries, undated/orphan events, pre-tracking events, studio trees, date ranges, empty results, and page limits. `ui/v2.5/tests/statsPagination_custom.test.ts` covers ranking batch sizes, timeline URL scope, invalid pages, Latest placement, and route reachability. `vatoStatsSummary_custom.test.ts` verifies the five visible summary cards and ranking options.
 
-Go and UI tests cover scope construction (including Studio O Stats), date range parsing and release/added/O-date scopes, O-date-limited O counts, local-day O records and calendar counts, per-scene/per-vato O counts, descendant role-tag roll-up, interval merging, marker weighting, chart buckets/Unknown handling, zero-filled date series, the calendar grid and streaks, rating/tier O buckets, O's per scene, distinct-vato age buckets, Activity Matrix aggregation, O event ordering/navigation, objective activity icon summaries and zero suppression, quality/split percentage ranges, chip-preview worker cancellation/cache reuse, Playground tab routing, and exact Scene/Vato snapshot filters.
+Go and UI tests cover scope construction (including Studio O Stats), date range parsing and release/added/O-date scopes, O-date-limited O counts, local-day O records and calendar counts, per-scene/per-vato O counts, descendant role-tag roll-up, interval merging, marker weighting, chart buckets/Unknown handling, zero-filled date series, the calendar grid and streaks, rating/tier O buckets, O's per scene, distinct-vato age buckets, Activity Matrix aggregation and vato-scoped cohort filtering, O event ordering/navigation, objective activity icon summaries and zero suppression, quality/split percentage ranges, chip-preview worker cancellation/cache reuse, Playground tab routing, and exact Scene/Vato snapshot filters.
 
 ---
 
@@ -588,7 +590,27 @@ Scene data reuses Insight Stats' existing IndexedDB snapshot, 12-hour expiry, UR
 
 ---
 
-## 21. Merge and maintenance guidance
+## 21. StashDB Matches
+
+Scenes carry **StashDB Matches**: how many users matched the scene on StashDB, computed as the sum of `submissions` across the scene's PHASH fingerprints. Every stash-box scene scrape (fingerprint lookup, text search, Tagger, Identify) already loads the scene's fingerprints; the query now also requests `submissions`. Only results from `stashdb.org` carry a count, so other stash-box instances never set or clear it. Unscraped scenes have no value, which is distinct from zero.
+
+- **Scrape dialog:** a locked StashDB Matches row compares the stored and scraped counts; applying it saves with the scene. The Edit tab shows the count read-only.
+- **Tagger:** each StashDB result shows its count with an include/exclude toggle, and Changes on Save lists the change.
+- **Identify:** StashDB results refresh the count even when nothing else changes. Its field option defaults to Merge; Merge and Overwrite both refresh, and Ignore keeps the stored value.
+- **Display, filter, and sort:** scene Details, an optional scene table column, a number criterion (including is null/not null), and a sort where unscraped scenes stay last in both directions. Sorting by it shows the count on scene cards. The scene toolbar shows it with a fingerprint icon that opens the scene's StashDB fingerprints tab in a new tab.
+- **Refresh task:** Settings → Tasks → **StashDB Matches → Refresh** re-checks every StashDB-linked scene, 25 per stash-box request (aliased `findScene` queries selecting only fingerprint submissions, within the endpoint's rate limit). It writes only counts that changed or were never fetched, skips scenes StashDB no longer has, keeps going past a failed request, and logs a changed/unchanged/not found/failed summary. **Report** (beside Refresh, opens in a new tab at `/stashdb-matches/report`) shows the latest run: totals and each changed scene's before/after count, biggest increases first. Each run, including a stopped one (marked as partial), replaces the previous report; changes for deleted scenes drop out.
+
+Storage is the fork-owned `scene_stashdb_matches` table (`scene_id`, `matches`), plus `stashdb_matches_refresh_report`/`stashdb_matches_refresh_changes` for the latest run, created at startup like the task-progress schema and deleted with its scene. It is separate from `scenes` so upstream table rebuilds cannot drop it. Scenes get a value from any StashDB scrape, Identify run, or the refresh task.
+
+- Backend: `graphql/stash-box/query.graphql` and `pkg/stashbox/graphql/generated_client.go` (`submissions`), `pkg/stashbox/scene_stashdb_matches_custom.go`, `pkg/models/{scene_stashdb_matches_custom.go,scene.go,repository_scene.go,model_scraped_item.go}`, `pkg/sqlite/scene_stashdb_matches_custom.go` with hooks in `pkg/sqlite/{database.go,scene.go,scene_filter.go}`, `internal/identify/scene_stashdb_matches_custom.go` with hooks in `internal/identify/{identify.go,scene.go}`, `internal/manager/task_stashdb_matches_custom.go`, and `internal/api/{resolver_model_scene_custom.go,resolver_mutation_scene.go,resolver_mutation_stashdb_matches_custom.go,resolver_query_stashdb_matches_custom.go}`. SQL: `scene_stashdb_matches.up.sql`.
+- UI: `ui/v2.5/graphql/data/{scene.graphql,scene-slim.graphql,scrapers.graphql}`, `Scenes/SceneDetails/{SceneEditPanel.tsx,SceneScrapeDialog.tsx,SceneDetailPanel.tsx}`, `Scenes/SceneListTable.tsx`, `Tagger/scenes/{StashSearchResult.tsx,sceneSavePreview_custom.ts}`, `Dialogs/IdentifyDialog/constants.ts`, `Scenes/sceneSortMetric_custom.ts`, `Settings/Tasks/{RefreshStashDBMatchesTask.tsx,LibraryTasks.tsx}`, `Scenes/SceneDetails/{StashDBMatchesCount.tsx,Scene.tsx}`, `StashDBMatches/{StashDBMatchesReport.tsx,StashDBMatchesReport.scss,stashDBMatchesReport_custom.ts}` with the route in `App.tsx`, `graphql/{mutations,queries}/stashdb_matches_custom.graphql`, and `models/list-filter/{scenes.ts,types.ts,custom-filter-options_custom.ts}`.
+- Tests: `pkg/stashbox/scene_stashdb_matches_custom_test.go` (PHASH-only sum, zero, StashDB-only endpoints, one aliased batch request with missing/deleted scenes), `pkg/sqlite/scene_stashdb_matches_custom_test.go` (idempotent bootstrap, zero vs unset, clearing, cascade delete, per-endpoint refresh targets, report save/replace/deleted scenes, filter modifiers, null-last sort), `internal/identify/scene_stashdb_matches_custom_test.go` (refresh without other changes, Ignore, non-StashDB results), `internal/manager/task_stashdb_matches_custom_test.go` (batching, changed-only writes, missing scenes, failed batches, progress, saved report), `ui/v2.5/tests/sceneSavePreview_custom.test.ts` (Tagger input, exclusion, zero, preview row), `ui/v2.5/tests/catalogSortMetric_custom.test.ts` (card metric, and every scene sort option has one), and `ui/v2.5/tests/stashDBMatchesReport_custom.test.ts` (report ordering and labels, StashDB fingerprints link).
+- GraphQL schema changes: `Scene.stashdb_matches`, `ScrapedScene.stashdb_matches`, `SceneCreateInput`/`SceneUpdateInput.stashdb_matches` (null clears on update), `SceneFilterType.stashdb_matches`, the `refreshStashDBMatches` mutation (returns a job ID), and the `stashDBMatchesReport` query (`StashDBMatchesReport`/`StashDBMatchesChange`).
+- Configuration dependencies: a `stashdb.org` stash-box endpoint with an API key.
+
+---
+
+## 22. Merge and maintenance guidance
 
 When merging a newer upstream Stash release:
 
@@ -619,5 +641,5 @@ The following are implementation refinements or parts of the features above, so 
 
 ---
 
-_Last updated: 2026-09-30_
+_Last updated: 2026-10-05_
 _Base version: Stash v0.31.0_

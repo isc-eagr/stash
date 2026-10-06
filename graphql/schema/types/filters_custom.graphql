@@ -382,6 +382,8 @@ extend input SceneFilterType {
   scene_marker_tags: SceneMarkerTagsCriterionInput
   "Filter by effective date (earliest date among scene date and release dates)"
   effective_date: DateCriterionInput
+  "Filter by users who matched the scene on StashDB"
+  stashdb_matches: IntCriterionInput
   "Filter by performer ethnicity"
   performer_ethnicity: StringCriterionInput
   "Filter by performer country"

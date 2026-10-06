@@ -212,6 +212,7 @@ fragment ScrapedSceneData on ScrapedScene {
     algorithm
     duration
   }
+  stashdb_matches # CUSTOM
 }
 
 fragment ScrapedGalleryData on ScrapedGallery {
@@ -283,7 +284,7 @@ fragment ScrapedStashBoxSceneData on ScrapedScene {
     algorithm
     duration
   }
-
+  stashdb_matches # CUSTOM
   studio {
     ...ScrapedSceneStudioData
   }

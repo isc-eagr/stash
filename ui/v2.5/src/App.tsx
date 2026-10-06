@@ -87,6 +87,9 @@ const GEVILatest = lazyComponent(
   () => import("./components/GEVILatest/GEVILatest_custom")
 ); // CUSTOM
 const TaskProgress = lazyComponent(() => import("./components/TaskProgress")); // CUSTOM
+const StashDBMatchesReport = lazyComponent(
+  () => import("./components/StashDBMatches/StashDBMatchesReport")
+); // CUSTOM
 const Studios = lazyComponent(() => import("./components/Studios/Studios"));
 const Galleries = lazyComponent(
   () => import("./components/Galleries/Galleries")
@@ -297,6 +300,11 @@ export const App: React.FC = () => {
             {/* CUSTOM */}
             <Route path="/vatostats" component={VatoStats} /> {/* CUSTOM */}
             <Route path="/gevi-latest" component={GEVILatest} /> {/* CUSTOM */}
+            {/* CUSTOM */}
+            <Route
+              path="/stashdb-matches/report"
+              component={StashDBMatchesReport}
+            />
             <Route exact path="/ostats/timeline" component={OStats} />{" "}
             {/* CUSTOM */}
             <Route path="/ostats/vato/:performerId" component={OStats} />{" "}

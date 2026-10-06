@@ -8,6 +8,7 @@ import {
   ModifierCriterionOption, // CUSTOM
   StringBooleanCriterionOption, // CUSTOM
   StringBooleanCriterion, // CUSTOM
+  createNumberCriterionOption, // CUSTOM
 } from "./criteria/criterion";
 import { CountryCriterion } from "./criteria/country"; // CUSTOM
 import { InsightChipCriterionOption } from "./criteria/insight-chip_custom"; // CUSTOM
@@ -75,6 +76,7 @@ const sortByOptions = [
   "organized",
   "date",
   "effective_date", // CUSTOM
+  "stashdb_matches", // CUSTOM
   "file_count",
   "filesize",
   "duration",
@@ -255,6 +257,7 @@ const criterionOptions = [
   createStringCriterionOption("url"),
   StashIDCriterionOption,
   createMandatoryNumberCriterionOption("stash_id_count"),
+  createNumberCriterionOption("stashdb_matches"), // CUSTOM: null = never scraped
   InteractiveCriterionOption,
   CaptionsCriterionOption,
   createMandatoryNumberCriterionOption("interactive_speed"),

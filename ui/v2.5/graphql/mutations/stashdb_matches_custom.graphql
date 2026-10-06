@@ -1,0 +1,4 @@
+# CUSTOM: queue the StashDB Matches refresh task.
+mutation RefreshStashDBMatches {
+  refreshStashDBMatches
+}

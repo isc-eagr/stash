@@ -31,6 +31,7 @@ const customCriterionTypes = new Set<CriterionType>([
   "scene_markers_exclude",
   "scene_performer_count",
   "scene_type",
+  "stashdb_matches",
   "sex_activity_percent",
   "sex_bottom_activity_percent",
   "sex_top_activity_percent",

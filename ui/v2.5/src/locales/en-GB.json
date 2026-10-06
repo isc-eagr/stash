@@ -626,6 +626,7 @@
       "optimise_database": "Attempt to improve performance by analysing and then rebuilding the entire database file.",
       "optimise_database_warning": "Warning: while this task is running, any operations that modify the database will fail, and depending on your database size, it could take several minutes to complete. It also requires at the very minimum as much free disk space as your database is large, but 1.5x is recommended.",
       "plugin_tasks": "Plugin Tasks",
+      "refresh_stashdb_matches_desc": "Re-check every StashDB-linked scene and save counts that changed.",
       "rescan": "Rescan files",
       "rescan_tooltip": "Rescan every file in the path. Used to force update file metadata and rescan zip files.",
       "scan": {
@@ -1840,6 +1841,7 @@
   "stash_id_count": "Stash ID Count",
   "stash_id_endpoint": "Stash ID Endpoint URL",
   "stash_ids": "Stash IDs",
+  "stashdb_matches": "StashDB Matches",
   "stashbox_search": {
     "header": "Search {entityType} from StashBox",
     "no_results": "No results found.",

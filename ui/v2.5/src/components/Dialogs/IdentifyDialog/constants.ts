@@ -19,6 +19,7 @@ export const sceneFields = [
   "performers",
   "tags",
   "stash_ids",
+  "stashdb_matches", // CUSTOM
 ] as const;
 export type SceneField = (typeof sceneFields)[number];
 

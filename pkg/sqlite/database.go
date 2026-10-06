@@ -290,6 +290,13 @@ func (db *Database) initialise() error {
 		db.writeDB = nil
 		return fmt.Errorf("initializing custom database schema: %w", err)
 	}
+	if err := db.ensureSceneStashDBMatchesSchemaCustom(context.Background()); err != nil {
+		_ = db.readDB.Close()
+		_ = db.writeDB.Close()
+		db.readDB = nil
+		db.writeDB = nil
+		return fmt.Errorf("initializing custom database schema: %w", err)
+	}
 	// CUSTOM: end
 
 	return nil

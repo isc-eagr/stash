@@ -55,6 +55,10 @@ export function buildSceneSaveInput(
         : [...new Set([...local.urls, ...remote.urls])],
     organized: options.organized || undefined,
   };
+  // Only stashdb.org results carry a count; other sources keep the stored one.
+  if (!excluded.stashdb_matches && remote.stashdb_matches != null) {
+    input.stashdb_matches = remote.stashdb_matches;
+  }
   if (!excluded.stash_ids && endpoint && remote.remote_site_id) {
     input.stash_ids = [
       ...local.stash_ids
@@ -148,6 +152,13 @@ export function getSceneSaveChanges(
     input.tag_ids ?? local.tags.map((t) => t.id)
   );
   add("urls", "URLs", local.urls, input.urls ?? local.urls);
+  const count = (v?: number | null) => (v == null ? [] : [String(v)]);
+  add(
+    "stashdb_matches",
+    "StashDB Matches",
+    count(local.stashdb_matches),
+    count(input.stashdb_matches ?? local.stashdb_matches)
+  );
   const stashIDs = (ids: { endpoint: string; stash_id: string }[]) =>
     ids.map((s) => `${s.endpoint} · ${s.stash_id}`);
   add(

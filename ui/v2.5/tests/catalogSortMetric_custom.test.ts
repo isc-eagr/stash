@@ -7,6 +7,7 @@ import { getPerformerSortMetricCustom } from "../src/components/Performers/perfo
 import { getSceneMarkerSortMetricCustom } from "../src/components/Scenes/sceneMarkerSortMetric_custom.ts";
 import { getSceneSortMetricCustom } from "../src/components/Scenes/sceneSortMetric_custom.ts";
 import { getTagSortMetricCustom } from "../src/components/Tags/tagSortMetric_custom.ts";
+import { SceneListFilterOptions } from "../src/models/list-filter/scenes.ts";
 
 const scene = {
   id: "1",
@@ -151,5 +152,38 @@ test("plain and seeded random sorts hide the metric badge", () => {
   assert.equal(
     getSceneSortMetricCustom("random_456", scene as never, "ASC" as never, {}),
     undefined
+  );
+});
+
+test("every scene sort except the default and random shows a card metric", () => {
+  const missing = SceneListFilterOptions.sortByOptions
+    .map((option) => option.value)
+    .filter((sortBy) => sortBy !== "date" && sortBy !== "random")
+    .filter(
+      (sortBy) =>
+        !getSceneSortMetricCustom(sortBy, scene as never, "ASC" as never, {})
+    );
+  assert.deepEqual(missing, []);
+});
+
+test("StashDB Matches card metric shows the stored count", () => {
+  const metric = getSceneSortMetricCustom(
+    "stashdb_matches",
+    { ...scene, stashdb_matches: 12 } as never,
+    "DESC" as never,
+    {}
+  );
+  assert.equal(metric?.messageID, "stashdb_matches");
+  assert.equal(metric?.format, "count");
+  assert.equal(metric?.value, 12);
+  assert.equal(
+    getSceneSortMetricCustom(
+      "stashdb_matches",
+      scene as never,
+      "DESC" as never,
+      {}
+    )?.value,
+    undefined,
+    "never-fetched scenes have no count"
   );
 });

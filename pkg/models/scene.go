@@ -191,6 +191,8 @@ type SceneFilterType struct {
 	Date *DateCriterionInput `json:"date"`
 	// Filter by effective date (earliest date among scene date and release dates)
 	EffectiveDate *DateCriterionInput `json:"effective_date"` // CUSTOM
+	// Filter by StashDB Matches
+	StashDBMatches *IntCriterionInput `json:"stashdb_matches"` // CUSTOM
 	// Filter by related galleries that meet this criteria
 	GalleriesFilter *GalleryFilterType `json:"galleries_filter"`
 	// Filter by related performers that meet this criteria
@@ -269,6 +271,8 @@ type SceneCreateInput struct {
 	// Files must not already be primary for another scene.
 	FileIds      []string       `json:"file_ids"`
 	CustomFields map[string]any `json:"custom_fields,omitempty"`
+
+	StashDBMatches *int `json:"stashdb_matches"` // CUSTOM
 }
 
 type SceneUpdateInput struct {
@@ -298,6 +302,8 @@ type SceneUpdateInput struct {
 	PlayCount     *int           `json:"play_count"`
 	PrimaryFileID *string        `json:"primary_file_id"`
 	CustomFields  *CustomFieldsInput
+
+	StashDBMatches *int `json:"stashdb_matches"` // CUSTOM
 }
 
 type SceneDestroyInput struct {

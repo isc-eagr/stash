@@ -1355,6 +1355,8 @@ var sceneSortOptions = sortOptions{
 	"code",
 	"date",
 	"effective_date", // CUSTOM
+	// CUSTOM: StashDB Matches
+	"stashdb_matches",
 	"file_count",
 	"filesize",
 	"duration",
@@ -1546,6 +1548,8 @@ func (qb *SceneStore) setSceneSort(query *queryBuilder, findFilter *models.FindF
 		query.sortAndPagination += getSort("name", direction, studioTable)
 	case "effective_date": // CUSTOM
 		query.sortAndPagination += qb.sortByEffectiveDateCustom(query, direction)
+	case "stashdb_matches": // CUSTOM
+		query.sortAndPagination += qb.sortByStashDBMatchesCustom(query, direction)
 	case "sex_activity_percent": // CUSTOM
 		query.sortAndPagination += qb.sortByBatchedActivityPercentCustom(query, activityPercentSexCustom, direction)
 	case "oral_activity_percent": // CUSTOM

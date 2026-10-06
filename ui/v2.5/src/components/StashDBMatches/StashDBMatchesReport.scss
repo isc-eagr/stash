@@ -1,0 +1,29 @@
+// CUSTOM: StashDB Matches refresh report.
+.stashdb-matches-report {
+  margin: 0 auto;
+  max-width: 960px;
+  padding: 1rem;
+
+  .stashdb-matches-report-stats {
+    display: grid;
+    gap: 0.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    margin-bottom: 1rem;
+  }
+
+  .stashdb-matches-report-stat {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 0.25rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .stashdb-matches-report-stat-value {
+    font-size: 1.5rem;
+    font-weight: 600;
+  }
+
+  .stashdb-matches-report-stat-label {
+    font-size: 0.875rem;
+    opacity: 0.75;
+  }
+}

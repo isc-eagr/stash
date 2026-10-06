@@ -112,6 +112,10 @@ func (r *mutationResolver) SceneCreate(ctx context.Context, input models.SceneCr
 			CoverImage:   coverImageData,
 			CustomFields: customFields,
 		})
+		// CUSTOM: StashDB Matches
+		if err == nil && input.StashDBMatches != nil {
+			err = r.repository.Scene.SetStashDBMatchesCustom(ctx, ret.ID, input.StashDBMatches)
+		}
 		return err
 	}); err != nil {
 		return nil, err
@@ -355,6 +359,13 @@ func (r *mutationResolver) sceneUpdate(ctx context.Context, input models.SceneUp
 
 	if customFields != nil {
 		if err := qb.SetCustomFields(ctx, scene.ID, *customFields); err != nil {
+			return nil, err
+		}
+	}
+
+	// CUSTOM: StashDB Matches
+	if translator.hasField("stashdb_matches") {
+		if err := qb.SetStashDBMatchesCustom(ctx, scene.ID, input.StashDBMatches); err != nil {
 			return nil, err
 		}
 	}

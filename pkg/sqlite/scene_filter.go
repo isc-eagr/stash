@@ -190,6 +190,8 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 		qb.performerRatingCriterionHandler(sceneFilter.PerformerRating, sceneFilter.PerformerRatingAll), // CUSTOM
 		qb.duplicatedCriterionHandler(sceneFilter.Duplicated),
 		qb.effectiveDateCriterionHandler(sceneFilter.EffectiveDate), // CUSTOM
+		// CUSTOM: StashDB Matches
+		qb.stashDBMatchesCriterionHandlerCustom(sceneFilter.StashDBMatches),
 		&dateCriterionHandler{sceneFilter.Date, "scenes.date", nil},
 		&timestampCriterionHandler{sceneFilter.CreatedAt, "scenes.created_at", nil},
 		&timestampCriterionHandler{sceneFilter.UpdatedAt, "scenes.updated_at", nil},

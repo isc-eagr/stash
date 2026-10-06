@@ -1454,6 +1454,108 @@ func (_m *SceneReaderWriter) SetCustomFields(ctx context.Context, id int, fields
 	return r0
 }
 
+// GetStashDBMatchesCustom provides a mock function with given fields: ctx, sceneID
+// CUSTOM
+func (_m *SceneReaderWriter) GetStashDBMatchesCustom(ctx context.Context, sceneID int) (*int, error) {
+	ret := _m.Called(ctx, sceneID)
+
+	var r0 *int
+	if rf, ok := ret.Get(0).(func(context.Context, int) *int); ok {
+		r0 = rf(ctx, sceneID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*int)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, int) error); ok {
+		r1 = rf(ctx, sceneID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FindStashDBMatchTargetsCustom provides a mock function with given fields: ctx, endpoint
+// CUSTOM
+func (_m *SceneReaderWriter) FindStashDBMatchTargetsCustom(ctx context.Context, endpoint string) ([]models.StashDBMatchTargetCustom, error) {
+	ret := _m.Called(ctx, endpoint)
+
+	var r0 []models.StashDBMatchTargetCustom
+	if rf, ok := ret.Get(0).(func(context.Context, string) []models.StashDBMatchTargetCustom); ok {
+		r0 = rf(ctx, endpoint)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]models.StashDBMatchTargetCustom)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, endpoint)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetStashDBMatchesReportCustom provides a mock function with given fields: ctx
+// CUSTOM
+func (_m *SceneReaderWriter) GetStashDBMatchesReportCustom(ctx context.Context) (*models.StashDBMatchesReportCustom, error) {
+	ret := _m.Called(ctx)
+
+	var r0 *models.StashDBMatchesReportCustom
+	if rf, ok := ret.Get(0).(func(context.Context) *models.StashDBMatchesReportCustom); ok {
+		r0 = rf(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*models.StashDBMatchesReportCustom)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// SaveStashDBMatchesReportCustom provides a mock function with given fields: ctx, report
+// CUSTOM
+func (_m *SceneReaderWriter) SaveStashDBMatchesReportCustom(ctx context.Context, report models.StashDBMatchesReportCustom) error {
+	ret := _m.Called(ctx, report)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, models.StashDBMatchesReportCustom) error); ok {
+		r0 = rf(ctx, report)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// SetStashDBMatchesCustom provides a mock function with given fields: ctx, sceneID, matches
+// CUSTOM
+func (_m *SceneReaderWriter) SetStashDBMatchesCustom(ctx context.Context, sceneID int, matches *int) error {
+	ret := _m.Called(ctx, sceneID, matches)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, int, *int) error); ok {
+		r0 = rf(ctx, sceneID, matches)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // Size provides a mock function with given fields: ctx
 func (_m *SceneReaderWriter) Size(ctx context.Context) (float64, error) {
 	ret := _m.Called(ctx)

@@ -681,6 +681,8 @@ type ScrapedScene struct {
 	RemoteSiteID *string                `json:"remote_site_id"`
 	Duration     *int                   `json:"duration"`
 	Fingerprints []*StashBoxFingerprint `json:"fingerprints"`
+	// CUSTOM: summed PHASH submissions; set only for stashdb.org results.
+	StashDBMatches *int `json:"stashdb_matches"`
 }
 
 func (ScrapedScene) IsScrapedContent() {}

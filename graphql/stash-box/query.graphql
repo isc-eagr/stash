@@ -97,6 +97,8 @@ fragment FingerprintFragment on Fingerprint {
   algorithm
   hash
   duration
+  # CUSTOM: PHASH submissions feed StashDB Matches.
+  submissions
 }
 
 fragment SceneFragment on Scene {

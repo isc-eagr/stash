@@ -21,6 +21,9 @@ extend type Query {
 
   "Get the live state of a paired scene player"
   remotePlaybackState(player_id: String!): RemotePlaybackState
+
+  "Report of the latest StashDB Matches refresh; null before the first run"
+  stashDBMatchesReport: StashDBMatchesReport
 }
 
 type RemotePlaybackState {
@@ -151,6 +154,9 @@ extend type Mutation {
 
   markerPlaylistCreate(input: MarkerPlaylistCreateInput!): MarkerPlaylist!
   markerPlaylistDestroy(id: ID!): Boolean!
+
+  "Refresh StashDB Matches for every scene linked to StashDB. Returns the job ID."
+  refreshStashDBMatches: ID!
 
   "Create a new release for a scene"
   sceneReleaseCreate(input: SceneReleaseCreateInput!): SceneRelease

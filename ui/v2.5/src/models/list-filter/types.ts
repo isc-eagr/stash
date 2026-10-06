@@ -214,6 +214,7 @@ export type CriterionType =
   | "release_count" // CUSTOM
   | "stash_id_endpoint"
   | "stash_id_count"
+  | "stashdb_matches" // CUSTOM
   | "marker_tags" // CUSTOM
   | "date"
   | "effective_date" // CUSTOM

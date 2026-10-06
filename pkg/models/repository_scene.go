@@ -106,6 +106,7 @@ type SceneReader interface {
 	StashIDLoader
 	VideoFileLoader
 	CustomFieldsReader
+	StashDBMatchesReaderCustom // CUSTOM
 
 	All(ctx context.Context) ([]*Scene, error)
 	Wall(ctx context.Context, q *string) ([]*Scene, error)
@@ -134,6 +135,7 @@ type SceneWriter interface {
 	SceneCreator
 	SceneUpdater
 	SceneDestroyer
+	StashDBMatchesWriterCustom // CUSTOM
 
 	AddFileID(ctx context.Context, id int, fileID FileID) error
 	RemoveFileID(ctx context.Context, sceneID int, fileID FileID) error    // CUSTOM

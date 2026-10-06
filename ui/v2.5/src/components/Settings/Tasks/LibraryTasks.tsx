@@ -24,6 +24,7 @@ import {
   AutoTagWarning,
 } from "src/components/Shared/AutoTagConfirmDialog";
 import { useSettings } from "../context";
+import { RefreshStashDBMatchesTask } from "./RefreshStashDBMatchesTask"; // CUSTOM
 
 interface IAutoTagOptions {
   options: GQL.AutoTagMetadataInput;
@@ -407,6 +408,9 @@ export const LibraryTasks: React.FC = () => {
           <ScanOptions options={scanOptions} setOptions={onSetScanOptions} />
         </SettingGroup>
       </SettingSection>
+
+      {/* CUSTOM */}
+      <RefreshStashDBMatchesTask />
 
       <SettingSection advanced>
         <Setting

@@ -476,6 +476,7 @@ const StashSearchResult: React.FC<IStashSearchResultProps> = ({
     stash_ids: "stash_ids",
     code: "code",
     director: "director",
+    stashdb_matches: "stashdb_matches", // CUSTOM
   };
 
   const maybeRenderCoverImage = () => {
@@ -600,6 +601,23 @@ const StashSearchResult: React.FC<IStashSearchResultProps> = ({
       );
     }
   };
+
+  // CUSTOM: begin
+  const maybeRenderStashDBMatches = () => {
+    if (scene.stashdb_matches == null) return;
+
+    return (
+      <div className="font-weight-bold">
+        <OptionalField
+          exclude={excludedFields[fields.stashdb_matches]}
+          setExclude={(v) => setExcludedField(fields.stashdb_matches, v)}
+        >
+          <FormattedMessage id="stashdb_matches" />: {scene.stashdb_matches}
+        </OptionalField>
+      </div>
+    );
+  };
+  // CUSTOM: end
 
   const maybeRenderURL = () => {
     if (scene.urls) {
@@ -795,6 +813,8 @@ const StashSearchResult: React.FC<IStashSearchResultProps> = ({
             {maybeRenderDateField()}
             {getDurationStatus(scene, stashSceneFile?.duration)}
             {getFingerprintStatus(scene, stashScene)}
+            {/* CUSTOM */}
+            {maybeRenderStashDBMatches()}
           </div>
         </div>
         {isActive && (

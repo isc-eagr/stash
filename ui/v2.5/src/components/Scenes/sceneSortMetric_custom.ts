@@ -133,6 +133,11 @@ const definitions: Record<
     format: "date",
     value: ({ scene }) => scene.effective_date,
   },
+  stashdb_matches: {
+    messageID: "stashdb_matches",
+    format: "count",
+    value: ({ scene }) => scene.stashdb_matches,
+  },
   file_count: {
     messageID: "file_count",
     format: "count",
