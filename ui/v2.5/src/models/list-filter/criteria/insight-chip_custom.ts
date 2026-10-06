@@ -29,7 +29,7 @@ export class InsightChipCriterion extends ModifierCriterion<string> {
     const match = readInsightEntityMatch(this.value, this.entity);
     return match
       ? `Insight: ${match.label}`
-      : "Insight match expired — reopen Playground · Insight Stats";
+      : "Match expired — reopen it from Playground";
   }
   getLabelValue() {
     return this.getLabel();

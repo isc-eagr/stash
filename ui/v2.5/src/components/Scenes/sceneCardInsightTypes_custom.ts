@@ -7,22 +7,14 @@ export type SceneCardInsightThresholds = Required<
 
 export type SceneCardInsightThresholdKey = keyof SceneCardInsightThresholds;
 
-export type SceneCardInsightTone =
-  | "activity"
-  | "interaction"
-  | "tag"
-  | "goat"
-  | "event"
-  | "lineup"
-  | "rare"
-  | "negative";
+export type SceneCardInsightTone = "event" | "rare";
 
 export interface ISceneCardInsight {
   key: string;
   label: string;
   detail: string;
   tone: SceneCardInsightTone;
-  performerPreviews?: SceneCardInsightPerformer[]; // CUSTOM: portraits for performer and lineup chips.
+  performerPreviews: SceneCardInsightPerformer[]; // CUSTOM: hover portraits.
 }
 
 export type SceneCardInsightEvent = {
@@ -80,11 +72,6 @@ export type SceneCardInsightScene = Pick<GQL.SlimSceneDataFragment, "id"> & {
     tag_id: string;
     ancestor_ids: string[];
   }>;
-  negative_markers?: Array<{
-    id: string;
-    start_seconds: number;
-    end_seconds: number;
-  }>;
 };
 
 export type SceneCardInsightPerformerRoleStats = {
@@ -97,35 +84,11 @@ export type SceneCardInsightPerformerRoleStats = {
 };
 
 export type SceneCardInsightCandidateKind =
-  | "goat"
-  | "event-report"
   | "orgasm-event"
-  | "outstanding-activity"
-  | "outstanding-activity-presence"
-  | "activity-quality"
-  | "leaning"
-  | "no-orgasm"
-  | "interaction"
   | "only-scene"
-  | "rare-role"
-  | "negative-rating"
-  | "short-outstanding"
-  | "favorite-lineup"
-  | "country-lineup";
+  | "rare-role";
 
 export type SceneCardInsightCandidate = ISceneCardInsight & {
   kind: SceneCardInsightCandidateKind;
   score: number;
-  statsOnly?: boolean;
-  statsVisibleKeys?: string[];
-  // CUSTOM: Stable combination text for statistics, independent of performer names.
-  statsLabel?: string;
-  statsParts?: string[]; // CUSTOM: Independent drilldown labels for Insight Stats.
-  // CUSTOM: Sort split statistic labels by category and their numeric count.
-  statsPartOrder?: Record<string, { group: number; value: number }>;
-};
-
-export type SceneCardInsightRatingConfig = {
-  overrideTagIds?: IUIConfig["ratingCardOverrideTagIds"];
-  thresholds?: IUIConfig["ratingCardThresholds"];
 };

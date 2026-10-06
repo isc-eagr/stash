@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import {
-  isFreshInsightSnapshot,
-  loadInsightSnapshot,
-  insightCacheLifetime,
-  type IInsightCache,
-  type InsightSnapshot,
-} from "../src/components/InsightStats/insightStatsCache_custom.ts";
+  isFreshPlaygroundSnapshot,
+  loadPlaygroundSnapshot,
+  playgroundCacheLifetime,
+  type IPlaygroundCache,
+  type PlaygroundSnapshot,
+} from "../src/components/Playground/playgroundSnapshot_custom.ts";
 import type { StatsScene } from "../src/components/Shared/statsSceneData_custom.ts";
 import {
   playgroundScenesFromSnapshot,
@@ -48,21 +48,21 @@ const scene: StatsScene = {
   scene_marker_tag_ancestors: [],
   negative_markers: [],
 };
-const snapshot: InsightSnapshot = {
+const snapshot: PlaygroundSnapshot = {
   sceneDataVersion: 2,
   scannedAt: new Date(now).toISOString(),
   scenes: [scene],
 };
-assert.equal(isFreshInsightSnapshot(snapshot, now), true);
+assert.equal(isFreshPlaygroundSnapshot(snapshot, now), true);
 assert.equal(
-  isFreshInsightSnapshot(snapshot, now + insightCacheLifetime - 1),
+  isFreshPlaygroundSnapshot(snapshot, now + playgroundCacheLifetime - 1),
   true
 );
 assert.equal(
-  isFreshInsightSnapshot(snapshot, now + insightCacheLifetime),
+  isFreshPlaygroundSnapshot(snapshot, now + playgroundCacheLifetime),
   false
 );
-assert.equal(isFreshInsightSnapshot(snapshot, now - 1), false);
+assert.equal(isFreshPlaygroundSnapshot(snapshot, now - 1), false);
 for (const invalid of [
   undefined,
   null,
@@ -73,7 +73,7 @@ for (const invalid of [
   { scenes: [scene], scannedAt: snapshot.scannedAt },
 ]) {
   assert.equal(
-    isFreshInsightSnapshot(invalid, now),
+    isFreshPlaygroundSnapshot(invalid, now),
     false,
     "legacy and invalid snapshots require an enriched scan"
   );
@@ -98,11 +98,11 @@ assert.equal(
 assert.equal(
   "tags" in snapshot.scenes[0],
   false,
-  "the adapter does not mutate the stored Insight Stats scene"
+  "the adapter does not mutate the stored Playground scene"
 );
 
 const stored = new Map<string, unknown>();
-const cache: IInsightCache = {
+const cache: IPlaygroundCache = {
   read: async (key) => stored.get(key),
   write: async (key, value) => {
     stored.set(key, value);
@@ -128,7 +128,7 @@ const options = {
 const progress = () =>
   assert.fail("a cache hit must not start network progress");
 stored.set(url, snapshot);
-const hit = await loadInsightSnapshot(url, signal, progress, options);
+const hit = await loadPlaygroundSnapshot(url, signal, progress, options);
 assert.equal(hit.snapshot, snapshot);
 assert.equal(hit.fromCache, true);
 assert.equal(hit.cacheAvailable, true);
@@ -136,32 +136,35 @@ assert.equal(loads, 0);
 
 stored.set(url, {
   ...snapshot,
-  scannedAt: new Date(now - insightCacheLifetime).toISOString(),
+  scannedAt: new Date(now - playgroundCacheLifetime).toISOString(),
 });
 assert.deepEqual(
-  (await loadInsightSnapshot(url, signal, progress, options)).snapshot,
+  (await loadPlaygroundSnapshot(url, signal, progress, options)).snapshot,
   snapshot
 );
 assert.equal(loads, 1);
 assert.deepEqual(stored.get(url), snapshot);
-await loadInsightSnapshot(url, signal, progress, { ...options, force: true });
+await loadPlaygroundSnapshot(url, signal, progress, {
+  ...options,
+  force: true,
+});
 assert.equal(loads, 2, "manual refresh bypasses a fresh shared cache");
 stored.set(url, { scenes: [scene], scannedAt: snapshot.scannedAt });
-await loadInsightSnapshot(url, signal, progress, options);
+await loadPlaygroundSnapshot(url, signal, progress, options);
 assert.equal(
   loads,
   3,
   "an older shared scan is reloaded once to include Playground fields"
 );
-await loadInsightSnapshot(url, signal, progress, options);
+await loadPlaygroundSnapshot(url, signal, progress, options);
 assert.equal(loads, 3);
 
 stored.clear();
 stored.set("https://example.invalid/other/graphql", snapshot);
-await loadInsightSnapshot(url, signal, progress, options);
+await loadPlaygroundSnapshot(url, signal, progress, options);
 assert.equal(loads, 4, "installations and URL prefixes do not share scenes");
 assert.equal(stored.has("https://example.invalid/other/graphql"), true);
-const brokenCache: IInsightCache = {
+const brokenCache: IPlaygroundCache = {
   read: async () => {
     throw new Error("Storage disabled");
   },
@@ -172,7 +175,7 @@ const brokenCache: IInsightCache = {
     throw new Error("Storage disabled");
   },
 };
-const uncached = await loadInsightSnapshot(url, signal, progress, {
+const uncached = await loadPlaygroundSnapshot(url, signal, progress, {
   ...options,
   cache: brokenCache,
 });
@@ -180,7 +183,7 @@ assert.deepEqual(uncached.snapshot, snapshot);
 assert.equal(uncached.cacheAvailable, false);
 assert.deepEqual(
   (
-    await loadInsightSnapshot(url, signal, progress, {
+    await loadPlaygroundSnapshot(url, signal, progress, {
       ...options,
       cache: brokenCache,
       force: true,
@@ -192,7 +195,7 @@ assert.equal(loads, 6);
 
 const cancelled = new AbortController();
 await assert.rejects(
-  loadInsightSnapshot(url, cancelled.signal, progress, {
+  loadPlaygroundSnapshot(url, cancelled.signal, progress, {
     ...options,
     cache: {
       ...cache,
@@ -208,7 +211,7 @@ assert.equal(loads, 6);
 stored.delete(url);
 const interrupted = new AbortController();
 await assert.rejects(
-  loadInsightSnapshot(url, interrupted.signal, progress, {
+  loadPlaygroundSnapshot(url, interrupted.signal, progress, {
     ...options,
     load: async () => {
       interrupted.abort();
@@ -220,7 +223,7 @@ await assert.rejects(
 assert.equal(stored.has(url), false);
 stored.set(url, snapshot);
 await assert.rejects(
-  loadInsightSnapshot(url, signal, progress, {
+  loadPlaygroundSnapshot(url, signal, progress, {
     ...options,
     force: true,
     load: async () => {
@@ -234,12 +237,10 @@ assert.equal(
   false,
   "a failed explicit reload cannot silently restore old data"
 );
-const empty = await loadInsightSnapshot(url, signal, progress, {
+const empty = await loadPlaygroundSnapshot(url, signal, progress, {
   ...options,
   load: async () => [],
 });
 assert.deepEqual(empty.snapshot.scenes, []);
-assert.equal(isFreshInsightSnapshot(stored.get(url), now), true);
-console.log(
-  "Shared Playground cache and data compatibility tests passed."
-);
+assert.equal(isFreshPlaygroundSnapshot(stored.get(url), now), true);
+console.log("Shared Playground cache and data compatibility tests passed.");

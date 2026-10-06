@@ -2,18 +2,18 @@ import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
 import { buildSchema, parse, validate } from "graphql";
 import {
-  loadInsightStatsScenes,
-  createInsightStatsRequest,
-  INSIGHT_STATS_SCENES_QUERY as PLAYGROUND_SCENES_QUERY,
-} from "../src/components/InsightStats/insightStatsQuery_custom.ts";
+  loadPlaygroundScenePages,
+  createPlaygroundRequest,
+  PLAYGROUND_SCENES_QUERY,
+} from "../src/components/Playground/playgroundSceneQuery_custom.ts";
 
 const loadPlaygroundScenes = (
   url: string,
   signal: AbortSignal,
   progress: (loaded: number, total: number) => void
 ) =>
-  loadInsightStatsScenes(
-    createInsightStatsRequest(url, signal),
+  loadPlaygroundScenePages(
+    createPlaygroundRequest(url, signal),
     progress,
     signal
   );

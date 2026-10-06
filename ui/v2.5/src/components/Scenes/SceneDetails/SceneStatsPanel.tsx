@@ -691,17 +691,8 @@ const SceneStatsPanel: React.FC<IProps> = ({
     [configuration?.ui?.roleTagIds, scene]
   );
   const outstandingActivityMatrix = useMemo(
-    () =>
-      getOutstandingActivityMatrix(
-        scene,
-        configuration?.ui?.roleTagIds,
-        configuration?.ui?.sceneCardInsightThresholds
-      ),
-    [
-      configuration?.ui?.roleTagIds,
-      configuration?.ui?.sceneCardInsightThresholds,
-      scene,
-    ]
+    () => getOutstandingActivityMatrix(scene, configuration?.ui?.roleTagIds),
+    [configuration?.ui?.roleTagIds, scene]
   );
   const performerStats = useMemo(
     () => (stats ? getPerformerStats(stats) : []),

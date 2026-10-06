@@ -158,12 +158,6 @@ export interface IUIConfig {
   sceneCardInsightThresholds?: {
     visibleInsightLimit?: number;
     rareRoleMaximumPercent?: number;
-    tagGoodAmountMinPercent?: number;
-    tagLotsMinPercent?: number;
-    tagEyeCanSeeMinPercent?: number;
-    shortOutstandingMaxSeconds?: number;
-    shortOutstandingMinPercent?: number;
-    shortOutstandingMinMarkers?: number;
   };
   // CUSTOM: end
   simpleMarkerPreviewExcludedTagIds?: string[]; // Extra primary-only marker tags that skip video/webp preview generation
@@ -181,7 +175,7 @@ export interface IUIConfig {
     reallyHotTagId?: string; // Tag ID for "really hot" qualifier (gold facial icon when combined with facial)
     goatTagId?: string; // Tag ID for GOAT card styling override
     oStatsExcludedTagIds?: string[]; // Tag IDs hidden from O Stats marker-tag charts
-    outstandingActivityCommonTagIds?: string[]; // CUSTOM: common tags eligible for the amount-based Outstanding Activity chip
+    outstandingActivityCommonTagIds?: string[]; // CUSTOM: exact tags hidden from the thumbnail caption (subtags still show)
   };
   // CUSTOM: end
 }

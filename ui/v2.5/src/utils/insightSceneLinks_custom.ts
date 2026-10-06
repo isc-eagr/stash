@@ -79,7 +79,3 @@ export function openInsightEntityLink(
   tab.opener = null;
   return true;
 }
-
-export function openInsightSceneLink(label: string, ids: string[]) {
-  return openInsightEntityLink("scene", label, ids);
-}

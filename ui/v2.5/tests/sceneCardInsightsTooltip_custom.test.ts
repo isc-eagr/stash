@@ -27,12 +27,12 @@ const sceneStyles = readFileSync(
 assert.match(
   insightsSource,
   /React\.forwardRef/,
-  "scene insight chips should forward refs for OverlayTrigger"
+  "scene insight chips should forward refs for their hover trigger"
 );
 assert.match(
   insightsSource,
   /\{\.\.\.triggerProps\}/,
-  "scene insight chips should preserve OverlayTrigger event props"
+  "scene insight chips should preserve hover-trigger event props"
 );
 assert.match(
   insightsSource,
@@ -87,8 +87,8 @@ assert.doesNotMatch(
 );
 assert.match(
   insightsSource,
-  /<Tooltip[\s\S]*?id=\{`scene-insight-/,
-  "individual chips should retain their hover tooltips"
+  /<HoverPopover[\s\S]*?<SceneCardInsightPerformersPopover/,
+  "every chip names vatos, so hovering shows their portraits"
 );
 assert.match(
   orgasmReportSource,

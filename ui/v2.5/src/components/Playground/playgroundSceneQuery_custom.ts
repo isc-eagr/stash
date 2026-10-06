@@ -1,9 +1,9 @@
 import type { StatsScene } from "../Shared/statsSceneData_custom";
 
-// Deliberately fetch only engine inputs, in bounded pages, without filling the
+// Deliberately fetch only Playground inputs, in bounded pages, without filling the
 // Apollo entity cache with an entire library's markers and performers.
-export const INSIGHT_STATS_SCENES_QUERY = `
-  query InsightStatsScenes($page: Int!) {
+export const PLAYGROUND_SCENES_QUERY = `
+  query PlaygroundScenes($page: Int!) {
     findScenes(filter: { page: $page, per_page: 200, sort: "id", direction: ASC }) {
       count
       scenes {
@@ -19,11 +19,8 @@ export const INSIGHT_STATS_SCENES_QUERY = `
           id seconds end_seconds
           primary_tag { id name }
           tags { id name }
-          top_performers { id name }
-          bottom_performers { id name }
         }
         scene_marker_tag_ancestors { tag_id ancestor_ids }
-        negative_markers { id start_seconds end_seconds }
       }
     }
   }
@@ -34,7 +31,7 @@ type GraphQLRequest = <T>(
   variables: Record<string, unknown>
 ) => Promise<T>;
 
-export function createInsightStatsRequest(
+export function createPlaygroundRequest(
   url: string,
   signal?: AbortSignal
 ): GraphQLRequest {
@@ -50,19 +47,19 @@ export function createInsightStatsRequest(
       body: JSON.stringify({ query, variables }),
     });
     if (!response.ok)
-      throw new Error(`Insights request failed (${response.status})`);
+      throw new Error(`Playground request failed (${response.status})`);
     const payload = (await response.json()) as {
       data?: T;
       errors?: Array<{ message: string }>;
     };
     if (payload.errors?.length)
       throw new Error(payload.errors.map(({ message }) => message).join("; "));
-    if (!payload.data) throw new Error("Insights request returned no data");
+    if (!payload.data) throw new Error("Playground request returned no data");
     return payload.data;
   };
 }
 
-export async function loadInsightStatsScenes(
+export async function loadPlaygroundScenePages(
   request: GraphQLRequest,
   progress: (loaded: number, total: number) => void,
   signal?: AbortSignal
@@ -74,7 +71,7 @@ export async function loadInsightStatsScenes(
     if (signal?.aborted) throw new Error("Loading cancelled.");
     const data = await request<{
       findScenes: { count: number; scenes: StatsScene[] };
-    }>(INSIGHT_STATS_SCENES_QUERY, { page });
+    }>(PLAYGROUND_SCENES_QUERY, { page });
     const batch = data.findScenes;
     if (total !== undefined && total !== batch.count)
       throw new Error(

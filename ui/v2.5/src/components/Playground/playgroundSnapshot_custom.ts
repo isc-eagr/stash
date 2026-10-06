@@ -1,38 +1,28 @@
-import type { InsightStatsResult } from "./insightStatsData_custom";
 import type { StatsScene } from "../Shared/statsSceneData_custom";
 import {
-  createInsightStatsRequest,
-  loadInsightStatsScenes,
-} from "./insightStatsQuery_custom";
+  createPlaygroundRequest,
+  loadPlaygroundScenePages,
+} from "./playgroundSceneQuery_custom";
 
-export const insightCacheLifetime = 12 * 60 * 60 * 1000;
-export const insightStatsEngineVersion = 7;
+export const playgroundCacheLifetime = 12 * 60 * 60 * 1000;
 
-export function insightStatsConfigKey(config: unknown) {
-  // CUSTOM: Recalculate cached chip totals when engine semantics change while
-  // continuing to reuse the more expensive raw scene snapshot.
-  return JSON.stringify({ engineVersion: insightStatsEngineVersion, config });
-}
-
-export type InsightSnapshot = {
+export type PlaygroundSnapshot = {
   sceneDataVersion: 2;
   scenes: StatsScene[];
   scannedAt: string;
-  configKey?: string;
-  baseline?: InsightStatsResult;
 };
-export function isFreshInsightSnapshot(
+export function isFreshPlaygroundSnapshot(
   value: unknown,
   now = Date.now()
-): value is InsightSnapshot {
+): value is PlaygroundSnapshot {
   if (!value || typeof value !== "object") return false;
-  const snapshot = value as Partial<InsightSnapshot>;
+  const snapshot = value as Partial<PlaygroundSnapshot>;
   const age = now - Date.parse(snapshot.scannedAt ?? "");
   return (
     snapshot.sceneDataVersion === 2 &&
     Array.isArray(snapshot.scenes) &&
     age >= 0 &&
-    age < insightCacheLifetime
+    age < playgroundCacheLifetime
   );
 }
 
@@ -43,11 +33,12 @@ async function database() {
   return new Promise<IDBDatabase>((resolve, reject) => {
     if (!legacyCacheRetired) {
       legacyCacheRetired = true;
-      // Retire only the superseded, regenerable Playground cache.
+      // Retire the superseded, regenerable caches.
       indexedDB.deleteDatabase?.("stash-playground-v1");
+      indexedDB.deleteDatabase?.("stash-insight-stats-v6");
     }
-    // Keep the existing shared stats store; version the scene payload instead.
-    const request = indexedDB.open("stash-insight-stats-v6", 1);
+    // Version the scene payload, not the store.
+    const request = indexedDB.open("stash-playground-v2", 1);
     let blocked = false;
     request.onupgradeneeded = () => request.result.createObjectStore("scans");
     request.onsuccess = () => {
@@ -57,15 +48,15 @@ async function database() {
     request.onerror = () => reject(request.error);
     request.onblocked = () => {
       blocked = true;
-      reject(new Error("Stats cache is unavailable"));
+      reject(new Error("Playground cache is unavailable"));
     };
   });
 }
-export async function readInsightSnapshot(key: string) {
+export async function readPlaygroundSnapshot(key: string) {
   try {
     const db = await database();
     try {
-      return await new Promise<InsightSnapshot | undefined>(
+      return await new Promise<PlaygroundSnapshot | undefined>(
         (resolve, reject) => {
           const request = db.transaction("scans").objectStore("scans").get(key);
           request.onsuccess = () => resolve(request.result);
@@ -79,9 +70,9 @@ export async function readInsightSnapshot(key: string) {
     return undefined;
   }
 }
-export async function writeInsightSnapshot(
+export async function writePlaygroundSnapshot(
   key: string,
-  snapshot: InsightSnapshot
+  snapshot: PlaygroundSnapshot
 ) {
   try {
     const db = await database();
@@ -102,7 +93,7 @@ export async function writeInsightSnapshot(
   }
 }
 
-export async function removeInsightSnapshot(key: string) {
+export async function removePlaygroundSnapshot(key: string) {
   try {
     const db = await database();
     try {
@@ -121,62 +112,25 @@ export async function removeInsightSnapshot(key: string) {
   }
 }
 
-// An older calculation must not overwrite a newer scan loaded by another tab.
-export async function writeInsightBaseline(
-  key: string,
-  snapshot: InsightSnapshot,
-  configKey: string,
-  baseline: InsightStatsResult
-) {
-  try {
-    const db = await database();
-    try {
-      return await new Promise<boolean>((resolve, reject) => {
-        const transaction = db.transaction("scans", "readwrite");
-        const store = transaction.objectStore("scans");
-        const request = store.get(key);
-        let written = false;
-        request.onsuccess = () => {
-          const current = request.result as InsightSnapshot | undefined;
-          if (
-            current?.sceneDataVersion !== snapshot.sceneDataVersion ||
-            current.scannedAt !== snapshot.scannedAt
-          )
-            return;
-          store.put({ ...current, configKey, baseline }, key);
-          written = true;
-        };
-        transaction.oncomplete = () => resolve(written);
-        transaction.onerror = () => reject(transaction.error);
-        transaction.onabort = () => reject(transaction.error);
-      });
-    } finally {
-      db.close();
-    }
-  } catch {
-    return false;
-  }
-}
-
-export interface IInsightCache {
+export interface IPlaygroundCache {
   read: (key: string) => Promise<unknown>;
-  write: (key: string, snapshot: InsightSnapshot) => Promise<boolean>;
+  write: (key: string, snapshot: PlaygroundSnapshot) => Promise<boolean>;
   remove: (key: string) => Promise<unknown>;
 }
 
-const insightCache: IInsightCache = {
-  read: readInsightSnapshot,
-  write: writeInsightSnapshot,
-  remove: removeInsightSnapshot,
+const playgroundCache: IPlaygroundCache = {
+  read: readPlaygroundSnapshot,
+  write: writePlaygroundSnapshot,
+  remove: removePlaygroundSnapshot,
 };
 
-export async function loadInsightSnapshot(
+export async function loadPlaygroundSnapshot(
   url: string,
   signal: AbortSignal,
   progress: (loaded: number, total: number) => void,
   options: {
     force?: boolean;
-    cache?: IInsightCache;
+    cache?: IPlaygroundCache;
     load?: (
       url: string,
       signal: AbortSignal,
@@ -187,10 +141,10 @@ export async function loadInsightSnapshot(
 ) {
   const {
     force = false,
-    cache = insightCache,
+    cache = playgroundCache,
     load = (endpoint, abortSignal, report) =>
-      loadInsightStatsScenes(
-        createInsightStatsRequest(endpoint, abortSignal),
+      loadPlaygroundScenePages(
+        createPlaygroundRequest(endpoint, abortSignal),
         report,
         abortSignal
       ),
@@ -205,13 +159,13 @@ export async function loadInsightSnapshot(
   else {
     const cached = await cache.read(url).catch(() => undefined);
     checkCancelled();
-    if (isFreshInsightSnapshot(cached, now()))
+    if (isFreshPlaygroundSnapshot(cached, now()))
       return { snapshot: cached, fromCache: true, cacheAvailable: true };
   }
   checkCancelled();
   const scenes = await load(url, signal, progress);
   checkCancelled();
-  const snapshot: InsightSnapshot = {
+  const snapshot: PlaygroundSnapshot = {
     sceneDataVersion: 2,
     scenes,
     scannedAt: new Date(now()).toISOString(),

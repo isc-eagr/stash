@@ -84,7 +84,6 @@ export function makeSceneStatsActivityMatrix(
 ): IOutstandingActivityMatrix {
   const rows: IOutstandingActivityRow[] = values
     .map((value) => ({
-      amountLevel: "some" as const,
       cells: {},
       duration: value.duration,
       markerCount: value.marker_count,

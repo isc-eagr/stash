@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Overlay, OverlayTrigger, Popover, Tooltip } from "react-bootstrap";
+import { Overlay, Popover } from "react-bootstrap";
 import { useConfigurationContext } from "src/hooks/Config";
 import { HoverPopover } from "../Shared/HoverPopover";
 import {
@@ -9,7 +9,6 @@ import {
   type SceneCardInsightScene,
 } from "./sceneCardInsightsData_custom";
 import type { SceneCardInsightEvent } from "./sceneCardInsightTypes_custom";
-import { hasSceneCardInsightOverflow } from "./sceneCardInsightSelection_custom";
 import { ActivityTypePerformerTile } from "./SceneDetails/sceneMarkerHoverPopover_custom";
 
 const insightPopoverHeightAllowance = 180;
@@ -61,22 +60,6 @@ export const SceneCardInsightChip = React.forwardRef<
   </span>
 ));
 SceneCardInsightChip.displayName = "SceneCardInsightChip";
-
-function SceneCardInsightDetail({ detail }: Pick<ISceneCardInsight, "detail">) {
-  // CUSTOM: Render each middle-dot separated part as its own readable line.
-  const parts = detail.split(/\s*·\s*/);
-
-  return (
-    <>
-      {parts.map((part, index) => (
-        <React.Fragment key={`${part}-${index}`}>
-          {index > 0 && <br />}
-          {part}
-        </React.Fragment>
-      ))}
-    </>
-  );
-}
 
 export function SceneCardOrgasmFacialPopover({
   events,
@@ -164,7 +147,7 @@ export function SceneCardOrgasmFacialPopover({
 function SceneCardInsightPerformersPopover({
   performers,
 }: {
-  performers: NonNullable<ISceneCardInsight["performerPreviews"]>;
+  performers: ISceneCardInsight["performerPreviews"];
 }) {
   return (
     <div
@@ -215,55 +198,30 @@ export const SceneCardInsights: React.FC<ISceneCardInsightsProps> = ({
     ]
   );
   if (roleStatsPending || insightSets.visible.length === 0) return null;
-  const hasOverflow = hasSceneCardInsightOverflow(
-    insightSets.all.length,
-    insightSets.visible.length
-  );
+  const hasOverflow = insightSets.all.length > insightSets.visible.length;
 
-  const renderInsightChip = (insight: ISceneCardInsight) => {
-    const chip = (
+  // Every chip names vatos, so hovering shows their portraits.
+  const renderInsightChip = (insight: ISceneCardInsight) => (
+    <HoverPopover
+      key={insight.key}
+      className="scene-card-insight-hover-popover"
+      content={
+        <SceneCardInsightPerformersPopover
+          performers={insight.performerPreviews}
+        />
+      }
+      estimatedContentHeight={420}
+      placement="bottom"
+      popoverClassName="scene-marker-highlight-popover scene-card-insight-performer-popover"
+    >
       <SceneCardInsightChip
         ariaLabel={`${insight.label}: ${insight.detail}`}
         label={insight.label}
         tabIndex={0}
         tone={insight.tone}
       />
-    );
-
-    const { performerPreviews } = insight;
-    if (performerPreviews) {
-      return (
-        <HoverPopover
-          key={insight.key}
-          className="scene-card-insight-hover-popover"
-          content={
-            <SceneCardInsightPerformersPopover performers={performerPreviews} />
-          }
-          estimatedContentHeight={420}
-          placement="bottom"
-          popoverClassName="scene-marker-highlight-popover scene-card-insight-performer-popover"
-        >
-          {chip}
-        </HoverPopover>
-      );
-    }
-
-    return (
-      <OverlayTrigger
-        key={insight.key}
-        overlay={
-          <Tooltip id={`scene-insight-${scene.id}-${insight.key}`}>
-            <span className="scene-card-insight-tooltip-detail">
-              <SceneCardInsightDetail detail={insight.detail} />
-            </span>
-          </Tooltip>
-        }
-        placement="bottom"
-      >
-        {chip}
-      </OverlayTrigger>
-    );
-  };
+    </HoverPopover>
+  );
 
   const popup = (
     <div className="scene-card-insights-popup" aria-label="All scene insights">

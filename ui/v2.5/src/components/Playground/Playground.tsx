@@ -4,7 +4,6 @@ import { Helmet } from "react-helmet";
 import { useConfigurationContext } from "src/hooks/Config";
 import { useTitleProps } from "src/hooks/title";
 import { StatsPage } from "../StatsPage_custom";
-import { InsightStats } from "../InsightStats/InsightStats";
 import type { SceneRatingModeCustom } from "../Shared/groupSceneRating_custom";
 import { PlaygroundChart } from "./PlaygroundChart";
 import {
@@ -307,9 +306,6 @@ const Playground: React.FC = () => {
           </Tab>
           <Tab eventKey="vatos" title="Vato Tiers">
             <PlaygroundVatoTiers />
-          </Tab>
-          <Tab eventKey="insights" title="Insight Stats">
-            <InsightStats />
           </Tab>
         </Tabs>
       </div>

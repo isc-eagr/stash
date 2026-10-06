@@ -14,7 +14,7 @@ import (
 const performerUnknownSelectionCustom = "__unknown__"
 
 // insightPerformerIDsCriterionHandlerCustom restores the exact vato set saved
-// by an Insight Stats drilldown. One JSON parameter avoids SQLite's bind limit.
+// by a Playground tier drilldown. One JSON parameter avoids SQLite's bind limit.
 func insightPerformerIDsCriterionHandlerCustom(ids []string) criterionHandlerFunc {
 	return func(_ context.Context, f *filterBuilder) {
 		if ids == nil {

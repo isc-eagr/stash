@@ -377,9 +377,9 @@ export const SettingsCustomPanel: React.FC = () => {
       {/* CUSTOM: begin - configurable scene card insight thresholds */}
       <SettingSection headingID="config.ui.scene_card_insights.heading">
         <Setting
-          id="scene-card-insights-common-activity-tags"
-          headingID="config.ui.scene_card_insights.common_activity_tags.heading"
-          subHeadingID="config.ui.scene_card_insights.common_activity_tags.description"
+          id="scene-card-insights-caption-hidden-tags"
+          headingID="config.ui.scene_card_insights.caption_hidden_tags.heading"
+          subHeadingID="config.ui.scene_card_insights.caption_hidden_tags.description"
         >
           <TagIDSelect
             isMulti
@@ -406,96 +406,18 @@ export const SettingsCustomPanel: React.FC = () => {
           }
         />
         <NumberSetting
-          id="scene-card-insights-tag-good-amount"
-          heading={sceneCardInsightSettingHeading(
-            intl.formatMessage({
-              id: "config.ui.scene_card_insights.tag_good_amount.heading",
-            }),
-            "Good amount of pito",
-            "tag"
-          )}
-          subHeadingID="config.ui.scene_card_insights.tag_good_amount.description"
-          value={sceneCardInsightThresholds.tagGoodAmountMinPercent}
-          onChange={(value) =>
-            saveSceneCardInsightThreshold("tagGoodAmountMinPercent", value)
-          }
-        />
-        <NumberSetting
-          id="scene-card-insights-tag-lots"
-          heading={sceneCardInsightSettingHeading(
-            intl.formatMessage({
-              id: "config.ui.scene_card_insights.tag_lots.heading",
-            }),
-            "Lots of pito",
-            "tag"
-          )}
-          subHeadingID="config.ui.scene_card_insights.tag_lots.description"
-          value={sceneCardInsightThresholds.tagLotsMinPercent}
-          onChange={(value) =>
-            saveSceneCardInsightThreshold("tagLotsMinPercent", value)
-          }
-        />
-        <NumberSetting
-          id="scene-card-insights-tag-eye-can-see"
-          heading={sceneCardInsightSettingHeading(
-            intl.formatMessage({
-              id: "config.ui.scene_card_insights.tag_eye_can_see.heading",
-            }),
-            "pito as far as the eye can see",
-            "tag"
-          )}
-          subHeadingID="config.ui.scene_card_insights.tag_eye_can_see.description"
-          value={sceneCardInsightThresholds.tagEyeCanSeeMinPercent}
-          onChange={(value) =>
-            saveSceneCardInsightThreshold("tagEyeCanSeeMinPercent", value)
-          }
-        />
-        <NumberSetting
           id="scene-card-insights-rare-role-maximum"
           heading={sceneCardInsightSettingHeading(
             intl.formatMessage({
               id: "config.ui.scene_card_insights.rare_role_maximum.heading",
             }),
-            "Rare instance of a vato taking dick",
+            "Rare instance of a vato having his pito sucked",
             "rare"
           )}
           subHeadingID="config.ui.scene_card_insights.rare_role_maximum.description"
           value={sceneCardInsightThresholds.rareRoleMaximumPercent}
           onChange={(value) =>
             saveSceneCardInsightThreshold("rareRoleMaximumPercent", value)
-          }
-        />
-        <NumberSetting
-          id="scene-card-insights-short-outstanding-seconds"
-          heading={sceneCardInsightSettingHeading(
-            intl.formatMessage({
-              id: "config.ui.scene_card_insights.short_outstanding_seconds.heading",
-            }),
-            "Short Outstanding",
-            "negative"
-          )}
-          subHeadingID="config.ui.scene_card_insights.short_outstanding_seconds.description"
-          value={sceneCardInsightThresholds.shortOutstandingMaxSeconds}
-          onChange={(value) =>
-            saveSceneCardInsightThreshold("shortOutstandingMaxSeconds", value)
-          }
-        />
-        <NumberSetting
-          id="scene-card-insights-short-outstanding-percent"
-          headingID="config.ui.scene_card_insights.short_outstanding_percent.heading"
-          subHeadingID="config.ui.scene_card_insights.short_outstanding_percent.description"
-          value={sceneCardInsightThresholds.shortOutstandingMinPercent}
-          onChange={(value) =>
-            saveSceneCardInsightThreshold("shortOutstandingMinPercent", value)
-          }
-        />
-        <NumberSetting
-          id="scene-card-insights-short-outstanding-markers"
-          headingID="config.ui.scene_card_insights.short_outstanding_markers.heading"
-          subHeadingID="config.ui.scene_card_insights.short_outstanding_markers.description"
-          value={sceneCardInsightThresholds.shortOutstandingMinMarkers}
-          onChange={(value) =>
-            saveSceneCardInsightThreshold("shortOutstandingMinMarkers", value)
           }
         />
       </SettingSection>

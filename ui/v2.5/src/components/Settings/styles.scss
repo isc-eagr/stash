@@ -89,8 +89,8 @@
     }
   }
 
-  /* CUSTOM: begin - give the common activity tag selector room for multiple chips */
-  #scene-card-insights-common-activity-tags {
+  /* CUSTOM: begin - give the hidden caption tag selector room for multiple chips */
+  #scene-card-insights-caption-hidden-tags {
     > div:first-child {
       flex: 0 1 40%;
       min-width: 0;

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { getPlatformURL } from "src/core/createClient";
-import { loadInsightSnapshot } from "../InsightStats/insightStatsCache_custom";
+import { loadPlaygroundSnapshot } from "./playgroundSnapshot_custom";
 import {
   playgroundScenesFromSnapshot,
   type IPlaygroundScene,
@@ -25,7 +25,7 @@ export function usePlaygroundScenes(revision: number) {
   useEffect(() => {
     const controller = new AbortController();
     setState({ scenes: [], loading: true, loaded: 0, total: 0 });
-    void loadInsightSnapshot(
+    void loadPlaygroundSnapshot(
       getPlatformURL("graphql").toString(),
       controller.signal,
       (loaded, total) => {

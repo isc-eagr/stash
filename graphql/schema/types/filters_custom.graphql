@@ -298,7 +298,7 @@ input PerformerActivityPercentFilterInput {
 }
 
 extend input PerformerFilterType {
-  "Performer IDs from an Insight Stats drilldown snapshot"
+  "Performer IDs from a Playground tier drilldown snapshot"
   insight_performer_ids: [ID!]
   "Filter by the metallic card style after tag overrides and rating thresholds are applied. Values: bronze, silver, gold, royal_sapphire."
   metallic_rating: MultiCriterionInput
@@ -361,7 +361,7 @@ extend input SceneMarkerFilterType {
 }
 
 extend input SceneFilterType {
-  "Scene IDs from an Insight Stats coverage snapshot"
+  "Scene IDs from a Playground tier drilldown snapshot"
   insight_scene_ids: [ID!]
   "Filter by the metallic card style after tag overrides and rating thresholds are applied. Values: bronze, silver, gold, royal_sapphire."
   metallic_rating: MultiCriterionInput

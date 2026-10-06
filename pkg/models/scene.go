@@ -58,7 +58,7 @@ type SceneTypeFilterInput struct {
 // CUSTOM: end
 
 type SceneFilterType struct {
-	InsightSceneIDs []string `json:"insight_scene_ids"` // CUSTOM: insight coverage snapshot.
+	InsightSceneIDs []string `json:"insight_scene_ids"` // CUSTOM: Playground tier drilldown snapshot.
 	OperatorFilter[SceneFilterType]
 	ID       *IntCriterionInput    `json:"id"`
 	Title    *StringCriterionInput `json:"title"`

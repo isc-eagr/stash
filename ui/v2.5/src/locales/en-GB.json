@@ -684,41 +684,17 @@
       },
       "scene_card_insights": {
         "heading": "Scene Card Insights",
-        "common_activity_tags": {
-          "heading": "Very common Outstanding Activity tags",
-          "description": "The top two present tags from this set use amount wording. Every other present Outstanding Activity tag is listed together in a Scene contains chip."
+        "caption_hidden_tags": {
+          "heading": "Tags hidden from the thumbnail caption",
+          "description": "Scene card captions skip these exact tags, such as common activity or negative orgasm tags. Their subtags still show."
         },
         "visible_limit": {
           "heading": "Visible insight chips",
           "description": "Maximum number of insight chips shown on a scene card before the plus button appears."
         },
-        "tag_good_amount": {
-          "heading": "Good amount of tag threshold (%)",
-          "description": "Minimum scene percentage covered by a highlight tag for a Good amount of chip."
-        },
-        "tag_lots": {
-          "heading": "Lots of tag threshold (%)",
-          "description": "Minimum scene percentage covered by a highlight tag for a Lots of chip. This is normalized to be at least the Good amount threshold."
-        },
-        "tag_eye_can_see": {
-          "heading": "As far as the eye can see tag threshold (%)",
-          "description": "Minimum scene percentage covered by a highlight tag for the as-far-as-the-eye-can-see chip level. This is normalized to be at least the Lots of threshold."
-        },
         "rare_role_maximum": {
           "heading": "Rare instance maximum role share (%)",
-          "description": "A current Sex or Oral role is rare when it accounts for no more than this percentage of the vato's role history. The chip still requires at least five comparable role scenes."
-        },
-        "short_outstanding_seconds": {
-          "heading": "Short Outstanding maximum length (s)",
-          "description": "A timed Outstanding marker counts as short when it lasts no more than this many seconds. Orgasm, Facial, and 2nd Camera markers are ignored."
-        },
-        "short_outstanding_percent": {
-          "heading": "Short Outstanding minimum share (%)",
-          "description": "The chip appears when at least this percentage of a scene's timed Outstanding markers are short."
-        },
-        "short_outstanding_markers": {
-          "heading": "Short Outstanding minimum markers",
-          "description": "Scenes need at least this many timed Outstanding markers before the chip can appear."
+          "description": "Topping in oral is rare for a vato when it accounts for no more than this percentage of the vato's oral scenes. The chip still requires at least five oral scenes."
         }
       },
       "simple_marker_preview_excluded_tags": {

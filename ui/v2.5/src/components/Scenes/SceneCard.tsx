@@ -38,6 +38,7 @@ import {
 import { SceneCardInsights } from "./SceneCardInsights_custom"; // CUSTOM
 import { SceneActivityBar } from "./SceneActivityBar_custom"; // CUSTOM
 import { SceneRatingStrip } from "./SceneRatingStrip_custom"; // CUSTOM
+import { SceneOutstandingCaption } from "./SceneOutstandingCaption_custom"; // CUSTOM
 import { getSceneActivityMetrics } from "./sceneActivityMetricsData_custom"; // CUSTOM
 import {
   getSceneActivityBarCustom,
@@ -654,6 +655,8 @@ const SceneCardImage = PatchComponent(
           activeSortBy={props.activeSortBy}
         />
         {maybeRenderInteractiveSpeedOverlay()}
+        {/* CUSTOM: outstanding activity caption */}
+        <SceneOutstandingCaption scene={props.scene} />
       </>
     );
   }

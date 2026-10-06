@@ -643,10 +643,6 @@
   padding: 0.7rem;
 }
 
-.scene-card-insight-tooltip-detail {
-  white-space: pre-line;
-}
-
 .scene-card-insights-more {
   align-items: center;
   background: rgba(255, 255, 255, 0.08);
@@ -712,29 +708,7 @@
   min-width: 0;
 }
 
-/* CUSTOM: clickable chips (Insight Stats). */
-.scene-card-insight-clickable {
-  cursor: pointer;
-}
-
-/* CUSTOM: each family keeps a distinct hue; gold belongs to GOAT only. */
-.scene-card-insight-activity {
-  background: rgba(148, 163, 184, 0.12);
-  border-color: rgba(148, 163, 184, 0.6);
-  color: #d5dde8;
-}
-
-.scene-card-insight-interaction {
-  background: rgba(163, 113, 247, 0.14);
-  border-color: rgba(188, 140, 255, 0.68);
-  color: #dec8ff;
-}
-
-.scene-card-insight-tag {
-  background: rgba(46, 160, 67, 0.1);
-  border-color: rgba(63, 185, 80, 0.55);
-  color: #b7e7bf;
-}
+/* CUSTOM: orgasm chips are white, history-backed vato chips pink. */
 
 .scene-card-insight-event {
   background: rgba(241, 245, 249, 0.1);
@@ -742,30 +716,10 @@
   color: #f8fafc;
 }
 
-.scene-card-insight-lineup {
-  background: rgba(56, 189, 248, 0.12);
-  border-color: rgba(56, 189, 248, 0.62);
-  color: #bae6fd;
-}
-
 .scene-card-insight-rare {
   background: rgba(236, 72, 153, 0.13);
   border-color: rgba(244, 114, 182, 0.68);
   color: #fbcfe8;
-}
-
-.scene-card-insight-goat {
-  /* CUSTOM: GOAT insight chips use the premium gold treatment. */
-  background: rgba(212, 175, 55, 0.18);
-  border-color: #d4af37;
-  box-shadow: 0 0 0.35rem rgba(212, 175, 55, 0.42);
-  color: #ffe9a3;
-}
-
-.scene-card-insight-negative {
-  background: rgba(218, 54, 51, 0.12);
-  border-color: rgba(248, 81, 73, 0.62);
-  color: #ffb4ae;
 }
 
 /* CUSTOM: end */
@@ -985,6 +939,56 @@ textarea.scene-description {
 
 .scene-interactive-speed-overlay {
   left: 0.7rem;
+}
+
+// CUSTOM: outstanding activity caption, bottom-left like the specs overlay.
+.scene-outstanding-caption {
+  bottom: 1rem;
+  color: $text-color;
+  display: flex;
+  font-weight: 500;
+  gap: 0.3rem;
+  left: 0.7rem;
+  letter-spacing: -0.02rem;
+  line-height: 1.25;
+  max-width: calc(100% - 8.5rem);
+  position: absolute;
+  text-shadow: 0 0 3px #000, 0 0 6px #000;
+  // Center on the same line as the specs overlay, which has no line height.
+  transform: translateY(50%);
+
+  &--raised {
+    bottom: 2.4rem;
+  }
+
+  &__names {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__more {
+    flex: 0 0 auto;
+    opacity: 0.75;
+  }
+}
+
+.scene-outstanding-caption__list {
+  margin: 0;
+  padding: 0;
+  text-align: left;
+
+  li {
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+    list-style: none;
+  }
+
+  li > span:last-child {
+    font-variant-numeric: tabular-nums;
+    opacity: 0.75;
+  }
 }
 
 /* Facial icon overlay base; the scene player sizes and tints it (ScenePlayer styles). */

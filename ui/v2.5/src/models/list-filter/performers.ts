@@ -209,7 +209,7 @@ const stringCriteria: CriterionType[] = [
 ];
 
 const criterionOptions = [
-  InsightPerformerCriterionOption, // CUSTOM: linked Insight Stats snapshots.
+  InsightPerformerCriterionOption, // CUSTOM: linked Playground snapshots.
   FavoritePerformerCriterionOption,
   CircumcisedCriterionOption,
   PerformerIsMissingCriterionOption,
