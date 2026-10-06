@@ -274,6 +274,7 @@ export function getRatingAdvisorBarSummaryCustom(
       fillPercent: 0,
       heatLevel: undefined,
       choice: undefined,
+      choiceIndex: undefined,
     };
   }
 
@@ -290,6 +291,7 @@ export function getRatingAdvisorBarSummaryCustom(
       fillPercent: 0,
       heatLevel: undefined,
       choice: undefined,
+      choiceIndex: undefined,
     };
   }
 
@@ -305,5 +307,101 @@ export function getRatingAdvisorBarSummaryCustom(
       metric.choices.length
     ),
     choice: metric.choices[choiceIndex],
+    choiceIndex,
   };
+}
+
+type RatingAdvisorPersistedScoresCustom = ReadonlyArray<{
+  section?: string | null;
+  key?: string | null;
+  raw_value?: number | null;
+}> | null;
+
+function findPersistedScore(
+  scores: RatingAdvisorPersistedScoresCustom | undefined,
+  key: string,
+  section: string
+) {
+  return scores?.find(
+    (candidate) =>
+      candidate.key === key &&
+      (candidate.section ?? "criterion").trim().toLowerCase() === section
+  );
+}
+
+export function formatRatingAdvisorContributionCustom(value: number) {
+  const ratingPoints = Math.round(value * 10);
+  return ratingPoints > 0 ? `+${ratingPoints}` : ratingPoints.toString();
+}
+
+// Criterion bars (metrics without a bonus/penalty section) shared by the
+// rating hover summary and scene cards.
+export function getRatingAdvisorCriterionSummariesCustom<
+  T extends IRatingAdvisorMetricScaleCustom & { key: string; section?: string }
+>(metrics: readonly T[], scores?: RatingAdvisorPersistedScoresCustom) {
+  return metrics.flatMap((metric) => {
+    if (metric.section) return [];
+    const score = findPersistedScore(scores, metric.key, "criterion");
+    return [
+      {
+        metric,
+        summary: getRatingAdvisorBarSummaryCustom(metric, score?.raw_value),
+      },
+    ];
+  });
+}
+
+// Nonzero bonus and penalty rows, led by the O Count bonus (in rating points),
+// shared by the rating hover summary and scene cards.
+export function getRatingAdvisorAdjustmentSummariesCustom<
+  T extends IRatingAdvisorMetricScaleCustom & {
+    key: string;
+    title: string;
+    section?: "bonus" | "penalty";
+  }
+>(
+  metrics: readonly T[],
+  scores?: RatingAdvisorPersistedScoresCustom,
+  orgasmBonus = 0
+) {
+  const rows = metrics.flatMap((metric) => {
+    const { section } = metric;
+    if (!section) return [];
+
+    const value = normalizeRatingAdvisorPersistedScoreValueCustom(
+      metric,
+      findPersistedScore(scores, metric.key, section)?.raw_value
+    );
+    const contribution =
+      value === undefined
+        ? 0
+        : getRatingAdvisorChoiceScoreCustom(metric, value);
+    return contribution === 0
+      ? []
+      : [
+          {
+            key: metric.key,
+            title: getRatingAdvisorAdjustmentTooltipLabelCustom(
+              metric.key,
+              metric.title
+            ),
+            section,
+            contribution,
+          },
+        ];
+  });
+
+  if (orgasmBonus !== 0) {
+    rows.unshift({
+      key: "orgasm-count-bonus",
+      title: getRatingAdvisorAdjustmentTooltipLabelCustom(
+        "orgasm-count-bonus",
+        "O Count bonus"
+      ),
+      section: "bonus",
+      contribution: orgasmBonus / 10,
+    });
+  }
+
+  return rows;
 }

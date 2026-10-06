@@ -44,14 +44,27 @@ func stashDBMatchesCustom(endpoint string, fingerprints []*graphql.FingerprintFr
 
 type stashDBMatchSceneCustom struct {
 	Deleted      bool
-	Fingerprints []*graphql.FingerprintFragment
+	Fingerprints []*stashDBMatchFingerprintCustom
+}
+
+type stashDBMatchFingerprintCustom struct {
+	Algorithm     graphql.FingerprintAlgorithm
+	Submissions   int
+	UserSubmitted bool `json:"user_submitted" graphql:"user_submitted"`
+}
+
+// StashDBMatchCustom includes the authenticated account's PHASH submission
+// status, independently of how many users submitted the scene's fingerprints.
+type StashDBMatchCustom struct {
+	Matches   int
+	Submitted bool
 }
 
 // FindStashDBMatchesCustom looks up several scenes in one request with aliased
-// findScene queries that only select fingerprint submissions. The result is
+// findScene queries that select counts and the current user's submissions. The result is
 // keyed by stash ID; missing and deleted scenes are omitted.
-func (c Client) FindStashDBMatchesCustom(ctx context.Context, stashIDs []string) (map[string]int, error) {
-	ret := make(map[string]int, len(stashIDs))
+func (c Client) FindStashDBMatchesCustom(ctx context.Context, stashIDs []string) (map[string]StashDBMatchCustom, error) {
+	ret := make(map[string]StashDBMatchCustom, len(stashIDs))
 	if len(stashIDs) == 0 {
 		return ret, nil
 	}
@@ -64,7 +77,7 @@ func (c Client) FindStashDBMatchesCustom(ctx context.Context, stashIDs []string)
 	for i, id := range stashIDs {
 		alias := fmt.Sprintf("s%d", i)
 		params[i] = fmt.Sprintf("$%s: ID!", alias)
-		selections[i] = fmt.Sprintf("%s: findScene(id: $%s) { deleted fingerprints { algorithm submissions } }", alias, alias)
+		selections[i] = fmt.Sprintf("%s: findScene(id: $%s) { deleted fingerprints { algorithm submissions user_submitted } }", alias, alias)
 		vars[alias] = id
 		fields[i] = reflect.StructField{
 			Name: fmt.Sprintf("S%d", i),
@@ -83,7 +96,14 @@ func (c Client) FindStashDBMatchesCustom(ctx context.Context, stashIDs []string)
 		if scene == nil || scene.Deleted {
 			continue
 		}
-		ret[id] = phashSubmissionsCustom(scene.Fingerprints)
+		var match StashDBMatchCustom
+		for _, fp := range scene.Fingerprints {
+			if fp != nil && fp.Algorithm == graphql.FingerprintAlgorithmPhash {
+				match.Matches += fp.Submissions
+				match.Submitted = match.Submitted || fp.UserSubmitted
+			}
+		}
+		ret[id] = match
 	}
 	return ret, nil
 }

@@ -58,14 +58,16 @@ const ratingStylesSource = readFileSync(
   "utf8"
 );
 
-test("scene cards place objective activity icons after the date", () => {
+test("scene cards place the activity bar and criteria after the date", () => {
   const detailsStart = cardSource.indexOf('className="scene-card__details"');
   const dateIndex = cardSource.indexOf("scene-card__date", detailsStart);
-  const metricsIndex = cardSource.indexOf("<SceneActivityMetrics", dateIndex);
+  const barIndex = cardSource.indexOf("<SceneActivityBar", dateIndex);
+  const criteriaIndex = cardSource.indexOf("<SceneRatingStrip", barIndex);
 
   assert.ok(detailsStart >= 0);
   assert.ok(dateIndex > detailsStart);
-  assert.ok(metricsIndex > dateIndex);
+  assert.ok(barIndex > dateIndex);
+  assert.ok(criteriaIndex > barIndex);
 });
 
 test("scene card popovers render below scene insights", () => {
@@ -82,12 +84,12 @@ test("scene card popovers render below scene insights", () => {
   assert.ok(popoversIndex > insightsIndex);
 });
 
-test("scene details place activity boxes below the title and above metadata", () => {
+test("scene details place the activity bar below the title and above metadata", () => {
   const headerStart = detailSource.indexOf(
     'className="scene-header-container"'
   );
   const metricsIndex = detailSource.indexOf(
-    "<SceneActivityMetrics",
+    "<SceneDetailActivityBar",
     headerStart
   );
   const metadataIndex = detailSource.indexOf(
@@ -121,7 +123,8 @@ test("activity boxes expose named tooltips and objective distribution bars", () 
   );
   assert.match(
     metricsSource,
-    /<strong>\{formatMetricValue\(metric\)\}<\/strong>/
+    /<strong>\s*\{compact \? `\$\{metric\.percent\}%` : formatMetricValue\(metric\)\}\s*<\/strong>/,
+    "boxes show percent and duration; the compact legend shows percent only"
   );
   assert.match(metricsSource, /aria-label=\{tooltip\}/);
   assert.match(metricsSource, /aria-hidden="true"/);
@@ -133,9 +136,7 @@ test("activity boxes expose named tooltips and objective distribution bars", () 
   );
   assert.match(metricsSource, /role="img"/);
   assert.match(metricsSource, /metric\.showPercent !== false/);
-  assert.match(cardSource, /showDistributionBars/);
   assert.match(aggregateStatsSource, /<SceneActivityMetrics/);
-  assert.match(aggregateStatsSource, /showDistributionBars/);
   assert.doesNotMatch(aggregateStatsSource, /ActivityPieChart/);
   const overviewRenderer = sceneStatsSource.slice(
     sceneStatsSource.indexOf("function renderOverviewPanel"),
@@ -151,9 +152,12 @@ test("activity boxes expose named tooltips and objective distribution bars", () 
   );
   assert.match(
     metricsSource,
-    /const qualityMetrics = activityMetrics\.quality\.filter/
+    /const qualityMetrics =\s*only === "activity" \? \[\] : activityMetrics\.quality\.filter/
   );
-  assert.match(metricsSource, /\(metric\) => \(metric\.duration \?\? 0\) > 0/);
+  assert.match(
+    metricsSource,
+    /\(metric\.duration \?\? 0\) > 0 && \(!compact \|\| metric\.showPercent !== false\)/
+  );
   assert.match(metricsSource, /gaySvg/);
   assert.match(metricsSource, /mouthSvg/);
   assert.match(metricsSource, /faHand/);

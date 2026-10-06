@@ -502,14 +502,14 @@ export const SceneRatingCriteriaCriterionOption =
         choices: energyChoices,
       },
       {
-        key: "payoff",
-        label: "Standard Orgasm Quality",
-        choices: payoffChoices,
-      },
-      {
         key: "standout",
         label: "Standard Usable Factor",
         choices: usableFactorChoices,
+      },
+      {
+        key: "payoff",
+        label: "Standard Orgasm Quality",
+        choices: payoffChoices,
       },
       {
         key: GROUP_SCENE_RATING_KEYS_CUSTOM.criteria.topAttractiveness,
@@ -522,14 +522,14 @@ export const SceneRatingCriteriaCriterionOption =
         choices: groupEnergyCoordinationChoices,
       },
       {
-        key: GROUP_SCENE_RATING_KEYS_CUSTOM.criteria.payoff,
-        label: "Group Orgasm Quality",
-        choices: payoffChoices,
-      },
-      {
         key: GROUP_SCENE_RATING_KEYS_CUSTOM.criteria.usability,
         label: "Group Usability",
         choices: usableFactorChoices,
+      },
+      {
+        key: GROUP_SCENE_RATING_KEYS_CUSTOM.criteria.payoff,
+        label: "Group Orgasm Quality",
+        choices: payoffChoices,
       },
       {
         key: SOLO_SCENE_RATING_KEYS_CUSTOM.attractiveness,

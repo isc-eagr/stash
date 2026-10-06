@@ -24,3 +24,16 @@ CREATE TABLE IF NOT EXISTS stashdb_matches_refresh_changes (
   current INTEGER NOT NULL,
   FOREIGN KEY(scene_id) REFERENCES scenes(id) ON DELETE CASCADE
 );
+
+-- Account submission checks; empty until a refresh with this version runs.
+CREATE TABLE IF NOT EXISTS stashdb_matches_refresh_submission_check (
+  id INTEGER PRIMARY KEY CHECK(id = 1),
+  endpoint TEXT NOT NULL,
+  FOREIGN KEY(id) REFERENCES stashdb_matches_refresh_report(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS stashdb_matches_refresh_unsubmitted (
+  scene_id INTEGER PRIMARY KEY,
+  stash_id TEXT NOT NULL,
+  matches INTEGER NOT NULL CHECK(matches >= 0),
+  FOREIGN KEY(scene_id) REFERENCES scenes(id) ON DELETE CASCADE
+);

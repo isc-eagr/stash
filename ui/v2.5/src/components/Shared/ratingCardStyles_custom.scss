@@ -504,7 +504,8 @@
     text-shadow: 0 0 5px rgba(var(--rating-card-accent-rgb), 0.2);
   }
 
-  .scene-activity-metrics .scene-activity-metric__svg {
+  .scene-activity-metrics .scene-activity-metric__svg,
+  .scene-activity-bar__svg {
     filter: var(--rating-card-icon-filter)
       drop-shadow(0 0 5px rgba(var(--rating-card-accent-rgb), 0.28)) !important;
     -webkit-filter: var(--rating-card-icon-filter)
@@ -1477,7 +1478,8 @@ html.application-theme-masculine-black
     color: rgb(var(--rating-card-text-rgb)) !important;
   }
 
-  .scene-activity-metric__svg {
+  .scene-activity-metric__svg,
+  .scene-activity-bar__svg {
     filter: var(--rating-card-icon-filter) !important;
     -webkit-filter: var(--rating-card-icon-filter) !important;
   }

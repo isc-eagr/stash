@@ -19,65 +19,6 @@
     }
   }
 
-  /* CUSTOM: begin - studio activity duration metrics */
-  .studio-activity-metrics {
-    align-items: center;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    justify-content: center;
-    margin: -0.15rem 0 0.35rem;
-    padding: 0 0.25rem;
-  }
-
-  .studio-activity-metrics__row {
-    align-items: center;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    justify-content: center;
-  }
-
-  .studio-activity-metric {
-    align-items: center;
-    background-color: transparent;
-    border-radius: 0;
-    color: $text-color;
-    display: inline-flex;
-    font-size: inherit;
-    font-weight: 400;
-    gap: 0.25rem;
-    line-height: 1;
-    min-height: 0;
-    padding: 0;
-  }
-
-  .studio-activity-metric__svg {
-    display: inline-block;
-    filter: brightness(0) invert(1);
-    height: 1em;
-    width: 1em;
-  }
-
-  .studio-activity-metric__hand {
-    font-size: 0.95em;
-    transform: rotate(-45deg);
-  }
-
-  .studio-activity-metric__other,
-  .studio-activity-metric__outstanding,
-  .studio-activity-metric__standard,
-  .studio-activity-metric__unclassified,
-  .studio-activity-metric__unusable {
-    font-size: 0.95em;
-  }
-
-  .studio-activity-metric__unclassified {
-    color: $text-muted;
-  }
-
-  /* CUSTOM: end */
-
   &:hover button.btn.favorite-button.not-favorite {
     opacity: 1;
   }
@@ -190,49 +131,26 @@
   }
 }
 
+/* Activity Type bar in the card details, full width with a one-line legend. */
+.studio-card .studio-card-activity {
+  margin-top: 0.4rem;
+  width: 100%;
+
+  .scene-activity-metrics__group {
+    padding: 0.4rem 0.5rem;
+  }
+
+  .scene-activity-metrics__row {
+    flex-wrap: nowrap;
+    justify-content: space-between;
+  }
+}
+
 .studio-activity-popover {
-  max-width: min(92vw, 32rem);
+  width: min(92vw, 22rem);
 
   .studio-activity-popover-card {
-    padding: 0.85rem 1rem;
-  }
-
-  .studio-activity-metrics {
-    display: flex;
-    flex-direction: column;
-    gap: 0.85rem;
-  }
-
-  .studio-activity-metrics__group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.45rem;
-  }
-
-  .studio-activity-metrics__heading {
-    font-size: 0.82rem;
-  }
-
-  .studio-activity-metrics__row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.8rem;
-  }
-
-  .studio-activity-metric {
-    align-items: center;
-    display: inline-flex;
-    gap: 0.25rem;
-  }
-
-  .studio-activity-metric__svg {
-    filter: brightness(0) invert(1);
-    height: 1em;
-    width: 1em;
-  }
-
-  .studio-activity-metric__hand {
-    transform: rotate(-45deg);
+    padding: 0.7rem 0.85rem;
   }
 }
 
@@ -362,7 +280,7 @@
 
   /* CUSTOM: end */
 
-  /* CUSTOM: begin - header activity/quality and rating averages */
+  /* CUSTOM: begin - header activity type and rating averages */
   .studio-head {
     flex-basis: 24rem;
   }
@@ -402,59 +320,26 @@
       }
     }
 
-    .scene-activity-metric--composition,
-    .scene-activity-metric--quality {
+    .scene-activity-metric--composition {
       min-height: 2.4rem;
     }
   }
 
+  /* Scene averages and the vato strip side by side when there is room. */
   .studio-header-ratings {
-    display: grid;
-    gap: 0.5rem;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
-
-  .studio-header-rating {
-    align-items: baseline;
-    background: rgba(0, 0, 0, 0.35);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 0.4rem;
+    align-items: flex-start;
     display: flex;
     flex-wrap: wrap;
-    gap: 0 0.5rem;
-    padding: 0.45rem 0.65rem;
+    gap: 0.75rem;
 
-    strong {
-      font-size: 1.1rem;
-      font-variant-numeric: tabular-nums;
+    .rating-panel {
+      flex: 1 1 22rem;
     }
-  }
 
-  .studio-header-rating-label {
-    color: $text-muted;
-    flex-basis: 100%;
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-
-  .studio-header-rating-count {
-    color: $text-muted;
-    font-size: 0.75rem;
-  }
-
-  .studio-header-rating--main {
-    border-color: rgba(255, 193, 7, 0.45);
-
-    strong {
-      color: #ffc107;
-    }
-  }
-
-  @media (max-width: 576px) {
-    .studio-header-ratings {
-      grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
+    .rating-panel--vato .studio-rating-advisor-section-header h3 {
+      align-items: center;
+      display: inline-flex;
+      gap: 0.4rem;
     }
   }
 

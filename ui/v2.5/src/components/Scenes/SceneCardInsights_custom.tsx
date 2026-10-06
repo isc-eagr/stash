@@ -1,16 +1,14 @@
 import React, { useMemo, useState } from "react";
-import { faTable } from "@fortawesome/free-solid-svg-icons";
 import { Overlay, OverlayTrigger, Popover, Tooltip } from "react-bootstrap";
 import { useConfigurationContext } from "src/hooks/Config";
 import { HoverPopover } from "../Shared/HoverPopover";
-import { Icon } from "../Shared/Icon";
 import {
-  getSceneCardInsightSets,
+  getSceneCardChipInsightSets,
   type ISceneCardInsight,
   type SceneCardInsightPerformerRoleStats,
   type SceneCardInsightScene,
 } from "./sceneCardInsightsData_custom";
-import { OutstandingActivityMatrixModal } from "./OutstandingActivityMatrix_custom";
+import type { SceneCardInsightEvent } from "./sceneCardInsightTypes_custom";
 import { hasSceneCardInsightOverflow } from "./sceneCardInsightSelection_custom";
 import { ActivityTypePerformerTile } from "./SceneDetails/sceneMarkerHoverPopover_custom";
 
@@ -80,10 +78,10 @@ function SceneCardInsightDetail({ detail }: Pick<ISceneCardInsight, "detail">) {
   );
 }
 
-function SceneCardOrgasmFacialPopover({
+export function SceneCardOrgasmFacialPopover({
   events,
 }: {
-  events?: ISceneCardInsight["orgasmFacialEvents"];
+  events: SceneCardInsightEvent[];
 }) {
   const eventNumbers: Record<"orgasm" | "facial", number> = {
     orgasm: 0,
@@ -92,7 +90,7 @@ function SceneCardOrgasmFacialPopover({
 
   return (
     <div className="scene-card-orgasm-facial-events">
-      {(events ?? []).map((event) => {
+      {events.map((event) => {
         eventNumbers[event.category] += 1;
         const isFacial = event.category === "facial";
         const hasPerformers =
@@ -194,28 +192,22 @@ export const SceneCardInsights: React.FC<ISceneCardInsightsProps> = ({
   detailPage,
 }) => {
   const { configuration } = useConfigurationContext();
-  const [showOutstandingActivity, setShowOutstandingActivity] = useState(false);
   const [showAllInsights, setShowAllInsights] = useState(false);
   const [allInsightsTarget, setAllInsightsTarget] =
     useState<HTMLElement | null>(null);
   const [allInsightsPlacement, setAllInsightsPlacement] = useState<
     "top" | "bottom"
   >("bottom");
+  // CUSTOM: scene cards and scene details show the same chip families.
   const insightSets = useMemo(
     () =>
-      getSceneCardInsightSets(
+      getSceneCardChipInsightSets(
         scene,
         configuration?.ui?.roleTagIds,
         configuration?.ui?.sceneCardInsightThresholds,
-        {
-          overrideTagIds: configuration?.ui?.ratingCardOverrideTagIds,
-          thresholds: configuration?.ui?.ratingCardThresholds,
-        },
         roleStatsByPerformer
       ),
     [
-      configuration?.ui?.ratingCardOverrideTagIds,
-      configuration?.ui?.ratingCardThresholds,
       configuration?.ui?.roleTagIds,
       configuration?.ui?.sceneCardInsightThresholds,
       roleStatsByPerformer,
@@ -229,97 +221,14 @@ export const SceneCardInsights: React.FC<ISceneCardInsightsProps> = ({
   );
 
   const renderInsightChip = (insight: ISceneCardInsight) => {
-    const opensActivityMatrix = !!insight.opensActivityMatrix;
-    const hasOrgasmFacialEvents = insight.orgasmFacialEvents !== undefined;
-    const orgasmFacialEventCount = insight.orgasmFacialEvents?.length ?? 0;
-    const ariaLabel = hasOrgasmFacialEvents
-      ? `${insight.label}: event performers and quality.`
-      : `${insight.label}: ${insight.detail}`;
-
     const chip = (
       <SceneCardInsightChip
-        ariaLabel={
-          opensActivityMatrix
-            ? `${ariaLabel}. Open activity matrix.`
-            : ariaLabel
-        }
-        className={
-          opensActivityMatrix
-            ? "scene-card-insight-clickable"
-            : insight.key === "orgasm-facial-report"
-            ? `scene-card-insight-orgasm-facial-report${
-                insight.hasGoatEvent ? " scene-card-insight-event-goat" : ""
-              }`
-            : undefined
-        }
-        label={
-          <>
-            {insight.label}
-            {opensActivityMatrix && (
-              <Icon
-                aria-hidden="true"
-                className="scene-card-insight-modal-icon"
-                icon={faTable}
-              />
-            )}
-          </>
-        }
-        onClick={
-          opensActivityMatrix
-            ? (event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                setShowAllInsights(false);
-                setShowOutstandingActivity(true);
-              }
-            : undefined
-        }
-        onKeyDown={
-          opensActivityMatrix
-            ? (event) => {
-                if (event.key !== "Enter" && event.key !== " ") return;
-                event.preventDefault();
-                event.stopPropagation();
-                setShowAllInsights(false);
-                setShowOutstandingActivity(true);
-              }
-            : undefined
-        }
-        role={opensActivityMatrix ? "button" : undefined}
+        ariaLabel={`${insight.label}: ${insight.detail}`}
+        label={insight.label}
         tabIndex={0}
         tone={insight.tone}
       />
     );
-
-    if (hasOrgasmFacialEvents) {
-      return (
-        <HoverPopover
-          key={insight.key}
-          className="scene-card-insight-hover-popover"
-          content={
-            <div
-              className="scene-marker-highlight-popover-card"
-              data-hover-popover-measure="true"
-            >
-              <SceneCardOrgasmFacialPopover
-                events={insight.orgasmFacialEvents}
-              />
-            </div>
-          }
-          estimatedContentHeight={520}
-          placement="bottom"
-          popoverClassName={`scene-marker-highlight-popover scene-card-performer-popover scene-card-insight-event-popover scene-card-insight-event-popover-${
-            orgasmFacialEventCount === 1
-              ? "single"
-              : orgasmFacialEventCount === 2
-              ? "double"
-              : "multiple"
-          }`}
-        >
-          {chip}
-        </HoverPopover>
-      );
-    }
 
     const { performerPreviews } = insight;
     if (performerPreviews) {
@@ -407,11 +316,6 @@ export const SceneCardInsights: React.FC<ISceneCardInsightsProps> = ({
           <Popover.Content>{popup}</Popover.Content>
         </Popover>
       </Overlay>
-      <OutstandingActivityMatrixModal
-        matrix={insightSets.outstandingActivityMatrix}
-        onHide={() => setShowOutstandingActivity(false)}
-        show={showOutstandingActivity}
-      />
     </>
   );
 };

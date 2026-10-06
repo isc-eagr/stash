@@ -145,7 +145,8 @@ export const SceneWallItem: React.FC<
         />
       )}
       {video ? (
-        <video {...previewProps} ref={videoEl} />
+        // CUSTOM: hide browser PiP hover buttons on previews.
+        <video {...previewProps} ref={videoEl} disablePictureInPicture />
       ) : (
         <img {...previewProps} loading="lazy" />
       )}
@@ -170,7 +171,12 @@ export const SceneWallItem: React.FC<
             )}
             <TruncatedText text={performers.join(", ")} />
             <div>
-              {(scene.effective_date ?? scene.date) && TextUtils.formatFuzzyDate(intl, (scene.effective_date ?? scene.date)!)} {/* CUSTOM */}
+              {(scene.effective_date ?? scene.date) &&
+                TextUtils.formatFuzzyDate(
+                  intl,
+                  (scene.effective_date ?? scene.date)!
+                )}{" "}
+              {/* CUSTOM */}
             </div>
           </Link>
         </footer>

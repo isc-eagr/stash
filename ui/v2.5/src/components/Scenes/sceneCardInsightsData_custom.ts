@@ -919,26 +919,27 @@ function getOrgasmAutomaticCandidates(
   return candidates.sort(compareSceneCardInsightCandidates);
 }
 
-function getEventReportCandidates(
+function getOrgasmFacialMarkers(
   scene: SceneCardInsightScene,
   roleTagIds: IUIConfig["roleTagIds"]
-): InsightCandidate[] {
-  const sceneDuration = scene.files[0]?.duration ?? 0;
-  const countableMarkers = scene.scene_markers.filter(
-    (marker) => !markerHasConfiguredTag(marker, roleTagIds?.secondCameraTagId)
-  );
+) {
   // CUSTOM: Facial markers belong to their own section, even when the Facial
   // family is a descendant of the configured Orgasm family.
-  const markers = countableMarkers
+  return scene.scene_markers
     .filter(
       (marker) =>
-        markerHasConfiguredTag(marker, roleTagIds?.facialTagId) ||
-        markerHasConfiguredTag(marker, roleTagIds?.orgasmTagId)
+        !markerHasConfiguredTag(marker, roleTagIds?.secondCameraTagId) &&
+        (markerHasConfiguredTag(marker, roleTagIds?.facialTagId) ||
+          markerHasConfiguredTag(marker, roleTagIds?.orgasmTagId))
     )
     .sort((a, b) => a.seconds - b.seconds || a.id.localeCompare(b.id));
-  if (markers.length === 0) return [];
+}
 
-  const events: SceneCardInsightEvent[] = markers.flatMap((marker) => {
+function getOrgasmFacialMarkerEvents(
+  markers: SceneCardInsightMarker[],
+  roleTagIds: IUIConfig["roleTagIds"]
+): SceneCardInsightEvent[] {
+  return markers.flatMap((marker) => {
     const category: EventCategory = markerHasConfiguredTag(
       marker,
       roleTagIds?.facialTagId
@@ -962,6 +963,79 @@ function getEventReportCandidates(
       ...(quality ? { quality } : {}),
     }));
   });
+}
+
+// CUSTOM: one event per top performer on each Orgasm or Facial marker
+// (including subtags), shared by the report chip and the scene card icons.
+export function getSceneOrgasmFacialEvents(
+  scene: SceneCardInsightScene,
+  roleTagIds: IUIConfig["roleTagIds"]
+) {
+  const sceneWithAncestors = withSceneTagAncestors(scene);
+  return getOrgasmFacialMarkerEvents(
+    getOrgasmFacialMarkers(sceneWithAncestors, roleTagIds),
+    roleTagIds
+  );
+}
+
+export interface ISceneGoatMomentCustom {
+  id: string;
+  label: string;
+  seconds: number;
+  endSeconds?: number;
+  topPerformers: SceneCardInsightPerformer[];
+  bottomPerformers: SceneCardInsightPerformer[];
+}
+
+// CUSTOM: GOAT markers other than orgasms and facials (the orgasm report
+// already shows those), excluding 2nd camera, and their combined time.
+export function getSceneGoatMomentsCustom(
+  scene: SceneCardInsightScene,
+  roleTagIds: IUIConfig["roleTagIds"]
+) {
+  const sceneWithAncestors = withSceneTagAncestors(scene);
+  const markers = sceneWithAncestors.scene_markers
+    .filter(
+      (marker) =>
+        markerHasConfiguredTag(marker, roleTagIds?.goatTagId) &&
+        !markerHasConfiguredTag(marker, roleTagIds?.secondCameraTagId) &&
+        !allMarkerTags(marker).some((tag) =>
+          eventCategoryForTag(tag, roleTagIds)
+        )
+    )
+    .sort((a, b) => a.seconds - b.seconds || a.id.localeCompare(b.id));
+  const moments: ISceneGoatMomentCustom[] = markers.map((marker) => {
+    const names = Array.from(
+      new Set(
+        allMarkerTags(marker)
+          .filter((tag) => !tagIsQualifier(tag, roleTagIds))
+          .map(displayTagName)
+      )
+    );
+    return {
+      id: marker.id,
+      label: joinInsightNames(names) || "GOAT moment",
+      seconds: marker.seconds,
+      endSeconds: marker.end_seconds ?? undefined,
+      topPerformers: marker.top_performers ?? [],
+      bottomPerformers: marker.bottom_performers ?? [],
+    };
+  });
+  return {
+    duration: markerStats(markers, scene.files[0]?.duration ?? 0).duration,
+    moments,
+  };
+}
+
+function getEventReportCandidates(
+  scene: SceneCardInsightScene,
+  roleTagIds: IUIConfig["roleTagIds"]
+): InsightCandidate[] {
+  const sceneDuration = scene.files[0]?.duration ?? 0;
+  const markers = getOrgasmFacialMarkers(scene, roleTagIds);
+  if (markers.length === 0) return [];
+
+  const events = getOrgasmFacialMarkerEvents(markers, roleTagIds);
   const stats = markerStats(markers, sceneDuration);
   const label = eventReportLabel(events);
   const regularEvents = events.filter((event) => event.category === "orgasm");
@@ -1049,8 +1123,6 @@ function getEventReportCandidates(
       score: stats.duration * 100 + events.length,
       statsParts: statsParts.map(({ text }) => text),
       statsPartOrder,
-      orgasmFacialEvents: events,
-      ...(goatEvents.length > 0 ? { hasGoatEvent: true } : {}),
     },
   ];
 }
@@ -1128,7 +1200,6 @@ function getAutomaticCandidates(
       detail: markerCoverageDetail(stats),
       tone: "goat",
       kind: "goat",
-      matrixTagIds: parts.map((part) => part.tagID),
       score: stats.duration * 100 + stats.episodes,
     };
   });
@@ -1284,7 +1355,6 @@ function getTagCandidates(
         .join(" · "),
       tone: "tag",
       kind: "outstanding-activity",
-      matrixTagIds: topRows.map((row) => row.tag.id),
       score:
         topRows[0].duration * 10_000 +
         topRows.reduce((total, row) => total + row.markerCount, 0),
@@ -1305,7 +1375,6 @@ function getTagCandidates(
         .join(" · "),
       tone: "tag",
       kind: "outstanding-activity-presence",
-      matrixTagIds: uncommonRows.map((row) => row.tag.id),
       score: uncommonRows.reduce(
         (total, row) => total + row.duration * 100 + row.markerCount,
         0
@@ -1994,6 +2063,43 @@ function getSceneCardInsightCandidates(
   ];
 }
 
+// CUSTOM: scene cards keep only these chip families; scene details show all.
+const sceneCardChipKeyPrefixes = [
+  "rare-oral-top-",
+  "only-scene-",
+  "orgasm-simultaneous",
+  "orgasm-repeat-",
+];
+
+export function getSceneCardChipInsightSets(
+  scene: SceneCardInsightScene,
+  roleTagIds: IUIConfig["roleTagIds"],
+  configuredThresholds?: IUIConfig["sceneCardInsightThresholds"],
+  roleStatsByPerformer?: ReadonlyMap<string, SceneCardInsightPerformerRoleStats>
+) {
+  const thresholds = normalizeSceneCardInsightThresholds(configuredThresholds);
+  const sceneWithAncestors = withSceneTagAncestors(scene);
+  const candidates = [
+    ...getOrgasmAutomaticCandidates(sceneWithAncestors, roleTagIds),
+    ...getPerformerOnlySceneCandidates(scene, roleStatsByPerformer),
+    ...getRareRoleCandidates(
+      sceneWithAncestors,
+      roleTagIds,
+      thresholds,
+      roleStatsByPerformer
+    ),
+  ].filter((candidate) =>
+    sceneCardChipKeyPrefixes.some((prefix) => candidate.key.startsWith(prefix))
+  );
+  return {
+    visible: selectSceneCardInsights(
+      candidates,
+      thresholds.visibleInsightLimit
+    ),
+    all: selectAllSceneCardInsights(candidates),
+  };
+}
+
 export function getSceneCardInsightSets(
   scene: SceneCardInsightScene,
   roleTagIds: IUIConfig["roleTagIds"],
@@ -2012,10 +2118,6 @@ export function getSceneCardInsightSets(
     configuredThresholds,
     includePerformerMatrix // CUSTOM
   );
-  const matrixTagIDs = new Set(
-    outstandingActivityMatrix.rows.map((row) => row.tag.id)
-  );
-  // CUSTOM: A chip opens the matrix only when the matrix shows one of its tags.
   const candidates = getSceneCardInsightCandidates(
     scene,
     roleTagIds,
@@ -2023,10 +2125,6 @@ export function getSceneCardInsightSets(
     ratingConfig,
     roleStatsByPerformer,
     outstandingActivityMatrix
-  ).map((candidate) =>
-    candidate.matrixTagIds?.some((tagID) => matrixTagIDs.has(tagID))
-      ? { ...candidate, opensActivityMatrix: true }
-      : candidate
   );
   return {
     visible: selectSceneCardInsights(

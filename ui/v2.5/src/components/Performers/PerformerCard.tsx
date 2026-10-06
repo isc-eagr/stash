@@ -19,7 +19,7 @@ import GenderIcon from "./GenderIcon";
 import { faLink, faTag } from "@fortawesome/free-solid-svg-icons"; // CUSTOM
 import { faInstagram, faTwitter } from "@fortawesome/free-brands-svg-icons";
 import { RatingBanner } from "../Shared/RatingBanner";
-import { RatingCriteriaTooltip } from "../Shared/RatingAdvisor_custom"; // CUSTOM
+import { RatingCriteriaStrip } from "../Shared/RatingCriteriaStrip_custom"; // CUSTOM
 import { usePerformerUpdate } from "src/core/StashService";
 import { ILabeledId } from "src/models/list-filter/types";
 import { FavoriteIcon } from "../Shared/FavoriteIcon";
@@ -358,22 +358,17 @@ const PerformerCardOverlays: React.FC<IPerformerCardProps> = PatchComponent(
       if (performer.rating100 === undefined || performer.rating100 === null) {
         return;
       }
+      // CUSTOM: the rating criteria strip replaces the hover summary
       return (
-        <RatingCriteriaTooltip
-          entityType="performer"
-          entityId={performer.id}
-          triggerClassName="rating-criteria-tooltip-card-trigger"
-        >
-          <RatingBanner
-            rating={performer.rating100}
-            compact
-            className={catalogCardSortHighlightClassCustom(
-              activeSortBy,
-              "rating"
-            )}
-          />
-        </RatingCriteriaTooltip>
-      ); // CUSTOM
+        <RatingBanner
+          rating={performer.rating100}
+          compact
+          className={catalogCardSortHighlightClassCustom(
+            activeSortBy,
+            "rating"
+          )}
+        />
+      );
     }
 
     function maybeRenderFlag() {
@@ -579,6 +574,16 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
           sortDirection={sortDirection}
         />
 
+        {/* Scene-context cards are too narrow for the criteria strip. */}
+        {!sceneId && (
+          <RatingCriteriaStrip
+            className="rating-criteria-strip--performer-card"
+            entityId={performer.id}
+            entityType="performer"
+            oCount={performer.o_counter}
+            ratingScores={performer.rating_scores}
+          />
+        )}
         {/* Role badges using shared component */}
         <PerformerCategoryStrip
           performer={performer}

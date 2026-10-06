@@ -77,6 +77,8 @@ const Preview: React.FC<{
   const video = (
     <video
       disableRemotePlayback
+      // CUSTOM: hide browser PiP hover buttons on previews.
+      disablePictureInPicture
       playsInline
       src={previews.video}
       poster={previews.image}

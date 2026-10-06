@@ -4,17 +4,27 @@ import { useIntl } from "react-intl";
 import { Link } from "react-router-dom";
 import { Helmet } from "react-helmet";
 import cx from "classnames";
-import { useStashDbMatchesReportQuery } from "src/core/generated-graphql";
+import {
+  StashDbMatchesReportQuery,
+  useStashDbMatchesReportQuery,
+} from "src/core/generated-graphql";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
 import { objectTitle } from "src/core/files";
 import TextUtils from "src/utils/text";
 import {
+  groupStashDBMatchesByStudioCustom,
   sortStashDBMatchesChangesCustom,
   stashDBMatchesDeltaCustom,
   stashDBMatchesDeltaLabelCustom,
+  stashDBReportFingerprintsURLCustom,
 } from "./stashDBMatchesReport_custom";
+import { StashDBMatchesStudioGroup } from "./StashDBMatchesStudioGroup";
 import "./StashDBMatchesReport.scss";
+
+type ReportScene = NonNullable<
+  StashDbMatchesReportQuery["stashDBMatchesReport"]
+>["changes"][number]["scene"];
 
 // CUSTOM: report of the latest StashDB Matches refresh task run.
 const StashDBMatchesReport: React.FC = () => {
@@ -23,11 +33,27 @@ const StashDBMatchesReport: React.FC = () => {
     fetchPolicy: "network-only",
   });
   const report = data?.stashDBMatchesReport;
-  const changes = useMemo(
-    () => sortStashDBMatchesChangesCustom(report?.changes ?? []),
+  const changeGroups = useMemo(
+    () =>
+      groupStashDBMatchesByStudioCustom(
+        sortStashDBMatchesChangesCustom(report?.changes ?? [])
+      ),
+    [report]
+  );
+  const unsubmittedGroups = useMemo(
+    () => groupStashDBMatchesByStudioCustom(report?.unsubmitted ?? []),
     [report]
   );
   const title = `${intl.formatMessage({ id: "stashdb_matches" })} report`;
+
+  function renderScene(scene: ReportScene) {
+    return (
+      <>
+        <Link to={`/scenes/${scene.id}`}>{objectTitle(scene)}</Link>
+        {scene.date && <div className="text-muted small">{scene.date}</div>}
+      </>
+    );
+  }
 
   function renderBody() {
     if (loading) return <LoadingIndicator />;
@@ -47,6 +73,7 @@ const StashDBMatchesReport: React.FC = () => {
       ["Not on StashDB", report.not_found],
       ["Failed", report.failed],
     ];
+    const { endpoint } = report;
 
     return (
       <>
@@ -68,49 +95,106 @@ const StashDBMatchesReport: React.FC = () => {
             </div>
           ))}
         </div>
-        {changes.length === 0 ? (
+        <h3>Changed counts</h3>
+        {changeGroups.length === 0 ? (
           <p className="text-muted">No counts changed.</p>
         ) : (
-          <Table striped size="sm" className="stashdb-matches-report-table">
-            <thead>
-              <tr>
-                <th>{intl.formatMessage({ id: "scene" })}</th>
-                <th className="text-right">Before</th>
-                <th className="text-right">After</th>
-                <th className="text-right">Change</th>
-              </tr>
-            </thead>
-            <tbody>
-              {changes.map((change) => {
-                const delta = stashDBMatchesDeltaCustom(change);
-                const details = [change.scene.studio?.name, change.scene.date]
-                  .filter(Boolean)
-                  .join(" · ");
-                return (
-                  <tr key={change.scene.id}>
-                    <td>
-                      <Link to={`/scenes/${change.scene.id}`}>
-                        {objectTitle(change.scene)}
-                      </Link>
-                      {details && (
-                        <div className="text-muted small">{details}</div>
-                      )}
-                    </td>
-                    <td className="text-right">{change.previous ?? "—"}</td>
-                    <td className="text-right">{change.current}</td>
-                    <td
-                      className={cx("text-right", {
-                        "text-success": change.previous != null && delta > 0,
-                        "text-danger": delta < 0,
-                      })}
-                    >
-                      {stashDBMatchesDeltaLabelCustom(change)}
-                    </td>
+          changeGroups.map((group) => (
+            <StashDBMatchesStudioGroup
+              key={group.id ?? "no-studio"}
+              name={group.name}
+              count={group.entries.length}
+            >
+              <Table striped size="sm" responsive>
+                <thead>
+                  <tr>
+                    <th>{intl.formatMessage({ id: "scene" })}</th>
+                    <th className="text-right">Before</th>
+                    <th className="text-right">After</th>
+                    <th className="text-right">Change</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </Table>
+                </thead>
+                <tbody>
+                  {group.entries.map((change) => {
+                    const delta = stashDBMatchesDeltaCustom(change);
+                    return (
+                      <tr key={change.scene.id}>
+                        <td>{renderScene(change.scene)}</td>
+                        <td className="text-right">{change.previous ?? "—"}</td>
+                        <td className="text-right">{change.current}</td>
+                        <td
+                          className={cx("text-right", {
+                            "text-success":
+                              change.previous != null && delta > 0,
+                            "text-danger": delta < 0,
+                          })}
+                        >
+                          {stashDBMatchesDeltaLabelCustom(change)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </Table>
+            </StashDBMatchesStudioGroup>
+          ))
+        )}
+        <h3 className="mt-4">
+          Not submitted by me
+          {endpoint && ` (${intl.formatNumber(report.unsubmitted.length)})`}
+        </h3>
+        {!endpoint ? (
+          <p className="text-muted">
+            Run a refresh to check your PHASH submissions.
+          </p>
+        ) : (
+          <>
+            <p className="text-muted">
+              No PHASH submitted by the account using your configured StashDB
+              API key.
+            </p>
+            {unsubmittedGroups.length === 0 ? (
+              <p className="text-muted">No unsubmitted scenes found.</p>
+            ) : (
+              unsubmittedGroups.map((group) => (
+                <StashDBMatchesStudioGroup
+                  key={group.id ?? "no-studio"}
+                  name={group.name}
+                  count={group.entries.length}
+                >
+                  <Table striped size="sm" responsive>
+                    <thead>
+                      <tr>
+                        <th>{intl.formatMessage({ id: "scene" })}</th>
+                        <th className="text-right">Matches</th>
+                        <th>StashDB</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {group.entries.map((entry) => (
+                        <tr key={entry.scene.id}>
+                          <td>{renderScene(entry.scene)}</td>
+                          <td className="text-right">{entry.matches}</td>
+                          <td>
+                            <a
+                              href={stashDBReportFingerprintsURLCustom(
+                                endpoint,
+                                entry.stash_id
+                              )}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              Fingerprints
+                            </a>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                </StashDBMatchesStudioGroup>
+              ))
+            )}
+          </>
         )}
       </>
     );

@@ -472,8 +472,8 @@ assert.deepEqual(
   [
     "groupTopAttractiveness",
     "groupEnergy",
-    "groupPayoff",
     "groupUsability",
+    "groupPayoff",
     "rating100",
   ]
 );

@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { OverlayTrigger, Tooltip } from "react-bootstrap";
 import {
   faBan,
@@ -10,36 +10,32 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { Icon } from "src/components/Shared/Icon";
 import { ACTIVITY_PIE_COLORS } from "src/components/Shared/activityColors_custom";
-import { useConfigurationContext } from "src/hooks/Config";
 import mouthSvg from "src/assets/mouth.svg";
 import gaySvg from "src/assets/gay.svg";
-import {
-  getSceneActivityMetrics,
-  type SceneActivityMetric,
-  type SceneActivityMetricRows,
-  type SceneActivityScene,
+import type {
+  SceneActivityMetric,
+  SceneActivityMetricRows,
 } from "./sceneActivityMetricsData_custom";
-import { catalogCardSortHighlightClassCustom } from "../Shared/catalogCardSortHighlight_custom";
 import TextUtils from "src/utils/text";
 import cx from "classnames";
 
 // CUSTOM: scene activity duration metrics and composition bars
 interface ISceneActivityMetricsProps {
-  scene?: SceneActivityScene;
-  sceneId?: string;
+  sceneId: string;
   className?: string;
-  activeSortBy?: string;
   activityMetrics?: SceneActivityMetricRows;
-  showDistributionBars?: boolean;
-  showDistributionLabels?: boolean;
-  hideFullyUnclassifiedQualityBar?: boolean;
+  // Bars with a small legend instead of boxes (studio cards).
+  compact?: boolean;
+  // Just one of the two groups; both by default.
+  only?: "activity" | "quality";
 }
 
 interface ISceneActivityMetricBoxProps {
   sceneId: string;
   metric: SceneActivityMetric;
-  activeSortBy?: string;
   control?: React.ReactNode;
+  // Legend-sized: color dot, icon, and percentage only.
+  compact?: boolean;
 }
 
 const activityMetricKeys = new Set(["sex", "oral", "solo", "other"]);
@@ -54,8 +50,8 @@ function formatMetricValue(metric: SceneActivityMetric) {
 export const SceneActivityMetricBox: React.FC<ISceneActivityMetricBoxProps> = ({
   sceneId,
   metric,
-  activeSortBy,
   control,
+  compact = false,
 }) => {
   const isActivity = activityMetricKeys.has(metric.key);
   const tooltip =
@@ -123,28 +119,43 @@ export const SceneActivityMetricBox: React.FC<ISceneActivityMetricBoxProps> = ({
         className={cx(
           "scene-activity-metric",
           "scene-activity-metric--" + metric.key,
-          isActivity && "scene-activity-metric--composition",
-          !isActivity && "scene-activity-metric--quality",
-          catalogCardSortHighlightClassCustom(
-            activeSortBy,
-            metric.key + "_activity_percent"
-          )
+          compact
+            ? "scene-activity-metric--compact"
+            : isActivity
+            ? "scene-activity-metric--composition"
+            : "scene-activity-metric--quality"
         )}
         aria-label={tooltip}
         role="group"
       >
+        {compact && (
+          <span
+            aria-hidden="true"
+            className="scene-activity-metric__swatch"
+            style={{
+              backgroundColor: getMetricColor(metric, ACTIVITY_PIE_COLORS.solo),
+            }}
+          />
+        )}
         {isActivity ? activityIcon : qualityIcon}
         <span className="scene-activity-metric__copy">
-          <strong>{formatMetricValue(metric)}</strong>
-          {isActivity && metric.outstandingPercent !== undefined && (
-            <small className="scene-activity-metric__outstanding-copy">
-              <Icon icon={faStar} aria-hidden="true" />
-              <span>
-                {metric.outstandingPercent}% (
-                {TextUtils.secondsToTimestamp(metric.outstandingDuration ?? 0)})
-              </span>
-            </small>
-          )}
+          <strong>
+            {compact ? `${metric.percent}%` : formatMetricValue(metric)}
+          </strong>
+          {!compact &&
+            isActivity &&
+            metric.outstandingPercent !== undefined && (
+              <small className="scene-activity-metric__outstanding-copy">
+                <Icon icon={faStar} aria-hidden="true" />
+                <span>
+                  {metric.outstandingPercent}% (
+                  {TextUtils.secondsToTimestamp(
+                    metric.outstandingDuration ?? 0
+                  )}
+                  )
+                </span>
+              </small>
+            )}
         </span>
         {control}
       </div>
@@ -203,64 +214,51 @@ function renderDistributionBar(
   );
 }
 
+// Aggregate Activity Type and Quality boxes with their distribution bars.
 export const SceneActivityMetrics: React.FC<ISceneActivityMetricsProps> = ({
-  scene,
   sceneId,
   className,
-  activeSortBy,
-  activityMetrics: suppliedActivityMetrics,
-  showDistributionBars = false,
-  showDistributionLabels = true,
-  hideFullyUnclassifiedQualityBar = false,
+  activityMetrics,
+  compact = false,
+  only,
 }) => {
-  const { configuration } = useConfigurationContext();
-  const computedActivityMetrics = useMemo(
-    () =>
-      suppliedActivityMetrics || !scene
-        ? undefined
-        : getSceneActivityMetrics(scene, configuration?.ui?.roleTagIds ?? {}),
-    [configuration?.ui?.roleTagIds, scene, suppliedActivityMetrics]
-  );
-  const activityMetrics = suppliedActivityMetrics ?? computedActivityMetrics;
-  const resolvedSceneId = scene?.id ?? sceneId ?? "aggregate";
   const soloColor = ACTIVITY_PIE_COLORS.solo;
 
   if (!activityMetrics) return null;
 
-  const qualityMetrics = activityMetrics.quality.filter(
-    (metric) => (metric.duration ?? 0) > 0
-  );
-  const isFullyUnclassified =
-    qualityMetrics.length === 1 && qualityMetrics[0].key === "unclassified";
-  const visibleActivityMetrics = activityMetrics.activity.filter(
-    (metric) => (metric.duration ?? 0) > 0
-  );
+  // The compact legend only lists what the bars draw.
+  const isShown = (metric: SceneActivityMetric) =>
+    (metric.duration ?? 0) > 0 && (!compact || metric.showPercent !== false);
+  const qualityMetrics =
+    only === "activity" ? [] : activityMetrics.quality.filter(isShown);
+  const visibleActivityMetrics =
+    only === "quality" ? [] : activityMetrics.activity.filter(isShown);
 
   return (
-    <div className={cx("scene-activity-metrics", className)}>
+    <div
+      className={cx(
+        "scene-activity-metrics",
+        compact && "scene-activity-metrics--compact",
+        className
+      )}
+    >
       {visibleActivityMetrics.length > 0 && (
         <div className="scene-activity-metrics__group scene-activity-metrics__group--composition">
-          {showDistributionBars && (
-            <>
-              {showDistributionLabels && (
-                <div className="scene-activity-metrics__group-label">
-                  Activity Type
-                </div>
-              )}
-              {renderDistributionBar(
-                "Activity Type",
-                visibleActivityMetrics,
-                soloColor
-              )}
-            </>
+          <div className="scene-activity-metrics__group-label">
+            Activity Type
+          </div>
+          {renderDistributionBar(
+            "Activity Type",
+            visibleActivityMetrics,
+            soloColor
           )}
           <div className="scene-activity-metrics__row scene-activity-metrics__row--composition">
             {visibleActivityMetrics.map((metric) => (
               <SceneActivityMetricBox
-                activeSortBy={activeSortBy}
+                compact={compact}
                 key={metric.key}
                 metric={metric}
-                sceneId={resolvedSceneId}
+                sceneId={sceneId}
               />
             ))}
           </div>
@@ -268,24 +266,15 @@ export const SceneActivityMetrics: React.FC<ISceneActivityMetricsProps> = ({
       )}
       {qualityMetrics.length > 0 && (
         <div className="scene-activity-metrics__group scene-activity-metrics__group--quality">
-          {showDistributionBars && (
-            <>
-              {showDistributionLabels && (
-                <div className="scene-activity-metrics__group-label">
-                  Quality
-                </div>
-              )}
-              {!(hideFullyUnclassifiedQualityBar && isFullyUnclassified) &&
-                renderDistributionBar("Quality", qualityMetrics, soloColor)}
-            </>
-          )}
+          <div className="scene-activity-metrics__group-label">Quality</div>
+          {renderDistributionBar("Quality", qualityMetrics, soloColor)}
           <div className="scene-activity-metrics__row scene-activity-metrics__row--quality">
             {qualityMetrics.map((metric) => (
               <SceneActivityMetricBox
-                activeSortBy={activeSortBy}
+                compact={compact}
                 key={metric.key}
                 metric={metric}
-                sceneId={resolvedSceneId}
+                sceneId={sceneId}
               />
             ))}
           </div>

@@ -1,9 +1,20 @@
 import React from "react";
+import { faFilm, faUser } from "@fortawesome/free-solid-svg-icons";
 import { ActivityStatsCharts } from "src/components/Shared/ActivityStatsCharts_custom";
+import { Icon } from "src/components/Shared/Icon";
 import * as GQL from "src/core/generated-graphql";
-import { getStudioHeaderRatingTilesCustom } from "./studioHeaderInsights_custom";
+import {
+  StudioRatingAdvisorSection,
+  studioRatingAdvisorSectionDefinitions,
+} from "./StudioRatingAdvisorStats";
+import {
+  formatStudioHeaderRatingCustom,
+  getStudioHeaderRatingPanelsCustom,
+} from "./studioHeaderInsights_custom";
 
-// CUSTOM: Activity & Quality boxes and rating averages in the studio header.
+// CUSTOM: Activity Type boxes and Rating Advisor averages in the studio
+// header. Scene rubrics share a blue panel; the vato strip has a gold edge.
+// Quality lives in the Scene Stats tab.
 interface IProps {
   studio: GQL.StudioDetailDataFragment;
   includeChildStudios: boolean;
@@ -20,43 +31,65 @@ export const StudioHeaderInsights: React.FC<IProps> = ({
   const { data } = GQL.useFindStudioRatingAdvisorStatsQuery({
     variables: { id: studio.id, depth: includeChildStudios ? -1 : 0 },
   });
-  const ratingTiles = getStudioHeaderRatingTilesCustom(
-    data?.findStudio?.studio_rating_advisor_stats
-  );
+  const stats = data?.findStudio?.studio_rating_advisor_stats;
+  const { sceneKeys, showVatos } = getStudioHeaderRatingPanelsCustom(stats);
+  const definition = (key: string) =>
+    studioRatingAdvisorSectionDefinitions.find((d) => d.key === key)!;
 
   const hasActivity = !!activity && activity.total_seconds > 0;
-  if (!hasActivity && ratingTiles.length === 0) return null;
+  const hasRatings = sceneKeys.length > 0 || showVatos;
+  if (!hasActivity && !hasRatings) return null;
 
   return (
     <div className="studio-header-insights">
       {hasActivity && (
         <ActivityStatsCharts
           className="studio-header-activity"
+          only="activity"
           stats={activity}
         />
       )}
-      {ratingTiles.length > 0 && (
+      {stats && hasRatings && (
         <div className="studio-header-ratings">
-          {ratingTiles.map((tile) => (
-            <div
-              className={
-                "studio-header-rating" +
-                (tile.highlight ? " studio-header-rating--main" : "")
-              }
-              key={tile.key}
-              title={
-                tile.count === undefined
-                  ? undefined
-                  : `${tile.count} rated ${tile.noun}`
-              }
+          {sceneKeys.length > 0 && (
+            <section
+              aria-label="Scene rating averages"
+              className="rating-panel rating-panel--scenes"
             >
-              <span className="studio-header-rating-label">{tile.label}</span>
-              <strong>{tile.value}</strong>
-              {!!tile.count && (
-                <span className="studio-header-rating-count">{tile.count}</span>
-              )}
-            </div>
-          ))}
+              <h4 className="rating-panel__title">
+                <Icon icon={faFilm} />
+                Scene averages
+                <strong title="Overall scene rating">
+                  {formatStudioHeaderRatingCustom(
+                    stats.overall_scene_average_rating100
+                  )}
+                  /100
+                </strong>
+              </h4>
+              <div className="rating-panel__sections">
+                {sceneKeys.map((key) => (
+                  <StudioRatingAdvisorSection
+                    definition={definition(key)}
+                    key={key}
+                    stats={stats[key]}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+          {showVatos && (
+            <StudioRatingAdvisorSection
+              className="rating-panel rating-panel--vato"
+              definition={definition("performers")}
+              stats={stats.performers}
+              title={
+                <>
+                  <Icon icon={faUser} />
+                  Vato averages
+                </>
+              }
+            />
+          )}
         </div>
       )}
     </div>

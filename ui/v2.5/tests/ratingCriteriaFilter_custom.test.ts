@@ -23,7 +23,8 @@ assert.deepEqual(
   sceneCriteria
     .filter((definition) => definition.key.startsWith("group"))
     .map((definition) => definition.key),
-  ["groupTopAttractiveness", "groupEnergy", "groupPayoff", "groupUsability"]
+  ["groupTopAttractiveness", "groupEnergy", "groupUsability", "groupPayoff"],
+  "Orgasm is always the last criterion"
 );
 assert.deepEqual(
   sceneBonuses

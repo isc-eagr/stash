@@ -26,3 +26,44 @@ export function sortStashDBMatchesChangesCustom<
       b.current - a.current
   );
 }
+
+interface IStashDBMatchesStudioEntryCustom {
+  scene: {
+    studio?: { id: string; name: string } | null;
+  };
+}
+
+// Group by ID so studios with the same name remain separate. Preserve row order.
+export function groupStashDBMatchesByStudioCustom<
+  T extends IStashDBMatchesStudioEntryCustom
+>(entries: readonly T[]) {
+  const groups = new Map<
+    string | null,
+    { id: string | null; name: string; entries: T[] }
+  >();
+  entries.forEach((entry) => {
+    const { studio } = entry.scene;
+    const id = studio?.id ?? null;
+    const group = groups.get(id) ?? {
+      id,
+      name: studio?.name ?? "No studio",
+      entries: [],
+    };
+    group.entries.push(entry);
+    groups.set(id, group);
+  });
+  return Array.from(groups.values()).sort((a, b) => {
+    if (a.id === null) return 1;
+    if (b.id === null) return -1;
+    return a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
+  });
+}
+
+export function stashDBReportFingerprintsURLCustom(
+  endpoint: string,
+  stashID: string
+) {
+  return `${new URL(endpoint).origin}/scenes/${encodeURIComponent(
+    stashID
+  )}#fingerprints`;
+}

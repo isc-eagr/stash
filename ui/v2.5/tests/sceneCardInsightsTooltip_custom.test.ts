@@ -8,6 +8,13 @@ const insightsSource = readFileSync(
   ),
   "utf8"
 );
+const orgasmReportSource = readFileSync(
+  new URL(
+    "../src/components/Scenes/SceneCardOrgasmReport_custom.tsx",
+    import.meta.url
+  ),
+  "utf8"
+);
 const hoverPopoverSource = readFileSync(
   new URL("../src/components/Shared/HoverPopover.tsx", import.meta.url),
   "utf8"
@@ -34,8 +41,13 @@ assert.match(
 );
 assert.match(
   insightsSource,
-  /getSceneCardInsightSets/,
-  "the insight strip should retain both visible and complete insight sets"
+  /getSceneCardChipInsightSets\(/,
+  "scene cards and scene details share the same chip families"
+);
+assert.doesNotMatch(
+  insightsSource,
+  /getSceneCardInsightSets|opensActivityMatrix|OutstandingActivityMatrixModal/,
+  "chips no longer open the activity matrix; it lives in the Stats tab"
 );
 assert.match(
   insightsSource,
@@ -79,27 +91,22 @@ assert.match(
   "individual chips should retain their hover tooltips"
 );
 assert.match(
-  insightsSource,
-  /insight\.orgasmFacialEvents !== undefined/,
-  "the combined report should open a performer event popover"
+  orgasmReportSource,
+  /<SceneCardOrgasmFacialPopover events=\{events\} \/>/,
+  "the orgasm report should render every orgasm and facial event"
 );
 assert.match(
-  insightsSource,
-  /<SceneCardOrgasmFacialPopover[\s\S]*?events=\{insight\.orgasmFacialEvents\}/,
-  "the combined report should render every orgasm and facial event"
-);
-assert.match(
-  insightsSource,
-  /<HoverPopover[\s\S]*?className="scene-card-insight-hover-popover"[\s\S]*?estimatedContentHeight=\{520\}[\s\S]*?placement="bottom"[\s\S]*?popoverClassName=\{`scene-marker-highlight-popover scene-card-performer-popover scene-card-insight-event-popover/,
+  orgasmReportSource,
+  /<HoverPopover[\s\S]*?estimatedContentHeight=\{520\}[\s\S]*?placement="bottom"[\s\S]*?popoverClassName=\{`scene-marker-highlight-popover scene-card-performer-popover scene-card-insight-event-popover/,
   "event details should use the persistent, viewport-aware hover popover"
 );
 assert.match(
-  insightsSource,
-  /orgasmFacialEventCount === 1[\s\S]*?"single"[\s\S]*?orgasmFacialEventCount === 2[\s\S]*?"double"[\s\S]*?"multiple"/,
+  orgasmReportSource,
+  /events\.length === 1[\s\S]*?"single"[\s\S]*?events\.length === 2[\s\S]*?"double"[\s\S]*?"multiple"/,
   "event popovers should select a width tier from their event count"
 );
 assert.match(
-  insightsSource,
+  orgasmReportSource,
   /data-hover-popover-measure="true"/,
   "event details should measure their full content before choosing a vertical placement"
 );
@@ -137,16 +144,6 @@ assert.match(
   sceneStyles,
   /grid-template-columns: repeat\(auto-fit, minmax\(min\(100%, 15rem\), 1fr\)\)/,
   "event cards should flow into multiple columns"
-);
-assert.match(
-  insightsSource,
-  /const opensActivityMatrix = !!insight\.opensActivityMatrix;/,
-  "only chips with a matching matrix row should open the activity matrix"
-);
-assert.match(
-  insightsSource,
-  /opensActivityMatrix && \(\s*<Icon[\s\S]*?scene-card-insight-modal-icon/,
-  "chips that open the activity matrix should display the modal affordance icon"
 );
 assert.doesNotMatch(
   insightsSource,

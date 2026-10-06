@@ -17,7 +17,7 @@ import (
 const stashDBMatchesBatchSizeCustom = 25
 
 type stashDBMatchesFetcherCustom interface {
-	FindStashDBMatchesCustom(ctx context.Context, stashIDs []string) (map[string]int, error)
+	FindStashDBMatchesCustom(ctx context.Context, stashIDs []string) (map[string]stashbox.StashDBMatchCustom, error)
 }
 
 type stashDBMatchesProgressCustom interface {
@@ -55,7 +55,7 @@ func (s *Manager) RefreshStashDBMatchesCustom(ctx context.Context) (int, error) 
 // A failed request skips its batch so one bad response does not stop the run.
 // The run's report replaces the previous one, also when the job is cancelled.
 func refreshStashDBMatchesCustom(ctx context.Context, repo models.Repository, fetcher stashDBMatchesFetcherCustom, endpoint string, progress stashDBMatchesProgressCustom, now func() time.Time) (models.StashDBMatchesReportCustom, error) {
-	report := models.StashDBMatchesReportCustom{StartedAt: now()}
+	report := models.StashDBMatchesReportCustom{StartedAt: now(), Endpoint: &endpoint}
 
 	var targets []models.StashDBMatchTargetCustom
 	if err := repo.WithReadTxn(ctx, func(ctx context.Context) error {
@@ -79,7 +79,7 @@ func refreshStashDBMatchesCustom(ctx context.Context, repo models.Repository, fe
 			ids[i] = target.StashID
 		}
 
-		counts, err := fetcher.FindStashDBMatchesCustom(ctx, ids)
+		results, err := fetcher.FindStashDBMatchesCustom(ctx, ids)
 		if err != nil {
 			if job.IsCancelled(ctx) {
 				report.Cancelled = true
@@ -94,17 +94,24 @@ func refreshStashDBMatchesCustom(ctx context.Context, repo models.Repository, fe
 
 		var changes []models.StashDBMatchesChangeCustom
 		for _, target := range batch {
-			matches, found := counts[target.StashID]
+			result, found := results[target.StashID]
+			if found && !result.Submitted {
+				report.Unsubmitted = append(report.Unsubmitted, models.StashDBUnsubmittedSceneCustom{
+					SceneID: target.SceneID,
+					StashID: target.StashID,
+					Matches: result.Matches,
+				})
+			}
 			switch {
 			case !found:
 				report.NotFound++
-			case target.Matches != nil && *target.Matches == matches:
+			case target.Matches != nil && *target.Matches == result.Matches:
 				report.Unchanged++
 			default:
 				changes = append(changes, models.StashDBMatchesChangeCustom{
 					SceneID:  target.SceneID,
 					Previous: target.Matches,
-					Current:  matches,
+					Current:  result.Matches,
 				})
 			}
 		}

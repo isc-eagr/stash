@@ -32,23 +32,14 @@ export type SceneActivityMetricRows = {
   quality: SceneActivityMetric[];
 };
 
-export function hasVisibleSceneActivitySortMetricCustom(
-  sortBy: string | undefined,
-  metrics: SceneActivityMetricRows | undefined
-): boolean {
-  const suffix = "_activity_percent";
-  if (!sortBy?.endsWith(suffix) || !metrics) return false;
-
-  const key = sortBy.slice(0, -suffix.length);
-  return (
-    metrics.activity.some(
-      (metric) => metric.key === key && (metric.duration ?? 0) > 0
-    ) ||
-    metrics.quality.some(
-      (metric) => metric.key === key && (metric.duration ?? 0) > 0
-    )
-  );
-}
+export const SCENE_ACTIVITY_LABELS_CUSTOM: Record<
+  SceneActivityCategory,
+  string
+> = {
+  sex: "Fucking",
+  oral: "Eating pito",
+  solo: "Jerking",
+};
 
 type SceneActivityInterval = {
   start: number;
@@ -382,13 +373,8 @@ export function getSceneActivityMetrics(
   ]);
 
   return {
-    activity: (
-      [
-        ["sex", "Fucking"],
-        ["oral", "Eating pito"],
-        ["solo", "Jerking"],
-      ] as const
-    ).flatMap(([key, label]) => {
+    activity: (["sex", "oral", "solo"] as const).flatMap((key) => {
+      const label = SCENE_ACTIVITY_LABELS_CUSTOM[key];
       const duration = activityDurations[key];
       if (duration <= 0) return [];
       const activityOutstandingDuration = getSceneActivityDuration(

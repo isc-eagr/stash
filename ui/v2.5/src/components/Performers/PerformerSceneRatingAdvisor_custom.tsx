@@ -6,7 +6,6 @@ import { Icon } from "src/components/Shared/Icon";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import {
   RatingAdvisorStatsContent,
-  StudioRatingAdvisorSection,
   studioRatingAdvisorSectionDefinitions,
 } from "src/components/Studios/StudioDetails/StudioRatingAdvisorStats";
 import type { StudioRatingAdvisorSectionKey } from "src/components/Studios/StudioDetails/StudioRatingAdvisorStats";
@@ -75,28 +74,6 @@ export function getVisiblePerformerSceneRatingAdvisorDefinitions(
     );
   });
 }
-
-export const PerformerSceneRatingAdvisorSections: React.FC<{
-  stats: PerformerRatingAdvisorStatsData;
-}> = ({ stats }) => {
-  const definitions = getVisiblePerformerSceneRatingAdvisorDefinitions(stats);
-  if (definitions.length === 0) return null;
-
-  return (
-    <div
-      className="performer-scene-rating-advisor-grid"
-      data-section-count={definitions.length}
-    >
-      {definitions.map((definition) => (
-        <StudioRatingAdvisorSection
-          definition={definition}
-          key={definition.key}
-          stats={stats[definition.key as PerformerSceneRatingAdvisorSectionKey]}
-        />
-      ))}
-    </div>
-  );
-};
 
 export const PerformerSceneRatingAdvisorStats: React.FC<{
   active: boolean;

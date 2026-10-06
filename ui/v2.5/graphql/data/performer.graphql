@@ -154,6 +154,19 @@ fragment PerformerListData on Performer {
     updated_at
   }
   rating100
+  # CUSTOM: performer card rating criteria strip; same fields as PerformerData
+  rating_scores {
+    id
+    entity_type
+    entity_id
+    section
+    key
+    raw_value
+    weighted_value
+    label
+    created_at
+    updated_at
+  }
   details
   death_date
   hair_color

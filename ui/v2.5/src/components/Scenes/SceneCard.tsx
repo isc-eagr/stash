@@ -13,7 +13,6 @@ import { useConfigurationContext } from "src/hooks/Config";
 import { SceneCardPerformerPopover } from "./SceneCardPerformerPopover_custom"; // CUSTOM
 import { GridCard } from "../Shared/GridCard/GridCard";
 import { RatingBanner } from "../Shared/RatingBanner";
-import { RatingCriteriaTooltip } from "../Shared/RatingAdvisor_custom"; // CUSTOM
 import { FormattedMessage } from "react-intl";
 import {
   faBox,
@@ -37,20 +36,22 @@ import {
   isRatingCardHomePage,
 } from "src/utils/ratingCardStyles_custom"; // CUSTOM
 import { SceneCardInsights } from "./SceneCardInsights_custom"; // CUSTOM
-import { SceneActivityMetrics } from "./SceneActivityMetrics_custom"; // CUSTOM
+import { SceneActivityBar } from "./SceneActivityBar_custom"; // CUSTOM
+import { SceneRatingStrip } from "./SceneRatingStrip_custom"; // CUSTOM
+import { getSceneActivityMetrics } from "./sceneActivityMetricsData_custom"; // CUSTOM
 import {
-  getSceneActivityMetrics,
-  hasVisibleSceneActivitySortMetricCustom,
-} from "./sceneActivityMetricsData_custom"; // CUSTOM
+  getSceneActivityBarCustom,
+  sceneActivityBarShowsSortCustom,
+} from "./sceneActivityBarData_custom"; // CUSTOM
 import type { SceneCardInsightPerformerRoleStats } from "./sceneCardInsightsData_custom"; // CUSTOM
 import { SortMetricBadgeCustom } from "../Shared/SortMetricBadge_custom"; // CUSTOM
 import { getSceneSortMetricCustom } from "./sceneSortMetric_custom"; // CUSTOM
+import { StashDBMatchesCardButton } from "./SceneDetails/StashDBMatchesCount"; // CUSTOM
 import {
   catalogCardSortHighlightClassCustom,
   hasCatalogCardSortValueCustom,
   isCatalogCardSortHighlightedCustom,
 } from "../Shared/catalogCardSortHighlight_custom"; // CUSTOM
-import facialPng from "src/assets/facial.png"; // CUSTOM
 
 interface IScenePreviewProps {
   isPortrait: boolean;
@@ -112,6 +113,8 @@ export const ScenePreview: React.FC<IScenePreviewProps> = ({
       />
       <video
         disableRemotePlayback
+        // CUSTOM: hide browser PiP hover buttons on previews.
+        disablePictureInPicture
         playsInline
         muted={!soundActive}
         className="scene-card-preview-video"
@@ -370,6 +373,7 @@ const SceneCardPopovers = PatchComponent(
           props.scene?.o_counter ||
           props.scene.galleries.length > 0 ||
           props.scene.organized ||
+          props.scene.stashdb_matches != null || // CUSTOM
           sceneNumber !== undefined ||
           highlightsVisiblePopoverMetric);
 
@@ -400,6 +404,11 @@ const SceneCardPopovers = PatchComponent(
                 {maybeRenderOCounter()}
 
                 {maybeRenderGallery()}
+                {/* CUSTOM */}
+                <StashDBMatchesCardButton
+                  value={props.scene.stashdb_matches}
+                  stashIDs={props.scene.stash_ids}
+                />
                 {maybeRenderOrganized()}
                 {maybeRenderDupeCopies()}
               </ButtonGroup>
@@ -424,6 +433,10 @@ const SceneCardDetails = PatchComponent(
       () => getSceneActivityMetrics(props.scene, roleTagIds ?? {}),
       [props.scene, roleTagIds]
     ); // CUSTOM
+    const activityBar = useMemo(
+      () => getSceneActivityBarCustom(activityMetrics),
+      [activityMetrics]
+    ); // CUSTOM
     const sortMetric = getSceneSortMetricCustom(
       props.activeSortBy,
       props.scene,
@@ -439,10 +452,7 @@ const SceneCardDetails = PatchComponent(
         )?.scene_index
       : undefined; // CUSTOM
     const embeddedSortMetric =
-      hasVisibleSceneActivitySortMetricCustom(
-        props.activeSortBy,
-        activityMetrics
-      ) ||
+      sceneActivityBarShowsSortCustom(props.activeSortBy, activityBar) ||
       (!props.compact &&
         isCatalogCardSortHighlightedCustom(
           props.activeSortBy,
@@ -493,15 +503,15 @@ const SceneCardDetails = PatchComponent(
           {props.scene.effective_date ?? props.scene.date}
         </span>{" "}
         {/* CUSTOM: effective_date */}
-        <SceneActivityMetrics
-          scene={props.scene}
-          className="scene-activity-metrics--card"
+        {/* CUSTOM: activity bar and rating strip replace the activity boxes */}
+        <SceneActivityBar
+          sceneId={props.scene.id}
+          bar={activityBar}
+          activity={activityMetrics?.activity ?? []}
           activeSortBy={props.activeSortBy}
-          activityMetrics={activityMetrics}
-          showDistributionBars // CUSTOM
-          showDistributionLabels={false} // CUSTOM
-          hideFullyUnclassifiedQualityBar // CUSTOM
+          outstandingBatteries
         />
+        <SceneRatingStrip scene={props.scene} />
         <span className="file-path extra-scene-info">
           {objectPath(props.scene)}
         </span>
@@ -511,86 +521,18 @@ const SceneCardDetails = PatchComponent(
   }
 );
 
-// CUSTOM: begin - SceneCardOverlays rewrite for facial overlay
 const SceneCardOverlays = PatchComponent(
   "SceneCard.Overlays",
   (props: ISceneCardProps) => {
-    const { configuration } = useConfigurationContext();
-
-    // Helper to check if a tag matches (including recursive parent/child relationships)
-    const tagMatches = (
-      tag: { id?: string; parents?: Array<{ id?: string }> } | null | undefined,
-      targetId: string,
-      visited: Set<string> = new Set()
-    ): boolean => {
-      if (!tag || !tag.id) return false;
-      if (tag.id === targetId) return true;
-      if (visited.has(tag.id)) return false;
-      visited.add(tag.id);
-      const parents = tag.parents ?? [];
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return parents.some((p) => tagMatches(p as any, targetId, visited));
-    };
-
-    // Returns true if a marker has a given tag (primary or secondary, including subtags)
-    const markerHasTag = (
-      marker: GQL.SlimSceneDataFragment["scene_markers"][number],
-      tagId: string
-    ): boolean => {
-      if (tagMatches(marker?.primary_tag, tagId)) return true;
-      const markerTags: Array<{
-        id?: string;
-        parents?: Array<{ id?: string }>;
-      }> = marker?.tags ?? [];
-      return markerTags.some((t) => tagMatches(t, tagId));
-    };
-
-    // Check if scene has facial markers based on configured facial tag ID (including subtags)
-    const hasFacial = useMemo(() => {
-      const roleTagIds = configuration?.ui?.roleTagIds ?? {};
-      const { facialTagId } = roleTagIds;
-      if (!facialTagId) return false;
-      const sceneMarkers = props.scene.scene_markers ?? [];
-      return sceneMarkers.some((marker) => markerHasTag(marker, facialTagId));
-    }, [props.scene, configuration?.ui]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    // Check if scene has a marker with BOTH facial tag AND really hot tag (gold facial icon)
-    const hasReallyHotFacial = useMemo(() => {
-      const roleTagIds = configuration?.ui?.roleTagIds ?? {};
-      const { facialTagId, reallyHotTagId } = roleTagIds;
-      if (!facialTagId || !reallyHotTagId) return false;
-      const sceneMarkers = props.scene.scene_markers ?? [];
-      return sceneMarkers.some(
-        (marker) =>
-          markerHasTag(marker, facialTagId) &&
-          markerHasTag(marker, reallyHotTagId)
-      );
-    }, [props.scene, configuration?.ui]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    return (
-      <>
+    const ret = useMemo(() => {
+      return (
         <StudioOverlay studio={props.scene.studio} disabled={props.selecting} />
-        {hasReallyHotFacial && (
-          <img
-            className="scene-facial-overlay scene-facial-overlay--gold"
-            src={facialPng}
-            alt="Facial (Really Hot)"
-            title="Really hot facial marker present"
-          />
-        )}
-        {!hasReallyHotFacial && hasFacial && (
-          <img
-            className="scene-facial-overlay"
-            src={facialPng}
-            alt="Facial"
-            title="Facial tags present"
-          />
-        )}
-      </>
-    );
+      );
+    }, [props.scene.studio, props.selecting]);
+
+    return ret;
   }
 );
-// CUSTOM: end
 
 interface ISceneSpecsOverlay {
   scene: GQL.SlimSceneDataFragment;
@@ -695,25 +637,18 @@ const SceneCardImage = PatchComponent(
           onScrubberClick={onScrubberClick}
           disabled={props.selecting}
         />
-        {/* CUSTOM: begin - rating criteria hover summary */}
+        {/* CUSTOM: the rating criteria strip below replaces the hover summary */}
         {props.scene.rating100 !== undefined &&
         props.scene.rating100 !== null ? (
-          <RatingCriteriaTooltip
-            entityType="scene"
-            entityId={props.scene.id}
-            triggerClassName="rating-criteria-tooltip-card-trigger"
-          >
-            <RatingBanner
-              rating={props.scene.rating100}
-              compact
-              className={catalogCardSortHighlightClassCustom(
-                props.activeSortBy,
-                "rating"
-              )}
-            />
-          </RatingCriteriaTooltip>
+          <RatingBanner
+            rating={props.scene.rating100}
+            compact
+            className={catalogCardSortHighlightClassCustom(
+              props.activeSortBy,
+              "rating"
+            )}
+          />
         ) : null}
-        {/* CUSTOM: end */}
         <SceneSpecsOverlay
           scene={props.scene}
           activeSortBy={props.activeSortBy}

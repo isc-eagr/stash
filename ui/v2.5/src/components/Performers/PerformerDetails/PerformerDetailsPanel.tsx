@@ -23,6 +23,7 @@ interface IPerformerDetails {
   fullWidth?: boolean;
   excludedFields?: readonly string[]; // CUSTOM: scene performer overview omissions
   linkTarget?: React.HTMLAttributeAnchorTarget; // CUSTOM: optional external navigation behavior
+  ageFromDate?: string | null; // CUSTOM: scene date for the vato's age in that scene
 }
 
 const PerformerDetailGroup: React.FC<PropsWithChildren<IPerformerDetails>> =
@@ -38,6 +39,7 @@ export const PerformerDetailsPanel: React.FC<IPerformerDetails> =
       collapsed,
       excludedFields = [],
       linkTarget,
+      ageFromDate,
     } = props; // CUSTOM
     const isFieldExcluded = (field: string) => excludedFields.includes(field); // CUSTOM
 
@@ -112,6 +114,17 @@ export const PerformerDetailsPanel: React.FC<IPerformerDetails> =
           }
           fullWidth={fullWidth}
         />
+        {/* CUSTOM: begin - age when the scene was made */}
+        {!!ageFromDate && !!performer.birthdate && (
+          <DetailItem
+            id="age_in_scene"
+            label="Age in scene"
+            value={TextUtils.age(performer.birthdate, ageFromDate)}
+            title={TextUtils.formatFuzzyDate(intl, ageFromDate)}
+            fullWidth={fullWidth}
+          />
+        )}
+        {/* CUSTOM: end */}
         <DetailItem
           id="death_date"
           value={performer.death_date}

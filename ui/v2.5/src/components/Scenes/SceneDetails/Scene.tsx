@@ -82,7 +82,8 @@ import {
   loopPresetsFromSource,
   useMultiSegmentLoopPresets,
 } from "src/components/ScenePlayer/useMultiSegmentLoopPresets_custom";
-import { SceneActivityMetrics } from "../SceneActivityMetrics_custom";
+import { SceneDetailActivityBar } from "../SceneActivityBar_custom"; // CUSTOM
+import { SceneRatingStrip } from "../SceneRatingStrip_custom"; // CUSTOM
 import {
   completeSceneMarkerFocusRequest,
   type ISceneMarkerFocusRequest,
@@ -1039,6 +1040,10 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
 
     return null;
   }, [scene, configuration?.ui]);
+  const sceneRatingMode = getSceneRatingModeCustom(
+    scene.performers.length,
+    sceneTypeForRating === "hand"
+  ); // CUSTOM
 
   return (
     <ScenePerformerOverviewProvider scene={scene}>
@@ -1063,9 +1068,13 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
             </h3>
           </div>
 
-          <SceneActivityMetrics
+          {/* CUSTOM: activity bar and rating criteria strip; the Quality boxes
+          live in the Stats tab */}
+          <SceneDetailActivityBar scene={scene} />
+          <SceneRatingStrip
+            className="rating-criteria-strip--scene-detail"
             scene={scene}
-            className="scene-activity-metrics--detail"
+            sceneRatingMode={sceneRatingMode}
           />
 
           <div className="scene-subheader">
@@ -1092,10 +1101,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
               <RatingAdvisorButton
                 entityType="scene"
                 entityId={scene.id}
-                sceneRatingMode={getSceneRatingModeCustom(
-                  scene.performers.length,
-                  sceneTypeForRating === "hand"
-                )}
+                sceneRatingMode={sceneRatingMode}
                 rating100={scene.rating100}
                 ratingScores={scene.rating_scores}
                 onRatingSaved={props.onRefetch}

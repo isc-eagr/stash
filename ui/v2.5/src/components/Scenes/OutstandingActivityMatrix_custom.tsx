@@ -5,7 +5,6 @@ import {
 import React from "react";
 import { Link } from "react-router-dom";
 import { Icon } from "src/components/Shared/Icon";
-import { ModalComponent } from "src/components/Shared/Modal";
 import { VatoPortraitHover } from "src/components/Shared/VatoPortraitHover_custom";
 import TextUtils from "src/utils/text";
 import type {
@@ -20,7 +19,6 @@ import "./outstandingActivityMatrix_custom.scss";
 interface ITableProps {
   expandedTagIds?: ReadonlySet<string>;
   matrix: IOutstandingActivityMatrix;
-  modalPresentation?: boolean;
   onToggleTag?: (tagID: string) => void;
   percentLabel?: string;
   showPercent?: boolean;
@@ -33,12 +31,6 @@ interface ITableProps {
   title?: string;
 }
 
-interface IModalProps {
-  matrix: IOutstandingActivityMatrix;
-  onHide: () => void;
-  show: boolean;
-}
-
 function markerCountLabel(markerCount: number) {
   return `${markerCount} ${markerCount === 1 ? "marker" : "markers"}`;
 }
@@ -46,12 +38,10 @@ function markerCountLabel(markerCount: number) {
 function ActivityMeasure({
   label,
   measure,
-  showMarkerCount = true,
   tone,
 }: {
   label?: string;
   measure: IOutstandingActivityMeasure;
-  showMarkerCount?: boolean;
   tone?: "goat";
 }) {
   return (
@@ -66,51 +56,33 @@ function ActivityMeasure({
         )}
         {TextUtils.secondsToTimestamp(measure.duration)}
       </strong>
-      {showMarkerCount && (
-        <small>{markerCountLabel(measure.markerCount)}</small>
-      )}
+      <small>{markerCountLabel(measure.markerCount)}</small>
     </span>
   );
 }
 
-function ActivityCell({
-  cell,
-  showMarkerCount = true,
-}: {
-  cell?: IOutstandingActivityCell;
-  showMarkerCount?: boolean;
-}) {
+function ActivityCell({ cell }: { cell?: IOutstandingActivityCell }) {
   if (!cell) return <span className="outstanding-activity-empty">—</span>;
 
   if (cell.outstanding || cell.goat) {
     return (
       <span className="outstanding-activity-cell-breakdown">
         {cell.outstanding && (
-          <ActivityMeasure
-            label="Outstanding"
-            measure={cell.outstanding}
-            showMarkerCount={showMarkerCount}
-          />
+          <ActivityMeasure label="Outstanding" measure={cell.outstanding} />
         )}
         {cell.goat && (
-          <ActivityMeasure
-            label="GOAT"
-            measure={cell.goat}
-            showMarkerCount={showMarkerCount}
-            tone="goat"
-          />
+          <ActivityMeasure label="GOAT" measure={cell.goat} tone="goat" />
         )}
       </span>
     );
   }
 
-  return <ActivityMeasure measure={cell} showMarkerCount={showMarkerCount} />;
+  return <ActivityMeasure measure={cell} />;
 }
 
 export const OutstandingActivityMatrixTable: React.FC<ITableProps> = ({
   expandedTagIds,
   matrix,
-  modalPresentation = false,
   onToggleTag,
   percentLabel = "of scene",
   showPercent = true,
@@ -128,7 +100,7 @@ export const OutstandingActivityMatrixTable: React.FC<ITableProps> = ({
     <section
       className={`outstanding-activity-matrix${
         matrix.columns.length === 0 ? " outstanding-activity-total-only" : ""
-      }${modalPresentation ? " outstanding-activity-modal-presentation" : ""}`}
+      }`}
       aria-label={title}
     >
       <div className="outstanding-activity-heading">
@@ -139,9 +111,7 @@ export const OutstandingActivityMatrixTable: React.FC<ITableProps> = ({
           <thead>
             <tr>
               <th scope="col">Activity tag</th>
-              {showTotalColumn && !modalPresentation && (
-                <th scope="col">Total</th>
-              )}
+              {showTotalColumn && <th scope="col">Total</th>}
               {matrix.columns.map((column) => (
                 <th key={column.id} scope="col">
                   {column.sceneWide ? (
@@ -171,9 +141,6 @@ export const OutstandingActivityMatrixTable: React.FC<ITableProps> = ({
                   )}
                 </th>
               ))}
-              {showTotalColumn && modalPresentation && (
-                <th scope="col">Total</th>
-              )}
             </tr>
           </thead>
           <tbody>
@@ -224,10 +191,10 @@ export const OutstandingActivityMatrixTable: React.FC<ITableProps> = ({
                     </Link>
                   </div>
                 </th>
-                {showTotalColumn && !modalPresentation && (
+                {showTotalColumn && (
                   <td>
                     <ActivityCell cell={row} />
-                    {showPercent && !modalPresentation && (
+                    {showPercent && (
                       <small className="outstanding-activity-percent">
                         {Math.round(row.percent)}% {percentLabel}
                       </small>
@@ -236,17 +203,9 @@ export const OutstandingActivityMatrixTable: React.FC<ITableProps> = ({
                 )}
                 {matrix.columns.map((column) => (
                   <td key={column.id}>
-                    <ActivityCell
-                      cell={row.cells[column.id]}
-                      showMarkerCount={!modalPresentation}
-                    />
+                    <ActivityCell cell={row.cells[column.id]} />
                   </td>
                 ))}
-                {showTotalColumn && modalPresentation && (
-                  <td>
-                    <ActivityCell cell={row} showMarkerCount={false} />
-                  </td>
-                )}
               </tr>
             ))}
           </tbody>
@@ -255,25 +214,3 @@ export const OutstandingActivityMatrixTable: React.FC<ITableProps> = ({
     </section>
   );
 };
-
-export const OutstandingActivityMatrixModal: React.FC<IModalProps> = ({
-  matrix,
-  onHide,
-  show,
-}) => (
-  <ModalComponent
-    accept={{ onClick: onHide, text: "Close" }}
-    closeButton
-    dialogClassName="outstanding-activity-dialog"
-    header="Outstanding activity"
-    modalProps={{ keyboard: true, size: "xl" }}
-    onHide={onHide}
-    show={show}
-  >
-    <OutstandingActivityMatrixTable
-      matrix={matrix}
-      modalPresentation
-      title="Activity matrix"
-    />
-  </ModalComponent>
-);

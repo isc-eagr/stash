@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import {
   getSceneActivityMetrics,
   getSceneMarkerCountCustom,
-  hasVisibleSceneActivitySortMetricCustom,
   sceneActivityMarkerIsOutstanding,
   sceneActivityTagAncestors,
 } from "../src/components/Scenes/sceneActivityMetricsData_custom.ts";
@@ -55,21 +54,6 @@ assert.equal(
   metrics?.activity.reduce((total, metric) => total + metric.percent, 0),
   100,
   "the three displayed activity types partition 100 percent"
-);
-assert.equal(
-  hasVisibleSceneActivitySortMetricCustom("oral_activity_percent", metrics),
-  true,
-  "a sort value already present in an activity box suppresses its badge"
-);
-assert.equal(
-  hasVisibleSceneActivitySortMetricCustom("solo_activity_percent", metrics),
-  false,
-  "a zero-duration activity without a box does not suppress its sort badge"
-);
-assert.equal(
-  hasVisibleSceneActivitySortMetricCustom("unusable_activity_percent", metrics),
-  false,
-  "a zero-duration quality value without a box does not suppress its badge"
 );
 assert.equal(
   metrics?.activity.find((metric) => metric.key === "oral")?.duration,

@@ -859,3 +859,56 @@
 /* stylelint-enable declaration-no-important, max-nesting-depth */
 
 /* CUSTOM: end */
+
+/* CUSTOM: begin - performer card rating criteria strip, compact like the
+   smallest scene cards so five criteria fit. */
+.rating-criteria-strip.rating-criteria-strip--performer-card {
+  padding: 0.4rem 0.45rem 0.45rem;
+  text-align: left;
+
+  .rating-criteria-strip__criteria {
+    gap: 0.35rem;
+  }
+
+  .rating-criterion__label {
+    font-size: 0.56rem;
+    letter-spacing: 0.02em;
+  }
+
+  /* Smallest zoom: labels may run into the next column's gap. */
+  .performer-card.zoom-0 & {
+    padding: 0.35rem 0.3rem 0.4rem;
+
+    .rating-criteria-strip__criteria {
+      gap: 0.25rem;
+    }
+
+    .rating-criterion__label {
+      font-size: 0.5rem;
+      letter-spacing: 0;
+    }
+  }
+}
+
+/* CUSTOM: end */
+
+/* CUSTOM: begin - his rating criteria beside his name and ratings */
+#performer-page .performer-head-top {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.5rem;
+
+  .performer-head-identity {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+
+  /* Narrow enough to sit beside most names; wraps below long ones. */
+  .rating-criteria-strip.rating-panel--vato {
+    flex: 1 1 16rem;
+    margin: 0.3rem 0 0.6rem;
+  }
+}
+
+/* CUSTOM: end */

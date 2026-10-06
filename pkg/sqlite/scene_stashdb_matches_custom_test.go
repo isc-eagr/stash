@@ -127,12 +127,18 @@ func TestSceneStashDBMatchesReportCustom(t *testing.T) {
 
 	started := time.Date(2026, 10, 5, 14, 0, 0, 0, time.UTC)
 	five := 5
+	endpoint := "https://stashdb.org/graphql"
 	first := models.StashDBMatchesReportCustom{
 		StartedAt: started, FinishedAt: started.Add(time.Minute),
 		Checked: 4, Changed: 2, Unchanged: 1, NotFound: 1,
+		Endpoint: &endpoint,
 		Changes: []models.StashDBMatchesChangeCustom{
 			{SceneID: 1, Previous: &five, Current: 7},
 			{SceneID: 2, Current: 3},
+		},
+		Unsubmitted: []models.StashDBUnsubmittedSceneCustom{
+			{SceneID: 2, StashID: "two", Matches: 3},
+			{SceneID: 3, StashID: "three", Matches: 0},
 		},
 	}
 	require.NoError(t, qb.SaveStashDBMatchesReportCustom(ctx, first))
@@ -147,6 +153,7 @@ func TestSceneStashDBMatchesReportCustom(t *testing.T) {
 	got, err = qb.GetStashDBMatchesReportCustom(ctx)
 	require.NoError(t, err)
 	require.Len(t, got.Changes, 1, "changes for deleted scenes disappear")
+	require.Equal(t, []models.StashDBUnsubmittedSceneCustom{{SceneID: 3, StashID: "three", Matches: 0}}, got.Unsubmitted, "deleted scenes disappear from submission checks too")
 
 	second := models.StashDBMatchesReportCustom{StartedAt: started, FinishedAt: started, Checked: 1, Unchanged: 1, Cancelled: true}
 	require.NoError(t, qb.SaveStashDBMatchesReportCustom(ctx, second))
@@ -154,4 +161,13 @@ func TestSceneStashDBMatchesReportCustom(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, got.Cancelled)
 	require.Empty(t, got.Changes, "a new run replaces the previous changes")
+	require.Nil(t, got.Endpoint, "older reports have no submission check endpoint")
+	require.Empty(t, got.Unsubmitted, "a new run replaces the previous unsubmitted scenes")
+
+	second.Endpoint = &endpoint
+	require.NoError(t, qb.SaveStashDBMatchesReportCustom(ctx, second))
+	got, err = qb.GetStashDBMatchesReportCustom(ctx)
+	require.NoError(t, err)
+	require.Equal(t, &endpoint, got.Endpoint, "an empty checked result differs from an older report")
+	require.Empty(t, got.Unsubmitted)
 }

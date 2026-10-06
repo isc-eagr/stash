@@ -32,251 +32,241 @@
   }
 }
 
-.rating-criteria-tooltip.popover {
-  max-width: min(22rem, calc(100vw - 1rem));
-  width: 20rem;
-
-  .rating-criteria-tooltip-content {
-    padding: 0.7rem 0.8rem;
-  }
-}
-
-.rating-criteria-tooltip.popover.rating-criteria-tooltip-performer-scenes {
-  box-sizing: border-box;
-  max-width: calc(100vw - 1rem);
-  width: min(62rem, calc(100vw - 1rem));
-
-  &.rating-criteria-tooltip-performer-scenes-0,
-  &.rating-criteria-tooltip-performer-scenes-1 {
-    width: min(22rem, calc(100vw - 1rem));
-  }
-
-  &.rating-criteria-tooltip-performer-scenes-2 {
-    width: min(42rem, calc(100vw - 1rem));
-  }
-
-  .rating-criteria-tooltip-content {
-    max-height: calc(100vh - 2rem);
-    overflow-y: auto;
-  }
-}
-
-.performer-rating-criteria-tooltip-layout {
-  display: grid;
-  gap: 1rem;
-}
-
-.performer-rating-criteria-own-summary,
-.performer-rating-criteria-scene-summary {
-  display: grid;
-  gap: 0.7rem;
-}
-
-.performer-rating-criteria-own-summary {
-  max-width: 20rem;
-}
-
-.performer-rating-criteria-tooltip-title {
-  color: $text-muted;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.performer-scene-rating-advisor-grid {
-  display: grid;
-  gap: 0.75rem;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-
-  &[data-section-count="2"] {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  &[data-section-count="1"] {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-.rating-criteria-tooltip-trigger {
-  display: inline-flex;
-}
-
-.rating-criteria-tooltip-card-trigger {
-  height: 3.2rem;
-  left: 0;
-  position: absolute;
-  top: 0;
-  width: 3.2rem;
-  z-index: 3;
-}
-
 :is(.scene-card, .performer-card).grid-card .card-controls {
   bottom: 0.7rem;
   top: auto;
   z-index: 10;
 }
 
-.rating-criteria-tooltip-groups {
-  display: grid;
-  gap: 0.8rem;
-}
+/* Stepped criterion meter inside the rating criteria strips. */
+.rating-criterion-meter {
+  --rating-criterion-meter-height: 0.34rem;
 
-.rating-criteria-tooltip-section {
-  border-top: 1px solid rgba($text-color, 0.18);
-  display: grid;
-  gap: 0.5rem;
-  padding-top: 0.65rem;
-}
-
-.rating-criteria-tooltip-section-title {
-  color: $text-muted;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  line-height: 1;
-  text-transform: uppercase;
-}
-
-.rating-criteria-tooltip-rows {
-  display: grid;
-  gap: 0.65rem;
-}
-
-.rating-criteria-tooltip-adjustment-grid {
-  display: grid;
-  gap: 0.6rem 0.75rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.rating-criteria-tooltip-row {
-  display: grid;
-  gap: 0.28rem;
-}
-
-.rating-criteria-tooltip-adjustment-row {
-  align-items: center;
-  display: grid;
-  gap: 0.4rem;
-  grid-template-columns: 1.5rem minmax(0, 1fr) auto;
-}
-
-.rating-criteria-tooltip-adjustment-icon {
-  align-items: center;
-  color: #fff;
-  display: inline-flex;
-  font-weight: 900;
-  height: 1.5rem;
-  justify-content: center;
-  line-height: 1;
-  width: 1.5rem;
-}
-
-.rating-criteria-tooltip-adjustment-icon-bonus {
-  background: #27864b;
-  border: 1px solid #54bd78;
-  border-radius: 50%;
-  box-shadow: 0 0 0.35rem rgba(84, 189, 120, 0.3);
-  font-size: 0.9rem;
-}
-
-.rating-criteria-tooltip-adjustment-icon-penalty {
-  background: #c83245;
-  clip-path: polygon(
-    30% 0,
-    70% 0,
-    100% 30%,
-    100% 70%,
-    70% 100%,
-    30% 100%,
-    0 70%,
-    0 30%
-  );
-  font-size: 1.05rem;
-}
-
-.rating-criteria-tooltip-adjustment-label {
-  color: $text-color;
-  font-size: 0.73rem;
-  font-weight: 600;
-  line-height: 1.15;
-}
-
-.rating-criteria-tooltip-row-heading {
-  align-items: baseline;
   display: flex;
-  gap: 0.7rem;
-  justify-content: space-between;
-}
-
-.rating-criteria-tooltip-label {
-  color: $text-color;
-  font-size: 0.78rem;
-  font-weight: 600;
-  line-height: 1.15;
-}
-
-.rating-criteria-tooltip-value {
-  color: $text-color;
-  flex: 0 0 auto;
-  font-size: 0.76rem;
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
-}
-
-.rating-criteria-tooltip-track {
-  background: rgba($text-color, 0.14);
-  border: 1px solid rgba($text-color, 0.22);
-  border-radius: 999px;
-  display: block;
-  height: 0.58rem;
-  overflow: hidden;
-}
-
-.rating-criteria-tooltip-fill {
-  display: block;
-  height: 100%;
-  transition: width 120ms ease-out;
+  gap: 2px;
 
   &[data-rating-level="0"] {
-    background: #59636d;
+    --rating-advisor-heat-color: #59636d;
   }
 
   &[data-rating-level="1"] {
-    background: #bba329;
+    --rating-advisor-heat-color: #bba329;
   }
 
   &[data-rating-level="2"] {
-    background: #d99a20;
+    --rating-advisor-heat-color: #d99a20;
   }
 
   &[data-rating-level="3"] {
-    background: #e47722;
+    --rating-advisor-heat-color: #e47722;
   }
 
   &[data-rating-level="4"] {
-    background: #d94d2f;
+    --rating-advisor-heat-color: #d94d2f;
   }
 
   &[data-rating-level="5"] {
+    --rating-advisor-heat-color: #c83245;
+  }
+}
+
+.rating-criterion-meter__step {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 2px;
+  flex: 1 1 0;
+  height: var(--rating-criterion-meter-height);
+
+  &.is-filled {
+    background: var(--rating-advisor-heat-color);
+  }
+
+  /* Averages fill part of a step. */
+  &.is-partial {
+    background: linear-gradient(
+      90deg,
+      var(--rating-advisor-heat-color) var(--rating-criterion-step-fill),
+      rgba(255, 255, 255, 0.14) var(--rating-criterion-step-fill)
+    );
+  }
+}
+
+.rating-criterion-meter:is([data-rating-level="4"], [data-rating-level="5"])
+  .rating-criterion-meter__step.is-filled {
+  box-shadow: 0 0 0.4rem var(--rating-advisor-heat-color);
+}
+
+/* Inline rating criteria strip: criteria above, bonuses/penalties below. */
+.rating-criteria-strip {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 0.5rem;
+  margin: 0.7rem 0 0;
+  padding: 0.45rem 0.6rem 0.5rem;
+  width: 100%;
+}
+
+.rating-criteria-strip__criteria {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.rating-criterion {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+
+  &.is-unrated {
+    opacity: 0.4;
+  }
+}
+
+.rating-criterion__label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  opacity: 0.78;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* The right-hand icons drop to their own line when both do not fit. */
+.rating-criteria-strip__footer {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
+  justify-content: space-between;
+  min-height: 1.4rem;
+}
+
+.rating-criteria-strip__criteria + .rating-criteria-strip__footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  margin-top: 0.45rem;
+  padding-top: 0.4rem;
+}
+
+.rating-criteria-strip__adjustments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.55rem;
+  min-width: 0;
+}
+
+/* Mini versions of the hover summary's bonus and penalty marks. */
+.rating-adjustment {
+  align-items: center;
+  display: inline-flex;
+  font-size: 0.68rem;
+  font-weight: 600;
+  gap: 0.25rem;
+  line-height: 1;
+  white-space: nowrap;
+
+  strong {
+    font-variant-numeric: tabular-nums;
+    font-weight: 800;
+  }
+
+  &.is-bonus strong {
+    color: #6fdc95;
+  }
+
+  &.is-penalty strong {
+    color: #ff7b8a;
+  }
+}
+
+.rating-adjustment__mark {
+  align-items: center;
+  color: #fff;
+  display: inline-flex;
+  flex: 0 0 0.95rem;
+  font-weight: 900;
+  height: 0.95rem;
+  justify-content: center;
+
+  .is-bonus > & {
+    background: #27864b;
+    border: 1px solid #54bd78;
+    border-radius: 50%;
+    font-size: 0.58rem;
+  }
+
+  .is-penalty > & {
     background: #c83245;
+    clip-path: polygon(
+      30% 0,
+      70% 0,
+      100% 30%,
+      100% 70%,
+      70% 100%,
+      30% 100%,
+      0 70%,
+      0 30%
+    );
+    font-size: 0.75rem;
   }
 }
 
-.rating-criteria-tooltip-status {
-  color: $text-muted;
-  font-size: 0.82rem;
-  text-align: center;
+/* Framed rating panels: a vato's own criteria (gold edge) never read as
+   the scene averages beside them (blue frame). */
+.rating-panel {
+  max-width: 34rem;
 }
 
-@media (max-width: 767.98px) {
-  .rating-criteria-tooltip.popover.rating-criteria-tooltip-performer-scenes {
-    width: min(22rem, calc(100vw - 1rem));
+.rating-panel__title {
+  align-items: center;
+  display: flex;
+  font-size: 0.74rem;
+  font-weight: 700;
+  gap: 0.4rem;
+  letter-spacing: 0.06em;
+  margin: 0 0 0.45rem;
+  text-transform: uppercase;
+
+  span {
+    color: $text-muted;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
   }
 
-  .performer-scene-rating-advisor-grid {
-    grid-template-columns: minmax(0, 1fr);
+  strong {
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
+    margin-left: auto;
   }
+}
+
+.rating-panel.rating-panel--vato {
+  border-left: 3px solid #ffd34d;
+
+  .rating-panel__title,
+  .studio-rating-advisor-section-header h3 {
+    color: #ffd34d;
+  }
+}
+
+.rating-panel.rating-panel--scenes {
+  background: rgba(90, 169, 255, 0.05);
+  border: 1px solid rgba(90, 169, 255, 0.25);
+  border-radius: 0.5rem;
+  padding: 0.55rem 0.7rem 0.65rem;
+
+  .rating-panel__title {
+    color: #7dbbff;
+  }
+}
+
+.rating-panel__sections {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
 }
 
 .rating-advisor-dialog {

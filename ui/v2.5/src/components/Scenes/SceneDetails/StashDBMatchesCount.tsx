@@ -1,7 +1,9 @@
 import React from "react";
 import { useIntl } from "react-intl";
+import { Button } from "react-bootstrap"; // CUSTOM: scene card match control
 import { faFingerprint } from "@fortawesome/free-solid-svg-icons";
 import { CountButton } from "src/components/Shared/CountButton";
+import { HoverPopover } from "src/components/Shared/HoverPopover"; // CUSTOM
 import { Icon } from "src/components/Shared/Icon";
 import { getStashboxBase } from "src/utils/stashbox";
 
@@ -48,5 +50,33 @@ export const StashDBMatchesCount: React.FC<{
         onValueClicked={open}
       />
     </span>
+  );
+};
+
+// CUSTOM: StashDB Matches on scene cards, linking to the StashDB fingerprints.
+export const StashDBMatchesCardButton: React.FC<{
+  value?: number | null;
+  stashIDs: { endpoint: string; stash_id: string }[];
+}> = ({ value, stashIDs }) => {
+  const intl = useIntl();
+  if (value == null) return null;
+
+  const url = stashDBFingerprintsURLCustom(stashIDs);
+  return (
+    <HoverPopover
+      className="stashdb-matches-count"
+      content={intl.formatMessage({ id: "stashdb_matches" })}
+      placement="bottom"
+    >
+      <Button
+        className="minimal"
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        <Icon icon={faFingerprint} />
+        <span>{value}</span>
+      </Button>
+    </HoverPopover>
   );
 };

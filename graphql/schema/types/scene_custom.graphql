@@ -55,6 +55,16 @@ type StashDBMatchesReport {
   "True when the job was stopped before checking every scene"
   cancelled: Boolean!
   changes: [StashDBMatchesChange!]!
+  "StashDB endpoint checked; null for reports saved before submission checks"
+  endpoint: String
+  "Successfully checked scenes with no PHASH submitted by the configured API-key account"
+  unsubmitted: [StashDBUnsubmittedScene!]!
+}
+
+type StashDBUnsubmittedScene {
+  scene: Scene!
+  stash_id: ID!
+  matches: Int!
 }
 
 type StashDBMatchesChange {

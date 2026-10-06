@@ -75,22 +75,6 @@
   height: 100%;
 }
 
-.scene-activity-metrics--card {
-  gap: 0.75rem;
-  margin: 0.6rem 0 0;
-  padding: 0;
-}
-
-.scene-activity-metrics--detail {
-  align-items: flex-start;
-  margin: 0.2rem 0 0.4rem;
-  padding: 0;
-
-  .scene-activity-metrics__row {
-    justify-content: flex-start;
-  }
-}
-
 .scene-activity-metric {
   align-items: center;
   background-color: transparent;
@@ -246,6 +230,387 @@
 
 /* CUSTOM: end */
 
+/* CUSTOM: begin - compact aggregate activity bars (studio card hover) */
+.scene-activity-metrics.scene-activity-metrics--compact {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+
+  .scene-activity-metrics__group {
+    gap: 0.35rem;
+    padding: 0.5rem 0.6rem;
+  }
+
+  .scene-activity-metrics__group-label {
+    font-size: 0.66rem;
+  }
+
+  .scene-activity-metrics__distribution {
+    height: 0.45rem;
+  }
+
+  .scene-activity-metrics__row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.75rem;
+    justify-content: flex-start;
+  }
+}
+
+.scene-activity-metric.scene-activity-metric--compact {
+  gap: 0.25rem;
+
+  .scene-activity-metric__icon {
+    border: 0;
+    flex-basis: 1.05rem;
+    height: 1.05rem;
+    width: 1.05rem;
+  }
+
+  .scene-activity-metric__svg {
+    height: 1.05rem;
+    width: 1.05rem;
+  }
+
+  .scene-activity-metric__hand,
+  .scene-activity-metric__outstanding,
+  .scene-activity-metric__standard,
+  .scene-activity-metric__unclassified,
+  .scene-activity-metric__unusable {
+    font-size: 0.9rem;
+  }
+
+  .scene-activity-metric__copy strong {
+    font-size: 0.75rem;
+  }
+}
+
+.scene-activity-metric__swatch {
+  border-radius: 50%;
+  flex: 0 0 0.5rem;
+  height: 0.5rem;
+  width: 0.5rem;
+}
+
+/* CUSTOM: end */
+
+/* CUSTOM: begin - scene activity bar and scene card orgasm report */
+.scene-activity-bar {
+  /* Rating card themes tint the bar through their text color. */
+  --scene-activity-bar-rgb: var(--rating-card-text-rgb, 255, 255, 255);
+
+  align-items: center;
+  display: grid;
+
+  /* The minimum fits a two-digit end so most tracks line up across cards. */
+  grid-template-columns:
+    minmax(4.7rem, max-content) minmax(2rem, 1fr)
+    minmax(4.7rem, max-content);
+  margin: 0.7rem 0 0;
+  width: 100%;
+}
+
+.scene-activity-bar--detail {
+  margin: 0.35rem 0 0.6rem;
+}
+
+.scene-activity-bar__end {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: rgb(var(--scene-activity-bar-rgb));
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  justify-self: start;
+  opacity: 0.72;
+  padding: 0.15rem 0.5rem 0.15rem 0.25rem;
+
+  &.is-right {
+    justify-self: end;
+    padding: 0.15rem 0.25rem 0.15rem 0.5rem;
+  }
+
+  strong {
+    font-size: 0.98rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  &.is-dominant {
+    background: rgba(var(--scene-activity-bar-rgb), 0.13);
+    border-color: rgba(var(--scene-activity-bar-rgb), 0.42);
+    box-shadow: 0 0 0.7rem rgba(var(--scene-activity-bar-rgb), 0.2);
+    opacity: 1;
+
+    strong {
+      text-shadow: 0 0 0.45rem rgba(var(--scene-activity-bar-rgb), 0.55);
+    }
+  }
+
+  &.is-zero {
+    opacity: 0.3;
+  }
+}
+
+.scene-activity-bar__icon {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 0 1.55rem;
+  height: 1.55rem;
+  justify-content: center;
+}
+
+.scene-activity-bar__svg {
+  filter: brightness(0) invert(1);
+  height: 1.55rem;
+  width: 1.55rem;
+}
+
+.scene-activity-bar__hand {
+  font-size: 1.3rem;
+  transform: rotate(-45deg);
+}
+
+.scene-activity-bar__track {
+  background: linear-gradient(
+    90deg,
+    rgba(var(--scene-activity-bar-rgb), 0.5),
+    rgba(var(--scene-activity-bar-rgb), 0.1) 50%,
+    rgba(var(--scene-activity-bar-rgb), 0.5)
+  );
+  border-radius: 999px;
+  height: 0.4rem;
+
+  /* Room for half the dial at either extreme. */
+  margin: 0 0.8rem;
+  position: relative;
+}
+
+.scene-activity-bar__dial {
+  background: rgb(var(--scene-activity-bar-rgb));
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.55),
+    0 0 0.55rem rgba(var(--scene-activity-bar-rgb), 0.55);
+  height: 0.9rem;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 0.9rem;
+}
+
+.scene-activity-bar__end-main {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.3rem;
+}
+
+/* Scene cards: a gold battery spanning each end (icon and percentage) shows
+   that activity's Outstanding share. */
+.scene-activity-bar__battery {
+  border: 1px solid rgba(255, 211, 77, 0.7);
+  border-radius: 2px;
+  display: block;
+  height: 0.45rem;
+
+  /* Leave room for the terminal. */
+  margin-right: 3px;
+  padding: 1px;
+  position: relative;
+
+  /* Battery terminal. */
+  &::after {
+    background: rgba(255, 211, 77, 0.7);
+    border-radius: 0 1px 1px 0;
+    content: "";
+    height: 0.18rem;
+    position: absolute;
+    right: -3px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 2px;
+  }
+}
+
+.scene-activity-bar__battery-fill {
+  background: #ffd34d;
+  border-radius: 1px;
+  box-shadow: 0 0 0.3rem rgba(255, 211, 77, 0.6);
+  display: block;
+  height: 100%;
+}
+
+/* GOAT moments and the orgasm report sit together on the right. */
+.scene-rating-strip__events {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 0.75rem;
+  margin-left: auto;
+}
+
+/* Fixed event colors regardless of the card's metallic theme. */
+.scene-card-goat-moments {
+  align-items: center;
+  color: #ffd34d;
+  display: inline-flex;
+  filter: drop-shadow(0 0 0.3rem rgba(255, 211, 77, 0.6));
+  font-size: 0.95rem;
+  gap: 0.25rem;
+  line-height: 1;
+
+  strong {
+    font-size: 0.82rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 800;
+  }
+
+  /* stylelint-disable declaration-no-important -- metallic card themes
+     recolor every icon */
+  .fa-icon {
+    color: inherit !important;
+    filter: none !important;
+  }
+  /* stylelint-enable declaration-no-important */
+}
+
+.scene-card-goat-moment-time {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+
+.scene-card-orgasm-report {
+  align-items: center;
+  color: #fff;
+  display: inline-flex;
+  gap: 0.6rem;
+}
+
+.scene-card-orgasm-report__group {
+  align-items: center;
+  display: inline-flex;
+  font-size: 1.1rem;
+  gap: 0.2rem;
+  line-height: 1;
+
+  svg {
+    display: block;
+  }
+
+  strong {
+    font-size: 0.82rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 800;
+  }
+
+  /* Really Hot: ember orange with a warm glow. */
+  &.is-really-hot {
+    color: #ff7a45;
+    filter: drop-shadow(0 0 0.3rem rgba(255, 98, 46, 0.7));
+  }
+
+  /* GOAT: gold, the color reserved for GOAT elsewhere. */
+  &.is-goat {
+    color: #ffd34d;
+    filter: drop-shadow(0 0 0.3rem rgba(255, 211, 77, 0.6));
+  }
+}
+
+.scene-card-orgasm-report__facial {
+  background-color: currentColor;
+  display: inline-block;
+  height: 1.15em;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
+  width: 1.15em;
+}
+
+.scene-card-orgasm-report.is-none {
+  opacity: 0.5;
+
+  .scene-card-orgasm-report__group {
+    position: relative;
+  }
+
+  /* Crossed-out drops: no Orgasm or Facial markers in a marked scene. */
+  .scene-card-orgasm-report__group::after {
+    background: currentColor;
+    border-radius: 1px;
+    content: "";
+    height: 2px;
+    left: -0.15rem;
+    position: absolute;
+    right: -0.15rem;
+    top: 50%;
+    transform: rotate(-45deg);
+  }
+}
+
+.rating-criteria-strip.rating-criteria-strip--scene-detail {
+  margin: 0 0 0.7rem;
+}
+
+/* Smallest card zoom: tighter activity bar ends. */
+.scene-card.zoom-0 {
+  .scene-activity-bar {
+    grid-template-columns:
+      minmax(4.1rem, max-content) minmax(1.5rem, 1fr)
+      minmax(4.1rem, max-content);
+  }
+
+  .scene-activity-bar__end-main {
+    gap: 0.2rem;
+  }
+
+  .scene-activity-bar__end {
+    padding: 0.1rem 0.4rem 0.1rem 0.15rem;
+
+    &.is-right {
+      padding: 0.1rem 0.15rem 0.1rem 0.4rem;
+    }
+
+    strong {
+      font-size: 0.88rem;
+    }
+  }
+
+  .scene-activity-bar__icon,
+  .scene-activity-bar__svg {
+    flex-basis: 1.35rem;
+    height: 1.35rem;
+    width: 1.35rem;
+  }
+
+  .scene-activity-bar__hand {
+    font-size: 1.15rem;
+  }
+
+  .scene-activity-bar__track {
+    margin: 0 0.7rem;
+  }
+}
+
+/* The two smallest card zooms: tighter labels so five criteria still fit. */
+:is(.scene-card.zoom-0, .scene-card.zoom-1) {
+  .rating-criteria-strip {
+    padding: 0.4rem 0.45rem 0.45rem;
+  }
+
+  .rating-criteria-strip__criteria {
+    gap: 0.35rem;
+  }
+
+  .rating-criterion__label {
+    font-size: 0.56rem;
+    letter-spacing: 0.02em;
+  }
+}
+
+/* CUSTOM: end */
+
 /* CUSTOM: begin - compact scene card insight chips */
 .scene-card-insights {
   align-items: center;
@@ -341,30 +706,15 @@
   }
 }
 
-.scene-card-insight-orgasm-facial-report {
-  border-radius: 0.8rem;
-  overflow-wrap: anywhere;
-  text-align: center;
-  text-overflow: clip;
-  white-space: normal;
-}
-
 .scene-card-insight-hover-popover {
   display: inline-flex;
   max-width: 100%;
   min-width: 0;
 }
 
-/* CUSTOM: chips with a matching Activity Matrix row open it. */
+/* CUSTOM: clickable chips (Insight Stats). */
 .scene-card-insight-clickable {
   cursor: pointer;
-}
-
-.scene-card-insight-modal-icon {
-  font-size: 0.62em;
-  margin-left: 0.3rem;
-  opacity: 0.8;
-  vertical-align: 0.08em;
 }
 
 /* CUSTOM: each family keeps a distinct hue; gold belongs to GOAT only. */
@@ -390,12 +740,6 @@
   background: rgba(241, 245, 249, 0.1);
   border-color: rgba(241, 245, 249, 0.62);
   color: #f8fafc;
-}
-
-/* CUSTOM: a GOAT orgasm or facial keeps the gold signal on its report. */
-.scene-card-insight-event-goat {
-  border-color: #d4af37;
-  box-shadow: 0 0 0.35rem rgba(212, 175, 55, 0.42);
 }
 
 .scene-card-insight-lineup {
@@ -643,7 +987,7 @@ textarea.scene-description {
   left: 0.7rem;
 }
 
-/* Facial icon overlay on scene thumbnail (bottom-left, above interactive speed) */
+/* Facial icon overlay base; the scene player sizes and tints it (ScenePlayer styles). */
 .scene-facial-overlay {
   bottom: 1.5rem; /* slightly lower but still above interactive speed overlay (1rem) */
   display: block;
@@ -657,52 +1001,6 @@ textarea.scene-description {
   width: 1.25rem; /* slightly larger for better visibility */
   z-index: 2;
 }
-
-/* CUSTOM: begin - gold facial icon for really hot facial with glow shimmer */
-.scene-facial-overlay--gold {
-  animation: facial-gold-shimmer 3s ease-in-out infinite;
-  -webkit-filter: brightness(0) saturate(100%) invert(86%) sepia(61%)
-    saturate(894%) hue-rotate(356deg) brightness(103%) contrast(106%)
-    drop-shadow(0 0 4px rgba(255, 215, 0, 0.7))
-    drop-shadow(0 0 8px rgba(212, 175, 55, 0.5))
-    drop-shadow(0 2px 3px rgba(0, 0, 0, 0.8));
-  filter: brightness(0) saturate(100%) invert(86%) sepia(61%) saturate(894%)
-    hue-rotate(356deg) brightness(103%) contrast(106%)
-    drop-shadow(0 0 4px rgba(255, 215, 0, 0.7))
-    drop-shadow(0 0 8px rgba(212, 175, 55, 0.5))
-    drop-shadow(0 2px 3px rgba(0, 0, 0, 0.8));
-}
-
-@keyframes facial-gold-shimmer {
-  0%,
-  100% {
-    -webkit-filter: brightness(0) saturate(100%) invert(86%) sepia(61%)
-      saturate(894%) hue-rotate(356deg) brightness(103%) contrast(106%)
-      drop-shadow(0 0 4px rgba(255, 215, 0, 0.7))
-      drop-shadow(0 0 8px rgba(212, 175, 55, 0.5))
-      drop-shadow(0 2px 3px rgba(0, 0, 0, 0.8));
-    filter: brightness(0) saturate(100%) invert(86%) sepia(61%) saturate(894%)
-      hue-rotate(356deg) brightness(103%) contrast(106%)
-      drop-shadow(0 0 4px rgba(255, 215, 0, 0.7))
-      drop-shadow(0 0 8px rgba(212, 175, 55, 0.5))
-      drop-shadow(0 2px 3px rgba(0, 0, 0, 0.8));
-  }
-
-  50% {
-    -webkit-filter: brightness(0) saturate(100%) invert(91%) sepia(69%)
-      saturate(1034%) hue-rotate(353deg) brightness(111%) contrast(109%)
-      drop-shadow(0 0 6px rgba(255, 215, 0, 0.9))
-      drop-shadow(0 0 12px rgba(212, 175, 55, 0.7))
-      drop-shadow(0 2px 3px rgba(0, 0, 0, 0.8));
-    filter: brightness(0) saturate(100%) invert(91%) sepia(69%) saturate(1034%)
-      hue-rotate(353deg) brightness(111%) contrast(109%)
-      drop-shadow(0 0 6px rgba(255, 215, 0, 0.9))
-      drop-shadow(0 0 12px rgba(212, 175, 55, 0.7))
-      drop-shadow(0 2px 3px rgba(0, 0, 0, 0.8));
-  }
-}
-
-/* CUSTOM: end */
 
 .extra-scene-info {
   display: none;

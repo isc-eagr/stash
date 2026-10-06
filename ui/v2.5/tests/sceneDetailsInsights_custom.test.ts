@@ -20,6 +20,10 @@ test("scene Details leads with shared insights before Description", () => {
   assert.match(detailsSource, /detailPage/);
 });
 
+test("StashDB Matches stay in the toolbar, not Details", () => {
+  assert.doesNotMatch(detailsSource, /stashdb_matches/);
+});
+
 test("scene maintenance dates live after the Edit form and code is absent from Details", () => {
   const editSource = readFileSync(
     new URL(

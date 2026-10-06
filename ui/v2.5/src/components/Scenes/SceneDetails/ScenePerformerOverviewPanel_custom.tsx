@@ -36,6 +36,7 @@ import { Icon } from "src/components/Shared/Icon";
 import { SweatDrops } from "src/components/Shared/SweatDrops";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { RatingBanner } from "src/components/Shared/RatingBanner";
+import { RatingCriteriaStrip } from "src/components/Shared/RatingCriteriaStrip_custom";
 import * as GQL from "src/core/generated-graphql";
 import { useFindPerformer } from "src/core/StashService";
 import {
@@ -64,6 +65,12 @@ export function useScenePerformerOverview() {
   return useContext(ScenePerformerOverviewContext);
 }
 
+// Markers for the interactions; dates for the vato's age in the scene.
+type ScenePerformerOverviewScene = Pick<
+  GQL.SceneDataFragment,
+  "scene_markers" | "date" | "effective_date"
+>;
+
 const CLOSE_ANIMATION_MS = 220;
 const CONDENSED_HEADER_SCROLL_PX = 90;
 
@@ -88,7 +95,7 @@ const ScenePerformerOverviewPanel: React.FC<{
   performerId: string;
   isOpen: boolean;
   onClose: () => void;
-  scene: Pick<GQL.SceneDataFragment, "scene_markers">;
+  scene: ScenePerformerOverviewScene;
 }> = ({ performerId, isOpen, onClose, scene }) => {
   const intl = useIntl();
   const { configuration } = useConfigurationContext();
@@ -202,16 +209,6 @@ const ScenePerformerOverviewPanel: React.FC<{
           icon: <Icon icon={faImages} />,
           to: NavUtils.makePerformerGalleriesUrl(performer),
           value: performer.gallery_count,
-        },
-        {
-          id: "o_count",
-          icon: configuration?.interface.sfwContentMode ? (
-            <Icon icon={faThumbsUp} />
-          ) : (
-            <SweatDrops />
-          ),
-          to: makePerformerOStatsUrl(performer.id),
-          value: performer.o_counter ?? 0,
         },
       ].filter((item) => item.value > 0)
     : [];
@@ -411,9 +408,38 @@ const ScenePerformerOverviewPanel: React.FC<{
                   <span>Scene average</span>
                   <PerformerSceneAverageRating performerId={performer.id} />
                 </div>
+                {!!performer.o_counter && (
+                  <Link
+                    aria-label={`O Count: ${performer.o_counter}`}
+                    className="scene-performer-overview-rating scene-performer-overview-rating--o-count"
+                    to={makePerformerOStatsUrl(performer.id)}
+                    {...SCENE_PERFORMER_OVERVIEW_LINK_PROPS}
+                  >
+                    <span>
+                      <FormattedMessage id="o_count" />
+                    </span>
+                    <span className="scene-performer-overview-o-count">
+                      {configuration?.interface.sfwContentMode ? (
+                        <Icon icon={faThumbsUp} />
+                      ) : (
+                        <SweatDrops />
+                      )}
+                      <strong>{performer.o_counter}</strong>
+                    </span>
+                  </Link>
+                )}
               </section>
 
+              <RatingCriteriaStrip
+                className="rating-panel rating-panel--vato scene-performer-overview-rating-strip"
+                entityId={performer.id}
+                entityType="performer"
+                oCount={performer.o_counter}
+                ratingScores={performer.rating_scores}
+              />
+
               <PerformerDetailsPanel
+                ageFromDate={scene.effective_date ?? scene.date}
                 performer={performer}
                 excludedFields={SCENE_PERFORMER_OVERVIEW_EXCLUDED_FIELDS}
                 linkTarget={SCENE_PERFORMER_OVERVIEW_LINK_PROPS.target}
@@ -506,7 +532,7 @@ export const SCENE_PERFORMER_OVERVIEW_OPEN_CLASS =
 
 export const ScenePerformerOverviewProvider: React.FC<
   PropsWithChildren<{
-    scene: Pick<GQL.SceneDataFragment, "scene_markers">;
+    scene: ScenePerformerOverviewScene;
   }>
 > = ({ children, scene }) => {
   const [performerId, setPerformerId] = useState<string>();

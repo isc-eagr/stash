@@ -34,7 +34,5 @@ type PerformerRoleStatsFields = Pick<
 >;
 
 export type PerformerListData = GQL.PerformerListDataFragment &
-  Partial<
-    Pick<GQL.PerformerDataFragment, "additional_images" | "rating_scores">
-  > &
+  Partial<Pick<GQL.PerformerDataFragment, "additional_images">> &
   Partial<PerformerRoleStatsFields>;

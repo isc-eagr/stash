@@ -25,7 +25,18 @@ type StashDBMatchesReportCustom struct {
 	NotFound   int       `db:"not_found"`
 	Failed     int       `db:"failed"`
 	Cancelled  bool      `db:"cancelled"`
-	Changes    []StashDBMatchesChangeCustom
+	// Endpoint is nil for reports saved before submission checks were added.
+	Endpoint    *string `db:"endpoint"`
+	Changes     []StashDBMatchesChangeCustom
+	Unsubmitted []StashDBUnsubmittedSceneCustom
+}
+
+// StashDBUnsubmittedSceneCustom is a linked scene with no PHASH submitted by
+// the account authenticated through the report's endpoint API key.
+type StashDBUnsubmittedSceneCustom struct {
+	SceneID int    `db:"scene_id"`
+	StashID string `db:"stash_id"`
+	Matches int    `db:"matches"`
 }
 
 // StashDBMatchesChangeCustom is one count the refresh wrote; Previous is nil

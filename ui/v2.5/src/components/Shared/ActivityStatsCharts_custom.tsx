@@ -7,11 +7,15 @@ import { getPartitionPercentagesCustom } from "src/components/Shared/activityTyp
 interface IProps {
   stats: StudioActivityStats;
   className?: string;
+  compact?: boolean;
+  only?: "activity" | "quality";
 }
 
 export const ActivityStatsCharts: React.FC<IProps> = ({
   stats,
   className = "",
+  compact = false,
+  only,
 }) => {
   const qualityPercentages = getPartitionPercentagesCustom(
     {
@@ -88,8 +92,9 @@ export const ActivityStatsCharts: React.FC<IProps> = ({
       <SceneActivityMetrics
         activityMetrics={activityMetrics}
         className="scene-activity-metrics--stats"
+        compact={compact}
+        only={only}
         sceneId="aggregate-scene-stats"
-        showDistributionBars
       />
     </div>
   );

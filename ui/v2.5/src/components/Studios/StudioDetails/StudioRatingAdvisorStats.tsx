@@ -1,6 +1,12 @@
 import React from "react";
+import cx from "classnames";
 import { getRatingAdvisorAdjustmentTooltipLabelCustom } from "src/components/Shared/ratingAdvisorScales_custom";
+import { RatingStrip } from "src/components/Shared/RatingStrip_custom";
 import * as GQL from "src/core/generated-graphql";
+import {
+  PerformerRatingCriteriaCriterionOption,
+  SceneRatingCriteriaCriterionOption,
+} from "src/models/list-filter/criteria/rating-criteria_custom";
 
 import "./StudioRatingAdvisorStats.scss";
 
@@ -19,16 +25,21 @@ interface ISectionDefinition {
   singular: string;
   plural: string;
   ratingLabel: string;
-  criteria: Record<string, { label: string; max: number }>;
+  // Rubric order; `short` labels the inline strip.
+  criteria: Record<string, { label: string; short: string; max: number }>;
 }
 
 // Standard (2 vatos) and Threesome (3 vatos) share one rubric.
 const sexSceneCriteria: ISectionDefinition["criteria"] = {
-  topAttractiveness: { label: "Top(s) Attractiveness", max: 30 },
-  bottomAttractiveness: { label: "Bottom(s) Attractiveness", max: 10 },
-  chemistry: { label: "Energy / sex quality", max: 20 },
-  payoff: { label: "Orgasm quality", max: 20 },
-  standout: { label: "Usable factor", max: 20 },
+  topAttractiveness: { label: "Top(s) Attractiveness", short: "Top", max: 30 },
+  bottomAttractiveness: {
+    label: "Bottom(s) Attractiveness",
+    short: "Bottom",
+    max: 10,
+  },
+  chemistry: { label: "Energy / sex quality", short: "Energy", max: 20 },
+  standout: { label: "Usable factor", short: "Usable", max: 20 },
+  payoff: { label: "Orgasm quality", short: "Orgasm", max: 20 },
 };
 
 export const studioRatingAdvisorSectionDefinitions: ISectionDefinition[] = [
@@ -39,9 +50,13 @@ export const studioRatingAdvisorSectionDefinitions: ISectionDefinition[] = [
     plural: "scenes",
     ratingLabel: "Average scene rating",
     criteria: {
-      soloPerformerAppeal: { label: "Vato Attractiveness", max: 50 },
-      soloPerformance: { label: "Performance", max: 30 },
-      soloUsability: { label: "Usability", max: 20 },
+      soloPerformerAppeal: {
+        label: "Vato Attractiveness",
+        short: "Vato",
+        max: 50,
+      },
+      soloPerformance: { label: "Performance", short: "Performance", max: 30 },
+      soloUsability: { label: "Usability", short: "Usable", max: 20 },
     },
   },
   {
@@ -69,11 +84,12 @@ export const studioRatingAdvisorSectionDefinitions: ISectionDefinition[] = [
     criteria: {
       groupTopAttractiveness: {
         label: "Top Lineup Attractiveness",
+        short: "Tops",
         max: 30,
       },
-      groupEnergy: { label: "Energy / coordination", max: 30 },
-      groupPayoff: { label: "Orgasm Quality", max: 20 },
-      groupUsability: { label: "Usability", max: 20 },
+      groupEnergy: { label: "Energy / coordination", short: "Energy", max: 30 },
+      groupUsability: { label: "Usability", short: "Usable", max: 20 },
+      groupPayoff: { label: "Orgasm Quality", short: "Orgasm", max: 20 },
     },
   },
   {
@@ -83,11 +99,11 @@ export const studioRatingAdvisorSectionDefinitions: ISectionDefinition[] = [
     plural: "performers",
     ratingLabel: "Average performer rating",
     criteria: {
-      face: { label: "Face", max: 30 },
-      body: { label: "Body", max: 30 },
-      performance: { label: "Sexual performance", max: 20 },
-      ethnicity: { label: "Ethnicity / racial appeal", max: 10 },
-      masculinity: { label: "Masculinity", max: 10 },
+      face: { label: "Face", short: "Face", max: 30 },
+      body: { label: "Body", short: "Body", max: 30 },
+      performance: { label: "Sexual performance", short: "Sex", max: 20 },
+      ethnicity: { label: "Ethnicity / racial appeal", short: "Race", max: 10 },
+      masculinity: { label: "Masculinity", short: "Masc", max: 10 },
     },
   },
 ];
@@ -109,165 +125,87 @@ function averageHeatLevel(fillPercent: number) {
   return Math.max(0, Math.min(5, Math.round(fillPercent / 20)));
 }
 
-const CriterionRow: React.FC<{
-  criterion: RatingAdvisorSection["criteria"][number];
-  label: string;
-  max: number;
-  singular: string;
-  plural: string;
-}> = ({ criterion, label, max, singular, plural }) => {
-  const contribution = formatAverageContribution(
-    criterion.average_weighted_value,
-    max
-  );
-  const sample = `${criterion.entity_count} ${
-    criterion.entity_count === 1 ? singular : plural
-  }`;
+// Meter steps per criterion: one per choice above the lowest.
+const criterionSteps = new Map(
+  [
+    ...SceneRatingCriteriaCriterionOption.criteria,
+    ...PerformerRatingCriteriaCriterionOption.criteria,
+  ].map((criterion) => [criterion.key, criterion.choices.length - 1])
+);
 
-  return (
-    <div
-      aria-label={`${label}: ${contribution}, averaged from ${sample}`}
-      className="rating-criteria-tooltip-row"
-      role="img"
-    >
-      <span aria-hidden="true" className="rating-criteria-tooltip-row-heading">
-        <span className="rating-criteria-tooltip-label">{label}</span>
-        <span className="rating-criteria-tooltip-value">
-          {contribution} · {criterion.entity_count}
-        </span>
-      </span>
-      <span className="rating-criteria-tooltip-track" aria-hidden="true">
-        <span
-          className="rating-criteria-tooltip-fill"
-          data-rating-level={averageHeatLevel(criterion.average_fill_percent)}
-          style={{ width: `${criterion.average_fill_percent}%` }}
-        />
-      </span>
-    </div>
-  );
-};
-
-const AdjustmentGroup: React.FC<{
-  title: string;
-  kind: "bonus" | "penalty";
-  adjustments: RatingAdvisorSection["adjustments"];
-  singular: string;
-  plural: string;
-}> = ({ title, kind, adjustments, singular, plural }) => {
-  if (adjustments.length === 0) return null;
-
-  return (
-    <section className="rating-criteria-tooltip-section">
-      <span className="rating-criteria-tooltip-section-title">{title}</span>
-      <div className="rating-criteria-tooltip-adjustment-grid">
-        {adjustments.map((adjustment) => {
-          const label = getRatingAdvisorAdjustmentTooltipLabelCustom(
-            adjustment.key,
-            adjustment.key
-          );
-          const countLabel = `${adjustment.entity_count} ${
-            adjustment.entity_count === 1 ? singular : plural
-          }`;
-          return (
-            <div
-              aria-label={`${label}: ${countLabel}`}
-              className="rating-criteria-tooltip-adjustment-row"
-              key={`${adjustment.section}-${adjustment.key}`}
-              role="img"
-            >
-              <span
-                aria-hidden="true"
-                className={`rating-criteria-tooltip-adjustment-icon rating-criteria-tooltip-adjustment-icon-${kind}`}
-              >
-                {kind === "bonus" ? "\u2713" : "\u2212"}
-              </span>
-              <span
-                aria-hidden="true"
-                className="rating-criteria-tooltip-adjustment-label"
-              >
-                {label}
-              </span>
-              <span
-                aria-hidden="true"
-                className="rating-criteria-tooltip-value"
-              >
-                {adjustment.entity_count}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </section>
-  );
-};
-
+// CUSTOM: one rubric's averages as an inline strip; each criterion fills
+// part of a step, and bonuses/penalties show how many items have them.
 export const StudioRatingAdvisorSection: React.FC<{
   definition: ISectionDefinition;
   stats: RatingAdvisorSection;
-}> = ({ definition, stats }) => {
-  const bonuses = stats.adjustments.filter(
-    (adjustment) => adjustment.section === "bonus"
-  );
-  const penalties = stats.adjustments.filter(
-    (adjustment) => adjustment.section === "penalty"
-  );
+  className?: string;
+  title?: React.ReactNode;
+}> = ({ definition, stats, className, title = definition.title }) => {
+  const { singular, plural } = definition;
+  const countLabel = (count: number) =>
+    `${count} ${count === 1 ? singular : plural}`;
+  // Rubric order, so Orgasm stays last whatever order the server returns.
+  const criterionOrder = Object.keys(definition.criteria);
+  const orderIndex = (key: string) => {
+    const index = criterionOrder.indexOf(key);
+    return index < 0 ? criterionOrder.length : index;
+  };
+  const criteria = [...stats.criteria]
+    .sort((a, b) => orderIndex(a.key) - orderIndex(b.key))
+    .map((criterion) => {
+      const criterionDefinition = definition.criteria[criterion.key];
+      const steps = criterionSteps.get(criterion.key) ?? 5;
+      const label = criterionDefinition?.label ?? criterion.key;
+      return {
+        key: criterion.key,
+        label: criterionDefinition?.short ?? label,
+        detail: `${label}: ${formatAverageContribution(
+          criterion.average_weighted_value,
+          criterionDefinition?.max ?? 0
+        )}, averaged from ${countLabel(criterion.entity_count)}`,
+        steps,
+        value: (criterion.average_fill_percent / 100) * steps,
+        heatLevel: averageHeatLevel(criterion.average_fill_percent),
+        rated: criterion.entity_count > 0,
+      };
+    });
+  const adjustments = stats.adjustments.map((adjustment) => {
+    const label = getRatingAdvisorAdjustmentTooltipLabelCustom(
+      adjustment.key,
+      adjustment.key
+    );
+    return {
+      key: adjustment.key,
+      label,
+      section: adjustment.section === "penalty" ? "penalty" : "bonus",
+      value: `×${adjustment.entity_count}`,
+      detail: `${label}: ${countLabel(adjustment.entity_count)}`,
+    } as const;
+  });
 
   return (
-    <section className="studio-rating-advisor-section">
+    <section className={cx("studio-rating-advisor-section", className)}>
       <header className="studio-rating-advisor-section-header">
-        <h3>{definition.title}</h3>
-        <span>
-          {formatEntityCount(
-            stats.entity_count,
-            definition.singular,
-            definition.plural
-          )}
-        </span>
-      </header>
-      <div className="studio-rating-advisor-section-average">
-        <span>{definition.ratingLabel}</span>
-        <strong>
+        <h3>{title}</h3>
+        <span>{formatEntityCount(stats.entity_count, singular, plural)}</span>
+        <strong aria-label={definition.ratingLabel}>
           {stats.average_rating100 === null ||
           stats.average_rating100 === undefined
             ? "—"
             : `${formatRatingValue(stats.average_rating100)}/100`}
         </strong>
-      </div>
+      </header>
       {stats.entity_count === 0 ? (
         <div className="studio-rating-advisor-empty">
           No advisor criteria yet.
         </div>
       ) : (
-        <div className="rating-criteria-tooltip-groups">
-          <div className="rating-criteria-tooltip-rows">
-            {stats.criteria.map((criterion) => (
-              <CriterionRow
-                criterion={criterion}
-                key={criterion.key}
-                label={
-                  definition.criteria[criterion.key]?.label ?? criterion.key
-                }
-                max={definition.criteria[criterion.key]?.max ?? 0}
-                singular={definition.singular}
-                plural={definition.plural}
-              />
-            ))}
-          </div>
-          <AdjustmentGroup
-            adjustments={bonuses}
-            kind="bonus"
-            plural={definition.plural}
-            singular={definition.singular}
-            title="Bonuses"
-          />
-          <AdjustmentGroup
-            adjustments={penalties}
-            kind="penalty"
-            plural={definition.plural}
-            singular={definition.singular}
-            title="Penalties"
-          />
-        </div>
+        <RatingStrip
+          adjustments={adjustments}
+          className="rating-criteria-strip--average"
+          criteria={criteria}
+          idPrefix={`rating-average-${definition.key}`}
+        />
       )}
     </section>
   );
@@ -297,7 +235,7 @@ export const RatingAdvisorStatsContent: React.FC<
     (definition) => definition.key
   ),
   title = "Rating Advisor Averages",
-  description = "Each bar averages only the scenes or performers where that criterion is set.",
+  description = "Each strip averages only the scenes or performers where that criterion is set.",
   showOverallSceneAverage = true,
   hideEmptySceneSections = false,
 }) => {

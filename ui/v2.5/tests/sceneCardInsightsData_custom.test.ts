@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   getOutstandingActivityMatrix,
   getSceneCardInsightSets,
+  getSceneOrgasmFacialEvents,
   shouldShowOutstandingActivityTotalColumn,
 } from "../src/components/Scenes/sceneCardInsightsData_custom.ts";
 import {
@@ -572,14 +573,9 @@ test("GOAT tag chips open the matrix when GOAT suppression removes both chips", 
     ),
     false
   );
-  assert.ok(
-    insightSets.visible
-      .filter((insight) => insight.tone === "goat")
-      .every((insight) => insight.opensActivityMatrix)
-  );
 });
 
-test("GOAT chips without a matrix row do not open the matrix", () => {
+test("GOAT chips do not need a matrix row", () => {
   const goat = tag("goat", "GOAT");
   const vato = performer("vato", "Vato");
   const insightSets = getSceneCardInsightSets(
@@ -595,11 +591,8 @@ test("GOAT chips without a matrix row do not open the matrix", () => {
   assert.deepEqual(
     insightSets.visible
       .filter((insight) => insight.tone === "goat")
-      .map((insight) => [insight.label, !!insight.opensActivityMatrix]),
-    [
-      ["GOAT Sex from Vato", false],
-      ["GOAT moment from Vato", false],
-    ]
+      .map((insight) => insight.label),
+    ["GOAT Sex from Vato", "GOAT moment from Vato"]
   );
 });
 
@@ -812,26 +805,21 @@ test("the combined event report preserves each orgasm's top performer", () => {
   const second = performer("second", "Second Vato", {
     image_path: "/performer/second/image",
   });
+  const scene = makeScene(
+    [
+      marker("orgasm-1", tag("orgasm", "Orgasm"), 0, 5, [], [first]),
+      marker("orgasm-2", tag("orgasm", "Orgasm"), 10, 15, [], [first, second]),
+    ],
+    100
+  );
+  const events = getSceneOrgasmFacialEvents(scene, roleTagIds);
   const insight = getSceneCardInsights(
-    makeScene(
-      [
-        marker("orgasm-1", tag("orgasm", "Orgasm"), 0, 5, [], [first]),
-        marker(
-          "orgasm-2",
-          tag("orgasm", "Orgasm"),
-          10,
-          15,
-          [],
-          [first, second]
-        ),
-      ],
-      100
-    ),
+    scene,
     roleTagIds,
     defaultThresholds
   ).find((candidate) => candidate.key === "orgasm-facial-report");
 
-  assert.deepEqual(insight?.orgasmFacialEvents, [
+  assert.deepEqual(events, [
     {
       id: "orgasm-1-0",
       category: "orgasm",
@@ -865,35 +853,37 @@ test("the combined event report preserves each Facial's top and bottom portraits
   const bottom = performer("bottom", "Bottom", {
     image_path: "/performer/bottom/image",
   });
+  const scene = makeScene(
+    [
+      marker(
+        "facial-1",
+        tag("facial", "Facial"),
+        0,
+        5,
+        [],
+        [firstTop],
+        [bottom]
+      ),
+      marker(
+        "facial-2",
+        tag("facial", "Facial"),
+        10,
+        15,
+        [],
+        [secondTop],
+        [bottom]
+      ),
+    ],
+    100
+  );
+  const events = getSceneOrgasmFacialEvents(scene, roleTagIds);
   const insight = getSceneCardInsights(
-    makeScene(
-      [
-        marker(
-          "facial-1",
-          tag("facial", "Facial"),
-          0,
-          5,
-          [],
-          [firstTop],
-          [bottom]
-        ),
-        marker(
-          "facial-2",
-          tag("facial", "Facial"),
-          10,
-          15,
-          [],
-          [secondTop],
-          [bottom]
-        ),
-      ],
-      100
-    ),
+    scene,
     roleTagIds,
     defaultThresholds
   ).find((candidate) => candidate.key === "orgasm-facial-report");
 
-  assert.deepEqual(insight?.orgasmFacialEvents, [
+  assert.deepEqual(events, [
     {
       id: "facial-1-0",
       category: "facial",
@@ -915,54 +905,56 @@ test("the combined event report summarizes and preserves every event", () => {
   const bottom = performer("bottom", "Bottom");
   const goat = tag("goat", "GOAT");
   const reallyHot = tag("really-hot", "Really Hot");
+  const scene = makeScene(
+    [
+      marker(
+        "facial-goat",
+        tag("facial", "Facial"),
+        0,
+        5,
+        [goat],
+        [top("f1")],
+        [bottom]
+      ),
+      marker(
+        "facial-hot",
+        tag("facial", "Facial"),
+        10,
+        15,
+        [reallyHot],
+        [top("f2")],
+        [bottom]
+      ),
+      marker(
+        "orgasm-goat",
+        tag("orgasm", "Orgasm"),
+        20,
+        25,
+        [goat],
+        [top("o1")]
+      ),
+      marker(
+        "orgasm-hot-1",
+        tag("orgasm", "Orgasm"),
+        30,
+        35,
+        [reallyHot],
+        [top("o2")]
+      ),
+      marker(
+        "orgasm-hot-2",
+        tag("orgasm", "Orgasm"),
+        40,
+        45,
+        [reallyHot],
+        [top("o3")]
+      ),
+    ],
+    100
+  );
+  const events = getSceneOrgasmFacialEvents(scene, roleTagIds);
   const insight = getSceneCardInsights(
-    makeScene(
-      [
-        marker(
-          "facial-goat",
-          tag("facial", "Facial"),
-          0,
-          5,
-          [goat],
-          [top("f1")],
-          [bottom]
-        ),
-        marker(
-          "facial-hot",
-          tag("facial", "Facial"),
-          10,
-          15,
-          [reallyHot],
-          [top("f2")],
-          [bottom]
-        ),
-        marker(
-          "orgasm-goat",
-          tag("orgasm", "Orgasm"),
-          20,
-          25,
-          [goat],
-          [top("o1")]
-        ),
-        marker(
-          "orgasm-hot-1",
-          tag("orgasm", "Orgasm"),
-          30,
-          35,
-          [reallyHot],
-          [top("o2")]
-        ),
-        marker(
-          "orgasm-hot-2",
-          tag("orgasm", "Orgasm"),
-          40,
-          45,
-          [reallyHot],
-          [top("o3")]
-        ),
-      ],
-      100
-    ),
+    scene,
     roleTagIds,
     defaultThresholds
   ).find((candidate) => candidate.key === "orgasm-facial-report");
@@ -971,12 +963,9 @@ test("the combined event report summarizes and preserves every event", () => {
     insight?.label,
     "5 orgasms · 2 facials (1 GOAT, 1 Really Hot) · 3 regular (1 GOAT, 2 Really Hot)"
   );
-  assert.equal(insight?.orgasmFacialEvents?.length, 5);
+  assert.equal(events.length, 5);
   assert.deepEqual(
-    insight?.orgasmFacialEvents?.map(({ category, quality }) => [
-      category,
-      quality,
-    ]),
+    events.map(({ category, quality }) => [category, quality]),
     [
       ["facial", "GOAT"],
       ["facial", "Really Hot"],
@@ -985,8 +974,8 @@ test("the combined event report summarizes and preserves every event", () => {
       ["orgasm", "Really Hot"],
     ]
   );
-  assert.deepEqual(insight?.orgasmFacialEvents?.[0].bottomPerformers, [bottom]);
-  assert.deepEqual(insight?.orgasmFacialEvents?.[2].bottomPerformers, []);
+  assert.deepEqual(events[0].bottomPerformers, [bottom]);
+  assert.deepEqual(events[2].bottomPerformers, []);
 });
 
 test("Facial-family subtags retain the Facial report and a presence chip", () => {
@@ -1274,10 +1263,6 @@ test("a tag named by a GOAT chip is suppressed from outstanding chips", () => {
         insight.key === "outstanding-activity-presence"
     ),
     false
-  );
-  assert.ok(
-    insightSets.visible.find((insight) => insight.tone === "goat")
-      ?.opensActivityMatrix
   );
   assert.deepEqual(
     matrix.rows.map((row) => row.tag.name),
@@ -2998,35 +2983,6 @@ test("tags marked only without an end time report their marker count", () => {
   assert.equal(insight?.label, "Rimming ×2");
   assert.equal(insight?.detail, "Rimming: 2 markers without an end time");
   assert.deepEqual(insight?.statsParts, ["Rimming (no end time)"]);
-});
-
-test("event reports with a GOAT event keep the gold accent", () => {
-  const vato = performer("vato", "Vato");
-  const report = (markers: ReturnType<typeof marker>[]) =>
-    getSceneCardInsightSets(
-      makeScene(markers),
-      roleTagIds,
-      defaultThresholds
-    ).visible.find((insight) => insight.key === "orgasm-facial-report");
-
-  assert.equal(
-    report([
-      marker(
-        "goat",
-        tag("orgasm", "Orgasm"),
-        500,
-        520,
-        [tag("goat", "GOAT")],
-        [vato]
-      ),
-    ])?.hasGoatEvent,
-    true
-  );
-  assert.equal(
-    report([marker("plain", tag("orgasm", "Orgasm"), 500, 520, [], [vato])])
-      ?.hasGoatEvent,
-    undefined
-  );
 });
 
 test("a single favorite vato uses singular copy", () => {

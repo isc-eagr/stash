@@ -26,6 +26,9 @@ import { useToast } from "src/hooks/Toast";
 import { useConfigurationContext } from "src/hooks/Config";
 import { RatingAdvisorButton } from "src/components/Shared/RatingAdvisor_custom"; // CUSTOM
 import { PerformerSceneAverageRating } from "../PerformerSceneRatingAdvisor_custom"; // CUSTOM
+import { RatingCriteriaStrip } from "src/components/Shared/RatingCriteriaStrip_custom"; // CUSTOM
+import { Icon } from "src/components/Shared/Icon"; // CUSTOM
+import { faUser } from "@fortawesome/free-solid-svg-icons"; // CUSTOM
 import {
   CompressedPerformerDetailsPanel,
   PerformerDetailsPanel,
@@ -619,46 +622,70 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
               className="row performer-header-content" // CUSTOM
             >
               <div className="performer-head col">
-                <DetailTitle
-                  name={performer.name}
-                  disambiguation={performer.disambiguation ?? undefined}
-                  classNamePrefix="performer"
-                >
+                {/* CUSTOM: begin - name and ratings with his own rating
+                criteria beside them */}
+                <div className="performer-head-top">
+                  <div className="performer-head-identity">
+                    <DetailTitle
+                      name={performer.name}
+                      disambiguation={performer.disambiguation ?? undefined}
+                      classNamePrefix="performer"
+                    >
+                      {!isEditing && (
+                        <ExpandCollapseButton
+                          collapsed={collapsed}
+                          setCollapsed={(v) => setCollapsed(v)}
+                        />
+                      )}
+                      <span className="name-icons">
+                        <FavoriteIcon
+                          favorite={performer.favorite}
+                          onToggleFavorite={(v) => setFavorite(v)}
+                        />
+                        <ExternalLinkButtons
+                          urls={performer.urls ?? undefined}
+                        />
+                      </span>
+                    </DetailTitle>
+                    <AliasList aliases={performer.alias_list} />
+                    <div className="quality-group">
+                      <RatingAdvisorButton
+                        entityType="performer"
+                        entityId={performer.id}
+                        rating100={performer.rating100}
+                        ratingScores={performer.rating_scores}
+                        onRatingSaved={refetch}
+                      />{" "}
+                      {/* CUSTOM */}
+                      <PerformerSceneAverageRating performerId={performer.id} />
+                      {!!performer.o_counter && (
+                        // CUSTOM: begin
+                        <OCounterButton
+                          value={performer.o_counter}
+                          onIncrement={openVatoOStats}
+                          onValueClicked={openVatoOStats}
+                        />
+                        // CUSTOM: end
+                      )}
+                    </div>
+                  </div>
                   {!isEditing && (
-                    <ExpandCollapseButton
-                      collapsed={collapsed}
-                      setCollapsed={(v) => setCollapsed(v)}
+                    <RatingCriteriaStrip
+                      className="rating-panel rating-panel--vato"
+                      entityId={performer.id}
+                      entityType="performer"
+                      header={
+                        <h4 className="rating-panel__title">
+                          <Icon icon={faUser} />
+                          Vato rating
+                        </h4>
+                      }
+                      oCount={performer.o_counter}
+                      ratingScores={performer.rating_scores}
                     />
-                  )}
-                  <span className="name-icons">
-                    <FavoriteIcon
-                      favorite={performer.favorite}
-                      onToggleFavorite={(v) => setFavorite(v)}
-                    />
-                    <ExternalLinkButtons urls={performer.urls ?? undefined} />
-                  </span>
-                </DetailTitle>
-                <AliasList aliases={performer.alias_list} />
-                <div className="quality-group">
-                  <RatingAdvisorButton
-                    entityType="performer"
-                    entityId={performer.id}
-                    rating100={performer.rating100}
-                    ratingScores={performer.rating_scores}
-                    onRatingSaved={refetch}
-                  />{" "}
-                  {/* CUSTOM */}
-                  <PerformerSceneAverageRating performerId={performer.id} />
-                  {!!performer.o_counter && (
-                    // CUSTOM: begin
-                    <OCounterButton
-                      value={performer.o_counter}
-                      onIncrement={openVatoOStats}
-                      onValueClicked={openVatoOStats}
-                    />
-                    // CUSTOM: end
                   )}
                 </div>
+                {/* CUSTOM: end */}
                 {!isEditing && (
                   <PerformerDetailsPanel
                     performer={performer}

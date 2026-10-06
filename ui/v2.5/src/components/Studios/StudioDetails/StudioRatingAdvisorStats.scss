@@ -22,8 +22,7 @@
   }
 }
 
-.studio-rating-advisor-overall-average,
-.studio-rating-advisor-section-average {
+.studio-rating-advisor-overall-average {
   align-items: baseline;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.14);
@@ -47,61 +46,57 @@
   padding: 0.65rem 0.8rem;
 }
 
+/* Rubric strips stack so their criteria line up for comparison. */
 .studio-rating-advisor-grid {
-  display: grid;
-  gap: 0.75rem;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-
-  &[data-section-count="3"] {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  &[data-section-count="2"] {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  &[data-section-count="1"] {
-    grid-template-columns: minmax(0, 24rem);
-  }
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  max-width: 44rem;
 }
 
 .studio-rating-advisor-section {
   background: rgba(255, 255, 255, 0.045);
   border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 0.35rem;
+  border-radius: 0.5rem;
   min-width: 0;
-  padding: 0.8rem;
+  padding: 0.55rem 0.7rem 0.6rem;
 }
 
 .studio-rating-advisor-section-header {
   align-items: baseline;
   display: flex;
-  gap: 0.75rem;
-  justify-content: space-between;
-  margin-bottom: 1rem;
+  gap: 0.6rem;
+  margin-bottom: 0.45rem;
 
   h3 {
-    font-size: 1.05rem;
+    font-size: 0.92rem;
     margin: 0;
   }
 
   span {
     color: var(--text-muted, #aeb5bd);
-    flex: 0 0 auto;
-    font-size: 0.78rem;
+    flex: 1 1 auto;
+    font-size: 0.75rem;
+  }
+
+  strong {
+    font-size: 0.92rem;
+    font-variant-numeric: tabular-nums;
   }
 }
 
-.studio-rating-advisor-section-average {
-  margin-bottom: 1rem;
-  padding: 0.55rem 0.65rem;
+/* The section already frames the strip. */
+.rating-criteria-strip.rating-criteria-strip--average {
+  background: none;
+  border: 0;
+  margin: 0;
+  padding: 0;
 }
 
 .studio-rating-advisor-empty {
   color: var(--text-muted, #aeb5bd);
-  font-size: 0.85rem;
-  padding: 1.25rem 0;
-  text-align: center;
+  font-size: 0.8rem;
+  padding: 0.35rem 0;
 }
 
 /* CUSTOM: begin - lazy studio-card rating average popovers */
@@ -112,13 +107,13 @@
 .studio-rating-advisor-popover {
   box-sizing: border-box;
   max-width: calc(100vw - 2rem);
-  width: min(calc(100vw - 2rem), 62rem);
+  width: min(calc(100vw - 2rem), 26rem);
 
   .studio-rating-advisor-popover-card {
     box-sizing: border-box;
-    display: grid;
-    gap: 0.75rem;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
     max-height: min(
       calc(100vh - 2rem),
       var(--hover-popover-max-height, calc(100vh - 2rem))
@@ -126,12 +121,8 @@
     min-width: 0;
     overflow-x: hidden;
     overflow-y: auto;
-    padding: 0.75rem;
+    padding: 0.6rem;
     width: 100%;
-  }
-
-  .studio-rating-advisor-section {
-    padding: 0.8rem;
   }
 
   .studio-rating-advisor-popover-error {
@@ -144,44 +135,11 @@
   max-width: calc(100vw - 2rem);
 }
 
-.studio-rating-advisor-popover.studio-rating-advisor-popover-single {
-  width: min(calc(100vw - 2rem), 20rem);
-
-  .studio-rating-advisor-popover-card {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-.studio-rating-advisor-popover.studio-rating-advisor-popover-double {
-  width: min(calc(100vw - 2rem), 41rem);
-
-  .studio-rating-advisor-popover-card {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
 /* CUSTOM: end */
 
 @media (max-width: 767.98px) {
   .studio-rating-advisor-title {
     align-items: stretch;
     flex-direction: column;
-  }
-
-  .studio-rating-advisor-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .studio-rating-advisor-popover,
-  .studio-rating-advisor-popover.studio-rating-advisor-popover-double {
-    .studio-rating-advisor-popover-card {
-      grid-template-columns: minmax(0, 1fr);
-    }
-  }
-
-  .studio-rating-advisor-section-header {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 0.25rem;
   }
 }

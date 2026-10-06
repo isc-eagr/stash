@@ -29,17 +29,8 @@ export const StudioRatingAdvisorPopover: React.FC<IProps> = ({
         definition.key === "performers" ||
         stats[definition.key].entity_count > 0)
   );
-  const layoutClass =
-    definitions.length === 1
-      ? "studio-rating-advisor-popover-single"
-      : definitions.length === 2
-      ? "studio-rating-advisor-popover-double"
-      : "studio-rating-advisor-popover-scenes";
-
   const content = (
-    <PopoverCard
-      className={`studio-rating-advisor-popover-card ${layoutClass}`}
-    >
+    <PopoverCard className="studio-rating-advisor-popover-card">
       {loading && !stats && (
         <LoadingIndicator message="Loading rating averages…" inline small />
       )}
@@ -71,7 +62,7 @@ export const StudioRatingAdvisorPopover: React.FC<IProps> = ({
         }
       }}
       placement="top"
-      popoverClassName={`studio-rating-advisor-popover ${layoutClass}`}
+      popoverClassName="studio-rating-advisor-popover"
     >
       {children}
     </HoverPopover>

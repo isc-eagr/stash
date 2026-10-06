@@ -38,6 +38,18 @@ CREATE TABLE IF NOT EXISTS stashdb_matches_refresh_changes (
   current INTEGER NOT NULL,
   FOREIGN KEY(scene_id) REFERENCES scenes(id) ON DELETE CASCADE
 );
+-- Separate tables preserve compatibility with reports from older versions.
+CREATE TABLE IF NOT EXISTS stashdb_matches_refresh_submission_check (
+  id INTEGER PRIMARY KEY CHECK(id = 1),
+  endpoint TEXT NOT NULL,
+  FOREIGN KEY(id) REFERENCES stashdb_matches_refresh_report(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS stashdb_matches_refresh_unsubmitted (
+  scene_id INTEGER PRIMARY KEY,
+  stash_id TEXT NOT NULL,
+  matches INTEGER NOT NULL CHECK(matches >= 0),
+  FOREIGN KEY(scene_id) REFERENCES scenes(id) ON DELETE CASCADE
+);
 `
 
 func (db *Database) ensureSceneStashDBMatchesSchemaCustom(ctx context.Context) error {
@@ -91,6 +103,12 @@ SELECT s.scene_id, s.stash_id, m.matches
 
 // SaveStashDBMatchesReportCustom replaces the previous run's report.
 func (qb *SceneStore) SaveStashDBMatchesReportCustom(ctx context.Context, report models.StashDBMatchesReportCustom) error {
+	if _, err := dbWrapper.Exec(ctx, `DELETE FROM stashdb_matches_refresh_submission_check`); err != nil {
+		return err
+	}
+	if _, err := dbWrapper.Exec(ctx, `DELETE FROM stashdb_matches_refresh_unsubmitted`); err != nil {
+		return err
+	}
 	if _, err := dbWrapper.Exec(ctx, `DELETE FROM stashdb_matches_refresh_changes`); err != nil {
 		return err
 	}
@@ -106,6 +124,18 @@ VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		if _, err := dbWrapper.Exec(ctx, `
 INSERT INTO stashdb_matches_refresh_changes (scene_id, previous, current) VALUES (?, ?, ?)`,
 			change.SceneID, change.Previous, change.Current); err != nil {
+			return err
+		}
+	}
+	if report.Endpoint != nil {
+		if _, err := dbWrapper.Exec(ctx, `INSERT INTO stashdb_matches_refresh_submission_check (id, endpoint) VALUES (1, ?)`, *report.Endpoint); err != nil {
+			return err
+		}
+	}
+	for _, scene := range report.Unsubmitted {
+		if _, err := dbWrapper.Exec(ctx, `
+INSERT INTO stashdb_matches_refresh_unsubmitted (scene_id, stash_id, matches) VALUES (?, ?, ?)`,
+			scene.SceneID, scene.StashID, scene.Matches); err != nil {
 			return err
 		}
 	}
@@ -127,6 +157,16 @@ SELECT started_at, finished_at, checked, changed, unchanged, not_found, failed, 
 	}
 	if err := dbWrapper.Select(ctx, &report.Changes, `
 SELECT scene_id, previous, current FROM stashdb_matches_refresh_changes ORDER BY scene_id`); err != nil {
+		return nil, err
+	}
+	var endpoint string
+	if err := dbWrapper.Get(ctx, &endpoint, `SELECT endpoint FROM stashdb_matches_refresh_submission_check WHERE id = 1`); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	} else if err == nil {
+		report.Endpoint = &endpoint
+	}
+	if err := dbWrapper.Select(ctx, &report.Unsubmitted, `
+SELECT scene_id, stash_id, matches FROM stashdb_matches_refresh_unsubmitted ORDER BY scene_id`); err != nil {
 		return nil, err
 	}
 	return &report, nil

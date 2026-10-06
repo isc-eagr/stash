@@ -6,6 +6,9 @@ import {
   getRatingAdvisorBarSummaryCustom,
   getRatingAdvisorAdjustmentTooltipLabelCustom,
   getRatingAdvisorCompletionCustom,
+  getRatingAdvisorCriterionSummariesCustom,
+  getRatingAdvisorAdjustmentSummariesCustom,
+  formatRatingAdvisorContributionCustom,
   getRatingAdvisorChoiceHeatLevelCustom,
   getRatingAdvisorChoiceScoreCustom,
   getSceneGoatElementBonusFilterChoicesCustom,
@@ -222,22 +225,109 @@ assert.deepEqual(getRatingAdvisorBarSummaryCustom(faceMetric), {
   fillPercent: 0,
   heatLevel: undefined,
   choice: undefined,
+  choiceIndex: undefined,
 });
 assert.deepEqual(getRatingAdvisorBarSummaryCustom(faceMetric, 0), {
   fillPercent: 0,
   heatLevel: 0,
   choice: choices[0],
+  choiceIndex: 0,
 });
 assert.deepEqual(getRatingAdvisorBarSummaryCustom(faceMetric, 3.2), {
   fillPercent: 60,
   heatLevel: 3,
   choice: choices[3],
+  choiceIndex: 3,
 });
 assert.deepEqual(getRatingAdvisorBarSummaryCustom(faceMetric, 5), {
   fillPercent: 100,
   heatLevel: 5,
   choice: choices[5],
+  choiceIndex: 5,
 });
+
+const criterionSummaries = getRatingAdvisorCriterionSummariesCustom(
+  [
+    { ...faceMetric, key: "face" },
+    { ...faceMetric, key: "body" },
+    { ...faceMetric, key: "theme" },
+  ],
+  [
+    { section: " Criterion ", key: "face", raw_value: 4 },
+    { section: null, key: "body", raw_value: 2 },
+    { section: "bonus", key: "theme", raw_value: 5 },
+  ]
+);
+assert.deepEqual(
+  criterionSummaries.map(({ metric, summary }) => [
+    metric.key,
+    summary.choiceIndex,
+  ]),
+  [
+    ["face", 4],
+    ["body", 2],
+    ["theme", undefined],
+  ],
+  "criterion summaries read criterion scores only, defaulting a missing section"
+);
+
+const toggle = (value: number) => ({
+  max: Math.max(0, value),
+  choices: [
+    { value: 0, label: "Off", description: "" },
+    { value, label: "On", description: "" },
+  ],
+});
+const adjustmentMetrics = [
+  { ...faceMetric, key: "face", title: "Face" },
+  { ...toggle(0.5), key: "theme", title: "Theme", section: "bonus" as const },
+  {
+    ...toggle(0.5),
+    key: "unlikelyTop",
+    title: "Unlikely top",
+    section: "bonus" as const,
+  },
+  {
+    ...toggle(-2),
+    key: "noOrgasm",
+    title: "No orgasm",
+    section: "penalty" as const,
+  },
+];
+assert.deepEqual(
+  getRatingAdvisorAdjustmentSummariesCustom(
+    adjustmentMetrics,
+    [
+      { section: "criterion", key: "face", raw_value: 5 },
+      { section: "bonus", key: "theme", raw_value: 0.5 },
+      { section: "bonus", key: "unlikelyTop", raw_value: 0 },
+      { section: "penalty", key: "noOrgasm", raw_value: -2 },
+    ],
+    3
+  ),
+  [
+    {
+      key: "orgasm-count-bonus",
+      title: "Orgasm count",
+      section: "bonus",
+      contribution: 0.3,
+    },
+    { key: "theme", title: "Uniform", section: "bonus", contribution: 0.5 },
+    {
+      key: "noOrgasm",
+      title: "No orgasm",
+      section: "penalty",
+      contribution: -2,
+    },
+  ],
+  "adjustments skip criteria and zero values and lead with the O Count bonus"
+);
+assert.deepEqual([0.3, 0.5, -2, 0].map(formatRatingAdvisorContributionCustom), [
+  "+3",
+  "+5",
+  "-20",
+  "0",
+]);
 
 assert.equal(
   getRatingAdvisorAdjustmentTooltipLabelCustom(

@@ -15,11 +15,15 @@ func (r *queryResolver) StashDBMatchesReport(ctx context.Context) (ret *StashDBM
 			return err
 		}
 
-		ids := make([]int, len(report.Changes))
+		ids := make([]int, len(report.Changes), len(report.Changes)+len(report.Unsubmitted))
 		for i, change := range report.Changes {
 			ids[i] = change.SceneID
 		}
-		scenes, err := r.repository.Scene.FindMany(ctx, ids)
+		for _, scene := range report.Unsubmitted {
+			ids = append(ids, scene.SceneID)
+		}
+		// A scene can appear in both sections; FindByIDs allows repeated IDs.
+		scenes, err := r.repository.Scene.FindByIDs(ctx, ids)
 		if err != nil {
 			return err
 		}
@@ -29,15 +33,26 @@ func (r *queryResolver) StashDBMatchesReport(ctx context.Context) (ret *StashDBM
 		}
 
 		ret = &StashDBMatchesReport{
-			StartedAt:  report.StartedAt,
-			FinishedAt: report.FinishedAt,
-			Checked:    report.Checked,
-			Changed:    report.Changed,
-			Unchanged:  report.Unchanged,
-			NotFound:   report.NotFound,
-			Failed:     report.Failed,
-			Cancelled:  report.Cancelled,
-			Changes:    make([]*StashDBMatchesChange, 0, len(report.Changes)),
+			StartedAt:   report.StartedAt,
+			FinishedAt:  report.FinishedAt,
+			Checked:     report.Checked,
+			Changed:     report.Changed,
+			Unchanged:   report.Unchanged,
+			NotFound:    report.NotFound,
+			Failed:      report.Failed,
+			Cancelled:   report.Cancelled,
+			Endpoint:    report.Endpoint,
+			Changes:     make([]*StashDBMatchesChange, 0, len(report.Changes)),
+			Unsubmitted: make([]*StashDBUnsubmittedScene, 0, len(report.Unsubmitted)),
+		}
+		for _, entry := range report.Unsubmitted {
+			if scene := byID[entry.SceneID]; scene != nil {
+				ret.Unsubmitted = append(ret.Unsubmitted, &StashDBUnsubmittedScene{
+					Scene:   scene,
+					StashID: entry.StashID,
+					Matches: entry.Matches,
+				})
+			}
 		}
 		for _, change := range report.Changes {
 			if scene := byID[change.SceneID]; scene != nil {

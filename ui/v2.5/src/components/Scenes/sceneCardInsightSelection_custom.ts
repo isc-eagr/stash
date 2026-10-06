@@ -55,7 +55,6 @@ export function hasSceneCardInsightOverflow(
 function withoutSelectionFields({
   kind: _kind,
   score: _score,
-  matrixTagIds: _matrixTagIds,
   ...insight
 }: SceneCardInsightCandidate): ISceneCardInsight {
   return insight;

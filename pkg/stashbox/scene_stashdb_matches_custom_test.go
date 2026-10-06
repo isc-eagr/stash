@@ -57,27 +57,45 @@ func TestFindStashDBMatchesCustom(t *testing.T) {
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&request))
 		_, _ = w.Write([]byte(`{"data":{
   "s0": {"deleted": false, "fingerprints": [
-    {"algorithm": "PHASH", "submissions": 3},
-    {"algorithm": "OSHASH", "submissions": 9},
-    {"algorithm": "PHASH", "submissions": 2}]},
+    {"algorithm": "PHASH", "submissions": 3, "user_submitted": false},
+    {"algorithm": "OSHASH", "submissions": 9, "user_submitted": true},
+    {"algorithm": "PHASH", "submissions": 2, "user_submitted": true}]},
   "s1": null,
   "s2": {"deleted": true, "fingerprints": [{"algorithm": "PHASH", "submissions": 4}]},
-  "s3": {"deleted": false, "fingerprints": []}
+  "s3": {"deleted": false, "fingerprints": []},
+  "s4": {"deleted": false, "fingerprints": [
+    {"algorithm": "PHASH", "submissions": 6, "user_submitted": false},
+    {"algorithm": "OSHASH", "submissions": 2, "user_submitted": true}]}
 }}`))
 	}))
 	t.Cleanup(server.Close)
 
 	client := NewClient(models.StashBox{Endpoint: server.URL, APIKey: "secret"})
-	got, err := client.FindStashDBMatchesCustom(context.Background(), []string{"a", "missing", "deleted", "empty"})
+	got, err := client.FindStashDBMatchesCustom(context.Background(), []string{"a", "missing", "deleted", "empty", "not-submitted"})
 	require.NoError(t, err)
-	require.Equal(t, map[string]int{"a": 5, "empty": 0}, got)
+	require.Equal(t, map[string]StashDBMatchCustom{
+		"a":             {Matches: 5, Submitted: true},
+		"empty":         {},
+		"not-submitted": {Matches: 6},
+	}, got, "only a submitted PHASH counts as submitted by this account")
 
-	// One request, IDs passed as variables, only submissions selected.
-	require.Equal(t, map[string]any{"s0": "a", "s1": "missing", "s2": "deleted", "s3": "empty"}, request.Variables)
-	require.Equal(t, 4, strings.Count(request.Query, "findScene("))
+	// One authenticated request, IDs passed as variables, submission status selected.
+	require.Equal(t, map[string]any{"s0": "a", "s1": "missing", "s2": "deleted", "s3": "empty", "s4": "not-submitted"}, request.Variables)
+	require.Equal(t, 5, strings.Count(request.Query, "findScene("))
+	require.Contains(t, request.Query, "user_submitted")
 	require.NotContains(t, request.Query, "images")
 
 	got, err = client.FindStashDBMatchesCustom(context.Background(), nil)
 	require.NoError(t, err)
 	require.Empty(t, got)
+}
+
+func TestFindStashDBMatchesCustomRequestError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"errors":[{"message":"permission denied"}],"data":{"s0":null}}`))
+	}))
+	t.Cleanup(server.Close)
+	got, err := NewClient(models.StashBox{Endpoint: server.URL}).FindStashDBMatchesCustom(context.Background(), []string{"a"})
+	require.Error(t, err)
+	require.Nil(t, got, "a failed check must not look like an unsubmitted scene")
 }

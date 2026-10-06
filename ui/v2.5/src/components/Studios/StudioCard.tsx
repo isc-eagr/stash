@@ -31,7 +31,7 @@ import {
 import gaySvg from "src/assets/gay.svg";
 import mouthSvg from "src/assets/mouth.svg";
 import facialPng from "src/assets/facial.png"; // CUSTOM
-import { StudioActivityMetricsStrip } from "./StudioActivityMetricsStrip"; // CUSTOM
+import { ActivityStatsCharts } from "../Shared/ActivityStatsCharts_custom"; // CUSTOM
 import { StudioRatingAdvisorPopover } from "./StudioRatingAdvisorPopover_custom"; // CUSTOM
 import { StudioSortMetricStrip } from "./StudioSortMetricStrip_custom"; // CUSTOM
 import {
@@ -740,6 +740,20 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
         : stats?.studio_activity_stats;
     }
 
+    // CUSTOM: Activity Type bar in the card; Quality on the logo hover.
+    function maybeRenderActivityBar() {
+      const activityStats = getActivityStats();
+      if (!activityStats || activityStats.total_seconds <= 0) return null;
+      return (
+        <ActivityStatsCharts
+          className="studio-card-activity"
+          compact
+          only="activity"
+          stats={activityStats}
+        />
+      );
+    }
+
     function renderStudioImage() {
       const image = (
         <img
@@ -757,10 +771,10 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
           className="studio-card-image-activity-hover"
           content={
             <PopoverCard className="studio-activity-popover-card">
-              <StudioActivityMetricsStrip
+              <ActivityStatsCharts
+                compact
+                only="quality"
                 stats={activityStats}
-                idPrefix={`studio-activity-${studio.id}`}
-                showHeadings
               />
             </PopoverCard>
           }
@@ -868,6 +882,7 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
             />
             {maybeRenderParent(studio, hideParent)}
             {maybeRenderChildren(studio, activeSortBy)}
+            {maybeRenderActivityBar()}
           </div>
         }
         overlays={

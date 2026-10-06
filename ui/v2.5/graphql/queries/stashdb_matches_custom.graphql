@@ -9,9 +9,26 @@ query StashDBMatchesReport {
     not_found
     failed
     cancelled
+    endpoint
     changes {
       previous
       current
+      scene {
+        id
+        title
+        date
+        files {
+          path
+        }
+        studio {
+          id
+          name
+        }
+      }
+    }
+    unsubmitted {
+      stash_id
+      matches
       scene {
         id
         title
