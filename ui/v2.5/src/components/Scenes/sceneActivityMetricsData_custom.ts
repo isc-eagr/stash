@@ -25,6 +25,9 @@ export type SceneActivityMetric = {
   color?: string;
   outstandingPercent?: number;
   outstandingDuration?: number;
+  // Share of this activity's time inside negative markers. Outstanding excludes
+  // that time, so this and outstandingPercent never overlap.
+  negativePercent?: number;
 };
 
 export type SceneActivityMetricRows = {
@@ -383,6 +386,12 @@ export function getSceneActivityMetrics(
           usableOutstandingIntervals
         )
       );
+      const activityNegativeDuration = getSceneActivityDuration(
+        intersectSceneActivityIntervals(
+          intervalsByCategory[key],
+          unusableIntervals
+        )
+      );
 
       return [
         {
@@ -394,6 +403,9 @@ export function getSceneActivityMetrics(
             (activityOutstandingDuration / duration) * 100
           ),
           outstandingDuration: activityOutstandingDuration,
+          negativePercent: Math.round(
+            (activityNegativeDuration / duration) * 100
+          ),
         },
       ];
     }),

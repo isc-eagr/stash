@@ -1,24 +1,9 @@
-.image-viewer-container {
-  /* CUSTOM: the fullscreen viewer must override application theme backgrounds. */
-  /* stylelint-disable-next-line declaration-no-important -- fullscreen surface owns its background */
-  background: #000 !important;
-  bottom: 0;
-  height: 100vh;
-  left: 0;
-  overflow: hidden;
-  position: fixed;
-  right: 0;
-  top: 0;
-  width: 100vw;
-  z-index: 99999;
-}
-
 .image-viewer-overlay {
   cursor: grab;
   overflow: visible;
   position: fixed;
+  touch-action: none;
   user-select: none;
-  z-index: 100000;
 
   &.dragging {
     cursor: grabbing;
@@ -52,12 +37,12 @@
   .iv-controls-bar {
     display: flex;
     gap: 2px;
-    left: 0;
     opacity: 0;
     position: absolute;
-    top: -32px;
+    right: 4px;
+    top: 4px;
     transition: opacity 0.15s;
-    z-index: 100002;
+    z-index: 3;
 
     .iv-ctrl-btn {
       align-items: center;
@@ -75,6 +60,7 @@
 
       &:hover {
         background: rgba(60, 60, 60, 0.95);
+        color: #fff;
       }
 
       &.iv-ctrl-close:hover {
@@ -121,7 +107,7 @@
     opacity: 0;
     position: absolute;
     transition: opacity 0.15s;
-    z-index: 100001;
+    z-index: 2;
 
     &.iv-crop-top,
     &.iv-crop-bottom {
@@ -165,6 +151,34 @@
 
     &:hover {
       background: rgba(100, 180, 255, 1);
+    }
+  }
+}
+
+// Touch screens have no hover, so keep the panel controls visible there.
+@media (hover: none) {
+  .image-viewer-overlay {
+    .iv-controls-bar,
+    .iv-crop-handle,
+    .iv-resize-handle,
+    .iv-resize-handle-tl {
+      opacity: 1;
+    }
+
+    .iv-resize-handle,
+    .iv-resize-handle-tl {
+      height: 24px;
+      width: 24px;
+    }
+
+    .iv-crop-handle.iv-crop-top,
+    .iv-crop-handle.iv-crop-bottom {
+      height: 10px;
+    }
+
+    .iv-crop-handle.iv-crop-left,
+    .iv-crop-handle.iv-crop-right {
+      width: 10px;
     }
   }
 }

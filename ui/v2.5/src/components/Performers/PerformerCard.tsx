@@ -43,6 +43,7 @@ import {
   isCatalogCardSortHighlightedCustom,
 } from "../Shared/catalogCardSortHighlight_custom";
 import { shouldOpenScenePerformerOverview } from "src/utils/scenePerformerOverview_custom"; // CUSTOM
+import type { IScenePerformerRoleSeconds } from "src/components/Scenes/scenePerformerRoleSeconds_custom"; // CUSTOM
 // CUSTOM: end
 
 export interface IPerformerCardExtraCriteria {
@@ -107,6 +108,7 @@ interface IPerformerCardProps {
   scenePerformerCount?: number;
   /** All performers in the scene, used to show mini images in partner tooltips */
   scenePartnerPerformers?: Pick<GQL.Performer, "id" | "name" | "image_path">[];
+  sceneRoleSeconds?: IScenePerformerRoleSeconds; // CUSTOM: scene-page sex/oral time strips
   /** Studio-filtered stats used when the card is rendered from a studio performer view */
   studioStats?: IPerformerStudioStats | null;
   /** Lazily loaded global role stats used to avoid heavy role-count work in the initial list query */
@@ -469,6 +471,7 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
     sceneId,
     scenePerformerCount,
     scenePartnerPerformers,
+    sceneRoleSeconds,
     studioStats,
     roleStats,
     extraCriteria,
@@ -522,7 +525,6 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
         isCatalogCardSortHighlightedCustom(
           activeSortBy,
           "sex_scenes_count",
-          "sex_unique_partners",
           "sex_topped_partners",
           "sex_bottomed_partners"
         )) ||
@@ -530,7 +532,6 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
           isCatalogCardSortHighlightedCustom(
             activeSortBy,
             "oral_scenes_count",
-            "oral_unique_partners",
             "oral_topped_partners",
             "oral_bottomed_partners"
           )) ||
@@ -542,7 +543,7 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
         (!!roleTagIds.facialTagId &&
           isCatalogCardSortHighlightedCustom(
             activeSortBy,
-            "facial_unique_partners",
+            "facial_count",
             "facial_topped_partners",
             "facial_bottomed_partners"
           )) ||
@@ -554,14 +555,15 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
             "feet_markers_count"
           ))); // CUSTOM
     const embeddedSortMetric =
-      isCatalogCardSortHighlightedCustom(
-        activeSortBy,
-        "tag_count",
-        "scenes_count",
-        "images_count",
-        "galleries_count",
-        "o_counter"
-      ) ||
+      (!sceneId &&
+        isCatalogCardSortHighlightedCustom(
+          activeSortBy,
+          "tag_count",
+          "scenes_count",
+          "images_count",
+          "galleries_count",
+          "o_counter"
+        )) ||
       embeddedRoleSortMetric ||
       (isCatalogCardSortHighlightedCustom(activeSortBy, "rating") &&
         hasCatalogCardSortValueCustom(performer.rating100)); // CUSTOM
@@ -591,6 +593,7 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
           markerRoles={markerRoles}
           scenePerformerCount={scenePerformerCount}
           scenePartnerPerformers={scenePartnerPerformers} // CUSTOM
+          roleSeconds={sceneRoleSeconds} // CUSTOM
           globalStatsOverride={studioStats ?? roleStats}
           studioContext={
             extraCriteria?.studio

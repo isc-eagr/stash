@@ -7,7 +7,7 @@ import React, {
   useState,
 } from "react";
 import { gql, useQuery } from "@apollo/client";
-import { useLocation } from "react-router-dom";
+import { useHistory, useLocation } from "react-router-dom";
 import { Helmet } from "react-helmet";
 import {
   Button,
@@ -27,9 +27,12 @@ import {
   faRedo,
   faArrowUp,
   faArrowDown,
+  faExclamationTriangle,
+  faGripVertical,
   faList,
   faTimes,
   faExpand,
+  faCompress,
   faSave,
   faFolderOpen,
   faChevronLeft,
@@ -59,6 +62,24 @@ import {
   scrollMarkerPlaylistItemIntoViewCustom,
 } from "./markerPlaylistPresentation_custom"; // CUSTOM
 import { getMarkerPlaylistORecordTargetCustom } from "./markerPlaylistORecord_custom"; // CUSTOM
+import {
+  exitMarkerPlayerFullscreenCustom,
+  isMarkerPlayerNativeFullscreenCustom,
+  requestMarkerPlayerFullscreenCustom,
+  shouldLockMarkerPlayerLandscapeCustom,
+} from "./markerPlaylistFullscreen_custom"; // CUSTOM
+import {
+  followRemovedIndexCustom,
+  getMarkerPlayerSwipeDirectionCustom,
+  getMarkerPlaylistStepIndexCustom,
+  type MarkerPlaylistDirectionCustom,
+} from "./markerPlaylistNavigation_custom"; // CUSTOM
+import {
+  followMovedIndexCustom,
+  moveArrayItemCustom,
+} from "src/components/Shared/pointerSortable_custom"; // CUSTOM
+import { usePointerSortableCustom } from "src/components/Shared/usePointerSortable_custom"; // CUSTOM
+import { useScreenWakeLockCustom } from "src/hooks/useScreenWakeLock_custom"; // CUSTOM
 import { formatORecordedToastCustom } from "./oRecordToast_custom"; // CUSTOM
 import { useSceneReleaseRecordOCustom } from "./sceneReleaseActivity_custom"; // CUSTOM
 import "./MarkerPlaylistPlayer.scss";
@@ -121,6 +142,7 @@ interface IPreparedVideoSlot {
 export const MarkerPlaylistPlayer: React.FC = () => {
   const intl = useIntl();
   const location = useLocation();
+  const history = useHistory(); // CUSTOM
   const Toast = useToast();
   const { configuration } = useConfigurationContext(); // CUSTOM
   const { sfwContentMode } = configuration.interface; // CUSTOM
@@ -141,6 +163,10 @@ export const MarkerPlaylistPlayer: React.FC = () => {
     undefined,
     undefined,
   ]);
+  const videoSlotErrorCleanupsRef = useRef<Array<(() => void) | undefined>>([
+    undefined,
+    undefined,
+  ]); // CUSTOM
   const markerLoadRequestRef = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const videoWrapperRef = useRef<HTMLDivElement>(null);
@@ -151,7 +177,11 @@ export const MarkerPlaylistPlayer: React.FC = () => {
   const [activeVideoSlot, setActiveVideoSlot] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showPlaylist, setShowPlaylist] = useState(true);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isNativeFullscreen, setIsNativeFullscreen] = useState(false);
+  // CUSTOM: fills the viewport where element fullscreen is unavailable (iPhone).
+  const [isPseudoFullscreen, setIsPseudoFullscreen] = useState(false);
+  const isFullscreen = isNativeFullscreen || isPseudoFullscreen;
+  const lastPointerTypeRef = useRef("mouse"); // CUSTOM
   const [loopSingleMarkerId, setLoopSingleMarkerId] = useState<string | null>(
     null
   );
@@ -160,11 +190,38 @@ export const MarkerPlaylistPlayer: React.FC = () => {
   const fullscreenOverlayTimeoutRef = useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
-  const recordedOToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+  const playerToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   ); // CUSTOM
-  const [recordedOToast, setRecordedOToast] = useState<string>(); // CUSTOM
+  // CUSTOM: toasts drawn inside the player stay visible in fullscreen.
+  const [playerToast, setPlayerToast] = useState<{
+    message: string;
+    variant: "success" | "error";
+  }>();
   const currentMarker = markers[currentIndex]; // CUSTOM
+  // CUSTOM: begin - navigation that survives rapid taps, edits, and broken streams
+  const markersRef = useRef(markers);
+  markersRef.current = markers;
+  // The marker the user last asked for, ahead of currentIndex while it loads.
+  const requestedIndexRef = useRef(0);
+  const pendingLoadRef = useRef<{
+    requestId: number;
+    markerId: string;
+    direction: MarkerPlaylistDirectionCustom;
+    autoPlay: boolean;
+  }>();
+  const [failedMarkerIds, setFailedMarkerIds] = useState<ReadonlySet<string>>(
+    () => new Set()
+  );
+  const failedMarkerIdsRef = useRef(failedMarkerIds);
+  failedMarkerIdsRef.current = failedMarkerIds;
+  const handleVideoSlotErrorRef = useRef<
+    (slot: number, marker: IMarkerInfo) => void
+  >(() => {});
+  const initializedPlaylistKeyRef = useRef<string>();
+  const swipeStartRef = useRef<{ x: number; y: number; time: number }>();
+  const suppressClickUntilRef = useRef(0);
+  // CUSTOM: end
 
   // Save/Load playlist state
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -187,22 +244,34 @@ export const MarkerPlaylistPlayer: React.FC = () => {
     return ids ? ids.split(",").filter(Boolean) : [];
   }, [location.search]);
 
-  const { data, loading } = useQuery<IFindMarkersForPlaylistResult>(
-    FIND_MARKERS_FOR_PLAYLIST,
-    {
-      skip: markerIds.length === 0,
-      variables: { ids: markerIds },
-    }
-  );
+  const {
+    data,
+    loading,
+    error: markersError, // CUSTOM
+  } = useQuery<IFindMarkersForPlaylistResult>(FIND_MARKERS_FOR_PLAYLIST, {
+    skip: markerIds.length === 0,
+    variables: { ids: markerIds },
+  });
 
   useEffect(() => {
+    // CUSTOM: build the playlist once per navigation, so refetches and the
+    // URL kept in sync with edits below never reset playback.
+    const playlistKey = `${location.key ?? ""}:${markerIds.join(",")}`;
+    if (initializedPlaylistKeyRef.current === playlistKey) return;
+
     if (markerIds.length === 0) {
+      initializedPlaylistKeyRef.current = playlistKey;
       setMarkers([]);
       return;
     }
 
-    const fetchedMarkers = data?.findSceneMarkers.scene_markers;
+    // CUSTOM: a failed lookup (e.g. a deleted marker) empties the playlist
+    // rather than leaving the previous one on screen.
+    const fetchedMarkers = markersError
+      ? []
+      : data?.findSceneMarkers.scene_markers;
     if (!fetchedMarkers) return;
+    initializedPlaylistKeyRef.current = playlistKey;
 
     // Sort markers to maintain the order from the URL
     const sortedMarkers = markerIds
@@ -249,14 +318,57 @@ export const MarkerPlaylistPlayer: React.FC = () => {
 
     setMarkers(sortedMarkers);
     setCurrentIndex(0);
+    setFailedMarkerIds(new Set()); // CUSTOM
+    pendingLoadRef.current = undefined; // CUSTOM
     preparedVideoSlotsRef.current = [null, null];
     markerLoadRequestRef.current += 1;
     initialLoadedRef.current = false;
-  }, [data?.findSceneMarkers.scene_markers, markerIds]);
+  }, [
+    data?.findSceneMarkers.scene_markers,
+    location.key,
+    markerIds,
+    markersError,
+  ]);
+
+  // CUSTOM: keep the URL in step with reordering and removals so a reload or
+  // shared link plays the edited playlist. The router location is left alone,
+  // which would otherwise refetch and rebuild the playlist.
+  useEffect(() => {
+    if (!initializedPlaylistKeyRef.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const ids = markers.map((marker) => marker.id).join(",");
+    if (params.get("ids") === ids) return;
+    params.set("ids", ids);
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${window.location.pathname}?${params.toString().replace(/%2C/g, ",")}${
+        window.location.hash
+      }`
+    );
+  }, [markers]);
 
   const getActiveVideo = useCallback(
     () => videoRefs[activeVideoSlotRef.current].current,
     [videoRefs]
+  );
+
+  // CUSTOM: a file that fails to load fails every marker that streams it.
+  const updateFailedStream = useCallback(
+    (streamUrl: string, failed: boolean) => {
+      const ids = markersRef.current
+        .filter((marker) => marker.streamUrl === streamUrl)
+        .map((marker) => marker.id);
+      const { current } = failedMarkerIdsRef;
+      if (ids.every((id) => current.has(id) === failed)) return current;
+
+      const next = new Set(current);
+      ids.forEach((id) => (failed ? next.add(id) : next.delete(id)));
+      failedMarkerIdsRef.current = next;
+      setFailedMarkerIds(next);
+      return next;
+    },
+    []
   );
 
   // CUSTOM: begin - each marker activation gets a fresh remote session.
@@ -304,6 +416,7 @@ export const MarkerPlaylistPlayer: React.FC = () => {
       const loadToken = videoSlotLoadTokensRef.current[slot] + 1;
       videoSlotLoadTokensRef.current[slot] = loadToken;
       videoSlotReadyCallbacksRef.current[slot] = onReady;
+      videoSlotErrorCleanupsRef.current[slot]?.(); // CUSTOM
       preparedVideoSlotsRef.current[slot] = {
         markerId: marker.id,
         sceneId: marker.sceneId,
@@ -337,6 +450,19 @@ export const MarkerPlaylistPlayer: React.FC = () => {
         readyCallback?.();
       };
 
+      // CUSTOM: a missing or unsupported file fails the load (or later
+      // playback) instead of leaving the player waiting forever.
+      const handleError = () => {
+        if (!isCurrentLoad()) return;
+        videoSlotLoadTokensRef.current[slot] += 1;
+        preparedVideoSlotsRef.current[slot] = null;
+        videoSlotReadyCallbacksRef.current[slot] = undefined;
+        handleVideoSlotErrorRef.current(slot, marker);
+      };
+      video.addEventListener("error", handleError);
+      videoSlotErrorCleanupsRef.current[slot] = () =>
+        video.removeEventListener("error", handleError);
+
       const seekToMarker = () => {
         if (!isCurrentLoad()) return;
 
@@ -361,10 +487,14 @@ export const MarkerPlaylistPlayer: React.FC = () => {
   );
 
   const activatePreparedVideoSlot = useCallback(
-    (slot: number, index: number, marker: IMarkerInfo, autoPlay: boolean) => {
+    (slot: number, marker: IMarkerInfo, autoPlay: boolean) => {
       const previousVideo = getActiveVideo();
       const nextVideo = videoRefs[slot].current;
-      if (!nextVideo) return;
+      // CUSTOM: the playlist may have been reordered while this marker loaded.
+      const index = markersRef.current.findIndex((m) => m.id === marker.id);
+      if (!nextVideo || index < 0) return;
+      pendingLoadRef.current = undefined; // CUSTOM
+      updateFailedStream(marker.streamUrl, false); // CUSTOM: an explicit retry worked
 
       if (previousVideo && previousVideo !== nextVideo) {
         nextVideo.volume = previousVideo.volume;
@@ -389,12 +519,16 @@ export const MarkerPlaylistPlayer: React.FC = () => {
         });
       }
     },
-    [getActiveVideo, videoRefs]
+    [getActiveVideo, updateFailedStream, videoRefs]
   );
 
   // Load a specific marker
   const loadMarker = useCallback(
-    (index: number, autoPlay = true) => {
+    (
+      index: number,
+      autoPlay = true,
+      direction: MarkerPlaylistDirectionCustom = 1 // CUSTOM: where to skip if it fails
+    ) => {
       const video = getActiveVideo();
       if (!video || index < 0 || index >= markers.length) return;
 
@@ -403,6 +537,13 @@ export const MarkerPlaylistPlayer: React.FC = () => {
       const activePreparedSlot = preparedVideoSlotsRef.current[activeSlot];
       const requestId = markerLoadRequestRef.current + 1;
       markerLoadRequestRef.current = requestId;
+      requestedIndexRef.current = index; // CUSTOM
+      pendingLoadRef.current = {
+        requestId,
+        markerId: marker.id,
+        direction,
+        autoPlay,
+      }; // CUSTOM
 
       if (
         activePreparedSlot?.sceneId === marker.sceneId &&
@@ -417,6 +558,7 @@ export const MarkerPlaylistPlayer: React.FC = () => {
           seconds: marker.seconds,
           ready: true,
         };
+        pendingLoadRef.current = undefined; // CUSTOM
         setCurrentIndex(index);
         if (autoPlay) {
           video.play().catch(console.error);
@@ -428,10 +570,26 @@ export const MarkerPlaylistPlayer: React.FC = () => {
       video.pause();
       prepareVideoSlot(targetSlot, marker, () => {
         if (markerLoadRequestRef.current !== requestId) return;
-        activatePreparedVideoSlot(targetSlot, index, marker, autoPlay);
+        activatePreparedVideoSlot(targetSlot, marker, autoPlay);
       });
     },
     [activatePreparedVideoSlot, getActiveVideo, markers, prepareVideoSlot]
+  );
+
+  // CUSTOM: steps from the marker last asked for, so rapid taps add up, and
+  // passes over markers whose files failed to load. The playlist wraps.
+  const stepMarker = useCallback(
+    (direction: MarkerPlaylistDirectionCustom) => {
+      const failed = failedMarkerIdsRef.current;
+      const index = getMarkerPlaylistStepIndexCustom(
+        markers.length,
+        requestedIndexRef.current,
+        direction,
+        (i) => failed.has(markers[i].id)
+      );
+      if (index !== undefined) loadMarker(index, true, direction);
+    },
+    [loadMarker, markers]
   );
 
   // Handle timeupdate to check for marker end
@@ -454,14 +612,8 @@ export const MarkerPlaylistPlayer: React.FC = () => {
           return;
         }
 
-        // Move to next marker
-        const nextIndex = currentIndex + 1;
-        if (nextIndex < markers.length) {
-          loadMarker(nextIndex);
-        } else {
-          // The playlist always loops back to the first marker.
-          loadMarker(0);
-        }
+        // Move to the next marker; the playlist always loops back to the first.
+        stepMarker(1);
       }
     };
 
@@ -481,30 +633,27 @@ export const MarkerPlaylistPlayer: React.FC = () => {
     activeVideoSlot,
     currentIndex,
     getActiveVideo,
-    loadMarker,
     loopSingleMarkerId,
     markers,
+    stepMarker,
   ]);
 
-  // Track fullscreen state
+  // Track native fullscreen state
   useEffect(() => {
     const handleFullscreenChange = () => {
-      const isNowFullscreen = !!document.fullscreenElement;
-      setIsFullscreen(isNowFullscreen);
-      // Hide overlay when exiting fullscreen
+      const isNowFullscreen = isMarkerPlayerNativeFullscreenCustom(document);
+      setIsNativeFullscreen(isNowFullscreen);
       if (!isNowFullscreen) {
-        setShowFullscreenOverlay(false);
-        if (fullscreenOverlayTimeoutRef.current) {
-          clearTimeout(fullscreenOverlayTimeoutRef.current);
-          fullscreenOverlayTimeoutRef.current = null;
+        try {
+          screen.orientation?.unlock();
+        } catch {
+          // Orientation locking is unsupported outside mobile fullscreen.
         }
       }
     };
 
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
-    document.addEventListener("mozfullscreenchange", handleFullscreenChange);
-    document.addEventListener("MSFullscreenChange", handleFullscreenChange);
 
     return () => {
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
@@ -512,16 +661,24 @@ export const MarkerPlaylistPlayer: React.FC = () => {
         "webkitfullscreenchange",
         handleFullscreenChange
       );
-      document.removeEventListener(
-        "mozfullscreenchange",
-        handleFullscreenChange
-      );
-      document.removeEventListener(
-        "MSFullscreenChange",
-        handleFullscreenChange
-      );
     };
   }, []);
+
+  // CUSTOM: the viewport fallback blocks page scrolling and exits on Escape.
+  useEffect(() => {
+    if (!isPseudoFullscreen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsPseudoFullscreen(false);
+    };
+    document.body.classList.add("marker-player-pseudo-fullscreen");
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.classList.remove("marker-player-pseudo-fullscreen");
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isPseudoFullscreen]);
 
   // CUSTOM: begin - Handle mouse movement in all player modes to show/hide performer chips
   const showPlayerOverlay = useCallback(() => {
@@ -543,6 +700,16 @@ export const MarkerPlaylistPlayer: React.FC = () => {
       }
     };
   }, []);
+
+  // Hide the overlay when leaving fullscreen
+  useEffect(() => {
+    if (isFullscreen) return;
+    setShowFullscreenOverlay(false);
+    if (fullscreenOverlayTimeoutRef.current) {
+      clearTimeout(fullscreenOverlayTimeoutRef.current);
+      fullscreenOverlayTimeoutRef.current = null;
+    }
+  }, [isFullscreen]);
   // CUSTOM: end
 
   // Load first marker when markers are ready
@@ -556,6 +723,11 @@ export const MarkerPlaylistPlayer: React.FC = () => {
       loadMarker(0, false);
     }
   }, [getActiveVideo, loadMarker, markers]);
+
+  // CUSTOM: reordering and removals move the playing marker's index.
+  useEffect(() => {
+    requestedIndexRef.current = currentIndex;
+  }, [currentIndex]);
 
   // CUSTOM: Keep the marker that is playing visible in a long playlist.
   useEffect(() => {
@@ -579,7 +751,12 @@ export const MarkerPlaylistPlayer: React.FC = () => {
       true,
       loopSingleMarkerId
     );
-    if (preloadIndex === undefined) return;
+    if (
+      preloadIndex === undefined ||
+      failedMarkerIdsRef.current.has(markers[preloadIndex].id) // CUSTOM
+    ) {
+      return;
+    }
 
     const preloadSlot = activeVideoSlotRef.current === 0 ? 1 : 0;
     prepareVideoSlot(preloadSlot, markers[preloadIndex]);
@@ -659,24 +836,74 @@ export const MarkerPlaylistPlayer: React.FC = () => {
   );
 
   // CUSTOM: the global toast is outside the browser fullscreen element.
-  const showFullscreenORecordedToast = useCallback((message: string) => {
-    setRecordedOToast(message);
-    if (recordedOToastTimeoutRef.current) {
-      clearTimeout(recordedOToastTimeoutRef.current);
-    }
-    recordedOToastTimeoutRef.current = setTimeout(() => {
-      setRecordedOToast(undefined);
-    }, 3000);
-  }, []);
+  const showPlayerToast = useCallback(
+    (message: string, variant: "success" | "error" = "success") => {
+      setPlayerToast({ message, variant });
+      if (playerToastTimeoutRef.current) {
+        clearTimeout(playerToastTimeoutRef.current);
+      }
+      playerToastTimeoutRef.current = setTimeout(() => {
+        setPlayerToast(undefined);
+      }, 3000);
+    },
+    []
+  );
 
   useEffect(
     () => () => {
-      if (recordedOToastTimeoutRef.current) {
-        clearTimeout(recordedOToastTimeoutRef.current);
+      if (playerToastTimeoutRef.current) {
+        clearTimeout(playerToastTimeoutRef.current);
       }
     },
     []
   );
+
+  // CUSTOM: skip markers whose file fails to load or play, in the direction
+  // the user was moving; stop when nothing in the playlist plays.
+  handleVideoSlotErrorRef.current = (slot, marker) => {
+    const failed = updateFailedStream(marker.streamUrl, true);
+    const list = markersRef.current;
+    const pending = pendingLoadRef.current;
+    const pendingFailed =
+      pending?.requestId === markerLoadRequestRef.current &&
+      failed.has(pending.markerId);
+    const activeFailed =
+      !pending &&
+      slot === activeVideoSlotRef.current &&
+      failed.has(list[requestedIndexRef.current]?.id ?? "");
+    if (!pendingFailed && !activeFailed) return;
+
+    const from = pendingFailed
+      ? list.findIndex((m) => m.id === pending.markerId)
+      : requestedIndexRef.current;
+    const direction = pendingFailed ? pending.direction : 1;
+    const autoPlay = pendingFailed ? pending.autoPlay : true;
+    pendingLoadRef.current = undefined;
+
+    const next = getMarkerPlaylistStepIndexCustom(
+      list.length,
+      from,
+      direction,
+      (i) => failed.has(list[i].id)
+    );
+    if (next === undefined) {
+      setIsPlaying(false);
+      showPlayerToast(
+        intl.formatMessage({ id: "marker_playlist.nothing_playable" }),
+        "error"
+      );
+      return;
+    }
+
+    showPlayerToast(
+      intl.formatMessage(
+        { id: "marker_playlist.skipped_unplayable" },
+        { title: marker.title }
+      ),
+      "error"
+    );
+    loadMarker(next, autoPlay, direction);
+  };
 
   // CUSTOM: record an O for the marker's scene at the active video's exact time.
   const handleRecordO = useCallback(async () => {
@@ -704,7 +931,7 @@ export const MarkerPlaylistPlayer: React.FC = () => {
       }
       const message = formatORecordedToastCustom(target.videoTimestamp);
       if (isFullscreen) {
-        showFullscreenORecordedToast(message);
+        showPlayerToast(message);
       } else {
         Toast.success(message);
       }
@@ -718,21 +945,8 @@ export const MarkerPlaylistPlayer: React.FC = () => {
     isFullscreen,
     recordOAtTimestamp,
     recordReleaseOAtTimestamp,
-    showFullscreenORecordedToast,
+    showPlayerToast,
   ]);
-
-  const handleNext = useCallback(() => {
-    if (markers.length === 0) return;
-    const nextIndex = (currentIndex + 1) % markers.length;
-    loadMarker(nextIndex);
-  }, [markers, currentIndex, loadMarker]);
-
-  const handlePrevious = useCallback(() => {
-    if (markers.length === 0) return;
-    const prevIndex =
-      currentIndex === 0 ? markers.length - 1 : currentIndex - 1;
-    loadMarker(prevIndex);
-  }, [markers, currentIndex, loadMarker]);
 
   const handleJumpToMarker = useCallback(
     (index: number) => {
@@ -741,54 +955,75 @@ export const MarkerPlaylistPlayer: React.FC = () => {
     [loadMarker]
   );
 
-  const handleFullscreen = useCallback(() => {
+  // CUSTOM: begin - playlist edits keep the playing marker playing
+  const handleMoveMarker = useCallback((from: number, to: number) => {
+    setMarkers((current) => moveArrayItemCustom(current, from, to));
+    setCurrentIndex((current) => followMovedIndexCustom(current, from, to));
+  }, []);
+
+  const handleRemoveMarker = useCallback((index: number) => {
+    const remainingCount = markersRef.current.length - 1;
+    setMarkers((current) => current.filter((_, i) => i !== index));
+    setCurrentIndex((current) =>
+      followRemovedIndexCustom(current, index, remainingCount)
+    );
+  }, []);
+
+  const playlistSortable = usePointerSortableCustom({
+    count: markers.length,
+    onMove: handleMoveMarker,
+  });
+
+  useScreenWakeLockCustom(isPlaying);
+  // CUSTOM: end
+
+  const handleFullscreen = useCallback(async () => {
     const wrapper = videoWrapperRef.current;
     if (!wrapper) return;
 
-    if (!isFullscreen) {
-      if (wrapper.requestFullscreen) {
-        wrapper.requestFullscreen();
-      } else {
-        // Fallback for webkit browsers
-        const wrapperElement = wrapper as HTMLDivElement & {
-          webkitRequestFullscreen?: () => void;
-          msRequestFullscreen?: () => void;
-        };
-        if (wrapperElement.webkitRequestFullscreen) {
-          wrapperElement.webkitRequestFullscreen();
-        } else if (wrapperElement.msRequestFullscreen) {
-          wrapperElement.msRequestFullscreen();
-        }
-      }
-    } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen();
-      } else {
-        // Fallback for webkit browsers
-        const doc = document as Document & {
-          webkitExitFullscreen?: () => void;
-          msExitFullscreen?: () => void;
-        };
-        if (doc.webkitExitFullscreen) {
-          doc.webkitExitFullscreen();
-        } else if (doc.msExitFullscreen) {
-          doc.msExitFullscreen();
-        }
-      }
+    if (isPseudoFullscreen) {
+      setIsPseudoFullscreen(false);
+      return;
     }
-  }, [isFullscreen]);
+    if (isNativeFullscreen) {
+      exitMarkerPlayerFullscreenCustom(document);
+      return;
+    }
+
+    showPlayerOverlay();
+    if (!(await requestMarkerPlayerFullscreenCustom(wrapper, document))) {
+      setIsPseudoFullscreen(true);
+      return;
+    }
+
+    // CUSTOM: rotate phones for landscape videos, like native players do.
+    if (
+      shouldLockMarkerPlayerLandscapeCustom(
+        getActiveVideo(),
+        window.matchMedia("(pointer: coarse)").matches
+      )
+    ) {
+      const orientation = screen.orientation as ScreenOrientation & {
+        lock?: (orientation: string) => Promise<void>;
+      };
+      orientation?.lock?.("landscape").catch(() => {});
+    }
+  }, [
+    getActiveVideo,
+    isNativeFullscreen,
+    isPseudoFullscreen,
+    showPlayerOverlay,
+  ]);
 
   const handleVideoClick = useCallback(() => {
-    // In fullscreen, reset controls/cursor visibility on any click
-    if (isFullscreen) {
-      setShowFullscreenOverlay(true);
-      if (fullscreenOverlayTimeoutRef.current) {
-        clearTimeout(fullscreenOverlayTimeoutRef.current);
-      }
-      fullscreenOverlayTimeoutRef.current = setTimeout(() => {
-        setShowFullscreenOverlay(false);
-      }, 2000);
-    }
+    if (Date.now() < suppressClickUntilRef.current) return; // CUSTOM: swipe
+    // CUSTOM: on touch screens the first tap on hidden fullscreen controls only reveals them.
+    const revealOnly =
+      lastPointerTypeRef.current !== "mouse" &&
+      isFullscreen &&
+      !showFullscreenOverlay;
+    showPlayerOverlay();
+    if (revealOnly) return;
 
     // Single click → play/pause; double click → toggle fullscreen (both modes)
     if (clickTimeoutRef.current) {
@@ -804,35 +1039,40 @@ export const MarkerPlaylistPlayer: React.FC = () => {
         handlePlayPause();
       }, 300);
     }
-  }, [isFullscreen, handleFullscreen, handlePlayPause]);
+  }, [
+    isFullscreen,
+    handleFullscreen,
+    handlePlayPause,
+    showFullscreenOverlay,
+    showPlayerOverlay,
+  ]);
 
-  // Track fullscreen state
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
+  // CUSTOM: begin - swipe left/right on the video for the next/previous marker
+  const handleVideoTouchStart = (event: React.TouchEvent) => {
+    const touch = event.touches[0];
+    swipeStartRef.current =
+      event.touches.length === 1
+        ? { x: touch.clientX, y: touch.clientY, time: event.timeStamp }
+        : undefined;
+  };
 
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
-    document.addEventListener("mozfullscreenchange", handleFullscreenChange);
-    document.addEventListener("MSFullscreenChange", handleFullscreenChange);
+  const handleVideoTouchEnd = (event: React.TouchEvent) => {
+    const start = swipeStartRef.current;
+    swipeStartRef.current = undefined;
+    const touch = event.changedTouches[0];
+    if (!start || !touch) return;
 
-    return () => {
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
-      document.removeEventListener(
-        "webkitfullscreenchange",
-        handleFullscreenChange
-      );
-      document.removeEventListener(
-        "mozfullscreenchange",
-        handleFullscreenChange
-      );
-      document.removeEventListener(
-        "MSFullscreenChange",
-        handleFullscreenChange
-      );
-    };
-  }, []);
+    const direction = getMarkerPlayerSwipeDirectionCustom(
+      touch.clientX - start.x,
+      touch.clientY - start.y,
+      event.timeStamp - start.time
+    );
+    if (!direction) return;
+    suppressClickUntilRef.current = Date.now() + 500;
+    showPlayerOverlay();
+    stepMarker(direction);
+  };
+  // CUSTOM: end
 
   const formatTime = (seconds: number): string => {
     return TextUtils.secondsToTimestamp(seconds);
@@ -881,9 +1121,10 @@ export const MarkerPlaylistPlayer: React.FC = () => {
   const handleLoadPlaylist = useCallback(
     (playlist: { id: string; marker_ids: string[] }) => {
       const idsParam = playlist.marker_ids.join(",");
-      window.location.href = `/scenes/markers/player?ids=${idsParam}`;
+      setShowLoadDropdown(false);
+      history.push(`/scenes/markers/player?ids=${idsParam}`); // CUSTOM: no page reload
     },
-    []
+    [history]
   );
 
   const handleDeletePlaylist = useCallback(
@@ -1034,9 +1275,12 @@ export const MarkerPlaylistPlayer: React.FC = () => {
     );
   };
 
+  // CUSTOM: player controls stay visible in normal mode and auto-hide in fullscreen.
+  const showPlayerControls = !isFullscreen || showFullscreenOverlay;
+
   // CUSTOM: keep the replay and O controls available in both normal and fullscreen player modes.
   const renderMarkerEventControls = () => {
-    if (!currentMarker || (isFullscreen && !showFullscreenOverlay)) {
+    if (!currentMarker || !showPlayerControls) {
       return null;
     }
 
@@ -1199,10 +1443,19 @@ export const MarkerPlaylistPlayer: React.FC = () => {
       <div className="player-container">
         <div className={cx("video-section", { "full-width": !showPlaylist })}>
           <div
-            className="video-wrapper"
+            className={cx("video-wrapper", {
+              "pseudo-fullscreen": isPseudoFullscreen,
+            })}
             ref={videoWrapperRef}
             onClick={handleVideoClick}
-            onMouseMove={showPlayerOverlay}
+            onPointerDown={(e) => {
+              lastPointerTypeRef.current = e.pointerType;
+            }}
+            onPointerMove={(e) => {
+              if (e.pointerType === "mouse") showPlayerOverlay();
+            }}
+            onTouchStart={handleVideoTouchStart}
+            onTouchEnd={handleVideoTouchEnd}
             style={{
               cursor:
                 isFullscreen && !showFullscreenOverlay ? "none" : undefined,
@@ -1234,52 +1487,57 @@ export const MarkerPlaylistPlayer: React.FC = () => {
                 position: "absolute",
               }}
             />
-            {recordedOToast && (
-              <div className="marker-o-recorded-toast" role="status">
-                {recordedOToast}
+            {playerToast && (
+              <div
+                className={cx("marker-player-toast", playerToast.variant)}
+                role="status"
+              >
+                {playerToast.message}
               </div>
             )}
             {renderCurrentPerformerOverlay()}
             {renderMarkerEventControls()}
-            {/* CUSTOM: Fullscreen marker navigation. */}
-            {isFullscreen && showFullscreenOverlay && currentMarker && (
+            {/* CUSTOM: Marker navigation in normal and fullscreen modes. */}
+            {showPlayerControls && markers.length > 1 && (
               <>
-                {markers.length > 1 && (
-                  <>
-                    <button
-                      type="button"
-                      className="fullscreen-nav-btn prev"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handlePrevious();
-                      }}
-                      title="Previous marker"
-                    >
-                      <Icon icon={faChevronLeft} />
-                    </button>
-                    <button
-                      type="button"
-                      className="fullscreen-nav-btn next"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleNext();
-                      }}
-                      title="Next marker"
-                    >
-                      <Icon icon={faChevronRight} />
-                    </button>
-                  </>
-                )}
-              </>
-            )}
-            {!isFullscreen && (
-              <div className="video-overlay-controls">
-                <Button
-                  variant="primary"
+                <button
+                  type="button"
+                  className="marker-nav-btn prev"
                   onClick={(e) => {
                     e.stopPropagation();
-                    handlePlayPause();
+                    stepMarker(-1);
                   }}
+                  title={intl.formatMessage({ id: "marker_playlist.previous" })}
+                  aria-label={intl.formatMessage({
+                    id: "marker_playlist.previous",
+                  })}
+                >
+                  <Icon icon={faChevronLeft} />
+                </button>
+                <button
+                  type="button"
+                  className="marker-nav-btn next"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    stepMarker(1);
+                  }}
+                  title={intl.formatMessage({ id: "marker_playlist.next" })}
+                  aria-label={intl.formatMessage({
+                    id: "marker_playlist.next",
+                  })}
+                >
+                  <Icon icon={faChevronRight} />
+                </button>
+              </>
+            )}
+            {showPlayerControls && (
+              <div
+                className="video-overlay-controls"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Button
+                  variant="primary"
+                  onClick={handlePlayPause}
                   className="play-pause-btn"
                   title={isPlaying ? "Pause" : "Play"}
                 >
@@ -1287,14 +1545,11 @@ export const MarkerPlaylistPlayer: React.FC = () => {
                 </Button>
                 <Button
                   variant="secondary"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleFullscreen();
-                  }}
+                  onClick={handleFullscreen}
                   title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
                   className="fullscreen-btn"
                 >
-                  <Icon icon={faExpand} />
+                  <Icon icon={isFullscreen ? faCompress : faExpand} />
                 </Button>
               </div>
             )}
@@ -1390,23 +1645,67 @@ export const MarkerPlaylistPlayer: React.FC = () => {
               {markers.map((marker, index) => (
                 <ListGroup.Item
                   key={marker.id}
-                  ref={(element: HTMLAnchorElement | null) => {
+                  // CUSTOM: a div row, so its handle and buttons are not nested in a <button>
+                  as="div"
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e: React.KeyboardEvent) => {
+                    if (
+                      e.target === e.currentTarget &&
+                      (e.key === "Enter" || e.key === " ")
+                    ) {
+                      e.preventDefault();
+                      handleJumpToMarker(index);
+                    }
+                  }}
+                  ref={(element: HTMLDivElement | null) => {
+                    playlistSortable.itemRef(index)(element);
                     if (index === currentIndex) {
                       activePlaylistItemRef.current = element;
                     }
                   }} // CUSTOM: current marker is the auto-scroll target
-                  className={cx("marker-item", {
-                    active: index === currentIndex,
-                  })}
+                  className={cx(
+                    "marker-item",
+                    playlistSortable.itemClassName(index),
+                    {
+                      active: index === currentIndex,
+                      failed: failedMarkerIds.has(marker.id),
+                    }
+                  )}
                   action
                   onClick={() => handleJumpToMarker(index)}
                 >
+                  {/* CUSTOM: drag to reorder */}
+                  <button
+                    type="button"
+                    className="pointer-sort-handle marker-drag-handle"
+                    title={intl.formatMessage({
+                      id: "marker_playlist.reorder",
+                    })}
+                    aria-label={intl.formatMessage({
+                      id: "marker_playlist.reorder",
+                    })}
+                    {...playlistSortable.handleProps(index)}
+                  >
+                    <Icon icon={faGripVertical} />
+                  </button>
                   <div className="marker-preview">
                     <img src={marker.imageUrl} alt={marker.title} />
                     <span className="marker-number-badge">{index + 1}</span>
                   </div>
                   <div className="marker-info">
-                    <div className="marker-title">{marker.title}</div>
+                    <div className="marker-title">
+                      {failedMarkerIds.has(marker.id) && (
+                        <Icon
+                          icon={faExclamationTriangle}
+                          className="marker-failed-icon"
+                          title={intl.formatMessage({
+                            id: "marker_playlist.unplayable",
+                          })}
+                        />
+                      )}
+                      {marker.title}
+                    </div>
                     <div className="scene-title">{marker.sceneTitle}</div>
                     {/* CUSTOM: Keep role chips and marker timing together in a compact row. */}
                     <div className="marker-detail-row">
@@ -1481,81 +1780,19 @@ export const MarkerPlaylistPlayer: React.FC = () => {
                     >
                       <Icon icon={faRedo} />
                     </Button>
-                  </div>
-                  <div className="marker-reorder-btns">
-                    <Button
-                      variant="outline-secondary"
-                      size="sm"
-                      disabled={index === 0}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (index > 0) {
-                          setMarkers((prev) => {
-                            const arr = [...prev];
-                            [arr[index - 1], arr[index]] = [
-                              arr[index],
-                              arr[index - 1],
-                            ];
-                            return arr;
-                          });
-                          setCurrentIndex(index - 1);
-                        }
-                      }}
-                      title={intl.formatMessage({
-                        id: "marker_playlist.move_up",
-                        defaultMessage: "Move up",
-                      })}
-                    >
-                      ↑
-                    </Button>
-                    <Button
-                      variant="outline-secondary"
-                      size="sm"
-                      disabled={index === markers.length - 1}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (index < markers.length - 1) {
-                          setMarkers((prev) => {
-                            const arr = [...prev];
-                            [arr[index], arr[index + 1]] = [
-                              arr[index + 1],
-                              arr[index],
-                            ];
-                            return arr;
-                          });
-                          setCurrentIndex(index + 1);
-                        }
-                      }}
-                      title={intl.formatMessage({
-                        id: "marker_playlist.move_down",
-                        defaultMessage: "Move down",
-                      })}
-                    >
-                      ↓
-                    </Button>
                     <Button
                       variant="outline-danger"
                       size="sm"
+                      className="remove-marker-btn"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setMarkers((prev) => {
-                          const arr = prev.filter((_, i) => i !== index);
-                          if (currentIndex === index) {
-                            let next = index;
-                            if (index >= arr.length) next = arr.length - 1;
-                            setCurrentIndex(next >= 0 ? next : 0);
-                          } else if (currentIndex > index) {
-                            setCurrentIndex(currentIndex - 1);
-                          }
-                          return arr;
-                        });
+                        handleRemoveMarker(index);
                       }}
                       title={intl.formatMessage({
                         id: "marker_playlist.delete",
-                        defaultMessage: "Delete",
                       })}
                     >
-                      ✕
+                      <Icon icon={faTimes} />
                     </Button>
                   </div>
                 </ListGroup.Item>

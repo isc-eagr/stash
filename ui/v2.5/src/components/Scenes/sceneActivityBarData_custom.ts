@@ -12,6 +12,8 @@ export type SceneActivityBarEndCustom = {
   dominant: boolean;
   // Share of this activity's time that is Outstanding.
   outstandingPercent: number;
+  // Share of this activity's time inside negative markers (the red fill).
+  negativePercent: number;
 };
 
 export type SceneActivityBarCustom = {
@@ -31,9 +33,17 @@ function barEnd(
   key: SceneActivityCategory,
   percent = 0,
   duration = 0,
-  outstandingPercent = 0
+  outstandingPercent = 0,
+  negativePercent = 0
 ): SceneActivityBarEndCustom {
-  return { key, percent, duration, dominant: false, outstandingPercent };
+  return {
+    key,
+    percent,
+    duration,
+    dominant: false,
+    outstandingPercent,
+    negativePercent,
+  };
 }
 
 // Places the two longest activities on a two-ended bar. With all three
@@ -46,7 +56,15 @@ export function getSceneActivityBarCustom(
       const key = activityOrder.find((category) => category === metric.key);
       const duration = metric.duration ?? 0;
       return key && duration > 0
-        ? [barEnd(key, metric.percent, duration, metric.outstandingPercent)]
+        ? [
+            barEnd(
+              key,
+              metric.percent,
+              duration,
+              metric.outstandingPercent,
+              metric.negativePercent
+            ),
+          ]
         : [];
     })
     .sort(

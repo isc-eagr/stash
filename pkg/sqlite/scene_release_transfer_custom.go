@@ -45,9 +45,13 @@ func requireReleaseMetadataUpgradeCustom(ctx context.Context) error {
 	return nil
 }
 
-// CheckConversionFileConflictsCustom rejects a merge that would make the same
-// file belong to two owners in the target family.
+// CheckConversionFileConflictsCustom rejects a conversion or scene merge that
+// would make the same file belong to two owners in the target family.
 func (qb *SceneReleaseStore) CheckConversionFileConflictsCustom(ctx context.Context, sourceSceneID, targetSceneID int) error {
+	return checkSceneFamilyFileConflictsCustom(ctx, sourceSceneID, targetSceneID)
+}
+
+func checkSceneFamilyFileConflictsCustom(ctx context.Context, sourceSceneID, targetSceneID int) error {
 	const query = `WITH source_files AS (
 		SELECT file_id FROM scenes_files WHERE scene_id = ?
 		UNION SELECT rf.file_id FROM scene_release_files rf

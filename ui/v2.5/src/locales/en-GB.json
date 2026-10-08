@@ -701,6 +701,10 @@
         "heading": "Simple marker preview skip tags",
         "description": "Marker video/webp previews are skipped when the marker has one of these as its only tag. Screenshots are still generated."
       },
+      "studio_site_sync": {
+        "heading": "Studio Site Sync",
+        "description": "Logins and pictures folders used by the Sync button on Bilatinmen, NakedPapis and LatinBoyz studio pages."
+      },
       "card_rating_styles": {
         "heading": "Card Rating Styles",
         "theme": {
@@ -1165,9 +1169,13 @@
       }
     },
     "merge": {
+      "advisor_answers": "{count, plural, one {# advisor answer} other {# advisor answers}}",
       "combined": "Combined",
       "destination": "Destination",
       "empty_results": "Destination field values will be unchanged.",
+      "loop_presets": "Loop presets",
+      "releases": "Releases",
+      "skip_ranges": "Skip ranges",
       "source": "Source"
     },
     "overwrite_filter_warning": "Saved filter \"{entityName}\" will be overwritten.",
@@ -1353,6 +1361,7 @@
     "TRANSGENDER_FEMALE": "Transgender Female",
     "TRANSGENDER_MALE": "Transgender Male"
   },
+  "gevi_latest": "GEVI Latest",
   "group": "Movie",
   "group_count": "Movie Count",
   "group_scene_number": "Scene Number",
@@ -2014,8 +2023,7 @@
     "repeating": "Repeating",
     "repeat_segment": "Repeat only this segment",
     "stop_repeating": "Stop repeating this segment",
-    "move_up": "Move up",
-    "move_down": "Move down",
+    "reorder": "Drag to reorder",
     "remove_segment": "Delete segment",
     "start": "Start",
     "end": "End",
@@ -2055,6 +2063,13 @@
     "previous": "Previous marker",
     "next": "Next marker",
     "playlist": "Playlist",
-    "total_duration": "Total: {duration}"
+    "total_duration": "Total: {duration}",
+    "enable_single_loop": "Loop this marker",
+    "disable_single_loop": "Disable single marker loop",
+    "reorder": "Drag to reorder",
+    "delete": "Remove from playlist",
+    "unplayable": "This marker's file couldn't be played",
+    "skipped_unplayable": "Couldn't play \"{title}\", skipped",
+    "nothing_playable": "None of the markers in this playlist can be played"
   }
 }

@@ -221,7 +221,7 @@ WHERE item_type = ?
 	if eventType == "INCOMING" {
 		const reactivateQuery = `
 UPDATE task_progress_trackers
-SET status = 'ACTIVE', version = version + 1, updated_at = ?
+SET status = 'ACTIVE', is_working_on = 1, version = version + 1, updated_at = ?
 WHERE tag_id = ?
   AND status = 'COMPLETED'
   AND instr(',' || item_types || ',', ',' || ? || ',') > 0
@@ -244,6 +244,9 @@ WHERE tag_id = ?
 		}
 	}
 
+	if eventType == "COMPLETED" {
+		return completeTaskProgressTrackersCustom(ctx, tagID)
+	}
 	return nil
 }
 

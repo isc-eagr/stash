@@ -99,7 +99,7 @@ func (db *Anonymiser) deleteBlobs() error {
 
 func (db *Anonymiser) deleteStashIDs() error {
 	return utils.Do([]func() error{
-		func() error { return db.truncateTable("scene_stash_ids") },
+		db.deleteSceneStashIDsAndMatchesCustom, // CUSTOM
 		func() error { return db.truncateTable("studio_stash_ids") },
 		func() error { return db.truncateTable("performer_stash_ids") },
 		func() error { return db.truncateTable("tag_stash_ids") },

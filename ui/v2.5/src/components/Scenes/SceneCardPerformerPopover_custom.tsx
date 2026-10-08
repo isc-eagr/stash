@@ -13,6 +13,10 @@ import { Icon } from "../Shared/Icon";
 import { ActivityTypePerformerTile } from "./SceneDetails/sceneMarkerHoverPopover_custom";
 import { PerformerCategoryStrip } from "../Performers/PerformerDetails/PerformerCategoryStrip";
 import { getSceneCardPerformerMarkerRoles } from "./sceneCardPerformerRoles_custom";
+import {
+  getScenePerformerRoleSeconds,
+  NO_SCENE_PERFORMER_ROLE_SECONDS,
+} from "./scenePerformerRoleSeconds_custom";
 import cx from "classnames";
 
 interface IProps {
@@ -30,10 +34,17 @@ export const SceneCardPerformerPopover: React.FC<IProps> = ({
       scene,
       configuration?.ui.roleTagIds
     );
+    const roleSecondsByPerformerID = getScenePerformerRoleSeconds(
+      scene,
+      configuration?.ui.roleTagIds ?? {}
+    );
 
     return sortPerformers(scene.performers).map((performer) => ({
       performer,
       markerRoles: markerRolesByPerformerID.get(performer.id) ?? [],
+      roleSeconds:
+        roleSecondsByPerformerID.get(performer.id) ??
+        NO_SCENE_PERFORMER_ROLE_SECONDS,
     }));
   }, [configuration?.ui.roleTagIds, scene]);
 
@@ -42,7 +53,14 @@ export const SceneCardPerformerPopover: React.FC<IProps> = ({
       className="scene-marker-highlight-popover-card"
       data-hover-popover-measure="true"
     >
-      <div className="scene-marker-activity-config-performers">
+      <div
+        className="scene-marker-activity-config-performers"
+        style={
+          {
+            "--scene-performer-columns": Math.min(3, performers.length),
+          } as React.CSSProperties
+        }
+      >
         {performers.map((performer) => {
           const rating = performer.performer.rating100;
           const ratingClass = getRatingCardClass({
@@ -66,16 +84,18 @@ export const SceneCardPerformerPopover: React.FC<IProps> = ({
               }
               detailLink={`/performers/${performer.performer.id}`}
               imageAccessory={
-                rating !== undefined && rating !== null ? (
-                  <span
-                    className="scene-card-performer-rating"
-                    title={`Rating: ${rating}`}
-                  >
-                    <Icon icon={faStar} aria-hidden="true" />
-                    <span className="sr-only">Rating </span>
-                    <span>{rating}</span>
-                  </span>
-                ) : undefined
+                <div className="scene-card-performer-rating-slot">
+                  {rating !== undefined && rating !== null && (
+                    <span
+                      className="scene-card-performer-rating"
+                      title={`Rating: ${rating}`}
+                    >
+                      <Icon icon={faStar} aria-hidden="true" />
+                      <span className="sr-only">Rating </span>
+                      <span>{rating}</span>
+                    </span>
+                  )}
+                </div>
               }
             >
               <div className="scene-card-performer-role-strip">
@@ -88,6 +108,8 @@ export const SceneCardPerformerPopover: React.FC<IProps> = ({
                   flushMargins
                   // CUSTOM: scene-only versatility strips instead of Top/Bottom chips
                   versatilityCard
+                  // Sex/oral strips use Versatility by Time like the scene Stats
+                  roleSeconds={performer.roleSeconds}
                 />
               </div>
             </ActivityTypePerformerTile>

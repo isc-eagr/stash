@@ -19,6 +19,7 @@ import {
 } from "src/components/Scenes/sceneCardInsightsData_custom"; // CUSTOM
 import { SceneCardInsightChip } from "src/components/Scenes/SceneCardInsights_custom"; // CUSTOM
 import { SettingSection } from "./SettingSection";
+import { StudioSiteSyncSettings } from "./StudioSiteSyncSettings";
 import {
   BooleanSetting,
   NumberSetting,
@@ -575,6 +576,8 @@ export const SettingsCustomPanel: React.FC = () => {
           }
         />
       </SettingSection>
+
+      <StudioSiteSyncSettings />
     </>
   );
 };

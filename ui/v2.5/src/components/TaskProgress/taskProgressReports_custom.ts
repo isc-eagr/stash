@@ -3,7 +3,7 @@ import {
   taskProgressHistoryPercentages,
 } from "../taskProgress_custom";
 
-export type TaskProgressReportRange = "week" | "month" | "year";
+export type TaskProgressReportRange = "day" | "week" | "month" | "year";
 
 export interface ITaskProgressReportPeriod {
   start: string;
@@ -99,7 +99,7 @@ export function taskProgressReportPeriod(
   } else if (range === "month") {
     startDate.setUTCDate(1);
     endDate.setUTCMonth(startDate.getUTCMonth() + 1, 0);
-  } else {
+  } else if (range === "year") {
     startDate.setUTCMonth(0, 1);
     endDate.setUTCMonth(11, 31);
   }
@@ -117,7 +117,8 @@ export function shiftTaskProgressReportPeriod(
   offset: number
 ): string {
   const date = dateAtUTC(anchor);
-  if (range === "week") date.setUTCDate(date.getUTCDate() + offset * 7);
+  if (range === "day") date.setUTCDate(date.getUTCDate() + offset);
+  else if (range === "week") date.setUTCDate(date.getUTCDate() + offset * 7);
   else if (range === "month") {
     date.setUTCDate(1);
     date.setUTCMonth(date.getUTCMonth() + offset);
@@ -278,7 +279,21 @@ export function taskProgressComparisonLabel(
   range: TaskProgressReportRange,
   period: ITaskProgressReportPeriod
 ): string {
+  if (range === "day") return "vs yesterday";
   return `vs ${period.through < period.end ? "same point " : ""}last ${range}`;
+}
+
+/** Seven daily points ending on the selected report date, without later activity. */
+export function taskProgressReportTrendDays(
+  history: readonly ITaskProgressReportHistoryDay[],
+  anchor: string,
+  today: string
+): ITaskProgressReportDay[] {
+  return taskProgressReportDays(
+    history,
+    { start: addDays(anchor, -6), end: anchor, through: anchor },
+    today
+  );
 }
 
 /** One entry per calendar day of the period; days after `through` are future. */

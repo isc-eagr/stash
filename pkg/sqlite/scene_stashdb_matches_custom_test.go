@@ -18,7 +18,7 @@ func newStashDBMatchesDBCustom(t *testing.T) (context.Context, *sqlx.Tx) {
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
 
 	_, err = db.Exec(`CREATE TABLE scenes(id INTEGER PRIMARY KEY, title TEXT);
-CREATE TABLE scene_stash_ids(scene_id INTEGER, endpoint TEXT, stash_id TEXT);
+CREATE TABLE scene_stash_ids(scene_id INTEGER, endpoint TEXT, stash_id TEXT, updated_at DATETIME);
 INSERT INTO scenes VALUES (1, 'One'), (2, 'Two'), (3, 'Three'), (4, 'Four');`)
 	require.NoError(t, err)
 
@@ -68,7 +68,7 @@ func TestSceneStashDBMatchesStoreCustom(t *testing.T) {
 
 func TestSceneStashDBMatchTargetsCustom(t *testing.T) {
 	ctx, tx := newStashDBMatchesDBCustom(t)
-	_, err := tx.Exec(`INSERT INTO scene_stash_ids VALUES
+	_, err := tx.Exec(`INSERT INTO scene_stash_ids(scene_id, endpoint, stash_id) VALUES
   (3, 'https://stashdb.org/graphql', 'c'),
   (1, 'https://stashdb.org/graphql', 'a'),
   (2, 'https://fansdb.cc/graphql', 'f');
@@ -82,6 +82,70 @@ INSERT INTO scene_stashdb_matches VALUES (1, 5), (2, 9);`)
 		{SceneID: 1, StashID: "a", Matches: &five},
 		{SceneID: 3, StashID: "c"},
 	}, got, "only this endpoint's links, with nil for never-fetched counts")
+}
+
+func TestSceneStashDBMatchesResetOnIDRemovalCustom(t *testing.T) {
+	stashID := models.StashID{Endpoint: "https://stashdb.org/graphql", StashID: "one"}
+	otherID := models.StashID{Endpoint: "https://fansdb.cc/graphql", StashID: "other"}
+	newID := models.StashID{Endpoint: stashID.Endpoint, StashID: "replacement"}
+	aliasID := models.StashID{Endpoint: " https://API.StashDB.org/graphql ", StashID: "alias"}
+	for _, tt := range []struct {
+		name   string
+		before []models.StashID
+		ids    []models.StashID
+		mode   models.RelationshipUpdateMode
+		unset  bool
+		want   *int
+	}{
+		{name: "set empty", before: []models.StashID{stashID}, mode: models.RelationshipUpdateModeSet, want: intPtrCustom(0)},
+		{name: "remove", before: []models.StashID{stashID}, ids: []models.StashID{stashID}, mode: models.RelationshipUpdateModeRemove, want: intPtrCustom(0)},
+		{name: "retain other box", before: []models.StashID{stashID, otherID}, ids: []models.StashID{otherID}, mode: models.RelationshipUpdateModeSet, want: intPtrCustom(0)},
+		{name: "replace ID", before: []models.StashID{stashID}, ids: []models.StashID{newID}, mode: models.RelationshipUpdateModeSet, want: intPtrCustom(0)},
+		{name: "retain StashDB", before: []models.StashID{stashID, otherID}, ids: []models.StashID{stashID}, mode: models.RelationshipUpdateModeSet, want: intPtrCustom(7)},
+		{name: "remove other box", before: []models.StashID{stashID, otherID}, ids: []models.StashID{otherID}, mode: models.RelationshipUpdateModeRemove, want: intPtrCustom(7)},
+		{name: "unchanged IDs", before: []models.StashID{stashID}, ids: []models.StashID{stashID}, mode: models.RelationshipUpdateModeSet, want: intPtrCustom(7)},
+		{name: "remove nonexistent ID", before: []models.StashID{stashID}, ids: []models.StashID{newID}, mode: models.RelationshipUpdateModeRemove, want: intPtrCustom(7)},
+		{name: "add other box", before: []models.StashID{stashID}, ids: []models.StashID{otherID}, mode: models.RelationshipUpdateModeAdd, want: intPtrCustom(7)},
+		{name: "unset count becomes zero", before: []models.StashID{stashID}, mode: models.RelationshipUpdateModeSet, unset: true, want: intPtrCustom(0)},
+		{name: "unscraped stays unset", mode: models.RelationshipUpdateModeSet, unset: true},
+		{name: "StashDB endpoint variant", before: []models.StashID{aliasID}, mode: models.RelationshipUpdateModeSet, want: intPtrCustom(0)},
+		{name: "other box only", before: []models.StashID{otherID}, mode: models.RelationshipUpdateModeSet, want: intPtrCustom(7)},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, _ := newStashDBMatchesDBCustom(t)
+			qb := &SceneStore{}
+			require.NoError(t, scenesStashIDsTableMgr.insertJoins(ctx, 1, tt.before))
+			if !tt.unset {
+				require.NoError(t, qb.SetStashDBMatchesCustom(ctx, 1, intPtrCustom(7)))
+			}
+			require.NoError(t, qb.updateStashIDsAndMatchesCustom(ctx, 1, tt.ids, tt.mode))
+			got, err := qb.GetStashDBMatchesCustom(ctx, 1)
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func intPtrCustom(value int) *int { return &value }
+
+func TestSceneStashDBMatchesResetOnAnonymiseCustom(t *testing.T) {
+	ctx, tx := newStashDBMatchesDBCustom(t)
+	_, err := tx.Exec(`INSERT INTO scene_stash_ids(scene_id, endpoint, stash_id) VALUES
+  (1, 'https://stashdb.org/graphql', 'one'),
+  (2, 'https://fansdb.cc/graphql', 'two'),
+  (3, 'https://stashdb.org/graphql', 'three');
+INSERT INTO scene_stashdb_matches VALUES (1, 7), (2, 9);`)
+	require.NoError(t, err)
+	require.NoError(t, deleteSceneStashIDsAndMatchesCustom(ctx))
+	qb := &SceneStore{}
+	for sceneID, want := range map[int]*int{1: intPtrCustom(0), 2: intPtrCustom(9), 3: intPtrCustom(0), 4: nil} {
+		got, err := qb.GetStashDBMatchesCustom(ctx, sceneID)
+		require.NoError(t, err)
+		require.Equal(t, want, got)
+	}
+	var remaining int
+	require.NoError(t, tx.Get(&remaining, `SELECT COUNT(*) FROM scene_stash_ids`))
+	require.Zero(t, remaining)
 }
 
 func TestSceneStashDBMatchesFilterAndSortCustom(t *testing.T) {

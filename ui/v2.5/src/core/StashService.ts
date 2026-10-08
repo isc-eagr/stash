@@ -1154,12 +1154,14 @@ export const mutateSceneMerge = (
   source: string[],
   values: GQL.SceneUpdateInput,
   includeViewHistory: boolean,
-  includeOHistory: boolean
+  includeOHistory: boolean,
+  custom?: Partial<GQL.SceneMergeInput> // CUSTOM
 ) =>
   client.mutate<GQL.SceneMergeMutation>({
     mutation: GQL.SceneMergeDocument,
     variables: {
       input: {
+        ...custom, // CUSTOM
         source,
         destination,
         values,

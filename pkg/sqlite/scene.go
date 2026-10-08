@@ -505,7 +505,7 @@ func (qb *SceneStore) UpdatePartial(ctx context.Context, id int, partial models.
 		}
 	}
 	if partial.StashIDs != nil {
-		if err := scenesStashIDsTableMgr.modifyJoins(ctx, id, partial.StashIDs.StashIDs, partial.StashIDs.Mode); err != nil {
+		if err := qb.updateStashIDsAndMatchesCustom(ctx, id, partial.StashIDs.StashIDs, partial.StashIDs.Mode); err != nil { // CUSTOM
 			return nil, err
 		}
 	}
@@ -603,7 +603,7 @@ func (qb *SceneStore) Update(ctx context.Context, updatedObject *models.Scene) e
 	}
 
 	if updatedObject.StashIDs.Loaded() {
-		if err := scenesStashIDsTableMgr.replaceJoins(ctx, updatedObject.ID, updatedObject.StashIDs.List()); err != nil {
+		if err := qb.updateStashIDsAndMatchesCustom(ctx, updatedObject.ID, updatedObject.StashIDs.List(), models.RelationshipUpdateModeSet); err != nil { // CUSTOM
 			return err
 		}
 	}

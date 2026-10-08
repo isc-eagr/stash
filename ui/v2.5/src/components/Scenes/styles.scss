@@ -408,11 +408,12 @@
 }
 
 /* Scene cards: a gold battery spanning each end (icon and percentage) shows
-   that activity's Outstanding share. */
+   that activity's Outstanding share from the left and its negative share in
+   red from the right. */
 .scene-activity-bar__battery {
   border: 1px solid rgba(255, 211, 77, 0.7);
   border-radius: 2px;
-  display: block;
+  display: flex;
   height: 0.45rem;
 
   /* Leave room for the terminal. */
@@ -440,6 +441,16 @@
   box-shadow: 0 0 0.3rem rgba(255, 211, 77, 0.6);
   display: block;
   height: 100%;
+}
+
+/* Negative share: anchored to the right end of the battery. */
+.scene-activity-bar__battery-negative {
+  background: #dc3545;
+  border-radius: 1px;
+  box-shadow: 0 0 0.3rem rgba(220, 53, 69, 0.6);
+  display: block;
+  height: 100%;
+  margin-left: auto;
 }
 
 /* GOAT moments and the orgasm report sit together on the right. */
@@ -495,10 +506,6 @@
   gap: 0.2rem;
   line-height: 1;
 
-  svg {
-    display: block;
-  }
-
   strong {
     font-size: 0.82rem;
     font-variant-numeric: tabular-nums;
@@ -518,7 +525,7 @@
   }
 }
 
-.scene-card-orgasm-report__facial {
+.scene-card-orgasm-report__icon {
   background-color: currentColor;
   display: inline-block;
   height: 1.15em;
@@ -535,7 +542,7 @@
     position: relative;
   }
 
-  /* Crossed-out drops: no Orgasm or Facial markers in a marked scene. */
+  /* Crossed-out sperm: no Orgasm or Facial markers in a marked scene. */
   .scene-card-orgasm-report__group::after {
     background: currentColor;
     border-radius: 1px;
@@ -2841,6 +2848,71 @@ input[type="range"].blue-slider {
 }
 
 .hover-popover-content.popover.scene-card-performer-count-popover {
+  /* CUSTOM: shared tracks align each visual row, collapsing unused activities. */
+  .scene-marker-activity-config-performers {
+    display: grid;
+    gap: 0 0.5rem;
+    grid-template-columns: repeat(auto-fit, 13.5rem);
+    width: min(
+      calc(
+        var(--scene-performer-columns) * 13.5rem +
+          (var(--scene-performer-columns) - 1) * 0.5rem
+      ),
+      calc(100vw - 3rem)
+    );
+  }
+
+  .scene-marker-activity-performer {
+    align-items: center;
+    display: grid;
+    gap: 0;
+    grid-row: span 7;
+    grid-template-rows: subgrid;
+    justify-items: center;
+    padding-bottom: 0.5rem;
+  }
+
+  .scene-marker-activity-performer-image {
+    grid-row: 1;
+  }
+
+  .scene-card-performer-rating-slot {
+    grid-row: 2;
+    min-height: 1.65rem;
+  }
+
+  .scene-marker-activity-performer-name {
+    grid-row: 3;
+    margin-top: 0.25rem;
+  }
+
+  .scene-card-performer-role-strip,
+  .scene-card-performer-role-strip .performer-card-versatility {
+    display: contents;
+  }
+
+  .performer-card-versatility-row {
+    grid-template-columns: 1.35rem 2.1rem minmax(0, 1fr) 2.1rem;
+    margin-top: 0.35rem;
+    width: 100%;
+
+    &[data-category="sex"] {
+      grid-row: 4;
+    }
+
+    &[data-category="oral"] {
+      grid-row: 5;
+    }
+
+    &[data-category="facial"] {
+      grid-row: 6;
+    }
+  }
+
+  .performer-role-badges {
+    grid-row: 7;
+  }
+
   .scene-marker-highlight-popover-card {
     max-height: var(--hover-popover-max-height, calc(100vh - 2rem));
     overflow-y: auto;
@@ -4538,3 +4610,9 @@ input[type="range"].blue-slider {
 }
 
 /* CUSTOM: end */
+
+// CUSTOM: merge dialog item lists
+.scene-merge-items {
+  max-height: 12rem;
+  overflow-y: auto;
+}

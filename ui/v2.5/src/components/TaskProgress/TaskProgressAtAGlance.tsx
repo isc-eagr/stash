@@ -14,28 +14,39 @@ interface IProps {
 export const TaskProgressAtAGlance: React.FC<IProps> = ({ tracker }) => {
   const t = useProgressText();
   const percentage = progressPercentage(tracker);
+  const completed = tracker.status === "COMPLETED";
   const metrics = [
     {
       label: t("Items completed"),
       value: <FormattedNumber value={taskProgressCompletedCount(tracker)} />,
     },
-    {
-      label: t("Items remaining"),
-      value: <FormattedNumber value={tracker.current_count} />,
-    },
+    ...(!completed
+      ? [
+          {
+            label: t("Items remaining"),
+            value: <FormattedNumber value={tracker.current_count} />,
+          },
+        ]
+      : []),
     {
       label: t("Percentage completed"),
       value: `${percentage.toFixed(2)}%`,
     },
-    {
-      label: t("Percentage remaining"),
-      value: `${Math.max(0, 100 - percentage).toFixed(2)}%`,
-    },
+    ...(!completed
+      ? [
+          {
+            label: t("Percentage remaining"),
+            value: `${Math.max(0, 100 - percentage).toFixed(2)}%`,
+          },
+        ]
+      : []),
   ];
 
   return (
     <section
-      className="progress-tracker-at-a-glance"
+      className={`progress-tracker-at-a-glance${
+        completed ? " progress-tracker-at-a-glance-completed" : ""
+      }`}
       aria-label={t("Tracker summary")}
     >
       {metrics.map((metric) => (

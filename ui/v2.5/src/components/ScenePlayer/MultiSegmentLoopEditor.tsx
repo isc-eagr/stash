@@ -3,8 +3,7 @@ import { Badge, Button, ButtonGroup, Form, InputGroup } from "react-bootstrap";
 import { FormattedMessage, useIntl } from "react-intl";
 import cx from "classnames";
 import {
-  faArrowDown,
-  faArrowUp,
+  faGripVertical,
   faPlus,
   faRedo,
   faStopwatch,
@@ -12,6 +11,7 @@ import {
   faTrash,
 } from "@fortawesome/free-solid-svg-icons";
 import { Icon } from "src/components/Shared/Icon";
+import { usePointerSortableCustom } from "src/components/Shared/usePointerSortable_custom"; // CUSTOM
 import { useToast } from "src/hooks/Toast";
 import TextUtils from "src/utils/text";
 import type { ILoopSegment } from "./multi-segment-loop";
@@ -60,6 +60,11 @@ export const MultiSegmentLoopEditor: React.FC<IMultiSegmentLoopEditorProps> = ({
   const [lastPresetName, setLastPresetName] = useState("");
   const [presetName, setPresetName] = useState("");
   const [savingPreset, setSavingPreset] = useState(false);
+  // CUSTOM: drag segment rows to reorder the loop.
+  const sortable = usePointerSortableCustom({
+    count: segments.length,
+    onMove: loop.reorder,
+  });
 
   // Drop selections and focus for segments that no longer exist.
   useEffect(() => {
@@ -224,7 +229,11 @@ export const MultiSegmentLoopEditor: React.FC<IMultiSegmentLoopEditorProps> = ({
     };
 
     return (
-      <div key={segment.id} className="msl-segment">
+      <div
+        key={segment.id}
+        ref={sortable.itemRef(index)}
+        className={cx("msl-segment", sortable.itemClassName(index))}
+      >
         <div
           className={cx("msl-row", {
             active,
@@ -238,6 +247,15 @@ export const MultiSegmentLoopEditor: React.FC<IMultiSegmentLoopEditorProps> = ({
           }}
           title={message("row_hint")}
         >
+          <button
+            type="button"
+            className="pointer-sort-handle msl-row-handle"
+            title={message("reorder")}
+            aria-label={message("reorder")}
+            {...sortable.handleProps(index)}
+          >
+            <Icon icon={faGripVertical} />
+          </button>
           <Form.Check
             id={`msl-select-${segment.id}`}
             className="msl-row-select"
@@ -286,24 +304,6 @@ export const MultiSegmentLoopEditor: React.FC<IMultiSegmentLoopEditorProps> = ({
               aria-pressed={repeating}
             >
               <Icon icon={faRedo} />
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={stop(() => loop.reorder(index, index - 1))}
-              disabled={index === 0}
-              title={message("move_up")}
-            >
-              <Icon icon={faArrowUp} />
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={stop(() => loop.reorder(index, index + 1))}
-              disabled={index === segments.length - 1}
-              title={message("move_down")}
-            >
-              <Icon icon={faArrowDown} />
             </Button>
             <Button
               size="sm"

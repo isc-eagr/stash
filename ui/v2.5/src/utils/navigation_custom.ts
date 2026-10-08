@@ -1221,7 +1221,8 @@ export const makeStudioMarkerScenesUrl = (
   tagId: string,
   roleType: string,
   excludeTags?: Array<{ id: string; label: string }>,
-  markerDepth: number = 0
+  markerDepth: number = 0,
+  studioDepth: number = 0
 ) => {
   if (!studio.id) return "#";
 
@@ -1233,7 +1234,7 @@ export const makeStudioMarkerScenesUrl = (
   studioCriterion.value = {
     items: [{ id: studio.id, label: studio.name || `Studio ${studio.id}` }],
     excluded: [],
-    depth: 0,
+    depth: studioDepth,
   };
   filter.criteria.push(studioCriterion);
 

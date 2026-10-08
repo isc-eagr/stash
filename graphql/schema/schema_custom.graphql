@@ -158,6 +158,9 @@ extend type Mutation {
   "Refresh StashDB Matches for every scene linked to StashDB. Returns the job ID."
   refreshStashDBMatches: ID!
 
+  "Fill a studio's scenes from its site, download missing pictures and build galleries. Returns the job ID."
+  studioSiteSync(studio_id: ID!): ID!
+
   "Create a new release for a scene"
   sceneReleaseCreate(input: SceneReleaseCreateInput!): SceneRelease
   "Update an existing scene release"

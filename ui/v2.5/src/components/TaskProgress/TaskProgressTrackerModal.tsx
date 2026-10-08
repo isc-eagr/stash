@@ -6,6 +6,7 @@ import type { TaskProgressTrackerDataFragment as Tracker } from "src/core/genera
 import { TaskProgressHistoryChart } from "../TaskProgressHistoryChart";
 import { formatTaskProgressDate } from "../taskProgress_custom";
 import { TaskProgressAtAGlance } from "./TaskProgressAtAGlance";
+import { taskProgressLastDataDate } from "./taskProgressCompletion_custom";
 import { TaskProgressGoalSummary } from "./TaskProgressGoalSummary";
 import type { IDetailSelection } from "./TaskProgressDetails";
 import {
@@ -33,6 +34,7 @@ export const TaskProgressTrackerModal: React.FC<IProps> = ({
 }) => {
   const t = useProgressText();
   const forecast = progressForecast(tracker);
+  const completed = tracker.status === "COMPLETED";
   const nonZeroItems = visibleTaskProgressItemCounts(tracker.item_counts);
 
   return (
@@ -71,7 +73,7 @@ export const TaskProgressTrackerModal: React.FC<IProps> = ({
         </Modal.Header>
         <Modal.Body>
           <TaskProgressAtAGlance tracker={tracker} />
-          {forecast.days >= 3 && (
+          {!completed && forecast.days >= 3 && (
             <section className="progress-tracker-modal-forecast">
               <div>
                 <span>{t("Estimated pace")}</span>
@@ -94,6 +96,7 @@ export const TaskProgressTrackerModal: React.FC<IProps> = ({
             </section>
           )}
           <TaskProgressGoalSummary
+            status={tracker.status}
             currentGoalPerDay={tracker.goal_per_day}
             history={taskProgressHistoryEntries(tracker.history)}
           />
@@ -105,16 +108,27 @@ export const TaskProgressTrackerModal: React.FC<IProps> = ({
           <section className="progress-tracker-modal-history">
             <div className="progress-tracker-modal-section-heading">
               <h3>{t("Activity progression")}</h3>
-              <p>{t("Items completed over time with remaining totals.")}</p>
+              <p>
+                {t(
+                  completed
+                    ? "Items completed over time."
+                    : "Items completed over time with remaining totals."
+                )}
+              </p>
             </div>
             <TaskProgressHistoryChart
               title={tracker.title}
               history={taskProgressHistoryEntries(tracker.history)}
-              today={progressToday()}
+              today={
+                completed
+                  ? taskProgressLastDataDate(tracker.history) ?? progressToday()
+                  : progressToday()
+              }
+              completionOnly={completed}
               onSelectDay={(date) => onDetails({ tracker, date })}
             />
           </section>
-          {nonZeroItems.length > 0 && (
+          {!completed && nonZeroItems.length > 0 && (
             <section
               aria-label={t("Remaining items")}
               className="progress-tracker-modal-items"

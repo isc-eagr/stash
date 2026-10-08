@@ -63,7 +63,7 @@ assert.match(modalSource, /\{t\("Estimated pace"\)\}/);
 assert.match(modalSource, /\{t\("Estimated finish"\)\}/);
 assert.match(
   modalSource,
-  /<TaskProgressAtAGlance tracker=\{tracker\} \/>\s*\{forecast\.days >= 3/
+  /<TaskProgressAtAGlance tracker=\{tracker\} \/>\s*\{!completed && forecast\.days >= 3/
 );
 assert.match(modalSource, /progress-tracker-modal-history/);
 assert.match(modalSource, /\{t\("Activity progression"\)\}/);

@@ -23,6 +23,7 @@ import {
   taskProgressReportDays,
   taskProgressReportPeriod,
   taskProgressReportRow,
+  taskProgressReportTrendDays,
 } from "./taskProgressReports_custom";
 import type {
   ITaskProgressReportHistoryDay,
@@ -65,6 +66,7 @@ interface IProps {
 }
 
 const reportRanges = [
+  { key: "day", label: "Daily" },
   { key: "week", label: "Weekly" },
   { key: "month", label: "Monthly" },
   { key: "year", label: "Yearly" },
@@ -344,7 +346,12 @@ export const TaskProgressReports: React.FC<IProps> = ({
         activeKey={range}
         aria-label={t("Report period")}
         onSelect={(key) => {
-          if (key === "week" || key === "month" || key === "year") {
+          if (
+            key === "day" ||
+            key === "week" ||
+            key === "month" ||
+            key === "year"
+          ) {
             setRange(key);
             setAnchor(today);
           }
@@ -357,7 +364,7 @@ export const TaskProgressReports: React.FC<IProps> = ({
         ))}
       </Nav>
       <div className="progress-report-selectors">
-        {range === "week" ? (
+        {range === "day" || range === "week" ? (
           <Form.Group controlId="progress-report-date">
             <Form.Label>{t("Choose date")}</Form.Label>
             <ReactDatePicker
@@ -428,8 +435,10 @@ export const TaskProgressReports: React.FC<IProps> = ({
       <div className="progress-report-period">
         <div>
           <h3>
-            {formatTaskProgressDate(period.start)} –{" "}
-            {formatTaskProgressDate(period.end)}
+            {formatTaskProgressDate(period.start)}
+            {period.start !== period.end && (
+              <> – {formatTaskProgressDate(period.end)}</>
+            )}
           </h3>
           {period.through < period.end && (
             <small>
@@ -518,7 +527,16 @@ export const TaskProgressReports: React.FC<IProps> = ({
           />
           <TaskProgressReportActivity
             range={range}
-            days={taskProgressReportDays(scope.history, period, today)}
+            days={
+              range === "day"
+                ? taskProgressReportTrendDays(
+                    scope.history,
+                    period.start,
+                    today
+                  )
+                : taskProgressReportDays(scope.history, period, today)
+            }
+            selectedDate={range === "day" ? period.start : undefined}
           />
         </section>
       )}

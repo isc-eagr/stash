@@ -189,6 +189,7 @@ fragment StudioDetailData on Studio {
   gallery_count_all: gallery_count(depth: -1)
   performer_count_all: performer_count(depth: -1)
   group_count_all: group_count(depth: -1)
+  site_sync
 }
 # CUSTOM: end
 

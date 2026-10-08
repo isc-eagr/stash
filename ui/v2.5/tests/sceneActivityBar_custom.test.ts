@@ -101,6 +101,15 @@ assert.deepEqual(
   "each end carries its activity's Outstanding share for the card batteries"
 );
 
+const withNegative = rows({ sex: 60, oral: 40 });
+withNegative.activity[0].negativePercent = 25;
+const negativeBar = getSceneActivityBarCustom(withNegative);
+assert.deepEqual(
+  [negativeBar?.left?.negativePercent, negativeBar?.right.negativePercent],
+  [25, 0],
+  "each end carries its activity's negative share for the red battery fill"
+);
+
 const threeWay = getSceneActivityBarCustom(
   rows({ sex: 50, solo: 30, oral: 20 })
 );

@@ -17,6 +17,7 @@ import type {
   SceneActivityMetricRows,
 } from "./sceneActivityMetricsData_custom";
 import TextUtils from "src/utils/text";
+import { catalogCardSortHighlightClassCustom } from "../Shared/catalogCardSortHighlight_custom";
 import cx from "classnames";
 
 // CUSTOM: scene activity duration metrics and composition bars
@@ -28,6 +29,7 @@ interface ISceneActivityMetricsProps {
   compact?: boolean;
   // Just one of the two groups; both by default.
   only?: "activity" | "quality";
+  activeSortBy?: string;
 }
 
 interface ISceneActivityMetricBoxProps {
@@ -36,6 +38,7 @@ interface ISceneActivityMetricBoxProps {
   control?: React.ReactNode;
   // Legend-sized: color dot, icon, and percentage only.
   compact?: boolean;
+  activeSortBy?: string;
 }
 
 const activityMetricKeys = new Set(["sex", "oral", "solo", "other"]);
@@ -52,6 +55,7 @@ export const SceneActivityMetricBox: React.FC<ISceneActivityMetricBoxProps> = ({
   metric,
   control,
   compact = false,
+  activeSortBy,
 }) => {
   const isActivity = activityMetricKeys.has(metric.key);
   const tooltip =
@@ -123,7 +127,11 @@ export const SceneActivityMetricBox: React.FC<ISceneActivityMetricBoxProps> = ({
             ? "scene-activity-metric--compact"
             : isActivity
             ? "scene-activity-metric--composition"
-            : "scene-activity-metric--quality"
+            : "scene-activity-metric--quality",
+          catalogCardSortHighlightClassCustom(
+            activeSortBy,
+            `${metric.key}_activity_percent`
+          )
         )}
         aria-label={tooltip}
         role="group"
@@ -221,6 +229,7 @@ export const SceneActivityMetrics: React.FC<ISceneActivityMetricsProps> = ({
   activityMetrics,
   compact = false,
   only,
+  activeSortBy,
 }) => {
   const soloColor = ACTIVITY_PIE_COLORS.solo;
 
@@ -256,6 +265,7 @@ export const SceneActivityMetrics: React.FC<ISceneActivityMetricsProps> = ({
             {visibleActivityMetrics.map((metric) => (
               <SceneActivityMetricBox
                 compact={compact}
+                activeSortBy={activeSortBy}
                 key={metric.key}
                 metric={metric}
                 sceneId={sceneId}
@@ -272,6 +282,7 @@ export const SceneActivityMetrics: React.FC<ISceneActivityMetricsProps> = ({
             {qualityMetrics.map((metric) => (
               <SceneActivityMetricBox
                 compact={compact}
+                activeSortBy={activeSortBy}
                 key={metric.key}
                 metric={metric}
                 sceneId={sceneId}

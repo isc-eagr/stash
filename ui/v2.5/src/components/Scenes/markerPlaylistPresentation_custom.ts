@@ -3,8 +3,17 @@ export interface IMarkerPlaylistImageSourcesCustom {
   preview?: string | null;
 }
 
+interface IMarkerPlaylistScrollRectCustom {
+  top: number;
+  bottom: number;
+}
+
 interface IMarkerPlaylistScrollTargetCustom {
-  scrollIntoView(options: { behavior: "smooth"; block: "nearest" }): void;
+  getBoundingClientRect(): IMarkerPlaylistScrollRectCustom;
+  parentElement: {
+    getBoundingClientRect(): IMarkerPlaylistScrollRectCustom;
+    scrollBy(options: { top: number; behavior: "smooth" }): void;
+  } | null;
 }
 
 export function getMarkerPlaylistImageUrlCustom({
@@ -14,8 +23,25 @@ export function getMarkerPlaylistImageUrlCustom({
   return screenshot || preview || "";
 }
 
+// Scrolls only the playlist itself; scrollIntoView would also scroll the page
+// away from the video on phones, where the playlist sits below the player.
 export function scrollMarkerPlaylistItemIntoViewCustom(
   item: IMarkerPlaylistScrollTargetCustom | null
 ): void {
-  item?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  const list = item?.parentElement;
+  if (!item || !list) return;
+
+  const itemRect = item.getBoundingClientRect();
+  const listRect = list.getBoundingClientRect();
+  let top = 0;
+  if (itemRect.top < listRect.top) {
+    top = itemRect.top - listRect.top;
+  } else if (itemRect.bottom > listRect.bottom) {
+    top = Math.min(
+      itemRect.bottom - listRect.bottom,
+      itemRect.top - listRect.top
+    );
+  }
+
+  if (top !== 0) list.scrollBy({ top, behavior: "smooth" });
 }

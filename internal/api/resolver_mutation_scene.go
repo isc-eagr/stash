@@ -365,7 +365,7 @@ func (r *mutationResolver) sceneUpdate(ctx context.Context, input models.SceneUp
 
 	// CUSTOM: StashDB Matches
 	if translator.hasField("stashdb_matches") {
-		if err := qb.SetStashDBMatchesCustom(ctx, scene.ID, input.StashDBMatches); err != nil {
+		if err := setUpdatedSceneStashDBMatchesCustom(ctx, qb, scene.ID, input.StashDBMatches, translator.hasField("stash_ids")); err != nil { // CUSTOM
 			return nil, err
 		}
 	}
@@ -723,10 +723,6 @@ func (r *mutationResolver) SceneMerge(ctx context.Context, input SceneMergeInput
 
 	var ret *models.Scene
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
-		previousModes, err := r.sceneRatingModesCustom(ctx, []int{destID})
-		if err != nil {
-			return err
-		}
 		var affectedPerformerIDs []int
 		for _, sceneID := range append(append([]int{}, srcIDs...), destID) {
 			performerIDs, err := r.repository.Scene.GetPerformerIDs(ctx, sceneID)
@@ -736,10 +732,17 @@ func (r *mutationResolver) SceneMerge(ctx context.Context, input SceneMergeInput
 			affectedPerformerIDs = append(affectedPerformerIDs, performerIDs...)
 		}
 
+		// CUSTOM: apply merge choices for fork-owned data (and O history with
+		// video timestamps) before the sources are destroyed
+		previousModes, err := r.sceneMergeCustomDataCustom(ctx, input, srcIDs, destID)
+		if err != nil {
+			return err
+		}
+
 		if err := r.Resolver.sceneService.Merge(ctx, srcIDs, destID, fileDeleter, scene.MergeOptions{
 			ScenePartial:       *values,
 			IncludePlayHistory: utils.IsTrue(input.PlayHistory),
-			IncludeOHistory:    utils.IsTrue(input.OHistory),
+			IncludeOHistory:    false, // CUSTOM: copied by MergeCustomDataCustom
 		}); err != nil {
 			return err
 		}

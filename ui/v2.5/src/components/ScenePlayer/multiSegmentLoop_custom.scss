@@ -186,6 +186,16 @@
     }
   }
 
+  .msl-row-handle {
+    align-self: stretch;
+    margin: -0.4rem -0.4rem -0.4rem -0.6rem;
+    width: 1.5rem;
+
+    @media (pointer: coarse) {
+      width: 2rem;
+    }
+  }
+
   .msl-row-index {
     color: $text-muted;
     font-weight: bold;

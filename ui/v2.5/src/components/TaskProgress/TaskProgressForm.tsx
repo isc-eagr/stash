@@ -38,6 +38,7 @@ export const TaskProgressForm: React.FC<IProps> = ({
 }) => {
   const t = useProgressText();
   const client = useApolloClient();
+  const completed = tracker?.status === "COMPLETED";
   const [title, setTitle] = useState(tracker?.title ?? "");
   const [description, setDescription] = useState(tracker?.description ?? "");
   const [tag, setTag] = useState({
@@ -65,6 +66,13 @@ export const TaskProgressForm: React.FC<IProps> = ({
     let current = true;
     setPreview(undefined);
     setError(undefined);
+    if (completed) {
+      setPreview(tracker?.current_count);
+      setCounting(false);
+      return () => {
+        current = false;
+      };
+    }
     if (!tag.id || !types.length) {
       setCounting(false);
       return () => {
@@ -90,7 +98,7 @@ export const TaskProgressForm: React.FC<IProps> = ({
     return () => {
       current = false;
     };
-  }, [client, tag.id, types]);
+  }, [client, tag.id, types, completed, tracker?.current_count]);
   const valid =
     title.trim() &&
     tag.id &&
@@ -171,7 +179,13 @@ export const TaskProgressForm: React.FC<IProps> = ({
                   onChange={(event) => setStatus(event.target.value)}
                 >
                   {taskProgressStatuses.map((value) => (
-                    <option key={value} value={value}>
+                    <option
+                      key={value}
+                      value={value}
+                      disabled={
+                        completed && (value === "ACTIVE" || value === "PAUSED")
+                      }
+                    >
                       {t(taskProgressStatusLabel(value))}
                     </option>
                   ))}
@@ -186,6 +200,7 @@ export const TaskProgressForm: React.FC<IProps> = ({
                 max={1000000}
                 step={1}
                 type="number"
+                disabled={completed}
                 value={goalPerDay}
                 onChange={(event) => {
                   const { value } = event.target;
@@ -206,6 +221,7 @@ export const TaskProgressForm: React.FC<IProps> = ({
             <Form.Group>
               <Form.Label id="progress-tag-label">{t("Tag")}</Form.Label>
               <TagSelect
+                isDisabled={busy || completed}
                 isMulti={false}
                 values={
                   tag.id
@@ -229,6 +245,7 @@ export const TaskProgressForm: React.FC<IProps> = ({
               <Form.Label>{t("Tracking mode")}</Form.Label>
               <Form.Control
                 as="select"
+                disabled={completed}
                 value={mode}
                 onChange={(e) => setMode(e.target.value)}
               >
@@ -250,14 +267,16 @@ export const TaskProgressForm: React.FC<IProps> = ({
                   id="progress-reset"
                   label={t("Reset baseline")}
                   checked={reset || scopeChanged}
-                  disabled={scopeChanged}
+                  disabled={completed || scopeChanged}
                   onChange={(e) => setReset(e.target.checked)}
                 />
-                <Form.Text className="d-block">
-                  {t(
-                    "Sets today's items as the new baseline and keeps history."
-                  )}
-                </Form.Text>
+                {!completed && (
+                  <Form.Text className="d-block">
+                    {t(
+                      "Sets today's items as the new baseline and keeps history."
+                    )}
+                  </Form.Text>
+                )}
               </>
             )}
             {(reset || scopeChanged) && (
@@ -266,10 +285,12 @@ export const TaskProgressForm: React.FC<IProps> = ({
                 {preview ?? "…"}
               </Alert>
             )}
-            <p className="mt-3" aria-live="polite">
-              {t("Matching items")}:{" "}
-              {counting ? "…" : preview ?? t("Unavailable")}
-            </p>
+            {!completed && (
+              <p className="mt-3" aria-live="polite">
+                {t("Matching items")}:{" "}
+                {counting ? "…" : preview ?? t("Unavailable")}
+              </p>
+            )}
             {(error || saveError) && (
               <Alert variant="danger" role="alert">
                 {error || saveError}

@@ -228,7 +228,7 @@ VALUES (?, ?, ?, ?, ?, ?)`
 	if _, err := dbWrapper.Exec(ctx, query, tracker.ID, models.TaskProgressEventBaseline, day, time.Now().UTC(), tracker.Goal, tracker.TagID); err != nil {
 		return fmt.Errorf("creating task progress tracker baseline: %w", err)
 	}
-	return nil
+	return completeTaskProgressTrackersCustom(ctx, tracker.TagID)
 }
 
 func (s *TaskProgressTrackerStore) Update(ctx context.Context, tracker *models.TaskProgressTracker) error {

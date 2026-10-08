@@ -13,6 +13,8 @@ import videojs, { VideoJsPlayer, VideoJsPlayerOptions } from "video.js";
 import { UAParser } from "ua-parser-js";
 import "videojs-mobile-ui";
 import "videojs-seek-buttons";
+// Transcoded fallback streams need the offset middleware to seek correctly.
+import "src/components/ScenePlayer/live";
 import "src/components/ScenePlayer/source-selector";
 import "src/components/ScenePlayer/vtt-thumbnails";
 import "src/components/ScenePlayer/seek-buttons";
@@ -35,14 +37,36 @@ import {
   faArrowUp,
   faCompress,
   faExpand,
+  faExternalLinkAlt,
   faThLarge,
   faTimes,
 } from "@fortawesome/free-solid-svg-icons";
 import cx from "classnames";
 import { Icon } from "src/components/Shared/Icon";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
-import { DraggableImage } from "src/components/Images/DraggableImageOverlay_custom"; // CUSTOM
-import type { IOverlayState as IImageOverlayState } from "src/components/Images/DraggableImageOverlay_custom"; // CUSTOM
+import {
+  DEFAULT_IMAGE_TRANSFORM,
+  DraggableImage,
+  IImageCrop,
+  IImageTransform,
+} from "src/components/Images/DraggableImageOverlay_custom";
+import {
+  clampLayouts,
+  clampPanelRect,
+  IPanelBounds,
+  IPanelLayout,
+  IPanelRect,
+  IPanelSizeLimits,
+  lowerPanel,
+  PanelGesture,
+  PanelLayouts,
+  raisePanel,
+  resizePanelRect,
+  setPanelAspectRatio,
+  syncPanelLayouts,
+  tileLayouts,
+  trackPointerDrag,
+} from "src/components/Viewers/viewerPanels_custom";
 import { useConfigurationContext } from "src/hooks/Config";
 import ScreenUtils from "src/utils/screen";
 import "./MarkerViewer.scss";
@@ -81,23 +105,23 @@ export interface IVideoViewerSegmentPreset {
   }>;
 }
 
-// CUSTOM: begin - performer hover data for viewer overlay chips
 interface IPerformerHoverPerformer {
   id: string;
   name: string;
   image_path?: string | null;
   disambiguation?: string | null;
 }
-// CUSTOM: end
 
 export interface IVideoViewerItem {
   id: string;
   streamUrl: string;
   title: string;
   sceneId?: string;
+  // Opens the item in Stash (scene page at the marker time).
+  openUrl?: string;
+  // Marker panels loop startTime..endTime (20s when there is no end).
   startTime?: number;
   endTime?: number | null;
-  customControls?: boolean;
   posterUrl?: string | null;
   vttUrl?: string | null;
   duration?: number;
@@ -107,141 +131,39 @@ export interface IVideoViewerItem {
   negativeMarkers?: INegativeMarker[];
   oTimestamps?: IVideoViewerOTimestamp[];
   segmentPresets?: IVideoViewerSegmentPreset[];
-  topPerformerNames?: string[];
-  bottomPerformerNames?: string[];
-  topPerformers?: IPerformerHoverPerformer[]; // CUSTOM
-  bottomPerformers?: IPerformerHoverPerformer[]; // CUSTOM
+  topPerformers?: IPerformerHoverPerformer[];
+  bottomPerformers?: IPerformerHoverPerformer[];
 }
 
 export interface IImageViewerItem {
   id: string;
   url: string;
   title: string;
+  openUrl?: string;
 }
 
-interface IOverlayState extends IVideoViewerItem {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  visible: boolean;
-  zIndex: number;
-}
+const HEADER_H = 50;
+const VIDEO_ASPECT_RATIO = 16 / 9;
+const MARKER_LOOP_FALLBACK_SECONDS = 20;
+const VIDEO_LIMITS: IPanelSizeLimits = { minWidth: 200, minHeight: 112 };
 
-const MIN_WIDTH = 200;
-const MIN_HEIGHT = 112;
-const BASE_Z = 100000;
-const HEADER_H = 60;
-const LAYOUT_SPACING = 8;
+type DragPanelHandler = (
+  id: string,
+  gesture: PanelGesture,
+  start: IPanelRect,
+  dx: number,
+  dy: number,
+  limits: IPanelSizeLimits
+) => void;
 
-function computeLayout(
-  allItems: IVideoViewerItem[],
-  orderedIds: string[],
-  vpWidth: number,
-  vpHeight: number,
-  headerH: number
-): IOverlayState[] {
-  const n = orderedIds.length;
-  if (n === 0) return [];
-  const spacing = LAYOUT_SPACING;
-  const videoAR = 16 / 9;
-  const availH = vpHeight - headerH;
-
-  let bestCols = 1;
-  let bestScore = -1;
-  for (let c = 1; c <= n; c++) {
-    const r = Math.ceil(n / c);
-    const cw = (vpWidth - spacing * (c + 1)) / c;
-    const ch = (availH - spacing * (r + 1)) / r;
-    if (cw <= 0 || ch <= 0) continue;
-    const fw = Math.min(cw, ch * videoAR);
-    const fh = fw / videoAR;
-    const score = n * fw * fh;
-    if (score > bestScore) {
-      bestScore = score;
-      bestCols = c;
-    }
-  }
-
-  const cols = bestCols;
-  const rows = Math.ceil(n / cols);
-  const cellW = Math.floor((vpWidth - spacing * (cols + 1)) / cols);
-  const cellH = Math.floor((availH - spacing * (rows + 1)) / rows);
-
+function getOrderedItems<T extends { id: string }>(
+  allItems: T[],
+  orderedIds: string[]
+) {
+  const byId = new Map(allItems.map((item) => [item.id, item]));
   return orderedIds
-    .map((id) => allItems.find((item) => item.id === id))
-    .filter((item): item is IVideoViewerItem => item !== undefined)
-    .map((item, index) => {
-      const row = Math.floor(index / cols);
-      const col = index % cols;
-      const isLastRow = row === rows - 1;
-      const panelsInRow = isLastRow ? n - (rows - 1) * cols : cols;
-      const rowWidth = panelsInRow * cellW + (panelsInRow + 1) * spacing;
-      const rowStartX =
-        isLastRow && panelsInRow < cols
-          ? Math.floor((vpWidth - rowWidth) / 2) + spacing
-          : spacing;
-      return {
-        ...item,
-        x: rowStartX + col * (cellW + spacing),
-        y: headerH + spacing + row * (cellH + spacing),
-        width: cellW,
-        height: cellH,
-        visible: true,
-        zIndex: BASE_Z + index,
-      };
-    });
-}
-
-const IMAGE_DEFAULT_SIZE = 300;
-const IMAGE_SPACING = 20;
-
-function computeImageLayout(
-  allItems: IImageViewerItem[],
-  orderedIds: string[],
-  vpWidth: number,
-  vpHeight: number,
-  headerH: number,
-  hasVideos: boolean
-): IImageOverlayState[] {
-  const orderedItems = orderedIds
-    .map((id) => allItems.find((item) => item.id === id))
-    .filter((item): item is IImageViewerItem => item !== undefined);
-
-  if (orderedItems.length === 0) return [];
-
-  const imagesPerRow = Math.max(1, Math.ceil(Math.sqrt(orderedItems.length)));
-
-  return orderedItems.map((item, index) => {
-    const row = Math.floor(index / imagesPerRow);
-    const col = index % imagesPerRow;
-    const gridX = IMAGE_SPACING + col * (IMAGE_DEFAULT_SIZE + IMAGE_SPACING);
-    const gridY =
-      headerH + IMAGE_SPACING + row * (IMAGE_DEFAULT_SIZE + IMAGE_SPACING);
-
-    const singleX = (vpWidth - IMAGE_DEFAULT_SIZE) / 2;
-    const singleY = (vpHeight - IMAGE_DEFAULT_SIZE) / 2;
-    const centerSingle = orderedItems.length === 1 && !hasVideos;
-
-    return {
-      id: item.id,
-      url: item.url,
-      x: centerSingle ? singleX : gridX,
-      y: centerSingle ? singleY : gridY,
-      width: IMAGE_DEFAULT_SIZE,
-      visible: true,
-      rotation: 0,
-      cropTop: 0,
-      cropRight: 0,
-      cropBottom: 0,
-      cropLeft: 0,
-      zIndex: BASE_Z + 5000 + index,
-    };
-  });
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), Math.max(min, max));
+    .map((id) => byId.get(id))
+    .filter((item): item is T => item !== undefined);
 }
 
 function isDashSource(source: IVideoViewerSource) {
@@ -251,150 +173,48 @@ function isDashSource(source: IVideoViewerSource) {
   );
 }
 
-function createAppendedVideoOverlay(
-  item: IVideoViewerItem,
-  index: number
-): IOverlayState {
-  const videoAR = 16 / 9;
-  const vpWidth = window.innerWidth;
-  const vpHeight = window.innerHeight;
-  const maxWidth = Math.max(MIN_WIDTH, vpWidth - LAYOUT_SPACING * 4);
-  const maxHeight = Math.max(
-    MIN_HEIGHT,
-    vpHeight - HEADER_H - LAYOUT_SPACING * 4
-  );
-  let width = Math.min(420, maxWidth);
-  let height = Math.round(width / videoAR);
-
-  if (height > maxHeight) {
-    height = maxHeight;
-    width = Math.round(height * videoAR);
-  }
-
-  const offset = (index % 8) * 28;
-
-  return {
-    ...item,
-    x: clamp(
-      LAYOUT_SPACING * 2 + offset,
-      LAYOUT_SPACING,
-      vpWidth - width - LAYOUT_SPACING
-    ),
-    y: clamp(
-      HEADER_H + LAYOUT_SPACING * 2 + offset,
-      LAYOUT_SPACING,
-      vpHeight - height - LAYOUT_SPACING
-    ),
-    width,
-    height,
-    visible: true,
-    zIndex: BASE_Z + index,
-  };
-}
-
-function createAppendedImageOverlay(
-  item: IImageViewerItem,
-  index: number
-): IImageOverlayState {
-  const vpWidth = window.innerWidth;
-  const vpHeight = window.innerHeight;
-  const maxSize = Math.max(
-    120,
-    Math.min(
-      vpWidth - IMAGE_SPACING * 2,
-      vpHeight - HEADER_H - IMAGE_SPACING * 2
-    )
-  );
-  const width = Math.min(IMAGE_DEFAULT_SIZE, maxSize);
-  const offset = (index % 8) * 24;
-
-  return {
-    id: item.id,
-    url: item.url,
-    x: clamp(
-      IMAGE_SPACING + offset,
-      IMAGE_SPACING,
-      vpWidth - width - IMAGE_SPACING
-    ),
-    y: clamp(
-      HEADER_H + IMAGE_SPACING + offset,
-      IMAGE_SPACING,
-      vpHeight - width - IMAGE_SPACING
-    ),
-    width,
-    visible: true,
-    rotation: 0,
-    cropTop: 0,
-    cropRight: 0,
-    cropBottom: 0,
-    cropLeft: 0,
-    zIndex: BASE_Z + 5000 + index,
-  };
-}
-
-function getOrderedVideoItems(
-  allItems: IVideoViewerItem[],
-  orderedIds: string[]
-) {
-  return orderedIds
-    .map((id) => allItems.find((item) => item.id === id))
-    .filter((item): item is IVideoViewerItem => item !== undefined);
-}
-
-function getOrderedImageItems(
-  allItems: IImageViewerItem[],
-  orderedIds: string[]
-) {
-  return orderedIds
-    .map((id) => allItems.find((item) => item.id === id))
-    .filter((item): item is IImageViewerItem => item !== undefined);
-}
-
-interface IDraggableVideoProps {
-  overlay: IOverlayState;
-  mouseActive: boolean;
-  onPositionChange: (x: number, y: number) => void;
-  onSizeChange: (width: number, height: number) => void;
-  onClose: () => void;
-  onBringToFront: () => void;
-  onSendToBack: () => void;
-}
-
 interface IVideoJsPanelProps {
-  overlay: IOverlayState;
-  onSizeChange: (width: number, height: number) => void;
+  item: IVideoViewerItem;
+  onAspectRatio: (id: string, aspectRatio: number) => void;
 }
 
-const VideoJsPanel: React.FC<IVideoJsPanelProps> = ({
-  overlay,
-  onSizeChange,
+const VideoJsPanelComponent: React.FC<IVideoJsPanelProps> = ({
+  item,
+  onAspectRatio,
 }) => {
   const intl = useIntl();
   const { configuration } = useConfigurationContext();
   const uiConfig = configuration?.ui;
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<VideoJsPlayer>();
-  const sizeRef = useRef({ width: overlay.width, height: overlay.height });
-  const onSizeChangeRef = useRef(onSizeChange);
-  const aspectRatioRef = useRef<number | null>(null);
+  const reportAspectRatioRef = useRef((aspectRatio: number) =>
+    onAspectRatio(item.id, aspectRatio)
+  );
   const lastNegativeSkipRef = useRef(0);
-  const [playerReadyToken, setPlayerReadyToken] = useState(0);
+  const [playerReady, setPlayerReady] = useState(false);
   const [loopPlugin, setLoopPlugin] = useState<MultiSegmentLoopPlugin>();
   const [loopControlEl, setLoopControlEl] = useState<HTMLElement>();
   const [showLoopEditor, setShowLoopEditor] = useState(false);
-  const showLoopControls = showMultiSegmentLoopControlsCustom(uiConfig);
+  const { startTime, endTime } = item;
+  const showLoopControls =
+    showMultiSegmentLoopControlsCustom(uiConfig) && startTime === undefined;
   const [negativeMarkerSkipEnabled, setNegativeMarkerSkipEnabled] =
     useState(true);
-  const loop = useMultiSegmentLoop(loopPlugin, overlay.negativeMarkers);
+  const loop = useMultiSegmentLoop(loopPlugin, item.negativeMarkers);
   const loopPresetSource = useMemo(
-    () => overlay.segmentPresets ?? [],
-    [overlay.segmentPresets]
+    () => item.segmentPresets ?? [],
+    [item.segmentPresets]
   );
   const loopPresets = useMultiSegmentLoopPresets(
-    { sceneId: overlay.sceneId },
+    { sceneId: item.sceneId },
     loopPresetSource,
     loop
   );
+
+  useEffect(() => {
+    reportAspectRatioRef.current = (aspectRatio: number) =>
+      onAspectRatio(item.id, aspectRatio);
+  }, [item.id, onAspectRatio]);
 
   const getPlayer = useCallback(() => {
     const player = playerRef.current;
@@ -407,163 +227,197 @@ const VideoJsPanel: React.FC<IVideoJsPanelProps> = ({
     return player?.multiSegmentLoop?.() as MultiSegmentLoopPlugin | undefined;
   }, [getPlayer]);
 
-  useEffect(() => {
-    sizeRef.current = { width: overlay.width, height: overlay.height };
-  }, [overlay.height, overlay.width]);
-
-  useEffect(() => {
-    onSizeChangeRef.current = onSizeChange;
-  }, [onSizeChange]);
-
-  const snapToAspectRatio = useCallback(() => {
-    const ar = aspectRatioRef.current;
-    if (!ar) return;
-    const { width, height } = sizeRef.current;
-    const newH = Math.round(width / ar);
-    if (Math.abs(newH - height) > 2) {
-      onSizeChangeRef.current(width, newH);
-    }
-  }, []);
-
-  useEffect(() => {
-    snapToAspectRatio();
-  }, [overlay.width, snapToAspectRatio]);
-
+  // The player lives as long as the panel; media changes reuse it.
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-    const playerContainer = container;
-    let disposed = false;
 
-    async function initialisePlayer() {
-      const sources =
-        overlay.sources && overlay.sources.length > 0
-          ? overlay.sources
-          : [{ src: overlay.streamUrl }];
+    const videoEl = document.createElement("video-js");
+    videoEl.setAttribute("data-vjs-player", "true");
+    videoEl.setAttribute("crossorigin", "anonymous");
+    videoEl.classList.add("mv-video", "vjs-big-play-centered");
+    container.appendChild(videoEl);
 
+    const options: VideoJsPlayerOptions = {
+      controls: true,
+      autoplay: true,
+      loop: true,
+      muted: true,
+      preload: "auto",
+      playsinline: true,
+      controlBar: {
+        pictureInPictureToggle: false,
+        volumePanel: {
+          inline: false,
+        },
+        chaptersButton: false,
+      },
+      html5: {
+        dash: {
+          updateSettings: [
+            {
+              streaming: {
+                buffer: {
+                  bufferTimeAtTopQuality: 30,
+                  bufferTimeAtTopQualityLongForm: 30,
+                },
+                gaps: {
+                  jumpGaps: false,
+                  jumpLargeGaps: false,
+                },
+              },
+            },
+          ],
+        },
+      },
+      nativeControlsForTouch: false,
+      playbackRates: [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2],
+      inactivityTimeout: 700,
+      plugins: {
+        markers: {},
+        vttThumbnails: {
+          showTimestamp: true,
+        },
+        sourceSelector: {},
+        bigButtons: {},
+        seekButtonsMenu: {
+          forward: 10,
+          back: 10,
+        },
+        multiSegmentLoop: {
+          segments: [],
+          enabled: false,
+          currentSegmentIndex: 0,
+        },
+      },
+    };
+
+    const player = videojs(videoEl, options);
+    playerRef.current = player;
+
+    player.ready(() => {
+      if (!player.isDisposed()) setPlayerReady(true);
+    });
+
+    const isSafari = UAParser().browser.name?.includes("Safari");
+    if (!isSafari) {
+      player.mobileUi({
+        fullscreen: {
+          enterOnRotate: true,
+          exitOnRotate: true,
+          lockOnRotate: false,
+        },
+        touchControls: {
+          disabled: true,
+        },
+      });
+    }
+
+    player.on("loadedmetadata", () => {
+      const videoWidth = player.videoWidth();
+      const videoHeight = player.videoHeight();
+      if (videoWidth && videoHeight) {
+        reportAspectRatioRef.current(videoWidth / videoHeight);
+      }
+    });
+
+    return () => {
+      player.dispose();
+      playerRef.current = undefined;
+    };
+  }, []);
+
+  // Media is applied once the player exists; DASH support loads on demand.
+  useEffect(() => {
+    const player = getPlayer();
+    if (!playerReady || !player) return;
+
+    let cancelled = false;
+    const sources =
+      item.sources && item.sources.length > 0
+        ? item.sources
+        : [{ src: item.streamUrl }];
+
+    async function applyMedia(target: VideoJsPlayer) {
       if (sources.some(isDashSource)) {
         await import("videojs-contrib-dash");
       }
+      if (cancelled || target.isDisposed()) return;
 
-      if (disposed) return;
-
-      const videoEl = document.createElement("video-js");
-      videoEl.setAttribute("data-vjs-player", "true");
-      videoEl.setAttribute("crossorigin", "anonymous");
-      videoEl.classList.add("mv-video", "vjs-big-play-centered");
-      playerContainer.appendChild(videoEl);
-
-      const options: VideoJsPlayerOptions = {
-        controls: true,
-        autoplay: true,
-        loop: true,
-        muted: true,
-        preload: "auto",
-        playsinline: true,
-        controlBar: {
-          pictureInPictureToggle: false,
-          volumePanel: {
-            inline: false,
-          },
-          chaptersButton: false,
-        },
-        html5: {
-          dash: {
-            updateSettings: [
-              {
-                streaming: {
-                  buffer: {
-                    bufferTimeAtTopQuality: 30,
-                    bufferTimeAtTopQualityLongForm: 30,
-                  },
-                  gaps: {
-                    jumpGaps: false,
-                    jumpLargeGaps: false,
-                  },
-                },
-              },
-            ],
-          },
-        },
-        nativeControlsForTouch: false,
-        playbackRates: [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2],
-        inactivityTimeout: 700,
-        plugins: {
-          markers: {},
-          vttThumbnails: {
-            showTimestamp: true,
-          },
-          sourceSelector: {},
-          bigButtons: {},
-          seekButtonsMenu: {
-            forward: 10,
-            back: 10,
-          },
-          multiSegmentLoop: {
-            segments: [],
-            enabled: false,
-            currentSegmentIndex: 0,
-          },
-        },
-      };
-
-      const player = videojs(videoEl, options);
-      playerRef.current = player;
-
-      player.ready(() => {
-        if (!disposed && !player.isDisposed()) {
-          setPlayerReadyToken((value) => value + 1);
-        }
+      const sourceSelector = target.sourceSelector();
+      sourceSelector.setSources(
+        sources.map((source) => ({
+          src: source.src,
+          type: source.type ?? undefined,
+          label: source.label ?? undefined,
+          offset: source.offset ?? false,
+          duration: item.duration,
+        }))
+      );
+      (item.textTracks ?? []).forEach((track) => {
+        sourceSelector.addTextTrack(track as videojs.TextTrackOptions, false);
       });
 
-      const isSafari = UAParser().browser.name?.includes("Safari");
-      if (!isSafari) {
-        player.mobileUi({
-          fullscreen: {
-            enterOnRotate: true,
-            exitOnRotate: true,
-            lockOnRotate: false,
-          },
-          touchControls: {
-            disabled: true,
-          },
-        });
+      target.poster(item.posterUrl ?? "");
+      target.vttThumbnails?.().src(item.vttUrl ?? null);
+
+      if (startTime !== undefined) {
+        target.one("loadedmetadata", () => target.currentTime(startTime));
       }
-
-      const handleLoadedMetadata = () => {
-        const videoWidth = player.videoWidth();
-        const videoHeight = player.videoHeight();
-        if (!videoWidth || !videoHeight) return;
-        aspectRatioRef.current = videoWidth / videoHeight;
-        snapToAspectRatio();
-        player.markers?.().setFallbackDuration(overlay.duration ?? 0);
-        player.markers?.().clearMarkers();
-        player.multiSegmentLoop?.().renderSegmentMarkers();
-      };
-
-      player.on("loadedmetadata", handleLoadedMetadata);
+      target.load();
+      target.play()?.catch(() => {});
     }
 
-    initialisePlayer();
+    applyMedia(player);
 
     return () => {
-      disposed = true;
-      if (playerRef.current && !playerRef.current.isDisposed()) {
-        playerRef.current.dispose();
-      }
-      playerRef.current = undefined;
+      cancelled = true;
     };
-  }, [overlay.duration, overlay.sources, overlay.streamUrl, snapToAspectRatio]);
+  }, [
+    getPlayer,
+    playerReady,
+    item.duration,
+    item.posterUrl,
+    item.sources,
+    item.streamUrl,
+    item.textTracks,
+    item.vttUrl,
+    startTime,
+  ]);
+
+  // Marker panels keep playback inside the marker range.
+  useEffect(() => {
+    const player = getPlayer();
+    if (!playerReady || !player || startTime === undefined) return;
+
+    const loopEnd =
+      endTime && endTime > startTime
+        ? endTime
+        : startTime + MARKER_LOOP_FALLBACK_SECONDS;
+
+    const keepInRange = () => {
+      if (player.seeking()) return;
+      const currentTime = player.currentTime();
+      if (currentTime < startTime - 0.25 || currentTime >= loopEnd) {
+        player.currentTime(startTime);
+      }
+    };
+
+    player.on("timeupdate", keepInRange);
+    return () => {
+      player.off("timeupdate", keepInRange);
+    };
+  }, [endTime, getPlayer, playerReady, startTime]);
 
   // Share the ready player's loop plugin with the menu and editor.
   useEffect(() => {
-    setLoopPlugin(playerReadyToken ? getMultiSegmentPlugin() : undefined);
-  }, [getMultiSegmentPlugin, playerReadyToken]);
+    setLoopPlugin(playerReady ? getMultiSegmentPlugin() : undefined);
+  }, [getMultiSegmentPlugin, playerReady]);
 
   // Host for the loop button/menu, placed left of the playback rate button.
   useEffect(() => {
     const controlBar = getPlayer()?.el()?.querySelector(".vjs-control-bar");
-    if (!playerReadyToken || !controlBar || !showLoopControls) return;
+    if (!playerReady || !controlBar || !showLoopControls) return;
 
     const host = document.createElement("div");
     host.className = "vjs-control vjs-multi-segment-loop-control";
@@ -576,19 +430,19 @@ const VideoJsPanel: React.FC<IVideoJsPanelProps> = ({
       host.remove();
       setLoopControlEl(undefined);
     };
-  }, [getPlayer, playerReadyToken, showLoopControls]);
+  }, [getPlayer, playerReady, showLoopControls]);
 
   useEffect(() => {
     const player = getPlayer();
     const controlBar = player?.el()?.querySelector(".vjs-control-bar");
-    if (!playerReadyToken || !player || !controlBar) return;
+    if (!playerReady || !player || !controlBar) return;
 
     const existingButton = controlBar.querySelector(
       ".vjs-negative-marker-skip-btn"
     );
     existingButton?.remove();
 
-    if (!overlay.negativeMarkers?.length) return;
+    if (!item.negativeMarkers?.length) return;
 
     const skipButton = document.createElement("div");
     skipButton.className = "vjs-negative-marker-skip-btn vjs-button";
@@ -635,26 +489,21 @@ const VideoJsPanel: React.FC<IVideoJsPanelProps> = ({
       skipButton.removeEventListener("click", handleClick);
       skipButton.remove();
     };
-  }, [
-    getPlayer,
-    negativeMarkerSkipEnabled,
-    overlay.negativeMarkers,
-    playerReadyToken,
-  ]);
+  }, [getPlayer, negativeMarkerSkipEnabled, item.negativeMarkers, playerReady]);
 
   const loadTimelineMarkers = useCallback(() => {
     const player = getPlayer();
-    if (!player || player.isDisposed()) return;
+    if (!player) return;
 
     const markers = player.markers?.();
     if (!markers) return;
 
     markers.clearMarkers();
-    if (overlay.duration) {
-      markers.setFallbackDuration(overlay.duration);
+    if (item.duration) {
+      markers.setFallbackDuration(item.duration);
     }
 
-    const markerData = overlay.timelineMarkers ?? [];
+    const markerData = item.timelineMarkers ?? [];
     const uniqueTagNames = markerData
       .map((marker) => marker.primaryTag.name)
       .filter((value, index, self) => self.indexOf(value) === index);
@@ -683,9 +532,9 @@ const VideoJsPanel: React.FC<IVideoJsPanelProps> = ({
     requestAnimationFrame(() => {
       markers.addDotMarkers(timestampMarkers);
       markers.addRangeMarkers(rangeMarkers);
-      markers.addNegativeMarkers(overlay.negativeMarkers ?? []);
+      markers.addNegativeMarkers(item.negativeMarkers ?? []);
       markers.addOTimestampMarkers(
-        (overlay.oTimestamps ?? []).map((entry) => ({
+        (item.oTimestamps ?? []).map((entry) => ({
           ts: entry.ts,
           date: entry.date ?? "",
         }))
@@ -693,17 +542,17 @@ const VideoJsPanel: React.FC<IVideoJsPanelProps> = ({
     });
   }, [
     getPlayer,
-    overlay.duration,
-    overlay.negativeMarkers,
-    overlay.oTimestamps,
-    overlay.timelineMarkers,
+    item.duration,
+    item.negativeMarkers,
+    item.oTimestamps,
+    item.timelineMarkers,
     uiConfig?.showRangeMarkers,
     uiConfig?.roleTagIds?.soloTagId,
   ]);
 
   useEffect(() => {
     const player = getPlayer();
-    if (!playerReadyToken || !player) return;
+    if (!playerReady || !player) return;
 
     loadTimelineMarkers();
     player.on("loadedmetadata", loadTimelineMarkers);
@@ -714,12 +563,12 @@ const VideoJsPanel: React.FC<IVideoJsPanelProps> = ({
         player.markers?.().clearMarkers();
       }
     };
-  }, [getPlayer, loadTimelineMarkers, playerReadyToken]);
+  }, [getPlayer, loadTimelineMarkers, playerReady]);
 
   useEffect(() => {
     const player = getPlayer();
-    const negativeMarkers = overlay.negativeMarkers ?? [];
-    if (!playerReadyToken || !player || negativeMarkers.length === 0) return;
+    const negativeMarkers = item.negativeMarkers ?? [];
+    if (!playerReady || !player || negativeMarkers.length === 0) return;
 
     function checkNegativeMarkers(this: VideoJsPlayer) {
       if (!negativeMarkerSkipEnabled || this.paused()) return;
@@ -745,59 +594,7 @@ const VideoJsPanel: React.FC<IVideoJsPanelProps> = ({
     return () => {
       player.off("timeupdate", checkNegativeMarkers);
     };
-  }, [
-    getPlayer,
-    negativeMarkerSkipEnabled,
-    overlay.negativeMarkers,
-    playerReadyToken,
-  ]);
-
-  useEffect(() => {
-    const player = playerRef.current;
-    if (!player || player.isDisposed()) return;
-
-    const sources =
-      overlay.sources && overlay.sources.length > 0
-        ? overlay.sources
-        : [{ src: overlay.streamUrl }];
-
-    const sourceSelector = player.sourceSelector?.();
-    if (sourceSelector) {
-      sourceSelector.setSources(
-        sources.map((source) => ({
-          src: source.src,
-          type: source.type ?? undefined,
-          label: source.label ?? undefined,
-          offset: source.offset ?? false,
-          duration: overlay.duration,
-        }))
-      );
-      (overlay.textTracks ?? []).forEach((track) => {
-        sourceSelector.addTextTrack(track as videojs.TextTrackOptions, false);
-      });
-    } else {
-      player.src(
-        sources.map((source) => ({
-          src: source.src,
-          type: source.type ?? undefined,
-        }))
-      );
-    }
-
-    player.poster(overlay.posterUrl ?? "");
-    const vttThumbnails = player.vttThumbnails?.();
-    vttThumbnails?.src(overlay.vttUrl ?? null);
-
-    player.load();
-    player.play()?.catch(() => {});
-  }, [
-    overlay.duration,
-    overlay.posterUrl,
-    overlay.sources,
-    overlay.streamUrl,
-    overlay.textTracks,
-    overlay.vttUrl,
-  ]);
+  }, [getPlayer, negativeMarkerSkipEnabled, item.negativeMarkers, playerReady]);
 
   const portalTarget =
     document.fullscreenElement instanceof HTMLElement
@@ -843,58 +640,45 @@ const VideoJsPanel: React.FC<IVideoJsPanelProps> = ({
   );
 };
 
-const DraggableVideo: React.FC<IDraggableVideoProps> = ({
-  overlay,
+const VideoJsPanel = React.memo(VideoJsPanelComponent);
+
+interface IDraggableVideoProps {
+  item: IVideoViewerItem;
+  layout: IPanelLayout;
+  mouseActive: boolean;
+  onDrag: DragPanelHandler;
+  onAspectRatio: (id: string, aspectRatio: number) => void;
+  onRaise: (id: string) => void;
+  onLower: (id: string) => void;
+  onClose: (id: string) => void;
+}
+
+const DraggableVideoComponent: React.FC<IDraggableVideoProps> = ({
+  item,
+  layout,
   mouseActive,
-  onPositionChange,
-  onSizeChange,
+  onDrag,
+  onAspectRatio,
+  onRaise,
+  onLower,
   onClose,
-  onBringToFront,
-  onSendToBack,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
   const suppressClickRef = useRef(false);
-  const dragStartRef = useRef<{
-    pointerX: number;
-    pointerY: number;
-    overlayX: number;
-    overlayY: number;
-    committed: boolean;
-  } | null>(null);
 
-  const snapToVideoAR = useCallback(() => {
-    const v = videoRef.current;
-    if (!v || !v.videoWidth || !v.videoHeight) return;
-    const ar = v.videoWidth / v.videoHeight;
-    const newH = Math.round(overlay.width / ar);
-    if (Math.abs(newH - overlay.height) > 2) onSizeChange(overlay.width, newH);
-  }, [overlay.width, overlay.height, onSizeChange]);
-
-  useEffect(() => {
-    snapToVideoAR();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [overlay.width]);
-  const [isResizing, setIsResizing] = useState(false);
-  const [isResizingTL, setIsResizingTL] = useState(false);
-  const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, w: 0, h: 0 });
-  const [resizeTLStart, setResizeTLStart] = useState({
-    x: 0,
-    y: 0,
-    w: 0,
-    h: 0,
-    xPos: 0,
-    yPos: 0,
+  const startRect = (): IPanelRect => ({
+    x: layout.x,
+    y: layout.y,
+    width: layout.width,
+    height: layout.height,
   });
 
-  const handleFrameMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleFramePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
     if (
       e.button !== 0 ||
       target.closest(
         [
-          ".mv-close-btn",
-          ".mv-layer-btn",
           ".mv-resize-handle",
           ".mv-resize-handle-tl",
           ".vjs-control-bar",
@@ -915,146 +699,40 @@ const DraggableVideo: React.FC<IDraggableVideoProps> = ({
       e.preventDefault();
     }
 
-    setIsDragging(true);
-    dragStartRef.current = {
-      pointerX: e.clientX,
-      pointerY: e.clientY,
-      overlayX: overlay.x,
-      overlayY: overlay.y,
-      committed: false,
-    };
-  };
-
-  const handleResizeMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsResizing(true);
-    setResizeStart({
-      x: e.clientX,
-      y: e.clientY,
-      w: overlay.width,
-      h: overlay.height,
-    });
-  };
-
-  const handleResizeTLMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsResizingTL(true);
-    setResizeTLStart({
-      x: e.clientX,
-      y: e.clientY,
-      w: overlay.width,
-      h: overlay.height,
-      xPos: overlay.x,
-      yPos: overlay.y,
-    });
-  };
-
-  const getLoopEndTime = useCallback(() => {
-    if (overlay.startTime === undefined) return undefined;
-    return overlay.endTime && overlay.endTime > overlay.startTime
-      ? overlay.endTime
-      : overlay.startTime + 20;
-  }, [overlay.endTime, overlay.startTime]);
-
-  const handleNativeLoadedMetadata = useCallback(
-    (e: React.SyntheticEvent<HTMLVideoElement>) => {
-      snapToVideoAR();
-      if (overlay.startTime !== undefined) {
-        e.currentTarget.currentTime = overlay.startTime;
-      }
-    },
-    [overlay.startTime, snapToVideoAR]
-  );
-
-  const handleNativeTimeUpdate = useCallback(
-    (e: React.SyntheticEvent<HTMLVideoElement>) => {
-      if (overlay.startTime === undefined) return;
-
-      const video = e.currentTarget;
-      const endTime = getLoopEndTime();
-      if (endTime === undefined) return;
-
-      if (video.currentTime < overlay.startTime - 0.25) {
-        video.currentTime = overlay.startTime;
-      } else if (video.currentTime >= endTime) {
-        video.currentTime = overlay.startTime;
-      }
-    },
-    [getLoopEndTime, overlay.startTime]
-  );
-
-  useEffect(() => {
-    let clickResetTimer: ReturnType<typeof setTimeout> | undefined;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      if (isDragging) {
-        const start = dragStartRef.current;
-        if (!start) return;
-
-        const dx = e.clientX - start.pointerX;
-        const dy = e.clientY - start.pointerY;
-        if (!start.committed && Math.abs(dx) + Math.abs(dy) < 4) {
-          return;
-        }
-
-        start.committed = true;
+    const start = startRect();
+    trackPointerDrag(
+      e,
+      (dx, dy) => {
         suppressClickRef.current = true;
-        onPositionChange(start.overlayX + dx, start.overlayY + dy);
+        setIsDragging(true);
+        onDrag(item.id, "move", start, dx, dy, VIDEO_LIMITS);
+      },
+      {
+        threshold: 4,
+        onEnd: (moved) => {
+          setIsDragging(false);
+          // The click that ends a drag must not toggle playback.
+          if (moved) {
+            setTimeout(() => {
+              suppressClickRef.current = false;
+            }, 0);
+          }
+        },
       }
-      if (isResizing) {
-        const dw = e.clientX - resizeStart.x;
-        const dh = e.clientY - resizeStart.y;
-        const newWidth = Math.max(MIN_WIDTH, resizeStart.w + dw);
-        const newHeight = Math.max(MIN_HEIGHT, resizeStart.h + dh);
-        onSizeChange(newWidth, newHeight);
-      }
-      if (isResizingTL) {
-        const dMouseX = e.clientX - resizeTLStart.x;
-        const dMouseY = e.clientY - resizeTLStart.y;
-        const rightEdge = resizeTLStart.xPos + resizeTLStart.w;
-        const bottomEdge = resizeTLStart.yPos + resizeTLStart.h;
-        const newWidth = Math.max(MIN_WIDTH, resizeTLStart.w - dMouseX);
-        const newHeight = Math.max(MIN_HEIGHT, resizeTLStart.h - dMouseY);
-        onSizeChange(newWidth, newHeight);
-        onPositionChange(rightEdge - newWidth, bottomEdge - newHeight);
-      }
-    };
+    );
+  };
 
-    const handleMouseUp = () => {
-      setIsDragging(false);
-      dragStartRef.current = null;
-      if (suppressClickRef.current) {
-        clickResetTimer = setTimeout(() => {
-          suppressClickRef.current = false;
-        }, 0);
-      }
-      setIsResizing(false);
-      setIsResizingTL(false);
-    };
-
-    if (isDragging || isResizing || isResizingTL) {
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
-    }
-    return () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-      if (clickResetTimer) {
-        clearTimeout(clickResetTimer);
-      }
-    };
-  }, [
-    isDragging,
-    isResizing,
-    isResizingTL,
-    resizeStart,
-    resizeTLStart,
-    overlay,
-    onPositionChange,
-    onSizeChange,
-  ]);
+  const handleResizePointerDown = (
+    e: React.PointerEvent,
+    gesture: "resize-br" | "resize-tl"
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const start = startRect();
+    trackPointerDrag(e, (dx, dy) =>
+      onDrag(item.id, gesture, start, dx, dy, VIDEO_LIMITS)
+    );
+  };
 
   const handleClickCapture = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!suppressClickRef.current) return;
@@ -1063,18 +741,9 @@ const DraggableVideo: React.FC<IDraggableVideoProps> = ({
     suppressClickRef.current = false;
   };
 
-  // CUSTOM: begin - performer chips with hover images
-  const topPerformers = overlay.topPerformers ?? [];
-  const bottomPerformers = overlay.bottomPerformers ?? [];
-  const hasPerformerObjects =
-    topPerformers.length > 0 || bottomPerformers.length > 0;
-  const hasPerformerNames =
-    (overlay.topPerformerNames?.length ?? 0) > 0 ||
-    (overlay.bottomPerformerNames?.length ?? 0) > 0;
-  const showArrows = hasPerformerObjects
-    ? topPerformers.length > 0 && bottomPerformers.length > 0
-    : (overlay.topPerformerNames?.length ?? 0) > 0 &&
-      (overlay.bottomPerformerNames?.length ?? 0) > 0;
+  const topPerformers = item.topPerformers ?? [];
+  const bottomPerformers = item.bottomPerformers ?? [];
+  const showArrows = topPerformers.length > 0 && bottomPerformers.length > 0;
 
   const renderPerformerChips = (
     performers: IPerformerHoverPerformer[],
@@ -1104,45 +773,40 @@ const DraggableVideo: React.FC<IDraggableVideoProps> = ({
         </span>
       </a>
     ));
-  // CUSTOM: end
-
-  if (!overlay.visible) return null;
 
   return (
     <div
       className={cx("mv-overlay", { dragging: isDragging })}
       onClickCapture={handleClickCapture}
-      onMouseDown={handleFrameMouseDown}
+      onPointerDownCapture={() => onRaise(item.id)}
+      onPointerDown={handleFramePointerDown}
       style={{
-        left: overlay.x,
-        top: overlay.y,
-        width: overlay.width,
-        height: overlay.height,
-        zIndex: overlay.zIndex,
+        left: layout.x,
+        top: layout.y,
+        width: layout.width,
+        height: layout.height,
+        zIndex: layout.zIndex,
       }}
     >
       <div className="mv-titlebar">
-        <span className="mv-title" title={overlay.title}>
-          {overlay.title}
+        <span className="mv-title" title={item.title}>
+          {item.title}
         </span>
+        {item.openUrl && (
+          <a
+            className="mv-layer-btn"
+            href={item.openUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Open in Stash"
+          >
+            <Icon icon={faExternalLinkAlt} />
+          </a>
+        )}
         <button
           type="button"
           className="mv-layer-btn"
-          onClick={(e) => {
-            e.stopPropagation();
-            onBringToFront();
-          }}
-          title="Bring to front"
-        >
-          <Icon icon={faArrowUp} />
-        </button>
-        <button
-          type="button"
-          className="mv-layer-btn"
-          onClick={(e) => {
-            e.stopPropagation();
-            onSendToBack();
-          }}
+          onClick={() => onLower(item.id)}
           title="Send to back"
         >
           <Icon icon={faArrowDown} />
@@ -1150,10 +814,7 @@ const DraggableVideo: React.FC<IDraggableVideoProps> = ({
         <button
           type="button"
           className="mv-close-btn"
-          onClick={(e) => {
-            e.stopPropagation();
-            onClose();
-          }}
+          onClick={() => onClose(item.id)}
           title="Remove"
         >
           <Icon icon={faTimes} />
@@ -1161,76 +822,31 @@ const DraggableVideo: React.FC<IDraggableVideoProps> = ({
       </div>
 
       <div className="mv-video-wrap">
-        {overlay.customControls ? (
-          <VideoJsPanel overlay={overlay} onSizeChange={onSizeChange} />
-        ) : (
-          // eslint-disable-next-line jsx-a11y/media-has-caption
-          <video
-            ref={videoRef}
-            src={overlay.streamUrl}
-            autoPlay
-            loop
-            muted
-            controls
-            controlsList="nodownload noplaybackrate"
-            disablePictureInPicture
-            preload="auto"
-            className={cx("mv-video", {
-              "mv-marker-range-video": overlay.startTime !== undefined,
-            })}
-            onLoadedMetadata={handleNativeLoadedMetadata}
-            onTimeUpdate={handleNativeTimeUpdate}
-          />
-        )}
-        {mouseActive && (hasPerformerObjects || hasPerformerNames) && (
-          <div className="mv-performer-overlay">
-            {hasPerformerObjects ? (
-              <>
-                {renderPerformerChips(topPerformers, "top")}
-                {renderPerformerChips(bottomPerformers, "bottom")}
-              </>
-            ) : (
-              <>
-                {overlay.topPerformerNames &&
-                  overlay.topPerformerNames.length > 0 && (
-                    <span className="mv-performer-info mv-performer-top">
-                      {showArrows && (
-                        <Icon icon={faArrowUp} className="mv-performer-icon" />
-                      )}
-                      <span>{overlay.topPerformerNames.join(", ")}</span>
-                    </span>
-                  )}
-                {overlay.bottomPerformerNames &&
-                  overlay.bottomPerformerNames.length > 0 && (
-                    <span className="mv-performer-info mv-performer-bottom">
-                      {showArrows && (
-                        <Icon
-                          icon={faArrowDown}
-                          className="mv-performer-icon"
-                        />
-                      )}
-                      <span>{overlay.bottomPerformerNames.join(", ")}</span>
-                    </span>
-                  )}
-              </>
-            )}
-          </div>
-        )}
+        <VideoJsPanel item={item} onAspectRatio={onAspectRatio} />
+        {mouseActive &&
+          (topPerformers.length > 0 || bottomPerformers.length > 0) && (
+            <div className="mv-performer-overlay">
+              {renderPerformerChips(topPerformers, "top")}
+              {renderPerformerChips(bottomPerformers, "bottom")}
+            </div>
+          )}
       </div>
 
       <div
         className="mv-resize-handle-tl"
-        onMouseDown={handleResizeTLMouseDown}
+        onPointerDown={(e) => handleResizePointerDown(e, "resize-tl")}
         title="Drag to resize"
       />
       <div
         className="mv-resize-handle"
-        onMouseDown={handleResizeMouseDown}
+        onPointerDown={(e) => handleResizePointerDown(e, "resize-br")}
         title="Drag to resize"
       />
     </div>
   );
 };
+
+const DraggableVideo = React.memo(DraggableVideoComponent);
 
 interface IMultiVideoViewerProps {
   items: IVideoViewerItem[];
@@ -1242,7 +858,7 @@ interface IMultiVideoViewerProps {
   imageItems?: IImageViewerItem[];
   imageOrderedIds?: string[];
   headerContent?: ReactNode;
-  onRemoveItem?: (id: string) => void;
+  onRemoveItem: (id: string) => void;
 }
 
 export const MultiVideoViewer: React.FC<IMultiVideoViewerProps> = ({
@@ -1258,363 +874,245 @@ export const MultiVideoViewer: React.FC<IMultiVideoViewerProps> = ({
   onRemoveItem,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [overlays, setOverlays] = useState<IOverlayState[]>([]);
-  const [imageOverlays, setImageOverlays] = useState<IImageOverlayState[]>([]);
-  const [nextImageZ, setNextImageZ] = useState(BASE_Z + 5000);
+  const [layouts, setLayouts] = useState<PanelLayouts>({});
+  const [imageTransforms, setImageTransforms] = useState<
+    Record<string, IImageTransform>
+  >({});
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [mouseActive, setMouseActive] = useState(false);
   const mouseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const itemsRef = useRef<IVideoViewerItem[]>([]);
-  const videoLayoutInitializedRef = useRef(false);
-  const imageLayoutInitializedRef = useRef(false);
+  // Panels tile themselves until the user moves or resizes one.
+  const autoLayoutRef = useRef(true);
+  const zIndexRef = useRef(0);
+
+  const nextZIndex = useCallback(() => ++zIndexRef.current, []);
+
+  const getBounds = useCallback((): IPanelBounds => {
+    const viewerFullscreen =
+      !!containerRef.current &&
+      document.fullscreenElement === containerRef.current;
+    const top = viewerFullscreen ? 0 : HEADER_H;
+    return { top, width: window.innerWidth, height: window.innerHeight - top };
+  }, []);
+
+  const videoPanels = useMemo(
+    () => getOrderedItems(items, orderedIds),
+    [items, orderedIds]
+  );
+  const imagePanels = useMemo(
+    () => getOrderedItems(imageItems, imageOrderedIds),
+    [imageItems, imageOrderedIds]
+  );
+  const panelSpecs = useMemo(
+    () => [
+      ...videoPanels.map((item) => ({
+        id: item.id,
+        defaultAspectRatio: VIDEO_ASPECT_RATIO,
+      })),
+      ...imagePanels.map((item) => ({ id: item.id, defaultAspectRatio: 1 })),
+    ],
+    [imagePanels, videoPanels]
+  );
+  // While tiling, wait for every requested item so the grid is built once.
+  const waitingForItems =
+    loading &&
+    autoLayoutRef.current &&
+    panelSpecs.length < orderedIds.length + imageOrderedIds.length;
 
   useEffect(() => {
-    const handleMouseMove = () => {
+    if (waitingForItems) return;
+    setLayouts((prev) =>
+      syncPanelLayouts(
+        prev,
+        panelSpecs,
+        getBounds(),
+        autoLayoutRef.current,
+        nextZIndex
+      )
+    );
+  }, [getBounds, nextZIndex, panelSpecs, waitingForItems]);
+
+  const relayout = useCallback(() => {
+    const bounds = getBounds();
+    setLayouts((prev) =>
+      autoLayoutRef.current
+        ? tileLayouts(prev, bounds)
+        : clampLayouts(prev, bounds)
+    );
+  }, [getBounds]);
+
+  useEffect(() => {
+    let frame = 0;
+    const handleResize = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(relayout);
+    };
+    const handleFullscreenChange = () => {
+      setIsFullscreen(
+        !!containerRef.current &&
+          document.fullscreenElement === containerRef.current
+      );
+      relayout();
+    };
+
+    window.addEventListener("resize", handleResize);
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("resize", handleResize);
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, [relayout]);
+
+  useEffect(() => {
+    const handleActivity = () => {
       setMouseActive(true);
       if (mouseTimerRef.current) clearTimeout(mouseTimerRef.current);
       mouseTimerRef.current = setTimeout(() => setMouseActive(false), 1500);
     };
-    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("pointermove", handleActivity);
+    document.addEventListener("pointerdown", handleActivity);
     return () => {
-      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("pointermove", handleActivity);
+      document.removeEventListener("pointerdown", handleActivity);
       if (mouseTimerRef.current) clearTimeout(mouseTimerRef.current);
     };
   }, []);
 
-  useEffect(() => {
-    itemsRef.current = items;
+  const dragPanel = useCallback<DragPanelHandler>(
+    (id, gesture, start, dx, dy, limits) => {
+      autoLayoutRef.current = false;
+      const bounds = getBounds();
+      setLayouts((prev) => {
+        const layout = prev[id];
+        if (!layout) return prev;
+        const rect =
+          gesture === "move"
+            ? clampPanelRect(
+                { ...start, x: start.x + dx, y: start.y + dy },
+                bounds
+              )
+            : resizePanelRect(
+                gesture === "resize-tl" ? "tl" : "br",
+                start,
+                dx,
+                dy,
+                layout.aspectRatio,
+                limits,
+                bounds
+              );
+        return { ...prev, [id]: { ...layout, ...rect } };
+      });
+    },
+    [getBounds]
+  );
 
-    if (orderedIds.length === 0) {
-      videoLayoutInitializedRef.current = true;
-      setOverlays([]);
-      return;
-    }
-
-    const orderedItems = getOrderedVideoItems(items, orderedIds);
-    const validIds = new Set(orderedIds);
-
-    if (!videoLayoutInitializedRef.current) {
-      if (
-        orderedItems.length === 0 ||
-        (loading && orderedItems.length < orderedIds.length)
-      ) {
-        setOverlays((prev) =>
-          prev.filter((overlay) => validIds.has(overlay.id))
-        );
-        return;
-      }
-
-      setOverlays(
-        computeLayout(
-          items,
-          orderedIds,
-          window.innerWidth,
-          window.innerHeight,
-          HEADER_H
-        )
-      );
-      videoLayoutInitializedRef.current = true;
-      return;
-    }
-
-    setOverlays((prev) => {
-      const itemById = new Map(orderedItems.map((item) => [item.id, item]));
-      const existing = prev
-        .filter((overlay) => validIds.has(overlay.id))
-        .map((overlay) => {
-          const item = itemById.get(overlay.id);
-          return item
-            ? {
-                ...item,
-                x: overlay.x,
-                y: overlay.y,
-                width: overlay.width,
-                height: overlay.height,
-                visible: overlay.visible,
-                zIndex: overlay.zIndex,
-              }
-            : overlay;
-        });
-      const existingIds = new Set(existing.map((overlay) => overlay.id));
-      const additions = orderedItems
-        .filter((item) => !existingIds.has(item.id))
-        .map((item, index) =>
-          createAppendedVideoOverlay(item, existing.length + index)
-        );
-
-      return [...existing, ...additions];
-    });
-  }, [items, loading, orderedIds]);
-
-  useEffect(() => {
-    if (imageOrderedIds.length === 0) {
-      imageLayoutInitializedRef.current = true;
-      setImageOverlays([]);
-      return;
-    }
-
-    const orderedItems = getOrderedImageItems(imageItems, imageOrderedIds);
-    const validIds = new Set(imageOrderedIds);
-
-    if (!imageLayoutInitializedRef.current) {
-      if (
-        orderedItems.length === 0 ||
-        (loading && orderedItems.length < imageOrderedIds.length)
-      ) {
-        setImageOverlays((prev) =>
-          prev.filter((overlay) => validIds.has(overlay.id))
-        );
-        return;
-      }
-
-      const layouts = computeImageLayout(
-        imageItems,
-        imageOrderedIds,
-        window.innerWidth,
-        window.innerHeight,
-        HEADER_H,
-        orderedIds.length > 0 || itemsRef.current.length > 0
-      );
-      setImageOverlays(layouts);
-      imageLayoutInitializedRef.current = true;
-      return;
-    }
-
-    setImageOverlays((prev) => {
-      const itemById = new Map(orderedItems.map((item) => [item.id, item]));
-      const existing = prev
-        .filter((overlay) => validIds.has(overlay.id))
-        .map((overlay) => {
-          const item = itemById.get(overlay.id);
-          return item
-            ? {
-                ...overlay,
-                url: item.url,
-              }
-            : overlay;
-        });
-      const existingIds = new Set(existing.map((overlay) => overlay.id));
-      const additions = orderedItems
-        .filter((item) => !existingIds.has(item.id))
-        .map((item, index) =>
-          createAppendedImageOverlay(item, existing.length + index)
-        );
-      return [...existing, ...additions];
-    });
-  }, [imageItems, imageOrderedIds, loading, orderedIds.length]);
-
-  useEffect(() => {
-    setNextImageZ(
-      (prev) =>
-        Math.max(
+  const handleAspectRatio = useCallback(
+    (id: string, aspectRatio: number) => {
+      setLayouts((prev) =>
+        setPanelAspectRatio(
           prev,
-          BASE_Z + 5000,
-          ...imageOverlays.map((image) => image.zIndex)
-        ) + 1
-    );
-  }, [imageOverlays]);
-
-  const updatePosition = useCallback((id: string, x: number, y: number) => {
-    setOverlays((prev) => prev.map((o) => (o.id === id ? { ...o, x, y } : o)));
-  }, []);
-
-  const updateSize = useCallback(
-    (id: string, width: number, height: number) => {
-      setOverlays((prev) =>
-        prev.map((o) => (o.id === id ? { ...o, width, height } : o))
-      );
-    },
-    []
-  );
-
-  const bringVideoToFront = useCallback(
-    (id: string) => {
-      setOverlays((prev) => {
-        const maxZ = Math.max(
-          BASE_Z,
-          ...prev.map((overlay) => overlay.zIndex),
-          ...imageOverlays.map((image) => image.zIndex)
-        );
-        return prev.map((overlay) =>
-          overlay.id === id ? { ...overlay, zIndex: maxZ + 1 } : overlay
-        );
-      });
-    },
-    [imageOverlays]
-  );
-
-  const sendVideoToBack = useCallback(
-    (id: string) => {
-      setOverlays((prev) => {
-        const minZ = Math.min(
-          BASE_Z,
-          ...prev.map((overlay) => overlay.zIndex),
-          ...imageOverlays.map((image) => image.zIndex)
-        );
-        return prev.map((overlay) =>
-          overlay.id === id ? { ...overlay, zIndex: minZ - 1 } : overlay
-        );
-      });
-    },
-    [imageOverlays]
-  );
-
-  const removeOverlay = useCallback(
-    (id: string) => {
-      onRemoveItem?.(id);
-      setOverlays((prev) => prev.filter((o) => o.id !== id));
-    },
-    [onRemoveItem]
-  );
-
-  const updateImagePosition = useCallback(
-    (id: string, x: number, y: number) => {
-      setImageOverlays((prev) =>
-        prev.map((image) => (image.id === id ? { ...image, x, y } : image))
-      );
-    },
-    []
-  );
-
-  const updateImageSize = useCallback((id: string, width: number) => {
-    setImageOverlays((prev) =>
-      prev.map((image) => (image.id === id ? { ...image, width } : image))
-    );
-  }, []);
-
-  const removeImageOverlay = useCallback(
-    (id: string) => {
-      onRemoveItem?.(id);
-      setImageOverlays((prev) => prev.filter((image) => image.id !== id));
-    },
-    [onRemoveItem]
-  );
-
-  const rotateImage = useCallback((id: string) => {
-    setImageOverlays((prev) =>
-      prev.map((image) => {
-        if (image.id !== id) return image;
-        const { cropTop, cropRight, cropBottom, cropLeft } = image;
-        return {
-          ...image,
-          rotation: (image.rotation + 90) % 360,
-          cropTop: cropLeft,
-          cropRight: cropTop,
-          cropBottom: cropRight,
-          cropLeft: cropBottom,
-        };
-      })
-    );
-  }, []);
-
-  const updateImageCrop = useCallback(
-    (id: string, top: number, right: number, bottom: number, left: number) => {
-      setImageOverlays((prev) =>
-        prev.map((image) =>
-          image.id === id
-            ? {
-                ...image,
-                cropTop: top,
-                cropRight: right,
-                cropBottom: bottom,
-                cropLeft: left,
-              }
-            : image
+          id,
+          aspectRatio,
+          getBounds(),
+          autoLayoutRef.current
         )
       );
     },
+    [getBounds]
+  );
+
+  const handleRaise = useCallback(
+    (id: string) => setLayouts((prev) => raisePanel(prev, id, nextZIndex)),
+    [nextZIndex]
+  );
+
+  const handleLower = useCallback(
+    (id: string) => setLayouts((prev) => lowerPanel(prev, id)),
     []
   );
 
-  const bringImageToFront = useCallback(
+  const handleClose = useCallback(
     (id: string) => {
-      const z = nextImageZ;
-      setNextImageZ((value) => value + 1);
-      setImageOverlays((prev) =>
-        prev.map((image) => (image.id === id ? { ...image, zIndex: z } : image))
+      onRemoveItem(id);
+      setImageTransforms((prev) => {
+        if (!prev[id]) return prev;
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    },
+    [onRemoveItem]
+  );
+
+  const handleRotate = useCallback(
+    (id: string) => {
+      setImageTransforms((prev) => {
+        const current = prev[id] ?? DEFAULT_IMAGE_TRANSFORM;
+        return {
+          ...prev,
+          [id]: {
+            rotation: (current.rotation + 90) % 360,
+            cropTop: current.cropLeft,
+            cropRight: current.cropTop,
+            cropBottom: current.cropRight,
+            cropLeft: current.cropBottom,
+          },
+        };
+      });
+      setLayouts((prev) =>
+        prev[id]
+          ? setPanelAspectRatio(
+              prev,
+              id,
+              1 / prev[id].aspectRatio,
+              getBounds(),
+              autoLayoutRef.current
+            )
+          : prev
       );
     },
-    [nextImageZ]
+    [getBounds]
   );
 
-  const sendImageToBack = useCallback(
-    (id: string) => {
-      setImageOverlays((prev) => {
-        const minZ = Math.min(
-          BASE_Z,
-          ...prev.map((image) => image.zIndex),
-          ...overlays.map((overlay) => overlay.zIndex)
-        );
-        return prev.map((image) =>
-          image.id === id ? { ...image, zIndex: minZ - 1 } : image
-        );
-      });
-    },
-    [overlays]
-  );
-
-  const reflowVideoLayout = useCallback(() => {
-    const bounds = containerRef.current?.getBoundingClientRect();
-    const width = bounds?.width ?? window.innerWidth;
-    const height = bounds?.height ?? window.innerHeight;
-
-    setOverlays((prev) => {
-      const visibleIds = prev
-        .filter((overlay) => overlay.visible)
-        .map((o) => o.id);
-      const layouts = computeLayout(prev, visibleIds, width, height, 0);
-
-      return prev.map((overlay) => {
-        const nextLayout = layouts.find((layout) => layout.id === overlay.id);
-        return nextLayout
-          ? {
-              ...nextLayout,
-              zIndex: overlay.zIndex,
-            }
-          : overlay;
-      });
-    });
+  const handleCropChange = useCallback((id: string, crop: IImageCrop) => {
+    setImageTransforms((prev) => ({
+      ...prev,
+      [id]: { ...(prev[id] ?? DEFAULT_IMAGE_TRANSFORM), ...crop },
+    }));
   }, []);
+
+  const tilePanels = useCallback(() => {
+    autoLayoutRef.current = true;
+    relayout();
+  }, [relayout]);
 
   const toggleFullscreen = useCallback(() => {
-    if (!document.fullscreenElement) {
-      containerRef.current?.requestFullscreen();
-      setIsFullscreen(true);
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
     } else {
-      document.exitFullscreen();
-      setIsFullscreen(false);
+      containerRef.current?.requestFullscreen().catch(() => {});
     }
   }, []);
 
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    return () => {
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
-    };
-  }, []);
+  const panelCount = panelSpecs.length;
 
-  if (loading && overlays.length === 0 && imageOverlays.length === 0) {
+  if (loading && panelCount === 0) {
     return <LoadingIndicator />;
   }
 
-  const visibleCount =
-    overlays.filter((o) => o.visible).length +
-    imageOverlays.filter((image) => image.visible).length;
-  const isEmpty = overlays.length === 0 && imageOverlays.length === 0;
+  const isEmpty = panelCount === 0;
 
   return (
     <div
       ref={containerRef}
-      className={cx("marker-viewer-container", "image-viewer-container", {
+      className={cx("marker-viewer-container", {
         empty: isEmpty,
         "fullscreen-active": isFullscreen,
       })}
     >
       <Helmet>
-        <title>{`${title} (${visibleCount})`}</title>
+        <title>{`${title} (${panelCount})`}</title>
       </Helmet>
       {!isFullscreen && (
         <div className="marker-viewer-header">
@@ -1625,10 +1123,18 @@ export const MultiVideoViewer: React.FC<IMultiVideoViewerProps> = ({
           >
             <Icon icon={faExpand} />
           </Button>
+          <Button
+            variant="secondary"
+            onClick={tilePanels}
+            disabled={isEmpty}
+            title="Tile panels"
+          >
+            <Icon icon={faThLarge} />
+          </Button>
           {headerContent}
           <span className="marker-count">
-            {visibleCount} {itemLabel}
-            {visibleCount !== 1 ? "s" : ""}
+            {panelCount} {itemLabel}
+            {panelCount !== 1 ? "s" : ""}
           </span>
         </div>
       )}
@@ -1645,8 +1151,8 @@ export const MultiVideoViewer: React.FC<IMultiVideoViewerProps> = ({
           <Button
             variant="secondary"
             className="mv-fab-btn"
-            onClick={reflowVideoLayout}
-            title="Reflow markers and scenes"
+            onClick={tilePanels}
+            title="Tile panels"
           >
             <Icon icon={faThLarge} />
           </Button>
@@ -1657,31 +1163,45 @@ export const MultiVideoViewer: React.FC<IMultiVideoViewerProps> = ({
           <p>{emptyMessage}</p>
         </div>
       )}
-      {overlays.map((overlay) => (
-        <DraggableVideo
-          key={overlay.id}
-          overlay={overlay}
-          mouseActive={mouseActive}
-          onPositionChange={(x, y) => updatePosition(overlay.id, x, y)}
-          onSizeChange={(w, h) => updateSize(overlay.id, w, h)}
-          onClose={() => removeOverlay(overlay.id)}
-          onBringToFront={() => bringVideoToFront(overlay.id)}
-          onSendToBack={() => sendVideoToBack(overlay.id)}
-        />
-      ))}
-      {imageOverlays.map((overlay) => (
-        <DraggableImage
-          key={overlay.id}
-          overlay={overlay}
-          onPositionChange={(x, y) => updateImagePosition(overlay.id, x, y)}
-          onSizeChange={(w) => updateImageSize(overlay.id, w)}
-          onClose={() => removeImageOverlay(overlay.id)}
-          onRotate={() => rotateImage(overlay.id)}
-          onCropChange={(t, r, b, l) => updateImageCrop(overlay.id, t, r, b, l)}
-          onBringToFront={() => bringImageToFront(overlay.id)}
-          onSendToBack={() => sendImageToBack(overlay.id)}
-        />
-      ))}
+      <div className="mv-canvas">
+        {videoPanels.map(
+          (item) =>
+            layouts[item.id] && (
+              <DraggableVideo
+                key={item.id}
+                item={item}
+                layout={layouts[item.id]}
+                mouseActive={mouseActive}
+                onDrag={dragPanel}
+                onAspectRatio={handleAspectRatio}
+                onRaise={handleRaise}
+                onLower={handleLower}
+                onClose={handleClose}
+              />
+            )
+        )}
+        {imagePanels.map(
+          (item) =>
+            layouts[item.id] && (
+              <DraggableImage
+                key={item.id}
+                id={item.id}
+                url={item.url}
+                title={item.title}
+                openUrl={item.openUrl}
+                layout={layouts[item.id]}
+                transform={imageTransforms[item.id] ?? DEFAULT_IMAGE_TRANSFORM}
+                onDrag={dragPanel}
+                onAspectRatio={handleAspectRatio}
+                onRaise={handleRaise}
+                onLower={handleLower}
+                onClose={handleClose}
+                onRotate={handleRotate}
+                onCropChange={handleCropChange}
+              />
+            )
+        )}
+      </div>
     </div>
   );
 };

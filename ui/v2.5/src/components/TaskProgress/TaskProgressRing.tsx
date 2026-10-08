@@ -4,12 +4,17 @@ import { progressRingStrokeOffset } from "./progressMath_custom";
 interface IProps {
   percentage: number;
   label: string;
+  completed?: boolean;
 }
 
 const radius = 45;
 const circumference = 2 * Math.PI * radius;
 
-export const TaskProgressRing: React.FC<IProps> = ({ percentage, label }) => {
+export const TaskProgressRing: React.FC<IProps> = ({
+  percentage,
+  label,
+  completed = false,
+}) => {
   const displayPercentage = Number.isFinite(percentage)
     ? Math.min(100, Math.max(0, percentage))
     : 0;
@@ -17,7 +22,7 @@ export const TaskProgressRing: React.FC<IProps> = ({ percentage, label }) => {
   return (
     <div
       aria-label={`${displayPercentage.toFixed(2)}% ${label}`}
-      className="progress-ring"
+      className={`progress-ring${completed ? " progress-ring-completed" : ""}`}
       role="img"
     >
       <svg aria-hidden="true" viewBox="0 0 100 100">

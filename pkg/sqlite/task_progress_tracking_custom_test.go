@@ -25,6 +25,7 @@ CREATE TABLE task_progress_trackers (
   tag_id INTEGER NOT NULL,
   goal_per_day INTEGER,
   status TEXT NOT NULL,
+  is_working_on BOOLEAN NOT NULL DEFAULT 0,
   item_types TEXT NOT NULL,
   mode TEXT NOT NULL,
   version INTEGER NOT NULL DEFAULT 1,
@@ -250,4 +251,61 @@ INSERT INTO scenes(id,title) VALUES (1,'Rollback Scene');`)
 	var count int
 	require.NoError(t, db.Get(&count, "SELECT COUNT(*) FROM task_progress_tracker_events"))
 	require.Equal(t, 0, count)
+}
+
+func TestTaskProgressAutomaticCompletionCustom(t *testing.T) {
+	_, ctx := newTaskProgressTrackingTestDBCustom(t)
+	_, err := dbWrapper.Exec(ctx, `
+ INSERT INTO task_progress_trackers(id,tag_id,status,item_types,mode,is_working_on) VALUES
+ (1,10,'ACTIVE','scene,image','BACKLOG',1),
+ (2,10,'PAUSED','scene','BACKLOG',0),
+ (3,10,'ARCHIVED','scene','BACKLOG',0),
+ (4,10,'ACTIVE','scene','FIXED',1);
+ INSERT INTO scenes_tags(scene_id,tag_id) VALUES (1,10);
+ INSERT INTO images_tags(image_id,tag_id) VALUES (2,10);
+ INSERT INTO task_progress_tracker_members(tracker_id,item_type,item_id,state) VALUES (4,'scene',1,'PENDING');`)
+	require.NoError(t, err)
+	_, err = dbWrapper.Exec(ctx, "DELETE FROM scenes_tags WHERE scene_id=1")
+	require.NoError(t, err)
+	require.NoError(t, recordTaskProgressEventCustom(ctx, "COMPLETED", "scene", 1, "Scene", 10))
+	var statuses []string
+	require.NoError(t, dbWrapper.Select(ctx, &statuses, "SELECT status FROM task_progress_trackers ORDER BY id"))
+	require.Equal(t, []string{"ACTIVE", "COMPLETED", "ARCHIVED", "COMPLETED"}, statuses)
+	var working bool
+	require.NoError(t, dbWrapper.Get(ctx, &working, "SELECT is_working_on FROM task_progress_trackers WHERE id=4"))
+	require.False(t, working)
+	_, err = dbWrapper.Exec(ctx, "DELETE FROM images_tags WHERE image_id=2")
+	require.NoError(t, err)
+	require.NoError(t, recordTaskProgressEventCustom(ctx, "COMPLETED", "image", 2, "Image", 10))
+	var version int
+	require.NoError(t, dbWrapper.Get(ctx, &version, "SELECT version FROM task_progress_trackers WHERE id=1 AND status='COMPLETED'"))
+	require.Equal(t, 2, version)
+	// Repeated completion checks must not invalidate metadata edits.
+	require.NoError(t, completeTaskProgressTrackersCustom(ctx, 10))
+	var nextVersion int
+	require.NoError(t, dbWrapper.Get(ctx, &nextVersion, "SELECT version FROM task_progress_trackers WHERE id=1"))
+	require.Equal(t, version, nextVersion)
+	_, err = dbWrapper.Exec(ctx, "INSERT INTO images_tags(image_id,tag_id) VALUES (2,10)")
+	require.NoError(t, err)
+	require.NoError(t, recordTaskProgressEventCustom(ctx, "INCOMING", "image", 2, "Image", 10))
+	require.NoError(t, dbWrapper.Get(ctx, &working, "SELECT is_working_on FROM task_progress_trackers WHERE id=1 AND status='ACTIVE'"))
+	require.True(t, working)
+}
+
+func TestTaskProgressExistingEmptyTrackersCustom(t *testing.T) {
+	_, ctx := newTaskProgressTrackingTestDBCustom(t)
+	_, err := dbWrapper.Exec(ctx, `INSERT INTO task_progress_trackers(id,tag_id,status,item_types,mode) VALUES
+ (1,10,'ACTIVE','scene_marker','BACKLOG'), (2,20,'PAUSED','scene_marker','BACKLOG');
+ INSERT INTO scene_markers(id,primary_tag_id) VALUES (1,20);
+ INSERT INTO scene_markers_tags(scene_marker_id,tag_id) VALUES (1,10);`)
+	require.NoError(t, err)
+	require.NoError(t, completeTaskProgressTrackersCustom(ctx, 0))
+	var statuses []string
+	require.NoError(t, dbWrapper.Select(ctx, &statuses, "SELECT status FROM task_progress_trackers ORDER BY id"))
+	require.Equal(t, []string{"ACTIVE", "PAUSED"}, statuses, "both marker tag representations count as pending work")
+	_, err = dbWrapper.Exec(ctx, "DELETE FROM scene_markers_tags")
+	require.NoError(t, err)
+	require.NoError(t, completeTaskProgressTrackersCustom(ctx, 0))
+	require.NoError(t, dbWrapper.Select(ctx, &statuses, "SELECT status FROM task_progress_trackers ORDER BY id"))
+	require.Equal(t, []string{"COMPLETED", "PAUSED"}, statuses)
 }

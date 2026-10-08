@@ -13,12 +13,7 @@ import { PopoverCountButton } from "../Shared/PopoverCountButton";
 import { RatingBanner } from "../Shared/RatingBanner";
 import { FavoriteIcon } from "../Shared/FavoriteIcon";
 import { useStudioUpdate } from "src/core/StashService";
-import {
-  faTag,
-  faBox,
-  faHand,
-  faUserPlus,
-} from "@fortawesome/free-solid-svg-icons"; // CUSTOM: added faHand, faUserPlus
+import { faTag, faBox } from "@fortawesome/free-solid-svg-icons";
 import { OCounterButton } from "../Shared/CountButton";
 import cx from "classnames"; // CUSTOM
 import { useConfigurationContext } from "src/hooks/Config"; // CUSTOM
@@ -28,8 +23,7 @@ import {
   isRatingCardHomePage,
 } from "src/utils/ratingCardStyles_custom"; // CUSTOM
 // CUSTOM: begin
-import gaySvg from "src/assets/gay.svg";
-import mouthSvg from "src/assets/mouth.svg";
+import { StudioSceneTypesBar } from "./StudioSceneTypesBar_custom";
 import facialPng from "src/assets/facial.png"; // CUSTOM
 import { ActivityStatsCharts } from "../Shared/ActivityStatsCharts_custom"; // CUSTOM
 import { StudioRatingAdvisorPopover } from "./StudioRatingAdvisorPopover_custom"; // CUSTOM
@@ -206,9 +200,6 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
     // CUSTOM: begin - role tags + performer-filtered stats
     // Use pre-fetched role tags from parent (StudioCardGrid)
     // Falls back to null when roleTags not provided
-    const sexTag = roleTags?.sexTag ?? null;
-    const oralTag = roleTags?.oralTag ?? null;
-    const soloTag = roleTags?.soloTag ?? null;
     const facialTag = roleTags?.facialTag ?? null;
 
     // When viewing from a performer's studios, fetch performer-filtered stats
@@ -236,7 +227,29 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
     }, [performerId, performerStatsData]);
 
     const performerScopedCountsReady = !performerId || !!performerStats;
+    // CUSTOM: performer-scoped card counts differ from the studio-wide sort values.
+    const unscopedMetricSortBy = performerId ? undefined : activeSortBy;
+    const activityStats = performerId
+      ? performerStats?.activity_stats
+      : stats?.studio_activity_stats;
+    const sceneTypeCounts = performerId
+      ? performerStats?.role_stats
+      : stats?.studio_role_counts;
+    const embeddedSceneTypeSortMetric =
+      !!sceneTypeCounts &&
+      sceneTypeCounts.sex_scene_count +
+        sceneTypeCounts.oral_scene_count +
+        sceneTypeCounts.solo_scene_count >
+        0 &&
+      isCatalogCardSortHighlightedCustom(
+        unscopedMetricSortBy,
+        "sex_scenes_count",
+        "oral_scenes_count",
+        "solo_scenes_count"
+      );
     const embeddedSortMetric =
+      activeSortBy === "unique_performers_count" ||
+      embeddedSceneTypeSortMetric ||
       (isCatalogCardSortHighlightedCustom(activeSortBy, "rating") &&
         hasCatalogCardSortValueCustom(studio.rating100)) ||
       (isCatalogCardSortHighlightedCustom(activeSortBy, "child_count") &&
@@ -244,36 +257,18 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       isCatalogCardSortHighlightedCustom(activeSortBy, "tag_count") ||
       (performerScopedCountsReady &&
         isCatalogCardSortHighlightedCustom(
-          activeSortBy,
+          unscopedMetricSortBy,
           "scenes_count",
           "images_count",
           "galleries_count",
           "o_count"
         )) ||
-      (!performerId &&
-        performerScopedCountsReady &&
-        isCatalogCardSortHighlightedCustom(
-          activeSortBy,
-          "unique_performers_count"
-        )) ||
       (performerScopedCountsReady &&
-        ((!!sexTag &&
-          isCatalogCardSortHighlightedCustom(
-            activeSortBy,
-            "sex_scenes_count"
-          )) ||
-          (!!oralTag &&
-            isCatalogCardSortHighlightedCustom(
-              activeSortBy,
-              "oral_scenes_count"
-            )) ||
-          (!!soloTag &&
-            isCatalogCardSortHighlightedCustom(
-              activeSortBy,
-              "solo_scenes_count"
-            )) ||
-          (!!facialTag &&
-            isCatalogCardSortHighlightedCustom(activeSortBy, "facial_count")))); // CUSTOM
+        !!facialTag &&
+        isCatalogCardSortHighlightedCustom(
+          unscopedMetricSortBy,
+          "facial_count"
+        )); // CUSTOM
     // CUSTOM: end
 
     function onToggleFavorite(v: boolean) {
@@ -296,7 +291,7 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
         ? performerStats?.scene_count ?? 0
         : stats?.scene_count ?? 0; // CUSTOM
       const highlighted = isCatalogCardSortHighlightedCustom(
-        activeSortBy,
+        unscopedMetricSortBy,
         "scenes_count"
       );
       if (!count && !highlighted) return;
@@ -309,7 +304,10 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
         <PopoverCountButton
           className={cx(
             "scene-count",
-            catalogCardSortHighlightClassCustom(activeSortBy, "scenes_count")
+            catalogCardSortHighlightClassCustom(
+              unscopedMetricSortBy,
+              "scenes_count"
+            )
           )} // CUSTOM
           type="scene"
           count={count}
@@ -332,143 +330,6 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
         >
           {button}
         </StudioRatingAdvisorPopover>
-      );
-    }
-
-    // Sex scenes (marker-based) - gay icon
-    function maybeRenderSexScenesButton() {
-      if (!sexTag) return null;
-      if (!performerScopedCountsReady) return null;
-
-      const count = performerId
-        ? performerStats?.role_stats?.sex_scene_count ?? 0
-        : stats?.studio_role_counts.sex_scene_count ?? 0; // CUSTOM
-      const url = performerId
-        ? NavUtils.makePerformerStudioMarkerScenesUrl(
-            performerId,
-            navigationStudio,
-            sexTag.id,
-            "Sex"
-          )
-        : NavUtils.makeStudioMarkerScenesUrl(
-            navigationStudio,
-            sexTag.id,
-            "Sex"
-          );
-
-      return (
-        <Button
-          className={cx(
-            "minimal scene-category-count sex-scene-count",
-            catalogCardSortHighlightClassCustom(
-              activeSortBy,
-              "sex_scenes_count"
-            )
-          )} // CUSTOM
-          href={url}
-          title={`Sex scenes (${sexTag.name})`}
-          disabled={count === 0}
-        >
-          <img src={gaySvg} alt="Sex" className="category-icon" />
-          <span>{count}</span>
-        </Button>
-      );
-    }
-
-    // Oral scenes (marker-based) - mouth icon
-    function maybeRenderOralScenesButton() {
-      if (!oralTag) return null;
-      if (!performerScopedCountsReady) return null;
-
-      const count = performerId
-        ? performerStats?.role_stats?.oral_scene_count ?? 0
-        : stats?.studio_role_counts.oral_scene_count ?? 0; // CUSTOM
-
-      // Oral excludes sex markers
-      const excludeTags = sexTag ? [{ id: sexTag.id, label: sexTag.name }] : [];
-
-      // Use depth -1 to include subtags
-      const url = performerId
-        ? NavUtils.makePerformerStudioMarkerScenesUrl(
-            performerId,
-            navigationStudio,
-            oralTag.id,
-            "Oral",
-            excludeTags,
-            -1
-          )
-        : NavUtils.makeStudioMarkerScenesUrl(
-            navigationStudio,
-            oralTag.id,
-            "Oral",
-            excludeTags,
-            -1
-          );
-
-      return (
-        <Button
-          className={cx(
-            "minimal scene-category-count oral-scene-count",
-            catalogCardSortHighlightClassCustom(
-              activeSortBy,
-              "oral_scenes_count"
-            )
-          )} // CUSTOM
-          href={url}
-          title={`Oral scenes (${oralTag.name})`}
-          disabled={count === 0}
-        >
-          <img src={mouthSvg} alt="Oral" className="category-icon" />
-          <span>{count}</span>
-        </Button>
-      );
-    }
-
-    // Solo scenes (marker-based) - hand icon
-    function maybeRenderSoloScenesButton() {
-      if (!soloTag) return null;
-      if (!performerScopedCountsReady) return null;
-
-      const count = performerId
-        ? performerStats?.role_stats?.solo_scene_count ?? 0
-        : stats?.studio_role_counts.solo_scene_count ?? 0; // CUSTOM
-
-      // Solo excludes both sex and oral markers
-      const excludeTags = [];
-      if (sexTag) excludeTags.push({ id: sexTag.id, label: sexTag.name });
-      if (oralTag) excludeTags.push({ id: oralTag.id, label: oralTag.name });
-
-      const url = performerId
-        ? NavUtils.makePerformerStudioMarkerScenesUrl(
-            performerId,
-            navigationStudio,
-            soloTag.id,
-            "Solo",
-            excludeTags
-          )
-        : NavUtils.makeStudioMarkerScenesUrl(
-            navigationStudio,
-            soloTag.id,
-            "Solo",
-            excludeTags
-          );
-
-      return (
-        <Button
-          className={cx(
-            "minimal scene-category-count solo-scene-count",
-            catalogCardSortHighlightClassCustom(
-              activeSortBy,
-              "solo_scenes_count"
-            )
-          )} // CUSTOM
-          href={url}
-          title={`Solo scenes (${soloTag.name})`}
-          disabled={count === 0}
-        >
-          <Icon icon={faHand} className="category-icon-fa" />
-          <span>{count}</span>
-        </Button>
       );
     }
 
@@ -500,7 +361,10 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
         <Button
           className={cx(
             "minimal scene-category-count facial-marker-count",
-            catalogCardSortHighlightClassCustom(activeSortBy, "facial_count")
+            catalogCardSortHighlightClassCustom(
+              unscopedMetricSortBy,
+              "facial_count"
+            )
           )} // CUSTOM
           href={url}
           title={
@@ -514,39 +378,6 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       );
     }
 
-    // Unique performers (performers with only 1 scene in database, for this studio)
-    function maybeRenderUniquePerformersButton() {
-      // Hide this button when viewing from a performer's studios tab
-      if (performerId) return null;
-
-      const count = stats?.unique_performer_count ?? 0; // CUSTOM
-      const highlighted = isCatalogCardSortHighlightedCustom(
-        activeSortBy,
-        "unique_performers_count"
-      );
-      if (count === 0 && !highlighted) return null;
-
-      const url = NavUtils.makeStudioUniquePerformersUrl(navigationStudio);
-
-      return (
-        <Button
-          className={cx(
-            "minimal scene-category-count unique-performer-count",
-            catalogCardSortHighlightClassCustom(
-              activeSortBy,
-              "unique_performers_count"
-            )
-          )} // CUSTOM
-          href={url}
-          title={`Unique vatos (only 1 scene)`}
-          disabled={count === 0}
-        >
-          <Icon icon={faUserPlus} className="category-icon-fa" />
-          <span>{count}</span>
-        </Button>
-      );
-    }
-
     function maybeRenderImagesPopoverButton() {
       if (!performerScopedCountsReady) return null;
 
@@ -554,7 +385,7 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
         ? performerStats?.image_count ?? 0
         : stats?.image_count ?? 0; // CUSTOM
       const highlighted = isCatalogCardSortHighlightedCustom(
-        activeSortBy,
+        unscopedMetricSortBy,
         "images_count"
       );
       if (!count && !highlighted) return;
@@ -567,7 +398,10 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
         <PopoverCountButton
           className={cx(
             "image-count",
-            catalogCardSortHighlightClassCustom(activeSortBy, "images_count")
+            catalogCardSortHighlightClassCustom(
+              unscopedMetricSortBy,
+              "images_count"
+            )
           )} // CUSTOM
           type="image"
           count={count}
@@ -583,7 +417,7 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
         ? performerStats?.gallery_count ?? 0
         : stats?.gallery_count ?? 0; // CUSTOM
       const highlighted = isCatalogCardSortHighlightedCustom(
-        activeSortBy,
+        unscopedMetricSortBy,
         "galleries_count"
       );
       if (!count && !highlighted) return;
@@ -599,7 +433,10 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
         <PopoverCountButton
           className={cx(
             "gallery-count",
-            catalogCardSortHighlightClassCustom(activeSortBy, "galleries_count")
+            catalogCardSortHighlightClassCustom(
+              unscopedMetricSortBy,
+              "galleries_count"
+            )
           )} // CUSTOM
           type="gallery"
           count={count}
@@ -684,7 +521,7 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
         ? performerStats?.o_counter ?? 0
         : stats?.o_counter ?? 0; // CUSTOM
       const highlighted = isCatalogCardSortHighlightedCustom(
-        activeSortBy,
+        unscopedMetricSortBy,
         "o_count"
       );
       if (!count && !highlighted) return;
@@ -701,7 +538,7 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       return (
         <OCounterButton
           className={catalogCardSortHighlightClassCustom(
-            activeSortBy,
+            unscopedMetricSortBy,
             "o_count"
           )}
           value={count}
@@ -733,23 +570,23 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       }
     }
 
-    // CUSTOM: begin - studio activity duration metrics
-    function getActivityStats() {
-      return performerId
-        ? performerStats?.activity_stats
-        : stats?.studio_activity_stats;
-    }
-
-    // CUSTOM: Activity Type bar in the card; Quality on the logo hover.
-    function maybeRenderActivityBar() {
-      const activityStats = getActivityStats();
-      if (!activityStats || activityStats.total_seconds <= 0) return null;
+    // CUSTOM: begin - scene-count bar; duration quality remains on logo hover.
+    function maybeRenderSceneTypesBar() {
       return (
-        <ActivityStatsCharts
+        <StudioSceneTypesBar
+          activeSortBy={unscopedMetricSortBy}
           className="studio-card-activity"
-          compact
-          only="activity"
-          stats={activityStats}
+          counts={sceneTypeCounts}
+          studio={navigationStudio}
+          roleTags={
+            roleTags ?? {
+              sexTag: null,
+              oralTag: null,
+              soloTag: null,
+              facialTag: null,
+            }
+          }
+          performerId={performerId}
         />
       );
     }
@@ -763,7 +600,6 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
           src={studio.image_path ?? ""}
         />
       );
-      const activityStats = getActivityStats();
       if (!activityStats || activityStats.total_seconds <= 0) return image;
 
       return (
@@ -792,7 +628,7 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
         return null;
       }
 
-      const hasCategoryButtons = !!(sexTag || oralTag || soloTag || facialTag);
+      const hasFacials = !!facialTag; // CUSTOM
       const hasCounts = performerId
         ? !!(
             performerStats?.scene_count ||
@@ -809,43 +645,29 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
             stats?.performer_count ||
             stats?.o_counter
           ); // CUSTOM
-      const highlightsVisibleCount = isCatalogCardSortHighlightedCustom(
-        activeSortBy,
-        "tag_count",
-        "scenes_count",
-        "images_count",
-        "galleries_count",
-        "o_count",
-        "unique_performers_count",
-        "sex_scenes_count",
-        "oral_scenes_count",
-        "solo_scenes_count",
-        "facial_count"
-      ); // CUSTOM
+      const highlightsVisibleCount =
+        isCatalogCardSortHighlightedCustom(activeSortBy, "tag_count") ||
+        isCatalogCardSortHighlightedCustom(
+          unscopedMetricSortBy,
+          "scenes_count",
+          "images_count",
+          "galleries_count",
+          "o_count",
+          "sex_scenes_count",
+          "oral_scenes_count",
+          "solo_scenes_count",
+          "facial_count"
+        ); // CUSTOM
 
       if (
         hasCounts || // CUSTOM
         studio.tags.length > 0 ||
-        hasCategoryButtons ||
+        hasFacials ||
         studio.organized ||
         highlightsVisibleCount
       ) {
         return (
           <>
-            {hasCategoryButtons && (
-              <>
-                <hr />
-                <div className="card-popovers scene-category-buttons d-flex align-items-center">
-                  <ButtonGroup>
-                    {maybeRenderSexScenesButton()}
-                    {maybeRenderOralScenesButton()}
-                    {maybeRenderSoloScenesButton()}
-                    {maybeRenderFacialsButton()}
-                    {maybeRenderUniquePerformersButton()}
-                  </ButtonGroup>
-                </div>
-              </>
-            )}
             <hr />
             <ButtonGroup className="card-popovers">
               {maybeRenderScenesPopoverButton()}
@@ -853,6 +675,8 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
               {maybeRenderImagesPopoverButton()}
               {maybeRenderGalleriesPopoverButton()}
               {maybeRenderPerformersPopoverButton()}
+              {/* CUSTOM: facial count joins the main count row. */}
+              {maybeRenderFacialsButton()}
               {maybeRenderTagPopoverButton()}
               {maybeRenderOCounter()}
               {maybeRenderOrganized()}
@@ -882,7 +706,7 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
             />
             {maybeRenderParent(studio, hideParent)}
             {maybeRenderChildren(studio, activeSortBy)}
-            {maybeRenderActivityBar()}
+            {maybeRenderSceneTypesBar()}
           </div>
         }
         overlays={

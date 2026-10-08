@@ -1,8 +1,8 @@
 import React from "react";
 import cx from "classnames";
 import facialPng from "src/assets/facial.png";
+import spermsSvg from "src/assets/sperms.svg";
 import { HoverPopover } from "../Shared/HoverPopover";
-import { SweatDrops } from "../Shared/SweatDrops";
 import { SceneCardOrgasmFacialPopover } from "./SceneCardInsights_custom";
 import type { SceneCardInsightEvent } from "./sceneCardInsightTypes_custom";
 import {
@@ -10,23 +10,25 @@ import {
   sceneCardOrgasmReportGroupLabelCustom,
 } from "./sceneCardOrgasmReportData_custom";
 
-// CUSTOM: the Orgasm/Facial report chip as icons on scene cards. Drops count
+// CUSTOM: the Orgasm/Facial report chip as icons on scene cards. Sperm icons count
 // regular orgasms and the facial icon counts facials; Really Hot and GOAT
-// events get their own groups. An empty list shows crossed-out drops.
+// events get their own groups. An empty list shows a crossed-out sperm icon.
 const ReportIcon: React.FC<{ category: SceneCardInsightEvent["category"] }> = ({
   category,
-}) =>
-  category === "facial" ? (
+}) => {
+  const asset = category === "facial" ? facialPng : spermsSvg;
+  return (
     <span
-      className="scene-card-orgasm-report__facial"
+      aria-hidden="true"
+      className="scene-card-orgasm-report__icon"
       style={{
-        maskImage: `url(${facialPng})`,
-        WebkitMaskImage: `url(${facialPng})`,
+        // Quote URLs so Vite's inline SVG data URLs remain valid CSS.
+        maskImage: `url("${asset}")`,
+        WebkitMaskImage: `url("${asset}")`,
       }}
     />
-  ) : (
-    <SweatDrops />
   );
+};
 
 export const SceneCardOrgasmReport: React.FC<{
   events: SceneCardInsightEvent[];
@@ -42,7 +44,7 @@ export const SceneCardOrgasmReport: React.FC<{
         title="No orgasm or facial markers"
       >
         <span className="scene-card-orgasm-report__group">
-          <SweatDrops />
+          <ReportIcon category="orgasm" />
         </span>
       </span>
     );

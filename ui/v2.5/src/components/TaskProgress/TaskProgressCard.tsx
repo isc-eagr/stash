@@ -49,6 +49,7 @@ export const TaskProgressCard: React.FC<IProps> = ({
   const t = useProgressText();
   const percentage = progressPercentage(tracker);
   const completedCount = taskProgressCompletedCount(tracker);
+  const completed = tracker.status === "COMPLETED";
   const planStorageKey = `task-progress-tracker-plan-${tracker.id}`;
   const [planRate, setPlanRate] = useState(() => {
     try {
@@ -104,14 +105,17 @@ export const TaskProgressCard: React.FC<IProps> = ({
               </strong>
               <small>{t("completed")}</small>
             </span>
-            <span>
-              <strong>
-                <FormattedNumber value={tracker.current_count} />
-              </strong>
-              <small>{t("remaining")}</small>
-            </span>
+            {!completed && (
+              <span>
+                <strong>
+                  <FormattedNumber value={tracker.current_count} />
+                </strong>
+                <small>{t("remaining")}</small>
+              </span>
+            )}
           </div>
           <TaskProgressGoalSummary
+            status={tracker.status}
             currentGoalPerDay={tracker.goal_per_day}
             history={taskProgressHistoryEntries(tracker.history)}
           />
@@ -121,7 +125,11 @@ export const TaskProgressCard: React.FC<IProps> = ({
             compact
           />
         </div>
-        <TaskProgressRing percentage={percentage} label={t("Complete")} />
+        <TaskProgressRing
+          percentage={percentage}
+          label={t("Complete")}
+          completed={completed}
+        />
       </div>
       {/* CUSTOM: Keep actions on the left and planning controls on the right. */}
       <div className="progress-tracker-footer">
@@ -133,39 +141,44 @@ export const TaskProgressCard: React.FC<IProps> = ({
             {t("Edit")}
           </Button>
         </div>
-        <div className="progress-tracker-plan">
-          <Form.Label className="progress-tracker-plan-label">
-            <span className="progress-tracker-plan-title">
-              Estimated finish at
-            </span>
-            <Form.Control
-              aria-label={t("Items per day")}
-              id={planStorageKey}
-              inputMode="numeric"
-              min={0}
-              max={1000000}
-              step={1}
-              type="number"
-              value={planRate || ""}
-              onChange={(event) => {
-                const next = Math.max(
-                  0,
-                  Math.min(1000000, Math.floor(Number(event.target.value) || 0))
-                );
-                setPlanRate(next);
-                try {
-                  localStorage.setItem(planStorageKey, String(next));
-                } catch {
-                  // Planning remains available for this session if storage is unavailable.
-                }
-              }}
-            />
-            <span>items/day:</span>
-            <strong className="progress-tracker-plan-date">
-              {planDate ? formatTaskProgressDate(planDate) : "—"}
-            </strong>
-          </Form.Label>
-        </div>
+        {!completed && (
+          <div className="progress-tracker-plan">
+            <Form.Label className="progress-tracker-plan-label">
+              <span className="progress-tracker-plan-title">
+                Estimated finish at
+              </span>
+              <Form.Control
+                aria-label={t("Items per day")}
+                id={planStorageKey}
+                inputMode="numeric"
+                min={0}
+                max={1000000}
+                step={1}
+                type="number"
+                value={planRate || ""}
+                onChange={(event) => {
+                  const next = Math.max(
+                    0,
+                    Math.min(
+                      1000000,
+                      Math.floor(Number(event.target.value) || 0)
+                    )
+                  );
+                  setPlanRate(next);
+                  try {
+                    localStorage.setItem(planStorageKey, String(next));
+                  } catch {
+                    // Planning remains available for this session if storage is unavailable.
+                  }
+                }}
+              />
+              <span>items/day:</span>
+              <strong className="progress-tracker-plan-date">
+                {planDate ? formatTaskProgressDate(planDate) : "—"}
+              </strong>
+            </Form.Label>
+          </div>
+        )}
       </div>
       <div
         className="progress-tracker-reorder"

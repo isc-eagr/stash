@@ -1,0 +1,315 @@
+.progress-activity-chart {
+  min-width: 0;
+  position: relative;
+}
+
+.progress-activity-day {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: inherit;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  font: inherit;
+  height: 100%;
+  justify-content: center;
+  min-width: 0;
+  padding: 0;
+  width: 100%;
+
+  &:focus-visible,
+  &[aria-pressed="true"] {
+    outline: 2px solid var(--black-steel-link, #48aff0);
+    outline-offset: 2px;
+  }
+}
+
+button.progress-activity-day {
+  cursor: pointer;
+
+  &:disabled {
+    cursor: default;
+  }
+}
+
+.progress-report-bar > .progress-activity-day {
+  align-items: stretch;
+  flex: 1 1 auto;
+}
+
+.progress-report-trend {
+  svg {
+    display: block;
+    overflow: visible;
+    width: 100%;
+  }
+
+  text {
+    fill: var(--black-steel-text-muted, #bfccd6);
+    font-size: 10px;
+  }
+
+  &-grid {
+    stroke: rgba(138, 155, 168, 0.22);
+  }
+
+  &-area {
+    fill: rgba(53, 196, 106, 0.16);
+    pointer-events: none;
+  }
+
+  &-line {
+    fill: none;
+    pointer-events: none;
+    stroke: #35c46a;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2.5;
+  }
+
+  &-goal {
+    fill: none;
+    pointer-events: none;
+    stroke: #bfccd6;
+    stroke-dasharray: 5 5;
+    stroke-width: 1.5;
+  }
+
+  &-goal-label {
+    color: var(--black-steel-text-muted, #bfccd6);
+    font-size: 0.72rem;
+  }
+
+  &-dot {
+    fill: #35c46a;
+  }
+
+  &-hit {
+    fill: transparent;
+  }
+
+  &-point {
+    outline: none;
+
+    &[role="button"] {
+      cursor: pointer;
+    }
+
+    &:focus circle:last-of-type,
+    &.selected circle:last-of-type {
+      stroke: var(--black-steel-text, #f5f8fa);
+      stroke-width: 2;
+    }
+  }
+}
+
+.progress-report-goal-red {
+  --progress-report-goal-color: #f55656;
+
+  background: #f55656;
+  fill: #f55656;
+}
+
+.progress-report-goal-orange {
+  --progress-report-goal-color: #f08c3a;
+
+  background: #f08c3a;
+  fill: #f08c3a;
+}
+
+.progress-report-goal-yellow {
+  --progress-report-goal-color: #f2c94c;
+
+  background: #f2c94c;
+  fill: #f2c94c;
+}
+
+.progress-report-goal-green {
+  --progress-report-goal-color: #35c46a;
+
+  background: #35c46a;
+  fill: #35c46a;
+}
+
+.progress-report-goal-sapphire {
+  --progress-report-goal-color: #4db8ff;
+
+  background: #4db8ff;
+  fill: #4db8ff;
+}
+
+.progress-report-bars {
+  align-items: stretch;
+  display: flex;
+  gap: 0.5rem;
+  height: 11rem;
+  margin-top: 1rem;
+}
+
+.progress-report-bar {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: 0;
+  text-align: center;
+}
+
+.progress-report-bar-value {
+  font-size: 0.8rem;
+  font-weight: 700;
+  min-height: 1.2rem;
+}
+
+.progress-report-bar-track {
+  align-items: flex-end;
+  background: rgba(138, 155, 168, 0.08);
+  border-radius: 0.3rem;
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0.4rem;
+  overflow: hidden;
+
+  > span {
+    background: var(--progress-report-goal-color, #35c46a);
+    border-radius: 0.3rem 0.3rem 0 0;
+    display: block;
+    min-height: 2px;
+    width: 100%;
+  }
+}
+
+.progress-report-bar-label {
+  color: var(--black-steel-text-muted, #bfccd6);
+  font-size: 0.72rem;
+  margin-top: 0.3rem;
+  white-space: nowrap;
+}
+
+.progress-report-future {
+  opacity: 0.35;
+}
+
+.progress-report-heat-0 {
+  background: rgba(138, 155, 168, 0.12);
+}
+
+.progress-report-heat-1 {
+  background: rgba(53, 196, 106, 0.28);
+}
+
+.progress-report-heat-2 {
+  background: rgba(53, 196, 106, 0.48);
+}
+
+.progress-report-heat-3 {
+  background: rgba(53, 196, 106, 0.7);
+}
+
+.progress-report-heat-4 {
+  background: #35c46a;
+}
+
+.progress-report-calendar-grid {
+  display: grid;
+  gap: 0.3rem;
+  max-width: 36rem;
+}
+
+.progress-report-calendar-row {
+  display: grid;
+  gap: 0.3rem;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+
+  > [role="columnheader"] {
+    color: var(--black-steel-text-muted, #bfccd6);
+    font-size: 0.72rem;
+    text-align: center;
+  }
+
+  > [role="gridcell"] {
+    align-items: center;
+    aspect-ratio: 1;
+    border-radius: 0.3rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 2.4rem;
+
+    small {
+      font-size: 0.68rem;
+      opacity: 0.8;
+    }
+
+    strong {
+      font-size: 0.85rem;
+    }
+  }
+
+  > [role="gridcell"][class*="progress-report-goal-"] {
+    color: #10161a;
+  }
+}
+
+.progress-report-heat-legend {
+  align-items: center;
+  color: var(--black-steel-text-muted, #bfccd6);
+  display: flex;
+  font-size: 0.72rem;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+
+  > span {
+    border-radius: 0.15rem;
+    height: 0.75rem;
+    width: 0.75rem;
+  }
+}
+
+.progress-report-heatmap-scroll {
+  overflow-x: auto;
+}
+
+.progress-report-heatmap {
+  display: flex;
+  gap: 3px;
+  min-width: max-content;
+}
+
+.progress-report-heatmap-days,
+.progress-report-heatmap-week {
+  display: grid;
+  gap: 3px;
+  grid-template-rows: 1rem repeat(7, 0.8rem);
+
+  > span {
+    border-radius: 2px;
+    width: 0.8rem;
+  }
+}
+
+.progress-report-heatmap-days {
+  margin-right: 0.25rem;
+
+  > span {
+    color: var(--black-steel-text-muted, #bfccd6);
+    font-size: 0.62rem;
+    line-height: 0.8rem;
+    width: auto;
+  }
+
+  > span:first-child {
+    grid-row: 2;
+  }
+}
+
+.progress-report-heatmap-month {
+  color: var(--black-steel-text-muted, #bfccd6);
+  font-size: 0.62rem;
+  overflow: visible;
+  white-space: nowrap;
+}
+
+.progress-report-heatmap-empty {
+  background: transparent;
+}

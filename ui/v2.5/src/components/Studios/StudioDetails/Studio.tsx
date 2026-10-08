@@ -30,11 +30,12 @@ import {
   StudioDetailsPanel,
 } from "./StudioDetailsPanel";
 import { StudioGroupsPanel } from "./StudioGroupsPanel";
-import { StudioCategoryStrip } from "./StudioCategoryStrip"; // CUSTOM
+import { StudioExtraCounts } from "./StudioExtraCounts"; // CUSTOM
 import { StudioStatsPanel } from "./StudioStatsPanel"; // CUSTOM
 import { StudioVatoStatsPanel } from "./StudioVatoStatsPanel"; // CUSTOM
 import { StudioOStatsPanel } from "./StudioOStatsPanel"; // CUSTOM
 import { StudioHeaderInsights } from "./StudioHeaderInsights"; // CUSTOM
+import { StudioSiteSyncButton } from "./StudioSiteSyncButton"; // CUSTOM
 import { faTrashAlt } from "@fortawesome/free-solid-svg-icons";
 import { RatingSystem } from "src/components/Shared/Rating/RatingSystem";
 import { DetailImage } from "src/components/Shared/DetailImage";
@@ -525,7 +526,7 @@ const StudioPage: React.FC<IProps> = ({
           show={enableBackgroundImage && !isEditing}
         />
         <div className="detail-container">
-          {/* CUSTOM: begin - wrapper div + StudioCategoryStrip */}
+          {/* CUSTOM: begin - studio image wrapper */}
           <div className="detail-header-image-wrapper">
             <HeaderImage encodingImage={encodingImage}>
               {studioImage && (
@@ -536,7 +537,6 @@ const StudioPage: React.FC<IProps> = ({
                 />
               )}
             </HeaderImage>
-            {!isEditing && <StudioCategoryStrip studio={studio} />}
           </div>
           {/* CUSTOM: end */}
           <div className="row">
@@ -574,6 +574,15 @@ const StudioPage: React.FC<IProps> = ({
                 {!!studio.o_counter && (
                   <OCounterButton value={studio.o_counter} />
                 )}
+                {/* CUSTOM: supplemental counts beside the rating. */}
+                {!isEditing && (
+                  <StudioExtraCounts
+                    studio={studio}
+                    includeChildStudios={
+                      !!showAllCounts && studio.child_studios.length > 0
+                    }
+                  />
+                )}
               </div>
               {!isEditing && (
                 <StudioDetailsPanel
@@ -604,6 +613,15 @@ const StudioPage: React.FC<IProps> = ({
                   onClearImage={() => {}}
                   onAutoTag={onAutoTag}
                   autoTagDisabled={studio.ignore_auto_tag}
+                  // CUSTOM: studio site sync
+                  customButtons={
+                    studio.site_sync ? (
+                      <StudioSiteSyncButton
+                        studioID={studio.id}
+                        site={studio.site_sync}
+                      />
+                    ) : undefined
+                  }
                   onDelete={onDelete}
                 />
               )}

@@ -10,9 +10,69 @@ import (
 	"fmt"
 
 	"github.com/stashapp/stash/pkg/models"
+	"github.com/stashapp/stash/pkg/stashbox"
+	"github.com/stashapp/stash/pkg/txn"
 )
 
 const sceneStashDBMatchesTableCustom = "scene_stashdb_matches"
+
+// Compare the final relationships, since SET temporarily deletes even retained
+// links. Both full and partial scene updates use this path.
+func (qb *SceneStore) updateStashIDsAndMatchesCustom(ctx context.Context, sceneID int, ids []models.StashID, mode models.RelationshipUpdateMode) error {
+	before, err := qb.GetStashIDs(ctx, sceneID)
+	if err != nil {
+		return err
+	}
+	if err := scenesStashIDsTableMgr.modifyJoins(ctx, sceneID, ids, mode); err != nil {
+		return err
+	}
+	after, err := qb.GetStashIDs(ctx, sceneID)
+	if err != nil {
+		return err
+	}
+	for _, old := range before {
+		if !stashbox.IsStashDBEndpointCustom(old.Endpoint) {
+			continue
+		}
+		retained := false
+		for _, current := range after {
+			if current.Endpoint == old.Endpoint && current.StashID == old.StashID {
+				retained = true
+				break
+			}
+		}
+		if !retained {
+			zero := 0
+			return qb.SetStashDBMatchesCustom(ctx, sceneID, &zero)
+		}
+	}
+	return nil
+}
+
+// Anonymisation deletes links directly rather than going through SceneStore.
+func (db *Anonymiser) deleteSceneStashIDsAndMatchesCustom() error {
+	return txn.WithTxn(context.Background(), db.Database, deleteSceneStashIDsAndMatchesCustom)
+}
+
+func deleteSceneStashIDsAndMatchesCustom(ctx context.Context) error {
+	var links []struct {
+		SceneID  int    `db:"scene_id"`
+		Endpoint string `db:"endpoint"`
+	}
+	if err := dbWrapper.Select(ctx, &links, `SELECT DISTINCT scene_id, endpoint FROM scene_stash_ids`); err != nil {
+		return err
+	}
+	zero := 0
+	for _, link := range links {
+		if stashbox.IsStashDBEndpointCustom(link.Endpoint) {
+			if err := (&SceneStore{}).SetStashDBMatchesCustom(ctx, link.SceneID, &zero); err != nil {
+				return err
+			}
+		}
+	}
+	_, err := dbWrapper.Exec(ctx, `DELETE FROM scene_stash_ids`)
+	return err
+}
 
 const sceneStashDBMatchesSchemaCustom = `
 CREATE TABLE IF NOT EXISTS scene_stashdb_matches (

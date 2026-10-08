@@ -62,6 +62,34 @@ const FIND_UNIFIED_VIEWER_MARKERS = gql`
     findSceneMarkers(ids: $ids) {
       scene_markers {
         ...SceneMarkerData
+        scene {
+          id
+          files {
+            duration
+          }
+          paths {
+            vtt
+          }
+          sceneStreams {
+            url
+            mime_type
+            label
+          }
+          releases {
+            id
+            files {
+              duration
+            }
+            paths {
+              vtt
+            }
+            streams {
+              url
+              mime_type
+              label
+            }
+          }
+        }
       }
     }
   }
@@ -147,9 +175,32 @@ interface IFindImagesForViewerResult {
   };
 }
 
+interface IViewerStream {
+  url: string;
+  mime_type?: string | null;
+  label?: string | null;
+}
+
+// Playback media of a marker's scene or release.
+interface IViewerMarkerMedia {
+  files: { duration: number }[];
+  paths: { vtt?: string | null };
+}
+
+type IViewerMarker = GQL.SceneMarkerDataFragment & {
+  scene: GQL.SceneMarkerDataFragment["scene"] &
+    IViewerMarkerMedia & {
+      sceneStreams: IViewerStream[];
+      releases: (IViewerMarkerMedia & {
+        id: string;
+        streams: IViewerStream[];
+      })[];
+    };
+};
+
 interface IFindMarkersForViewerResult {
   findSceneMarkers: {
-    scene_markers: GQL.SceneMarkerDataFragment[];
+    scene_markers: IViewerMarker[];
   };
 }
 
@@ -166,11 +217,7 @@ interface ISceneForViewer {
     vtt?: string | null;
     caption?: string | null;
   };
-  sceneStreams: {
-    url: string;
-    mime_type?: string | null;
-    label?: string | null;
-  }[];
+  sceneStreams: IViewerStream[];
   captions?:
     | {
         language_code: string;
@@ -384,6 +431,47 @@ function isDirectStream(src: string) {
   );
 }
 
+// Same fallback order as the scene player; Safari cannot use file transcodes.
+function toVideoSources(streams: IViewerStream[], isSafari: boolean) {
+  return streams
+    .filter((stream) => !isSafari || isDirectStream(stream.url))
+    .map((stream) => ({
+      src: stream.url,
+      type: stream.mime_type,
+      label: stream.label,
+      offset: !isDirectStream(stream.url),
+    }));
+}
+
+function sceneUrl(
+  sceneId: string,
+  seconds?: number,
+  releaseId?: string | null
+) {
+  const params = new URLSearchParams();
+  if (seconds) params.set("t", String(Math.floor(seconds)));
+  if (releaseId) params.set("release", releaseId);
+  const search = params.toString();
+  return `/scenes/${sceneId}${search ? `?${search}` : ""}`;
+}
+
+// Refetches rebuild every item; reusing unchanged ones keeps their players
+// and loop state alive when other items are added or removed.
+function useStableItems<T extends { id: string }>(items: T[]) {
+  const cacheRef = useRef(new Map<string, { key: string; item: T }>());
+  return useMemo(
+    () =>
+      items.map((item) => {
+        const key = JSON.stringify(item);
+        const cached = cacheRef.current.get(item.id);
+        if (cached?.key === key) return cached.item;
+        cacheRef.current.set(item.id, { key, item });
+        return item;
+      }),
+    [items]
+  );
+}
+
 function getDefaultLanguageCode() {
   let languageCode = window.navigator.language;
 
@@ -458,6 +546,7 @@ const ViewerSearchModal: React.FC<{
   const [showFilterDialog, setShowFilterDialog] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string>();
 
   const updateFilter = useCallback((nextFilter: ListFilterModel) => {
     setFilter(normalizeSearchFilter(nextFilter));
@@ -491,6 +580,7 @@ const ViewerSearchModal: React.FC<{
 
     const runSearch = async () => {
       setLoading(true);
+      setError(undefined);
 
       try {
         if (kind === "images") {
@@ -543,6 +633,12 @@ const ViewerSearchModal: React.FC<{
                 imageUrl: scene.paths?.screenshot,
               }))
           );
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setResults([]);
+          setTotalCount(0);
+          setError(err instanceof Error ? err.message : String(err));
         }
       } finally {
         if (!cancelled) {
@@ -696,7 +792,12 @@ const ViewerSearchModal: React.FC<{
         </div>
         <div className="viewer-search-results">
           {loading && <div className="viewer-search-status">Searching...</div>}
-          {!loading && results.length === 0 && (
+          {!loading && error && (
+            <div className="viewer-search-status error">
+              Search failed: {error}
+            </div>
+          )}
+          {!loading && !error && results.length === 0 && (
             <div className="viewer-search-status">No results found.</div>
           )}
           {!loading &&
@@ -761,37 +862,18 @@ export const UnifiedViewer: React.FC = () => {
   );
 
   const { imageIds, markerIds, sceneIds, markerRanges } = useMemo(() => {
-    // CUSTOM: begin - make pasted viewer URLs survive cold app boot
-    const search = location.search || window.location.search;
-    const pathname = location.pathname || window.location.pathname;
-    const params = new URLSearchParams(search);
-    // CUSTOM: end
-    const legacyIds = splitIds(params.get("ids"));
-    const imageParamIds = firstIds(params, ["images", "image", "image_ids"]);
-    const markerParamIds = firstIds(params, [
-      "markers",
-      "marker",
-      "marker_ids",
-    ]);
-    const sceneParamIds = firstIds(params, ["scenes", "scene", "scene_ids"]);
-    const markerRangeParams = splitMarkerRanges(params.get("marker_ranges"));
+    // CUSTOM: make pasted viewer URLs survive cold app boot
+    const params = new URLSearchParams(
+      location.search || window.location.search
+    );
 
     return {
-      imageIds:
-        imageParamIds.length > 0 || pathname !== "/images/viewer"
-          ? imageParamIds
-          : legacyIds,
-      markerIds:
-        markerParamIds.length > 0 || pathname !== "/scenes/markers/viewer"
-          ? markerParamIds
-          : legacyIds,
-      sceneIds:
-        sceneParamIds.length > 0 || pathname !== "/scenes/viewer"
-          ? sceneParamIds
-          : legacyIds,
-      markerRanges: markerRangeParams,
+      imageIds: firstIds(params, ["images", "image", "image_ids"]),
+      markerIds: firstIds(params, ["markers", "marker", "marker_ids"]),
+      sceneIds: firstIds(params, ["scenes", "scene", "scene_ids"]),
+      markerRanges: splitMarkerRanges(params.get("marker_ranges")),
     };
-  }, [location.pathname, location.search]);
+  }, [location.search]);
   const viewerIdsRef = useRef<IViewerIdsState>({
     images: imageIds,
     markers: markerIds,
@@ -927,120 +1009,145 @@ export const UnifiedViewer: React.FC = () => {
     }
   );
 
-  const imageItems = useMemo<IImageViewerItem[]>(() => {
-    const fetchedImages = imagesQuery.data?.findImages.images ?? [];
-    return imageIds
-      .map((id) => fetchedImages.find((image) => image.id === id))
-      .filter(
-        (image): image is GQL.SlimImageDataFragment =>
-          image !== undefined && !!image.paths?.image
-      )
-      .map((image) => ({
-        id: viewerId("image", image.id),
-        url: image.paths.image ?? "",
-        title: objectTitle(image) || `Image ${image.id}`,
-      }));
-  }, [imageIds, imagesQuery.data?.findImages.images]);
+  // Previous results stay visible while added or removed ids refetch.
+  const fetchedImages = (imagesQuery.data ?? imagesQuery.previousData)
+    ?.findImages.images;
+  const fetchedMarkers = (markersQuery.data ?? markersQuery.previousData)
+    ?.findSceneMarkers.scene_markers;
+  const fetchedScenes = (scenesQuery.data ?? scenesQuery.previousData)
+    ?.findScenes.scenes;
 
-  const markerItems = useMemo<IVideoViewerItem[]>(() => {
-    const markers = markersQuery.data?.findSceneMarkers.scene_markers ?? [];
-    const markersById = new Map(markers.map((marker) => [marker.id, marker]));
-    const createMarkerItem = (
-      marker: GQL.SceneMarkerDataFragment,
-      overrides?: {
-        id: string;
-        title: string;
-        startTime: number;
-        endTime: number;
-      }
-    ): IVideoViewerItem => ({
-      id: overrides?.id ?? viewerId("marker", marker.id),
-      streamUrl:
-        marker.scene?.paths?.stream || `/scene/${marker.scene.id}/stream`,
-      title:
-        overrides?.title ??
-        markerTitle(marker) ??
-        marker.scene?.title ??
-        `Marker ${marker.id}`,
-      sceneId: marker.scene?.id ?? undefined,
-      startTime: overrides?.startTime ?? marker.seconds,
-      endTime: overrides?.endTime ?? marker.end_seconds ?? null,
-      topPerformerNames: (marker.top_performers ?? [])
-        .map(performerDisplayName)
-        .filter(Boolean),
-      bottomPerformerNames: (marker.bottom_performers ?? [])
-        .map(performerDisplayName)
-        .filter(Boolean),
-      topPerformers: (marker.top_performers ?? []).map((p) => ({
-        id: p.id,
-        name: performerDisplayName(p),
-        image_path: p.image_path,
-        disambiguation: p.disambiguation,
-      })),
-      bottomPerformers: (marker.bottom_performers ?? []).map((p) => ({
-        id: p.id,
-        name: performerDisplayName(p),
-        image_path: p.image_path,
-        disambiguation: p.disambiguation,
-      })),
-    });
-    const realMarkerItems = markerIds
-      .map((id) => markersById.get(id))
-      .filter(
-        (marker): marker is GQL.SceneMarkerDataFragment => marker !== undefined
-      )
-      .map((marker) => createMarkerItem(marker));
-    const rangeMarkerItems = markerRanges
-      .map((range) => {
-        const marker = markersById.get(range.markerId);
-        if (!marker) {
-          return undefined;
-        }
-
-        return createMarkerItem(marker, {
-          id: viewerId("marker-range", range.key),
-          title: `${
-            markerTitle(marker) || marker.scene?.title || "Derived"
-          } (${TextUtils.secondsToTimestamp(
-            range.start
-          )} - ${TextUtils.secondsToTimestamp(range.end)})`,
-          startTime: range.start,
-          endTime: range.end,
-        });
-      })
-      .filter((item): item is IVideoViewerItem => item !== undefined);
-
-    return [...realMarkerItems, ...rangeMarkerItems];
-  }, [
-    markerIds,
-    markerRanges,
-    markersQuery.data?.findSceneMarkers.scene_markers,
-  ]);
-
-  const sceneItems = useMemo<IVideoViewerItem[]>(() => {
-    return (scenesQuery.data?.findScenes.scenes ?? []).map((scene) => {
-      const sources = scene.sceneStreams
-        .filter((stream) => {
-          const isFileTranscode = !isDirectStream(stream.url);
-          return !(isFileTranscode && isSafari);
-        })
-        .map((stream) => ({
-          src: stream.url,
-          type: stream.mime_type,
-          label: stream.label,
-          offset: !isDirectStream(stream.url),
+  const imageItems = useStableItems(
+    useMemo<IImageViewerItem[]>(() => {
+      const imagesById = new Map(
+        (fetchedImages ?? []).map((image) => [image.id, image])
+      );
+      return imageIds
+        .map((id) => imagesById.get(id))
+        .filter(
+          (image): image is GQL.SlimImageDataFragment =>
+            image !== undefined && !!image.paths?.image
+        )
+        .map((image) => ({
+          id: viewerId("image", image.id),
+          url: image.paths.image ?? "",
+          title: objectTitle(image) || `Image ${image.id}`,
+          openUrl: `/images/${image.id}`,
         }));
+    }, [fetchedImages, imageIds])
+  );
 
-      return {
+  const markerItems = useStableItems(
+    useMemo<IVideoViewerItem[]>(() => {
+      const markersById = new Map(
+        (fetchedMarkers ?? []).map((marker) => [marker.id, marker])
+      );
+      const createMarkerItem = (
+        marker: IViewerMarker,
+        overrides?: {
+          id: string;
+          title: string;
+          startTime: number;
+          endTime: number;
+        }
+      ): IVideoViewerItem => {
+        const { scene } = marker;
+        // Release markers are timed against the release's own file.
+        const release = marker.release_id
+          ? scene.releases.find((item) => item.id === marker.release_id)
+          : undefined;
+        const media = release ?? scene;
+        const title =
+          overrides?.title ||
+          markerTitle(marker) ||
+          scene.title ||
+          `Marker ${marker.id}`;
+        const startTime = overrides?.startTime ?? marker.seconds;
+        const endTime = overrides?.endTime ?? marker.end_seconds ?? null;
+        const toPerformer = (p: {
+          id: string;
+          name: string;
+          disambiguation?: string | null;
+          image_path?: string | null;
+        }) => ({
+          id: p.id,
+          name: performerDisplayName(p),
+          image_path: p.image_path,
+          disambiguation: p.disambiguation,
+        });
+
+        return {
+          id: overrides?.id ?? viewerId("marker", marker.id),
+          streamUrl: marker.release_id
+            ? `/scene-release/${marker.release_id}/stream`
+            : scene.paths?.stream || `/scene/${scene.id}/stream`,
+          sources: toVideoSources(
+            release ? release.streams : scene.sceneStreams,
+            isSafari
+          ),
+          title,
+          sceneId: scene.id,
+          openUrl: sceneUrl(scene.id, startTime, marker.release_id),
+          posterUrl: marker.screenshot,
+          vttUrl: media.paths.vtt,
+          duration: media.files[0]?.duration,
+          startTime,
+          endTime,
+          timelineMarkers: [
+            {
+              title,
+              seconds: startTime,
+              end_seconds: endTime,
+              primaryTag: {
+                id: marker.primary_tag.id,
+                name: marker.primary_tag.name,
+              },
+            },
+          ],
+          topPerformers: (marker.top_performers ?? []).map(toPerformer),
+          bottomPerformers: (marker.bottom_performers ?? []).map(toPerformer),
+        };
+      };
+      const realMarkerItems = markerIds
+        .map((id) => markersById.get(id))
+        .filter((marker): marker is IViewerMarker => marker !== undefined)
+        .map((marker) => createMarkerItem(marker));
+      const rangeMarkerItems = markerRanges
+        .map((range) => {
+          const marker = markersById.get(range.markerId);
+          if (!marker) {
+            return undefined;
+          }
+
+          return createMarkerItem(marker, {
+            id: viewerId("marker-range", range.key),
+            title: `${
+              markerTitle(marker) || marker.scene?.title || "Derived"
+            } (${TextUtils.secondsToTimestamp(
+              range.start
+            )} - ${TextUtils.secondsToTimestamp(range.end)})`,
+            startTime: range.start,
+            endTime: range.end,
+          });
+        })
+        .filter((item): item is IVideoViewerItem => item !== undefined);
+
+      return [...realMarkerItems, ...rangeMarkerItems];
+    }, [fetchedMarkers, isSafari, markerIds, markerRanges])
+  );
+
+  const sceneItems = useStableItems(
+    useMemo<IVideoViewerItem[]>(() => {
+      return (fetchedScenes ?? []).map((scene) => ({
         id: viewerId("scene", scene.id),
         streamUrl: scene.paths.stream || `/scene/${scene.id}/stream`,
         title: objectTitle(scene) || `Scene ${scene.id}`,
         sceneId: scene.id,
-        customControls: true,
+        openUrl: sceneUrl(scene.id),
         posterUrl: scene.paths.screenshot,
         vttUrl: scene.paths.vtt,
         duration: scene.files[0]?.duration,
-        sources,
+        sources: toVideoSources(scene.sceneStreams, isSafari),
         textTracks: getTextTracks(scene),
         timelineMarkers: (scene.scene_markers ?? []).map((marker) => ({
           title: marker.title,
@@ -1073,18 +1180,15 @@ export const UnifiedViewer: React.FC = () => {
               timestamp !== null
           ),
         segmentPresets: loopPresetsFromSource(scene.multi_segment_loop_presets), // CUSTOM
-        topPerformerNames: (scene.performers ?? [])
-          .map(performerDisplayName)
-          .filter(Boolean),
         topPerformers: (scene.performers ?? []).map((performer) => ({
           id: performer.id,
           name: performerDisplayName(performer),
           image_path: performer.image_path,
           disambiguation: performer.disambiguation,
         })),
-      };
-    });
-  }, [isSafari, scenesQuery.data?.findScenes.scenes]);
+      }));
+    }, [fetchedScenes, isSafari])
+  );
 
   const videoItems = useMemo(
     () => [...markerItems, ...sceneItems],

@@ -18,11 +18,49 @@ import {
   taskProgressReportMonths,
   taskProgressReportPeriod,
   taskProgressReportRow,
+  taskProgressReportTrendDays,
+  taskProgressComparisonLabel,
   taskProgressReportWeeks,
 } from "../src/components/TaskProgress/taskProgressReports_custom.ts";
 import type { ITaskProgressReportHistoryDay } from "../src/components/TaskProgress/taskProgressReports_custom.ts";
 
 const today = "2026-09-24";
+assert.deepEqual(taskProgressReportPeriod("day", today, today), {
+  start: today,
+  end: today,
+  through: today,
+});
+assert.equal(
+  shiftTaskProgressReportPeriod("day", "2026-03-01", -1),
+  "2026-02-28"
+);
+assert.equal(
+  shiftTaskProgressReportPeriod("day", "2024-02-28", 1),
+  "2024-02-29"
+);
+assert.deepEqual(
+  previousTaskProgressReportPeriod(
+    "day",
+    taskProgressReportPeriod("day", today, today),
+    today
+  ),
+  {
+    start: "2026-09-23",
+    end: "2026-09-23",
+    through: "2026-09-23",
+  }
+);
+assert.equal(
+  taskProgressComparisonLabel(
+    "day",
+    taskProgressReportPeriod("day", today, today)
+  ),
+  "vs yesterday"
+);
+assert.equal(
+  boundedTaskProgressReportAnchor("day", "2026-09-01", "2026-09-12", today),
+  "2026-09-12"
+);
 assert.deepEqual(taskProgressReportPeriod("week", today, today), {
   start: "2026-09-21",
   end: "2026-09-27",
@@ -132,6 +170,34 @@ const history: ITaskProgressReportHistoryDay[] = [
     goal_per_day: 20,
   },
 ];
+const dailyPeriod = taskProgressReportPeriod("day", "2026-09-21", today);
+const dailyRow = taskProgressReportRow(history, dailyPeriod, today);
+assert.deepEqual(
+  [
+    dailyRow.completed,
+    dailyRow.totalCompleted,
+    dailyRow.expected,
+    dailyRow.goalDaysMet,
+    dailyRow.elapsedDays,
+  ],
+  [20, 65, 20, 1, 1],
+  "Daily report totals include only the selected day"
+);
+const dailyTrend = taskProgressReportTrendDays(history, "2026-09-20", today);
+assert.equal(dailyTrend.length, 7);
+assert.equal(dailyTrend[0].date, "2026-09-14");
+assert.equal(dailyTrend[6].date, "2026-09-20");
+assert.equal(
+  dailyTrend.reduce((sum, day) => sum + day.completed, 0),
+  45,
+  "historical trends never include activity after the selected day"
+);
+assert.equal(dailyTrend[1].completed, 0, "the trend retains quiet days");
+assert.equal(
+  dailyTrend[3].goal,
+  20,
+  "the trend retains effective goal changes"
+);
 const pastWeek = taskProgressReportRow(
   history,
   taskProgressReportPeriod("week", "2026-09-16", today),
@@ -393,6 +459,8 @@ assert.deepEqual(
 );
 
 const headingCases = [
+  { range: "day", isCurrentPeriod: true, label: "this day" },
+  { range: "day", isCurrentPeriod: false, label: "selected day" },
   { range: "week", isCurrentPeriod: true, label: "this week" },
   { range: "month", isCurrentPeriod: true, label: "this month" },
   { range: "year", isCurrentPeriod: true, label: "this year" },

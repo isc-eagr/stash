@@ -11,7 +11,6 @@ const SceneMarkerList = lazyComponent(() => import("./SceneMarkerList"));
 const MarkerPlaylistPlayer = lazyComponent(
   () => import("./MarkerPlaylistPlayer")
 );
-const UnifiedViewer = lazyComponent(() => import("../Viewers/UnifiedViewer"));
 // CUSTOM: end
 const Scene = lazyComponent(() => import("./SceneDetails/Scene"));
 const SceneCreate = lazyComponent(() => import("./SceneDetails/SceneCreate"));
@@ -44,8 +43,6 @@ const SceneRoutes: React.FC = () => {
           path="/scenes/markers/player"
           component={MarkerPlaylistPlayer}
         />
-        <Route exact path="/scenes/markers/viewer" component={UnifiedViewer} />
-        <Route exact path="/scenes/viewer" component={UnifiedViewer} />
         {/* CUSTOM: end */}
         <Route exact path="/scenes/new" component={SceneCreate} />
         <Route path="/scenes/:id" component={Scene} />

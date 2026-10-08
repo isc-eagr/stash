@@ -141,6 +141,9 @@ type SceneWriter interface {
 	RemoveFileID(ctx context.Context, sceneID int, fileID FileID) error    // CUSTOM
 	EnsurePrimaryFileCustom(ctx context.Context, sceneID int) error        // CUSTOM
 	DetachCoverForConversionCustom(ctx context.Context, sceneID int) error // CUSTOM
+
+	// CUSTOM: moves fork-owned scene data; returns the source whose advisor answers were adopted, or 0.
+	MergeCustomDataCustom(ctx context.Context, sourceIDs []int, destID int, options SceneMergeOptionsCustom) (int, error)
 	AddGalleryIDs(ctx context.Context, sceneID int, galleryIDs []int) error
 	AssignFiles(ctx context.Context, sceneID int, fileID []FileID) error
 

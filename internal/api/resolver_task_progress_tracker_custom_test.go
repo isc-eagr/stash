@@ -181,36 +181,33 @@ func TestTaskProgressTrackerUndoPreservesBaselineCustom(t *testing.T) {
 	db.AssertExpectations(t)
 }
 
-func TestTaskProgressTrackerResetReactivatesCompletedCustom(t *testing.T) {
-	for _, explicitCompleted := range []bool{false, true} {
-		t.Run(map[bool]string{false: "reactivate", true: "reject explicit completion"}[explicitCompleted], func(t *testing.T) {
+func TestTaskProgressTrackerCompletedSettingsLockedCustom(t *testing.T) {
+	goal := 5
+	tracker := &models.TaskProgressTracker{ID: 8, TagID: 3, GoalPerDay: &goal, Status: "COMPLETED", Mode: "FIXED", ItemTypes: []string{"scene"}}
+	reset := true
+	tag := "4"
+	mode := "BACKLOG"
+	otherGoal := 6
+	for name, input := range map[string]TaskProgressTrackerUpdateInput{
+		"baseline": {ID: "8", ResetGoal: &reset},
+		"tag":      {ID: "8", TagID: &tag},
+		"mode":     {ID: "8", Mode: &mode},
+		"goal":     {ID: "8", GoalPerDay: &otherGoal},
+		"types":    {ID: "8", ItemTypes: []string{"image"}},
+	} {
+		t.Run(name, func(t *testing.T) {
 			db := mocks.NewDatabase()
 			resolver := newResolver(db)
-			existing := &models.TaskProgressTracker{ID: 8, TagID: 3, Goal: 5, CurrentCount: 0, Status: "COMPLETED", ItemTypes: []string{"scene"}}
-			db.TaskProgressTracker.On("Find", mock.Anything, 8).Return(existing, nil).Once()
-			db.TaskProgressTracker.On("CountDirectlyTaggedItems", mock.Anything, 3, []string{"scene"}).Return(4, nil).Once()
-			reset := true
-			input := TaskProgressTrackerUpdateInput{ID: "8", ResetGoal: &reset}
-			if explicitCompleted {
-				status := "COMPLETED"
-				input.Status = &status
-			} else {
-				db.TaskProgressTracker.On("Update", mock.Anything, existing).Return(nil).Once()
-				db.TaskProgressTracker.On("CreateBaseline", mock.Anything, existing).Return(nil).Once()
-				db.TaskProgressTracker.On("Find", mock.Anything, 8).Return(existing, nil).Once()
-			}
-			tracker, err := resolver.Mutation().TaskProgressTrackerUpdate(context.Background(), input)
-			if explicitCompleted {
-				require.ErrorContains(t, err, "complete the remaining items")
-				db.TaskProgressTracker.AssertNotCalled(t, "Update", mock.Anything, mock.Anything)
-			} else {
-				require.NoError(t, err)
-				require.Equal(t, "ACTIVE", tracker.Status)
-				require.Equal(t, 4, tracker.CurrentCount)
-			}
+			db.TaskProgressTracker.On("Find", mock.Anything, 8).Return(tracker, nil).Once()
+			_, err := resolver.Mutation().TaskProgressTrackerUpdate(context.Background(), input)
+			require.ErrorContains(t, err, "completed tracker settings are read-only")
+			db.TaskProgressTracker.AssertNotCalled(t, "Update", mock.Anything, mock.Anything)
 			db.AssertExpectations(t)
 		})
 	}
+	title := "Renamed"
+	originalTag := "3"
+	require.NoError(t, validateCompletedTaskProgressUpdateCustom(tracker, TaskProgressTrackerUpdateInput{Title: &title, TagID: &originalTag, Mode: &tracker.Mode, GoalPerDay: &goal, ItemTypes: []string{"scene"}}))
 }
 
 func TestTaskProgressTrackerStatusDrivesWorkingCustom(t *testing.T) {
@@ -218,7 +215,10 @@ func TestTaskProgressTrackerStatusDrivesWorkingCustom(t *testing.T) {
 		t.Run(status, func(t *testing.T) {
 			db := mocks.NewDatabase()
 			resolver := newResolver(db)
-			existing := &models.TaskProgressTracker{ID: 8, Status: "ACTIVE", IsWorkingOn: true}
+			existing := &models.TaskProgressTracker{ID: 8, Status: "ACTIVE", CurrentCount: 1, IsWorkingOn: true}
+			if status == "COMPLETED" {
+				existing.CurrentCount = 0
+			}
 			db.TaskProgressTracker.On("Find", mock.Anything, 8).Return(existing, nil).Twice()
 			db.TaskProgressTracker.On("Update", mock.Anything, existing).Return(nil).Once()
 			tracker, err := resolver.Mutation().TaskProgressTrackerUpdate(context.Background(), TaskProgressTrackerUpdateInput{ID: "8", Status: &status})
@@ -241,5 +241,20 @@ func TestTaskProgressTrackerUndoCompletedWithIncomingReactivatesCustom(t *testin
 	require.Equal(t, "ACTIVE", tracker.Status)
 	require.Equal(t, "2026-09-07", tracker.StartedOn)
 	db.TaskProgressTracker.AssertNotCalled(t, "CreateBaseline", mock.Anything, mock.Anything)
+	db.AssertExpectations(t)
+}
+
+func TestTaskProgressCompletedTrackerMetadataCustom(t *testing.T) {
+	db := mocks.NewDatabase()
+	resolver := newResolver(db)
+	existing := &models.TaskProgressTracker{ID: 8, Status: "COMPLETED", Title: "Finished", CurrentCount: 0, Version: 2}
+	db.TaskProgressTracker.On("Find", mock.Anything, 8).Return(existing, nil).Twice()
+	db.TaskProgressTracker.On("Update", mock.Anything, existing).Return(nil).Once()
+	title, description := "Finished cleanup", "All items completed"
+	tracker, err := resolver.Mutation().TaskProgressTrackerUpdate(context.Background(), TaskProgressTrackerUpdateInput{ID: "8", Title: &title, Description: &description})
+	require.NoError(t, err)
+	require.Equal(t, title, tracker.Title)
+	require.Equal(t, description, tracker.Description)
+	require.Equal(t, "COMPLETED", tracker.Status)
 	db.AssertExpectations(t)
 }

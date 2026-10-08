@@ -1,0 +1,61 @@
+/* CUSTOM: shared drag-to-reorder handles and drop indicators */
+.pointer-sort-handle {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: rgba(255, 255, 255, 0.45);
+  cursor: grab;
+  display: flex;
+  flex-shrink: 0;
+  justify-content: center;
+  padding: 0;
+  touch-action: none;
+  user-select: none;
+
+  &:hover {
+    color: #fff;
+  }
+
+  &:focus-visible {
+    border-radius: 3px;
+    box-shadow: 0 0 0 2px rgba(108, 152, 198, 0.75);
+    color: #fff;
+    outline: 0;
+  }
+}
+
+body.pointer-sort-active {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.pointer-sort-dragging {
+  opacity: 0.45;
+}
+
+.pointer-sort-drop-before,
+.pointer-sort-drop-after {
+  position: relative;
+
+  &::before,
+  &::after {
+    background: #6c98c6;
+    border-radius: 2px;
+    height: 3px;
+    left: 0;
+    pointer-events: none;
+    position: absolute;
+    right: 0;
+    z-index: 2;
+  }
+}
+
+.pointer-sort-drop-before::before {
+  content: "";
+  top: -2px;
+}
+
+.pointer-sort-drop-after::after {
+  bottom: -2px;
+  content: "";
+}

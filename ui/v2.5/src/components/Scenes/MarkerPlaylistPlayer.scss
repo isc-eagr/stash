@@ -170,12 +170,25 @@
       min-height: 0;
       overflow: hidden;
       position: relative;
+      // Horizontal swipes go to the player; also disables double-tap zoom.
+      touch-action: pan-y pinch-zoom;
 
       // When the wrapper is fullscreen
-      &:fullscreen {
+      &:fullscreen,
+      &.pseudo-fullscreen {
+        aspect-ratio: auto;
         border-radius: 0;
         height: 100vh;
+        height: 100dvh;
+        max-height: none;
         width: 100vw;
+      }
+
+      /* CUSTOM: viewport fallback where element fullscreen is unavailable (iPhone) */
+      &.pseudo-fullscreen {
+        inset: 0;
+        position: fixed;
+        z-index: 1060;
       }
 
       .video-player {
@@ -183,19 +196,6 @@
         max-height: 100%;
         max-width: 100%;
         object-fit: contain;
-        width: 100%;
-      }
-
-      // In fullscreen mode, video fills the wrapper
-      &:fullscreen .video-player {
-        height: 100%;
-        max-height: 100vh;
-        max-width: 100vw;
-        width: 100%;
-      }
-
-      .video-js {
-        height: 100%;
         width: 100%;
       }
 
@@ -229,7 +229,8 @@
         }
       }
 
-      .fullscreen-nav-btn {
+      /* CUSTOM: previous/next marker in normal and fullscreen modes */
+      .marker-nav-btn {
         align-items: center;
         background: rgba(0, 0, 0, 0.55);
         border: none;
@@ -240,6 +241,7 @@
         font-size: 1.4rem;
         height: 56px;
         justify-content: center;
+        opacity: 0.75;
         position: absolute;
         top: 50%;
         transform: translateY(-50%);
@@ -249,6 +251,12 @@
 
         &:hover {
           background: rgba(0, 0, 0, 0.85);
+          opacity: 1;
+        }
+
+        &:focus-visible {
+          box-shadow: 0 0 0 3px rgba(108, 152, 198, 0.75);
+          outline: none;
         }
 
         &.prev {
@@ -271,7 +279,7 @@
       }
 
       /* CUSTOM: visible within the browser fullscreen element. */
-      .marker-o-recorded-toast {
+      .marker-player-toast {
         background: rgba(53, 168, 83, 0.94);
         border: 1px solid rgba(174, 255, 193, 0.72);
         border-radius: 0.45rem;
@@ -285,6 +293,11 @@
         top: 1.5rem;
         transform: translateX(-50%);
         z-index: 10001;
+
+        &.error {
+          background: rgba(185, 60, 60, 0.94);
+          border-color: rgba(255, 180, 180, 0.72);
+        }
       }
 
       .marker-loop-btn,
@@ -472,6 +485,25 @@
           border-left: 3px solid #6c98c6;
         }
 
+        /* CUSTOM: markers whose file failed to load */
+        &.failed {
+          .marker-preview,
+          .marker-info {
+            opacity: 0.5;
+          }
+
+          .marker-failed-icon {
+            color: #e0a84f;
+            margin-right: 0.3rem;
+          }
+        }
+
+        .marker-drag-handle {
+          align-self: stretch;
+          margin: -0.375rem 0 -0.375rem -0.5rem;
+          width: 1.5rem;
+        }
+
         .marker-preview {
           flex-shrink: 0;
           height: 44px;
@@ -588,19 +620,25 @@
         }
 
         .marker-action-btns {
-          align-items: center;
           align-self: center;
           display: flex;
+          flex-direction: column;
           flex-shrink: 0;
+          gap: 0.2rem;
           margin-left: auto;
 
-          .single-loop-btn {
+          .btn {
+            align-items: center;
             border-radius: 4px;
+            display: flex;
             font-size: 0.65rem;
-            height: 2.75rem;
+            height: 1.3rem;
+            justify-content: center;
             padding: 0;
             width: 1.75rem;
+          }
 
+          .single-loop-btn {
             &.btn-primary {
               background-color: #6c98c6;
               border-color: #6c98c6;
@@ -624,63 +662,17 @@
               }
             }
           }
-        }
 
-        .marker-reorder-btns {
-          align-self: center;
-          background-color: rgba(255, 255, 255, 0.05);
-          border-radius: 4px;
-          display: grid;
-          flex-shrink: 0;
-          gap: 0.125rem;
-          grid-template-columns: repeat(2, 1.6rem);
-          grid-template-rows: repeat(2, 1.3rem);
-          padding: 0.125rem;
+          .remove-marker-btn {
+            background-color: rgba(255, 255, 255, 0.05);
+            border-color: transparent;
+            color: #e67c7c;
+            opacity: 0.65;
 
-          .btn {
-            align-items: center;
-            background: transparent;
-            border: 0;
-            border-radius: 3px;
-            color: #d1e0ec;
-            display: flex;
-            font-size: 0.9rem;
-            font-weight: 700;
-            height: 1.3rem;
-            justify-content: center;
-            min-width: 0;
-            padding: 0;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
-            transition: background-color 0.15s, color 0.15s, opacity 0.15s;
-            width: 1.6rem;
-
-            &:not(:last-child) {
-              background-color: rgba(108, 152, 198, 0.16);
-            }
-
-            &:hover:not(:disabled) {
-              background-color: rgba(108, 152, 198, 0.42);
-              color: #fff;
-            }
-
-            &:focus-visible {
-              box-shadow: 0 0 0 2px rgba(108, 152, 198, 0.7);
-              outline: 0;
-            }
-
-            &:disabled {
-              opacity: 0.4;
-            }
-
-            &:last-child {
-              color: #e67c7c;
-              grid-column: span 2;
-              width: auto;
-
-              &:hover:not(:disabled) {
-                background-color: rgba(220, 53, 69, 0.18);
-                color: #ff9b9b;
-              }
+            &:hover {
+              background-color: rgba(220, 53, 69, 0.18);
+              color: #ff9b9b;
+              opacity: 1;
             }
           }
         }
@@ -799,17 +791,126 @@
   }
 }
 
-// Mobile responsive
-@media (max-width: 768px) {
+/* CUSTOM: the page scrolls while the player is fullscreen on iPhone */
+body.marker-player-pseudo-fullscreen {
+  overflow: hidden;
+}
+
+// Phones (portrait, and landscape where height is the constraint): stack the
+// player above the playlist and let the page scroll instead of squeezing the
+// video into a fixed-height column.
+@media (max-width: 768px), (max-height: 500px) {
   .marker-playlist-player {
+    height: auto;
+    padding: 0.5rem;
+
     .player-container {
       flex-direction: column;
+      gap: 0.5rem;
+      overflow: visible;
+    }
+
+    .video-section {
+      flex: none;
+      overflow: visible;
+
+      .video-wrapper {
+        aspect-ratio: 16 / 9;
+        flex: none;
+        // Navbar plus the playlist header buttons above the player.
+        max-height: calc(100vh - 7.5rem);
+        max-height: calc(100dvh - 7.5rem);
+        width: 100%;
+
+        .video-overlay-controls {
+          right: 0.5rem;
+          top: 0.5rem;
+
+          .play-pause-btn,
+          .fullscreen-btn {
+            height: 40px;
+            padding: 0;
+            width: 40px;
+          }
+        }
+
+        .marker-nav-btn {
+          font-size: 1.1rem;
+          height: 44px;
+          width: 44px;
+
+          &.prev {
+            left: 0.5rem;
+          }
+
+          &.next {
+            right: 0.5rem;
+          }
+        }
+
+        .marker-event-controls {
+          bottom: 0.5rem;
+          right: 0.5rem;
+        }
+
+        .marker-loop-btn,
+        .marker-record-o-btn {
+          height: 40px;
+          width: 40px;
+        }
+      }
+
+      .now-playing {
+        padding: 0.5rem 0.75rem;
+
+        .scene-title-link {
+          font-size: 1rem;
+        }
+      }
     }
 
     .playlist-section {
-      max-height: 200px;
+      max-height: 60vh;
       max-width: none;
+      min-width: 0;
       width: 100%;
+    }
+  }
+
+  .fullscreen-performer-overlay {
+    bottom: 3.5rem;
+    max-width: calc(100% - 7rem);
+
+    &.normal-mode {
+      bottom: 0.5rem;
+    }
+
+    .performer-info {
+      font-size: 0.95rem;
+      padding: 0.35rem 0.5rem;
+      white-space: normal;
+    }
+  }
+}
+
+/* CUSTOM: phones drop performer chips everywhere in the player and get a
+   larger drag target. Narrow desktop windows keep the chips. */
+@media (max-width: 768px) and (pointer: coarse),
+  (max-height: 500px) and (pointer: coarse) {
+  .marker-playlist-player {
+    // Selectors match the depth of the rules that show them.
+    .fullscreen-performer-overlay,
+    .video-section .now-playing .now-playing-performers,
+    .playlist-section
+      .marker-list
+      .marker-item
+      .marker-info
+      .marker-performer-roles {
+      display: none;
+    }
+
+    .playlist-section .marker-list .marker-item .marker-drag-handle {
+      width: 2rem;
     }
   }
 }

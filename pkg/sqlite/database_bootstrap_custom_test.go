@@ -227,3 +227,25 @@ SELECT COUNT(*) FROM pragma_table_info('task_progress_trackers')
  WHERE name = 'history_started_on'`))
 	require.Zero(t, historyColumnCount)
 }
+
+func TestTaskProgressBootstrapCompletesExistingEmptyTrackersCustom(t *testing.T) {
+	db := newTaskProgressBootstrapDBCustom(t)
+	createTaskProgressSourceTablesCustom(t, db, true)
+	database := &Database{writeDB: db}
+	require.NoError(t, database.ensureTaskProgressSchemaCustom(context.Background()))
+	_, err := db.Exec(`INSERT INTO tags(id,name) VALUES (1,'Inbox');
+ INSERT INTO task_progress_trackers(title,goal,tag_id,started_on,status,is_working_on,item_types,mode) VALUES
+ ('Empty',10,1,'2026-10-01','ACTIVE',1,'scene','BACKLOG'),
+ ('Archived',10,1,'2026-10-01','ARCHIVED',0,'scene','BACKLOG')`)
+	require.NoError(t, err)
+	require.NoError(t, database.ensureTaskProgressSchemaCustom(context.Background()))
+	var statuses []string
+	require.NoError(t, db.Select(&statuses, "SELECT status FROM task_progress_trackers ORDER BY id"))
+	require.Equal(t, []string{"COMPLETED", "ARCHIVED"}, statuses)
+	var version int
+	require.NoError(t, db.Get(&version, "SELECT version FROM task_progress_trackers WHERE title='Empty'"))
+	require.NoError(t, database.ensureTaskProgressSchemaCustom(context.Background()))
+	var nextVersion int
+	require.NoError(t, db.Get(&nextVersion, "SELECT version FROM task_progress_trackers WHERE title='Empty'"))
+	require.Equal(t, version, nextVersion)
+}

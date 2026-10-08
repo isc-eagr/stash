@@ -42,6 +42,19 @@ extend input SceneUpdateInput {
   stashdb_matches: Int
 }
 
+extend input SceneMergeInput {
+  "Releases to keep from the destination and sources; the others are deleted and their files move to the destination. Omit to keep all."
+  release_ids: [ID!]
+  "Negative markers to keep from the destination and sources. Omit to keep all but exact duplicates."
+  negative_marker_ids: [ID!]
+  "Loop presets to keep from the destination and sources. Omit to keep all but identical same-name presets."
+  loop_preset_ids: [ID!]
+  "Scene whose rating and Rating Advisor answers the destination keeps"
+  rating_scene_id: ID
+  "Scene whose StashDB Matches count the destination keeps"
+  stashdb_matches_scene_id: ID
+}
+
 type StashDBMatchesReport {
   started_at: Time!
   finished_at: Time!

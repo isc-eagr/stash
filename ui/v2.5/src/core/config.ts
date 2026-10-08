@@ -40,6 +40,14 @@ export type FrontPageContent = ISavedFilterRow | ICustomFilter;
 export const defaultMaxOptionsShown = 200;
 export const defaultPreviewVolume = 25;
 
+// CUSTOM: begin - studio site sync settings, read by the backend task
+export interface IStudioSiteSyncConfig {
+  username?: string;
+  password?: string;
+  picsPath?: string;
+}
+// CUSTOM: end
+
 export interface IUIConfig {
   // unknown to prevent direct access - use getFrontPageContent
   frontPageContent?: unknown;
@@ -160,6 +168,8 @@ export interface IUIConfig {
     rareRoleMaximumPercent?: number;
   };
   // CUSTOM: end
+  // CUSTOM: studio site sync logins and pictures folders, keyed by site
+  studioSiteSync?: Record<string, IStudioSiteSyncConfig | undefined>;
   simpleMarkerPreviewExcludedTagIds?: string[]; // Extra primary-only marker tags that skip video/webp preview generation
 
   // Tag IDs used for scene marker role categorization

@@ -2,277 +2,232 @@ import {
   visualToLocalClipPath,
   getRotatorStyle,
 } from "src/utils/imageOverlayGeometry_custom";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import { Icon } from "src/components/Shared/Icon";
 import {
-  faTimes,
-  faRedo,
-  faArrowUp,
   faArrowDown,
+  faExternalLinkAlt,
+  faRedo,
+  faTimes,
 } from "@fortawesome/free-solid-svg-icons";
 import cx from "classnames";
+import {
+  IPanelLayout,
+  IPanelRect,
+  IPanelSizeLimits,
+  PanelGesture,
+  trackPointerDrag,
+} from "src/components/Viewers/viewerPanels_custom";
 import "./ImageViewer.scss";
 
-export interface IOverlayState {
-  // CUSTOM: exported for MultiVideoViewer image overlays
-  id: string;
-  url: string;
-  x: number;
-  y: number;
-  width: number;
-  visible: boolean;
-  rotation: number; // 0 | 90 | 180 | 270
-  cropTop: number; // 0–50 percent
-  cropRight: number; // 0–50 percent
-  cropBottom: number; // 0–50 percent
-  cropLeft: number; // 0–50 percent
-  zIndex: number;
+export interface IImageCrop {
+  cropTop: number; // percent of the visual height
+  cropRight: number; // percent of the visual width
+  cropBottom: number;
+  cropLeft: number;
 }
 
-const MIN_SIZE = 80;
+export interface IImageTransform extends IImageCrop {
+  rotation: number; // 0 | 90 | 180 | 270
+}
+
+export const DEFAULT_IMAGE_TRANSFORM: IImageTransform = {
+  rotation: 0,
+  cropTop: 0,
+  cropRight: 0,
+  cropBottom: 0,
+  cropLeft: 0,
+};
+
+type CropEdge = "top" | "right" | "bottom" | "left";
+
+const IMAGE_LIMITS: IPanelSizeLimits = { minWidth: 80, minHeight: 0 };
+// Opposite crops always leave this much of the image visible.
+const MIN_VISIBLE_PERCENT = 5;
+
+const cropKey: Record<CropEdge, keyof IImageCrop> = {
+  top: "cropTop",
+  right: "cropRight",
+  bottom: "cropBottom",
+  left: "cropLeft",
+};
+const oppositeEdge: Record<CropEdge, CropEdge> = {
+  top: "bottom",
+  right: "left",
+  bottom: "top",
+  left: "right",
+};
 
 interface IDraggableImageProps {
-  overlay: IOverlayState;
-  onPositionChange: (x: number, y: number) => void;
-  onSizeChange: (width: number) => void;
-  onClose: () => void;
-  onRotate: () => void;
-  onCropChange: (
-    top: number,
-    right: number,
-    bottom: number,
-    left: number
+  id: string;
+  url: string;
+  title: string;
+  openUrl?: string;
+  layout: IPanelLayout;
+  transform: IImageTransform;
+  onDrag: (
+    id: string,
+    gesture: PanelGesture,
+    start: IPanelRect,
+    dx: number,
+    dy: number,
+    limits: IPanelSizeLimits
   ) => void;
-  onBringToFront: () => void;
-  onSendToBack: () => void;
+  onAspectRatio: (id: string, aspectRatio: number) => void;
+  onRaise: (id: string) => void;
+  onLower: (id: string) => void;
+  onClose: (id: string) => void;
+  onRotate: (id: string) => void;
+  onCropChange: (id: string, crop: IImageCrop) => void;
 }
 
-export const DraggableImage: React.FC<IDraggableImageProps> = ({
-  // CUSTOM: exported for MultiVideoViewer
-  overlay,
-  onPositionChange,
-  onSizeChange,
+const DraggableImageComponent: React.FC<IDraggableImageProps> = ({
+  id,
+  url,
+  title,
+  openUrl,
+  layout,
+  transform,
+  onDrag,
+  onAspectRatio,
+  onRaise,
+  onLower,
   onClose,
   onRotate,
   onCropChange,
-  onBringToFront,
-  onSendToBack,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [isResizing, setIsResizing] = useState(false);
-  const [isResizingTL, setIsResizingTL] = useState(false);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [resizeStart, setResizeStart] = useState({ x: 0, w: 0 });
-  const [resizeTLStart, setResizeTLStart] = useState({
-    x: 0,
-    w: 0,
-    xPos: 0,
-    yPos: 0,
-  }); // CUSTOM
-  const [aspectRatio, setAspectRatio] = useState<number>(1);
+  const { rotation, cropTop, cropRight, cropBottom, cropLeft } = transform;
 
-  // crop drag state
-  const [cropEdge, setCropEdge] = useState<
-    "top" | "right" | "bottom" | "left" | null
-  >(null);
-  const [cropDragStart, setCropDragStart] = useState({
-    pos: 0,
-    value: 0,
-    size: 0,
+  const startRect = (): IPanelRect => ({
+    x: layout.x,
+    y: layout.y,
+    width: layout.width,
+    height: layout.height,
   });
-
-  // When rotated 90/270 the visual w/h swap
-  const isSwapped = overlay.rotation === 90 || overlay.rotation === 270;
-  const displayHeight = isSwapped
-    ? Math.round(overlay.width * aspectRatio)
-    : Math.round(overlay.width / aspectRatio);
 
   const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const img = e.currentTarget;
+    if (!img.naturalWidth || !img.naturalHeight) return;
     const ratio = img.naturalWidth / img.naturalHeight;
-    setAspectRatio(ratio);
+    onAspectRatio(id, rotation % 180 === 0 ? ratio : 1 / ratio);
   };
 
-  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
     if (
-      target.closest(".iv-resize-handle") ||
-      target.closest(".iv-resize-handle-tl") ||
-      target.closest(".iv-close-btn") ||
-      target.closest(".iv-controls-bar") ||
-      target.closest(".iv-crop-handle")
+      e.button !== 0 ||
+      target.closest(
+        ".iv-resize-handle, .iv-resize-handle-tl, .iv-controls-bar, .iv-crop-handle"
+      )
     ) {
       return;
     }
     e.preventDefault();
-    e.stopPropagation();
+    const start = startRect();
     setIsDragging(true);
-    setDragOffset({ x: e.clientX - overlay.x, y: e.clientY - overlay.y });
+    trackPointerDrag(
+      e,
+      (dx, dy) => onDrag(id, "move", start, dx, dy, IMAGE_LIMITS),
+      {
+        onEnd: () => setIsDragging(false),
+      }
+    );
   };
 
-  const handleResizeMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsResizing(true);
-    setResizeStart({ x: e.clientX, w: overlay.width });
-  };
-
-  const handleResizeTLMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsResizingTL(true);
-    setResizeTLStart({
-      x: e.clientX,
-      w: overlay.width,
-      xPos: overlay.x,
-      yPos: overlay.y,
-    }); // CUSTOM
-  };
-
-  const handleCropMouseDown = (
-    e: React.MouseEvent,
-    edge: "top" | "right" | "bottom" | "left"
+  const handleResizePointerDown = (
+    e: React.PointerEvent,
+    gesture: "resize-br" | "resize-tl"
   ) => {
     e.preventDefault();
     e.stopPropagation();
-    const rect = containerRef.current?.getBoundingClientRect();
-    const size =
-      edge === "top" || edge === "bottom"
-        ? rect?.height ?? 1
-        : rect?.width ?? 1;
-    const currentValue =
-      edge === "top"
-        ? overlay.cropTop
-        : edge === "right"
-        ? overlay.cropRight
-        : edge === "bottom"
-        ? overlay.cropBottom
-        : overlay.cropLeft;
-    const pos = edge === "top" || edge === "bottom" ? e.clientY : e.clientX;
-    setCropEdge(edge);
-    setCropDragStart({ pos, value: currentValue, size });
+    const start = startRect();
+    trackPointerDrag(e, (dx, dy) =>
+      onDrag(id, gesture, start, dx, dy, IMAGE_LIMITS)
+    );
   };
 
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (isDragging) {
-        onPositionChange(e.clientX - dragOffset.x, e.clientY - dragOffset.y);
-      }
-      if (isResizing) {
-        const newWidth = Math.max(
-          MIN_SIZE,
-          resizeStart.w + (e.clientX - resizeStart.x)
-        );
-        onSizeChange(newWidth);
-      }
-      if (isResizingTL) {
-        const delta = e.clientX - resizeTLStart.x;
-        const newWidth = Math.max(MIN_SIZE, resizeTLStart.w - delta);
-        const actualDelta = resizeTLStart.w - newWidth;
-        // CUSTOM: begin - keep bottom edge fixed by adjusting Y when height changes
-        const heightDelta = isSwapped
-          ? actualDelta * aspectRatio
-          : actualDelta / aspectRatio;
-        const newY = resizeTLStart.yPos + heightDelta;
-        // CUSTOM: end
-        onSizeChange(newWidth);
-        onPositionChange(resizeTLStart.xPos + actualDelta, newY);
-      }
-      if (cropEdge) {
-        const delta = (edge: typeof cropEdge) => {
-          if (edge === "top" || edge === "bottom")
-            return e.clientY - cropDragStart.pos;
-          return e.clientX - cropDragStart.pos;
-        };
-        const d = delta(cropEdge);
-        const pct = (d / cropDragStart.size) * 100;
-        const flipSign = cropEdge === "right" || cropEdge === "bottom" ? -1 : 1;
-        const newVal = Math.max(
-          0,
-          Math.min(99, cropDragStart.value + flipSign * pct)
-        );
-        const t = cropEdge === "top" ? newVal : overlay.cropTop;
-        const r = cropEdge === "right" ? newVal : overlay.cropRight;
-        const b = cropEdge === "bottom" ? newVal : overlay.cropBottom;
-        const l = cropEdge === "left" ? newVal : overlay.cropLeft;
-        onCropChange(t, r, b, l);
-      }
-    };
+  const handleCropPointerDown = (e: React.PointerEvent, edge: CropEdge) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = containerRef.current?.getBoundingClientRect();
+    const vertical = edge === "top" || edge === "bottom";
+    const size = (vertical ? rect?.height : rect?.width) || 1;
+    const startCrop: IImageCrop = { cropTop, cropRight, cropBottom, cropLeft };
+    const sign = edge === "right" || edge === "bottom" ? -1 : 1;
+    const max =
+      100 - MIN_VISIBLE_PERCENT - startCrop[cropKey[oppositeEdge[edge]]];
 
-    const handleMouseUp = () => {
-      setIsDragging(false);
-      setIsResizing(false);
-      setIsResizingTL(false);
-      setCropEdge(null);
-    };
-
-    if (isDragging || isResizing || isResizingTL || cropEdge) {
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
-    }
-    return () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-    };
-  }, [
-    isDragging,
-    isResizing,
-    isResizingTL,
-    cropEdge,
-    dragOffset,
-    resizeStart,
-    resizeTLStart,
-    cropDragStart,
-    overlay,
-    aspectRatio,
-    isSwapped,
-    onPositionChange,
-    onSizeChange,
-    onCropChange,
-  ]);
-
-  if (!overlay.visible) return null;
+    trackPointerDrag(e, (dx, dy) => {
+      const delta = ((vertical ? dy : dx) / size) * 100;
+      const value = Math.max(
+        0,
+        Math.min(max, startCrop[cropKey[edge]] + sign * delta)
+      );
+      onCropChange(id, { ...startCrop, [cropKey[edge]]: value });
+    });
+  };
 
   const clipPath = visualToLocalClipPath(
-    overlay.cropTop,
-    overlay.cropRight,
-    overlay.cropBottom,
-    overlay.cropLeft,
-    overlay.rotation
+    cropTop,
+    cropRight,
+    cropBottom,
+    cropLeft,
+    rotation
   );
+
+  const cropHandle = (edge: CropEdge) => {
+    const value = transform[cropKey[edge]];
+    return (
+      <div
+        className={cx("iv-crop-handle", `iv-crop-${edge}`, {
+          "iv-crop-active": value > 0,
+        })}
+        style={{ [edge]: `${value}%` }}
+        onPointerDown={(e) => handleCropPointerDown(e, edge)}
+        title={`Crop ${edge}`}
+      />
+    );
+  };
 
   return (
     <div
       ref={containerRef}
-      className={cx("image-viewer-overlay", {
-        dragging: isDragging,
-        resizing: isResizing,
-      })}
+      className={cx("image-viewer-overlay", { dragging: isDragging })}
       style={{
-        left: overlay.x,
-        top: overlay.y,
-        width: overlay.width,
-        height: displayHeight,
-        zIndex: overlay.zIndex,
+        left: layout.x,
+        top: layout.y,
+        width: layout.width,
+        height: layout.height,
+        zIndex: layout.zIndex,
       }}
-      onMouseDown={handleMouseDown}
+      onPointerDownCapture={() => onRaise(id)}
+      onPointerDown={handlePointerDown}
     >
-      {/* controls bar – appears on hover, tracks visible image top-left corner */}
+      {/* controls track the visible image's top-right corner */}
       <div
         className="iv-controls-bar"
         style={{
-          top: `calc(${overlay.cropTop}% - 32px)`,
-          left: `${overlay.cropLeft}%`,
+          top: `calc(${cropTop}% + 4px)`,
+          right: `calc(${cropRight}% + 4px)`,
         }}
       >
+        {openUrl && (
+          <a
+            className="iv-ctrl-btn"
+            href={openUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Open in Stash"
+          >
+            <Icon icon={faExternalLinkAlt} />
+          </a>
+        )}
         <button
           type="button"
           className="iv-ctrl-btn"
-          onClick={(e) => {
-            e.stopPropagation();
-            onRotate();
-          }}
+          onClick={() => onRotate(id)}
           title="Rotate 90°"
         >
           <Icon icon={faRedo} />
@@ -280,21 +235,7 @@ export const DraggableImage: React.FC<IDraggableImageProps> = ({
         <button
           type="button"
           className="iv-ctrl-btn"
-          onClick={(e) => {
-            e.stopPropagation();
-            onBringToFront();
-          }}
-          title="Bring to front"
-        >
-          <Icon icon={faArrowUp} />
-        </button>
-        <button
-          type="button"
-          className="iv-ctrl-btn"
-          onClick={(e) => {
-            e.stopPropagation();
-            onSendToBack();
-          }}
+          onClick={() => onLower(id)}
           title="Send to back"
         >
           <Icon icon={faArrowDown} />
@@ -302,10 +243,7 @@ export const DraggableImage: React.FC<IDraggableImageProps> = ({
         <button
           type="button"
           className="iv-ctrl-btn iv-ctrl-close"
-          onClick={(e) => {
-            e.stopPropagation();
-            onClose();
-          }}
+          onClick={() => onClose(id)}
           title="Remove"
         >
           <Icon icon={faTimes} />
@@ -313,12 +251,10 @@ export const DraggableImage: React.FC<IDraggableImageProps> = ({
       </div>
 
       {/* image: rotated via wrapper so container always matches visual bounds */}
-      <div
-        style={getRotatorStyle(overlay.rotation, overlay.width, displayHeight)}
-      >
+      <div style={getRotatorStyle(rotation, layout.width, layout.height)}>
         <img
-          src={overlay.url}
-          alt="Viewer overlay"
+          src={url}
+          alt={title}
           draggable={false}
           onLoad={handleImageLoad}
           style={{
@@ -330,55 +266,25 @@ export const DraggableImage: React.FC<IDraggableImageProps> = ({
         />
       </div>
 
-      {/* crop handles */}
-      <div
-        className={cx("iv-crop-handle iv-crop-top", {
-          "iv-crop-active": overlay.cropTop > 0,
-        })}
-        style={{ top: `${overlay.cropTop}%` }}
-        onMouseDown={(e) => handleCropMouseDown(e, "top")}
-        title="Crop top"
-      />
-      <div
-        className={cx("iv-crop-handle iv-crop-right", {
-          "iv-crop-active": overlay.cropRight > 0,
-        })}
-        style={{ right: `${overlay.cropRight}%` }}
-        onMouseDown={(e) => handleCropMouseDown(e, "right")}
-        title="Crop right"
-      />
-      <div
-        className={cx("iv-crop-handle iv-crop-bottom", {
-          "iv-crop-active": overlay.cropBottom > 0,
-        })}
-        style={{ bottom: `${overlay.cropBottom}%` }}
-        onMouseDown={(e) => handleCropMouseDown(e, "bottom")}
-        title="Crop bottom"
-      />
-      <div
-        className={cx("iv-crop-handle iv-crop-left", {
-          "iv-crop-active": overlay.cropLeft > 0,
-        })}
-        style={{ left: `${overlay.cropLeft}%` }}
-        onMouseDown={(e) => handleCropMouseDown(e, "left")}
-        title="Crop left"
-      />
+      {cropHandle("top")}
+      {cropHandle("right")}
+      {cropHandle("bottom")}
+      {cropHandle("left")}
 
       <div
         className="iv-resize-handle-tl"
-        style={{ top: `${overlay.cropTop}%`, left: `${overlay.cropLeft}%` }}
-        onMouseDown={handleResizeTLMouseDown}
+        style={{ top: `${cropTop}%`, left: `${cropLeft}%` }}
+        onPointerDown={(e) => handleResizePointerDown(e, "resize-tl")}
         title="Drag to resize"
       />
       <div
         className="iv-resize-handle"
-        style={{
-          bottom: `${overlay.cropBottom}%`,
-          right: `${overlay.cropRight}%`,
-        }}
-        onMouseDown={handleResizeMouseDown}
+        style={{ bottom: `${cropBottom}%`, right: `${cropRight}%` }}
+        onPointerDown={(e) => handleResizePointerDown(e, "resize-br")}
         title="Drag to resize"
       />
     </div>
   );
 };
+
+export const DraggableImage = React.memo(DraggableImageComponent);

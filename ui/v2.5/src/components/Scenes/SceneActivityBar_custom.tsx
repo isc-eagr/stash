@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import cx from "classnames";
 import { OverlayTrigger, Tooltip } from "react-bootstrap";
-import { faHand, faStar } from "@fortawesome/free-solid-svg-icons";
+import { faBan, faHand, faStar } from "@fortawesome/free-solid-svg-icons";
 import { Icon } from "src/components/Shared/Icon";
 import mouthSvg from "src/assets/mouth.svg";
 import gaySvg from "src/assets/gay.svg";
@@ -69,6 +69,9 @@ export const SceneActivityBar: React.FC<ISceneActivityBarProps> = ({
         <ActivityIcon category={end.key} />
       </span>
     );
+    const batteryTitle =
+      `Outstanding: ${end.outstandingPercent}%` +
+      (end.negativePercent > 0 ? ` · Negative: ${end.negativePercent}%` : "");
     return (
       <span
         className={cx(
@@ -88,14 +91,17 @@ export const SceneActivityBar: React.FC<ISceneActivityBarProps> = ({
           {side === "right" && icon}
         </span>
         {outstandingBatteries && end.duration > 0 && (
-          <span
-            className="scene-activity-bar__battery"
-            title={`Outstanding: ${end.outstandingPercent}%`}
-          >
+          <span className="scene-activity-bar__battery" title={batteryTitle}>
             <span
               className="scene-activity-bar__battery-fill"
               style={{ width: `${end.outstandingPercent}%` }}
             />
+            {end.negativePercent > 0 && (
+              <span
+                className="scene-activity-bar__battery-negative"
+                style={{ width: `${end.negativePercent}%` }}
+              />
+            )}
           </span>
         )}
       </span>
@@ -120,6 +126,12 @@ export const SceneActivityBar: React.FC<ISceneActivityBarProps> = ({
                 <>
                   {" · "}
                   <Icon icon={faStar} /> {metric.outstandingPercent}%
+                </>
+              )}
+              {(metric.negativePercent ?? 0) > 0 && (
+                <>
+                  {" · "}
+                  <Icon icon={faBan} /> {metric.negativePercent}%
                 </>
               )}
             </div>

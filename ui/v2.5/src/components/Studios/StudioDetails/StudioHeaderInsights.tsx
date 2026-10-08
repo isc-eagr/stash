@@ -1,6 +1,7 @@
 import React from "react";
 import { faFilm, faUser } from "@fortawesome/free-solid-svg-icons";
-import { ActivityStatsCharts } from "src/components/Shared/ActivityStatsCharts_custom";
+import { StudioSceneTypesBar } from "../StudioSceneTypesBar_custom";
+import { useRoleTags } from "src/hooks/useRoleTags";
 import { Icon } from "src/components/Shared/Icon";
 import * as GQL from "src/core/generated-graphql";
 import {
@@ -12,7 +13,7 @@ import {
   getStudioHeaderRatingPanelsCustom,
 } from "./studioHeaderInsights_custom";
 
-// CUSTOM: Activity Type boxes and Rating Advisor averages in the studio
+// CUSTOM: Scene Types bar and Rating Advisor averages in the studio
 // header. Scene rubrics share a blue panel; the vato strip has a gold edge.
 // Quality lives in the Scene Stats tab.
 interface IProps {
@@ -24,9 +25,10 @@ export const StudioHeaderInsights: React.FC<IProps> = ({
   studio,
   includeChildStudios,
 }) => {
-  const activity = includeChildStudios
-    ? studio.studio_activity_stats_all
-    : studio.studio_activity_stats;
+  const roleTags = useRoleTags();
+  const counts = includeChildStudios
+    ? studio.studio_role_counts_all
+    : studio.studio_role_counts;
 
   const { data } = GQL.useFindStudioRatingAdvisorStatsQuery({
     variables: { id: studio.id, depth: includeChildStudios ? -1 : 0 },
@@ -36,17 +38,22 @@ export const StudioHeaderInsights: React.FC<IProps> = ({
   const definition = (key: string) =>
     studioRatingAdvisorSectionDefinitions.find((d) => d.key === key)!;
 
-  const hasActivity = !!activity && activity.total_seconds > 0;
+  const hasSceneTypes =
+    !!counts &&
+    counts.sex_scene_count + counts.oral_scene_count + counts.solo_scene_count >
+      0;
   const hasRatings = sceneKeys.length > 0 || showVatos;
-  if (!hasActivity && !hasRatings) return null;
+  if (!hasSceneTypes && !hasRatings) return null;
 
   return (
     <div className="studio-header-insights">
-      {hasActivity && (
-        <ActivityStatsCharts
+      {hasSceneTypes && (
+        <StudioSceneTypesBar
           className="studio-header-activity"
-          only="activity"
-          stats={activity}
+          counts={counts}
+          includeChildStudios={includeChildStudios}
+          studio={studio}
+          roleTags={roleTags}
         />
       )}
       {stats && hasRatings && (

@@ -327,7 +327,16 @@ const SceneCardPopovers = PatchComponent(
             overlay={<Tooltip id="organised-tooltip">{"Organized"}</Tooltip>}
             placement="bottom"
           >
-            <div className="organized">
+            {/* CUSTOM: highlight the organized icon when it owns the sort. */}
+            <div
+              className={cx(
+                "organized",
+                catalogCardSortHighlightClassCustom(
+                  props.activeSortBy,
+                  "organized"
+                )
+              )}
+            >
               <Button className="minimal">
                 <Icon icon={faBox} />
               </Button>
@@ -407,6 +416,10 @@ const SceneCardPopovers = PatchComponent(
                 {maybeRenderGallery()}
                 {/* CUSTOM */}
                 <StashDBMatchesCardButton
+                  className={catalogCardSortHighlightClassCustom(
+                    props.activeSortBy,
+                    "stashdb_matches"
+                  )}
                   value={props.scene.stashdb_matches}
                   stashIDs={props.scene.stash_ids}
                 />
@@ -462,11 +475,25 @@ const SceneCardDetails = PatchComponent(
           "o_counter"
         )) ||
       (!props.compact &&
-        hasCatalogCardSortValueCustom(contextualGroupSceneNumber) &&
+        ((isCatalogCardSortHighlightedCustom(
+          props.activeSortBy,
+          "stashdb_matches"
+        ) &&
+          props.scene.stashdb_matches != null) ||
+          (isCatalogCardSortHighlightedCustom(
+            props.activeSortBy,
+            "organized"
+          ) &&
+            props.scene.organized))) ||
+      (!props.compact &&
+        (contextualGroupSceneNumber ?? 0) > 0 &&
         isCatalogCardSortHighlightedCustom(
           props.activeSortBy,
           "group_scene_number"
         )) ||
+      (isCatalogCardSortHighlightedCustom(props.activeSortBy, "title") &&
+        props.scene.title !== "" &&
+        !!objectTitle(props.scene)) ||
       (isCatalogCardSortHighlightedCustom(
         props.activeSortBy,
         "effective_date"
@@ -716,12 +743,21 @@ export const SceneCard = PatchComponent(
           continue: cont,
         })
       : `/scenes/${props.scene.id}`;
+    const cardTitle = objectTitle(props.scene); // CUSTOM: highlight title sorts in place
 
     return (
       <GridCard
         className={`scene-card ${zoomIndex()} ${filelessClass()} ${getRatingClass()}`} // CUSTOM: getRatingClass
         url={sceneLink}
-        title={objectTitle(props.scene)}
+        title={
+          cardTitle &&
+          props.scene.title !== "" &&
+          isCatalogCardSortHighlightedCustom(props.activeSortBy, "title") ? (
+            <span className="catalog-sort-highlight">{cardTitle}</span>
+          ) : (
+            cardTitle
+          )
+        } // CUSTOM
         width={props.width}
         linkClassName="scene-card-link"
         thumbnailSectionClassName="video-section"

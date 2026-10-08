@@ -132,8 +132,9 @@
     grid-template-columns: 1.35rem 1.5rem 2.1rem minmax(0, 1fr) 2.1rem 1.5rem;
   }
 
-  &.is-highlighted {
-    background: rgba(255, 255, 255, 0.08);
+  /* Time strips on scene-card hovers: percentages only, no counts. */
+  &.is-time {
+    grid-template-columns: 1.35rem 2.1rem minmax(0, 1fr) 2.1rem;
   }
 
   .performer-versatility-marker {

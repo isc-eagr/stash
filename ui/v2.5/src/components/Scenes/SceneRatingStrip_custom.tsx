@@ -29,7 +29,7 @@ export const SceneRatingStrip: React.FC<{
     () => getSceneGoatMomentsCustom(scene, roleTagIds),
     [roleTagIds, scene]
   );
-  // Crossed-out drops only once a scene has markers to judge by.
+  // Crossed-out sperm icon only once a scene has markers to judge by.
   const showOrgasmReport =
     events.length > 0 ||
     (!!roleTagIds?.orgasmTagId && scene.scene_markers.length > 0);

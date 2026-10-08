@@ -119,6 +119,36 @@ assert.deepEqual(
   "each icon summary includes its classified share, duration, and Outstanding evidence"
 );
 
+// Negative markers are skipped time. Each activity reports the share of its own
+// time inside them; Outstanding excludes that time, so the two never overlap.
+const negativeShareMetrics = getSceneActivityMetrics(
+  {
+    id: "scene-negative-share",
+    files: [{ duration: 100 }],
+    scene_markers: [
+      { ...marker("sex", 0, 60), tags: [{ id: "goat", parents: [] }] },
+      marker("oral", 60, 90),
+    ],
+    negative_markers: [{ start_seconds: 45, end_seconds: 75 }],
+  },
+  { sexTagId: "sex", oralTagId: "oral", goatTagId: "goat" }
+);
+
+assert.deepEqual(
+  negativeShareMetrics?.activity.map(
+    ({ key, outstandingPercent, negativePercent }) => ({
+      key,
+      outstandingPercent,
+      negativePercent,
+    })
+  ),
+  [
+    { key: "sex", outstandingPercent: 75, negativePercent: 25 },
+    { key: "oral", outstandingPercent: 0, negativePercent: 50 },
+  ],
+  "each activity's negative share counts only its own time inside negative markers"
+);
+
 const goatMetrics = getSceneActivityMetrics(
   {
     id: "scene-goat",

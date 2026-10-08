@@ -1,6 +1,10 @@
 import React, { useCallback } from "react"; // CUSTOM
 import { Link } from "react-router-dom";
-import { PerformerCardVersatilityRow } from "./PerformerCardVersatility_custom"; // CUSTOM
+import {
+  PerformerCardVersatilityRow,
+  PerformerCardVersatilityTimeRow,
+} from "./PerformerCardVersatility_custom"; // CUSTOM
+import type { IScenePerformerRoleSeconds } from "src/components/Scenes/scenePerformerRoleSeconds_custom"; // CUSTOM
 import { Icon } from "src/components/Shared/Icon";
 import { PerformerLink } from "src/components/Shared/TagLink"; // CUSTOM
 import { faHand } from "@fortawesome/free-solid-svg-icons";
@@ -70,6 +74,8 @@ interface IPerformerCategoryStripProps {
   /** Performer cards only: sex/oral/facial become one-line versatility strips,
    * counting partners in the scene when sceneId is set. */
   versatilityCard?: boolean; // CUSTOM
+  /** Scene-card hovers: sex/oral rows show top vs bottom time instead of partners. */
+  roleSeconds?: IScenePerformerRoleSeconds; // CUSTOM
 }
 
 /**
@@ -101,6 +107,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
   linkTarget, // CUSTOM
   flushMargins = false, // CUSTOM
   versatilityCard = false, // CUSTOM
+  roleSeconds, // CUSTOM
 }) => {
   const { configuration } = useConfigurationContext();
 
@@ -130,7 +137,6 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
 
     return isRoleSortHighlighted(
       roleTotalSortKey(category),
-      `${category}_unique_partners`,
       `${category}_topped_partners`,
       `${category}_bottomed_partners`
     );
@@ -558,13 +564,22 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
   };
 
   // CUSTOM: begin - card versatility rows sit above the remaining icons
+  const roleTimeSeconds = (category: "sex" | "oral") => ({
+    top: roleSeconds?.[`${category}TopSeconds`] ?? 0,
+    bottom: roleSeconds?.[`${category}BottomSeconds`] ?? 0,
+  });
   // Scene cards skip rows without scene partners, e.g. a self-facial.
   const versatilityRoles = versatilityCard
     ? safeRolesToShow.filter(
         (role) =>
           role.category !== "solo" &&
           (!sceneId ||
-            (role.partnerTopCount ?? 0) + (role.partnerBottomCount ?? 0) > 0)
+            (roleSeconds && role.category !== "facial"
+              ? roleTimeSeconds(role.category).top +
+                  roleTimeSeconds(role.category).bottom >
+                0
+              : (role.partnerTopCount ?? 0) + (role.partnerBottomCount ?? 0) >
+                0))
       )
     : [];
   // Scene cards already show sex/oral/facial in the versatility rows
@@ -756,6 +771,18 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
     // CUSTOM: begin - card versatility rows replace the role columns; scene
     // cards count scene partners and skip the all-scenes links
     if (versatilityCard && !inStrip && role.category !== "solo") {
+      if (roleSeconds && role.category !== "facial") {
+        const seconds = roleTimeSeconds(role.category);
+        return (
+          <PerformerCardVersatilityTimeRow
+            key={idx}
+            bottomSeconds={seconds.bottom}
+            category={role.category}
+            icon={categoryIconElement}
+            topSeconds={seconds.top}
+          />
+        );
+      }
       const useCardFacialPartners = role.category === "facial" && !sceneId;
       return (
         <PerformerCardVersatilityRow
@@ -769,14 +796,9 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
               ? cardFacialPartners.bottom
               : partnerBottomCount
           }
+          activeSortBy={sceneId ? undefined : activeSortBy}
           category={role.category}
           categoryUrl={sceneId ? undefined : categoryUrl}
-          highlighted={
-            !!catalogCardSortHighlightClassCustom(
-              activeSortBy,
-              roleTotalSortKey(role.category)
-            )
-          }
           icon={categoryIconElement}
           linkTarget={linkTarget}
           showPercentages={!sceneId} // CUSTOM: catalog cards show role percentages beside the track

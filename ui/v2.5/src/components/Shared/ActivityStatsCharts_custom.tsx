@@ -9,6 +9,7 @@ interface IProps {
   className?: string;
   compact?: boolean;
   only?: "activity" | "quality";
+  activeSortBy?: string;
 }
 
 export const ActivityStatsCharts: React.FC<IProps> = ({
@@ -16,6 +17,7 @@ export const ActivityStatsCharts: React.FC<IProps> = ({
   className = "",
   compact = false,
   only,
+  activeSortBy,
 }) => {
   const qualityPercentages = getPartitionPercentagesCustom(
     {
@@ -94,6 +96,7 @@ export const ActivityStatsCharts: React.FC<IProps> = ({
         className="scene-activity-metrics--stats"
         compact={compact}
         only={only}
+        activeSortBy={activeSortBy}
         sceneId="aggregate-scene-stats"
       />
     </div>

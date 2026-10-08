@@ -195,3 +195,37 @@ assert.doesNotMatch(
   /My task notes|Mark completed|View daily data/,
   "cards omit the graph, detail text, and lifecycle controls"
 );
+
+const completedCard = renderCard({
+  ...tracker,
+  status: "COMPLETED",
+  current_count: 0,
+  completed_count: 10,
+});
+assert.match(completedCard, /Completed/);
+assert.match(completedCard, /progress-ring-completed/);
+assert.doesNotMatch(
+  completedCard,
+  /<small>remaining<\/small>|Estimated finish at|progress-tracker-plan|progress-goal-summary/
+);
+const completedTodayCard = renderCard({
+  ...tracker,
+  status: "COMPLETED",
+  current_count: 0,
+  completed_count: 10,
+  history: [
+    {
+      ...tracker.history[0],
+      date: progressToday(),
+      completed: 10,
+      remaining: 0,
+    },
+  ],
+});
+assert.match(completedTodayCard, /Today/);
+assert.match(completedTodayCard, /This week/);
+assert.match(completedTodayCard, /This month/);
+assert.doesNotMatch(
+  completedTodayCard,
+  /Estimated finish at|<small>remaining<\/small>/
+);

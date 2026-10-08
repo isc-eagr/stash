@@ -295,6 +295,9 @@ func (r *mutationResolver) TaskProgressTrackerUpdate(ctx context.Context, input 
 		if input.ExpectedVersion != nil && *input.ExpectedVersion != tracker.Version {
 			return fmt.Errorf("%w: tracker changed in another window; refresh and try again", ErrInput)
 		}
+		if err := validateCompletedTaskProgressUpdateCustom(tracker, input); err != nil {
+			return err
+		}
 		previousStatus := tracker.Status
 
 		if input.Title != nil {
@@ -383,6 +386,9 @@ func (r *mutationResolver) TaskProgressTrackerUpdate(ctx context.Context, input 
 			}
 			tracker.Status = models.TaskProgressTrackerStatusActive
 		}
+		if tracker.CurrentCount == 0 && (tracker.Status == models.TaskProgressTrackerStatusActive || tracker.Status == models.TaskProgressTrackerStatusPaused) {
+			tracker.Status = models.TaskProgressTrackerStatusCompleted
+		}
 		tracker.IsWorkingOn = tracker.Status == models.TaskProgressTrackerStatusActive
 
 		if err := r.repository.TaskProgressTracker.Update(ctx, tracker); err != nil {
@@ -452,4 +458,32 @@ func (r *mutationResolver) TaskProgressTrackersReorder(ctx context.Context, ids 
 		return nil, err
 	}
 	return ret, nil
+}
+
+// Completed trackers retain their scope, baseline, and effective daily goal.
+func validateCompletedTaskProgressUpdateCustom(tracker *models.TaskProgressTracker, input TaskProgressTrackerUpdateInput) error {
+	if tracker.Status != models.TaskProgressTrackerStatusCompleted {
+		return nil
+	}
+	locked := input.ResetGoal != nil && *input.ResetGoal
+	locked = locked || (input.TagID != nil && *input.TagID != strconv.Itoa(tracker.TagID))
+	locked = locked || (input.Mode != nil && *input.Mode != tracker.Mode)
+	if input.GoalPerDay != nil {
+		current := 0
+		if tracker.GoalPerDay != nil {
+			current = *tracker.GoalPerDay
+		}
+		locked = locked || *input.GoalPerDay != current
+	}
+	if input.ItemTypes != nil {
+		types, err := taskProgressItemTypesCustom(input.ItemTypes)
+		if err != nil {
+			return err
+		}
+		locked = locked || strings.Join(types, ",") != strings.Join(tracker.ItemTypes, ",")
+	}
+	if locked {
+		return fmt.Errorf("%w: completed tracker settings are read-only", ErrInput)
+	}
+	return nil
 }

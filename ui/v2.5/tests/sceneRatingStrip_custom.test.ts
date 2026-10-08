@@ -92,7 +92,7 @@ assert.deepEqual(groups.map(sceneCardOrgasmReportGroupLabelCustom), [
 assert.deepEqual(
   getSceneCardOrgasmReportGroupsCustom([]),
   [],
-  "no events leaves the crossed-out drops to the card"
+  "no events leaves the crossed-out sperm icon to the card"
 );
 
 const timed = (
@@ -181,6 +181,49 @@ assert.deepEqual(
 
 const source = (path: string) =>
   readFileSync(new URL(`../src/components/${path}`, import.meta.url), "utf8");
+const orgasmReportSource = source("Scenes/SceneCardOrgasmReport_custom.tsx");
+assert.match(
+  orgasmReportSource,
+  /import spermsSvg from "src\/assets\/sperms\.svg"/,
+  "performer orgasm reports reuse the sperm graphic from performer cards"
+);
+assert.doesNotMatch(
+  orgasmReportSource,
+  /SweatDrops/,
+  "performer orgasms must stay visually distinct from the user's O Counter"
+);
+assert.match(
+  orgasmReportSource,
+  /category === "facial" \? facialPng : spermsSvg/,
+  "facials keep their own icon"
+);
+for (const property of ["maskImage", "WebkitMaskImage"]) {
+  assert.ok(
+    orgasmReportSource.includes(property + ': `url("${asset}")`'),
+    "mask URLs must be quoted so Vite's SVG data URL quotes do not invalidate CSS"
+  );
+}
+assert.match(
+  orgasmReportSource,
+  /aria-label="No orgasms"[\s\S]*?<ReportIcon category="orgasm" \/>/,
+  "the empty report crosses out the same performer orgasm icon"
+);
+for (const counterPath of [
+  "Scenes/SceneDetails/OCounterButton.tsx",
+  "Shared/CountButton.tsx",
+  "Shared/PopoverCountButton.tsx",
+  "Scenes/SceneDetails/ScenePerformerOverviewPanel_custom.tsx",
+  "ScenePlayer/ScenePlayer.tsx",
+  "Scenes/MarkerPlaylistPlayer.tsx",
+  "SceneDuplicateChecker/SceneDuplicateChecker.tsx",
+  "StatsLinks_custom.tsx",
+]) {
+  assert.match(
+    source(counterPath),
+    /<SweatDrops \/>/,
+    `${counterPath} keeps droplets for the user's O Counter`
+  );
+}
 const cardSource = source("Scenes/SceneCard.tsx");
 assert.doesNotMatch(
   cardSource,
@@ -250,8 +293,8 @@ const studioHeaderSource = source(
 );
 assert.match(
   studioHeaderSource,
-  /only="activity"[\s\S]*?rating-panel rating-panel--scenes[\s\S]*?rating-panel rating-panel--vato/,
-  "studio pages show Activity Type, then scene averages apart from vato averages"
+  /<StudioSceneTypesBar[\s\S]*?rating-panel rating-panel--scenes[\s\S]*?rating-panel rating-panel--vato/,
+  "studio pages show Scene Types, then scene averages apart from vato averages"
 );
 const averagesSource = source(
   "Studios/StudioDetails/StudioRatingAdvisorStats.tsx"
@@ -269,8 +312,8 @@ assert.match(
 const studioCardSource = source("Studios/StudioCard.tsx");
 assert.match(
   studioCardSource,
-  /<ActivityStatsCharts[\s\S]*?only="activity"[\s\S]*?\{maybeRenderActivityBar\(\)\}/,
-  "studio cards show the compact Activity Type bar"
+  /<StudioSceneTypesBar[\s\S]*?\{maybeRenderSceneTypesBar\(\)\}/,
+  "studio cards show the scene-count bar"
 );
 assert.match(
   studioCardSource,

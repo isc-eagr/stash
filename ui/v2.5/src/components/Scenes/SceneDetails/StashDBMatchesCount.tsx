@@ -1,4 +1,5 @@
 import React from "react";
+import cx from "classnames"; // CUSTOM
 import { useIntl } from "react-intl";
 import { Button } from "react-bootstrap"; // CUSTOM: scene card match control
 import { faFingerprint } from "@fortawesome/free-solid-svg-icons";
@@ -57,14 +58,15 @@ export const StashDBMatchesCount: React.FC<{
 export const StashDBMatchesCardButton: React.FC<{
   value?: number | null;
   stashIDs: { endpoint: string; stash_id: string }[];
-}> = ({ value, stashIDs }) => {
+  className?: string;
+}> = ({ value, stashIDs, className }) => {
   const intl = useIntl();
   if (value == null) return null;
 
   const url = stashDBFingerprintsURLCustom(stashIDs);
   return (
     <HoverPopover
-      className="stashdb-matches-count"
+      className={cx("stashdb-matches-count", className)}
       content={intl.formatMessage({ id: "stashdb_matches" })}
       placement="bottom"
     >

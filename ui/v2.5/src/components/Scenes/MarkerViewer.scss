@@ -27,6 +27,14 @@
   }
 }
 
+// Panels stack inside their own layer so they can never cover the header.
+.mv-canvas {
+  inset: 0;
+  isolation: isolate;
+  position: absolute;
+  z-index: 0;
+}
+
 .marker-viewer-header {
   align-items: center;
   background: rgba(0, 0, 0, 0.8);
@@ -39,7 +47,7 @@
   position: fixed;
   right: 0;
   top: 0;
-  z-index: 100001;
+  z-index: 2;
 
   .marker-count {
     color: #fff;
@@ -173,6 +181,10 @@
     color: #aaa;
     padding: 1.5rem 0;
     text-align: center;
+
+    &.error {
+      color: #f48b8b;
+    }
   }
 
   .viewer-search-result {
@@ -253,12 +265,6 @@
   z-index: 300100;
 }
 
-.mv-marker-range-video::-webkit-media-controls-timeline,
-.mv-marker-range-video::-webkit-media-controls-current-time-display,
-.mv-marker-range-video::-webkit-media-controls-time-remaining-display {
-  display: none;
-}
-
 .mv-fab {
   bottom: 20px;
   display: flex;
@@ -269,7 +275,7 @@
   position: fixed;
   right: 20px;
   transition: opacity 0.2s;
-  z-index: 200000;
+  z-index: 3;
 
   &.mv-fab--visible {
     opacity: 1;
@@ -305,8 +311,8 @@
   flex-direction: column;
   overflow: visible;
   position: fixed;
+  touch-action: none;
   user-select: none;
-  z-index: 100000;
 
   &.dragging {
     .mv-titlebar {
@@ -480,7 +486,7 @@
     top: 0;
     transition: opacity 0.15s;
     width: 16px;
-    z-index: 100002;
+    z-index: 3;
   }
 
   .mv-resize-handle {
@@ -498,6 +504,24 @@
     right: 0;
     transition: opacity 0.15s;
     width: 16px;
-    z-index: 100002;
+    z-index: 3;
+  }
+}
+
+// Touch screens have no hover, so keep the panel controls visible there.
+@media (hover: none) {
+  .mv-overlay {
+    .mv-titlebar,
+    .mv-resize-handle,
+    .mv-resize-handle-tl {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .mv-resize-handle,
+    .mv-resize-handle-tl {
+      height: 24px;
+      width: 24px;
+    }
   }
 }

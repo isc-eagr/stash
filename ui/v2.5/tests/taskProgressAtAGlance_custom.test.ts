@@ -50,3 +50,21 @@ assert.doesNotMatch(
   /progress-tracker-at-a-glance-card-(completed|remaining|percentage)/,
   "at-a-glance cards use the shared neutral treatment"
 );
+
+const completedMarkup = ReactDOMServer.renderToStaticMarkup(
+  React.createElement(
+    IntlProvider,
+    { locale: "en", messages: {} },
+    React.createElement(TaskProgressAtAGlance, {
+      tracker: { ...tracker, status: "COMPLETED", current_count: 0 },
+    })
+  )
+);
+assert.match(completedMarkup, /100.*Items completed/);
+assert.match(completedMarkup, /100\.00%.*Percentage completed/);
+assert.doesNotMatch(completedMarkup, /Items remaining|Percentage remaining/);
+assert.equal(
+  (completedMarkup.match(/class="progress-tracker-at-a-glance-card"/g) ?? [])
+    .length,
+  2
+);

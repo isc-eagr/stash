@@ -152,4 +152,6 @@ extend type Studio {
     performer_id: ID!
     depth: Int
   ): StudioPerformerRoleStats! # CUSTOM: batched all marker-based stats for one performer
+  "Name of the site the studio's scenes sync from, null when it has none"
+  site_sync: String # CUSTOM: studio site sync
 }

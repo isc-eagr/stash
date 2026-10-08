@@ -1,134 +1,140 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import React from "react";
+import ReactDOMServer from "react-dom/server.js";
+import { IntlProvider } from "react-intl";
+import { taskProgressChartSeries } from "../src/components/TaskProgress/taskProgressChart_custom.ts";
+import { TaskProgressHistoryTooltip } from "../src/components/TaskProgress/TaskProgressHistoryTooltip.tsx";
+import { TaskProgressHistoryTotals } from "../src/components/TaskProgress/TaskProgressHistoryTotals.tsx";
 
-const chartSource = readFileSync(
-  new URL("../src/components/TaskProgressHistoryChart.tsx", import.meta.url),
-  "utf8"
+const history = [
+  {
+    date: "2025-12-31",
+    completed: 2,
+    incoming: 0,
+    remaining: 98,
+    baselineCount: 100,
+    goalPerDay: 2,
+  },
+  {
+    date: "2026-01-01",
+    completed: 3,
+    incoming: 0,
+    remaining: 95,
+    goalPerDay: 3,
+  },
+  {
+    date: "2026-09-21",
+    completed: 5,
+    incoming: 0,
+    remaining: 90,
+    goalPerDay: 10,
+  },
+  {
+    date: "2026-09-23",
+    completed: 10,
+    incoming: 2,
+    remaining: 82,
+    goalPerDay: 20,
+  },
+  { date: "2026-09-24", completed: 1, incoming: 0, remaining: 81 },
+];
+const today = "2026-09-24";
+const daily = taskProgressChartSeries(history, "day", 7, today, today);
+assert.equal(daily.length, 7);
+assert.equal(daily[0].date, "2026-09-18");
+assert.equal(
+  daily[6].cumulativeCompleted,
+  21,
+  "range filtering preserves lifetime totals"
 );
-const chartStylesSource = readFileSync(
-  new URL("../src/components/TaskProgressHistoryChart.scss", import.meta.url),
-  "utf8"
+assert.equal(daily[4].completed, 0);
+assert.equal(daily[4].goalPerDay, 10);
+assert.equal(daily[5].goalPerDay, 20);
+const pastDaily = taskProgressChartSeries(
+  history,
+  "day",
+  7,
+  "2026-09-21",
+  today
 );
+assert.equal(pastDaily[pastDaily.length - 1].date, "2026-09-21");
+assert.equal(pastDaily[pastDaily.length - 1].cumulativeCompleted, 10);
+assert.equal(
+  taskProgressChartSeries(history, "day", "all", today, today)[0].date,
+  "2025-12-31"
+);
+const week = taskProgressChartSeries(history, "week", 30, today, today);
+assert.equal(week[0].date, "2026-09-21");
+assert.equal(week[week.length - 1].date, today);
+assert.equal(week[0].cumulativeCompleted, 10);
+assert.equal(
+  taskProgressChartSeries(history, "month", 30, today, today)[0].date,
+  "2026-09-01"
+);
+const year = taskProgressChartSeries(history, "year", 30, today, today);
+assert.equal(year[0].date, "2026-01-01");
+assert.equal(year[year.length - 1].date, today);
+assert.equal(
+  year[0].cumulativeCompleted,
+  5,
+  "yearly history preserves totals from previous years"
+);
+assert.equal(
+  taskProgressChartSeries(history, "year", 30, "2025-12-31", today).length,
+  1
+);
+assert.deepEqual(taskProgressChartSeries([], "day", 30, today, today), []);
 
-assert.match(chartSource, /\["day", "week", "month"\]/);
-assert.match(chartSource, /aggregateTaskProgressHistorySeries/);
-assert.match(
-  chartSource,
-  /useState\(false\).*showIncoming|showIncoming.*useState\(false\)/s,
-  "incoming bars are hidden by default"
-);
-assert.match(
-  chartSource,
-  /type="checkbox"[\s\S]*?checked=\{showIncoming\}|checked=\{showIncoming\}[\s\S]*?type="checkbox"/,
-  "the chart provides a checkbox to show incoming bars"
-);
-assert.match(
-  chartSource,
-  /showIncoming \? barGroupWidth \/ 2 : barGroupWidth/,
-  "completed bars use the full bar group width when incoming bars are hidden"
-);
-assert.match(
-  chartSource,
-  /const barGroupWidth = bandWidth \* 0\.82/,
-  "bar groups use most of each period's available width"
-);
-assert.match(
-  chartSource,
-  /showIncoming\s*\?\s*centerX - barGroupWidth \/ 2\s*:\s*centerX - barWidth \/ 2/,
-  "completed and incoming bars occupy separate halves when incoming bars are shown"
-);
-assert.match(
-  chartSource,
-  /showIncoming \? Math\.max\(point\.completed, point\.incoming\) : point\.completed/,
-  "the activity scale excludes hidden incoming bars"
-);
-assert.match(
-  chartSource,
-  /showIncoming && \([\s\S]*?task-progress-history-chart-incoming/,
-  "incoming bar rendering is conditional"
-);
-const aggregatedRanges = chartSource.match(
-  /AGGREGATED_RANGE_OPTIONS[^=]*=\s*\[([\s\S]*?)\];/
-)?.[1];
-assert.ok(aggregatedRanges, "aggregated chart ranges are declared");
-assert.doesNotMatch(
-  aggregatedRanges,
-  /\b7\b/,
-  "weekly and monthly modes do not expose the seven-day range"
-);
-assert.match(
-  chartSource,
-  /taskProgressDailyGoalState\([\s\S]*?point\.completed,[\s\S]*?point\.goalPerDay/,
-  "weekly and monthly bar colors use completed divided by the applicable period goal"
-);
-assert.doesNotMatch(
-  chartSource,
-  /dailyGoal\?: number/,
-  "the current goal is not retroactively applied to all bars"
-);
-assert.match(chartStylesSource, /\.incoming\s*\{\s*color: #a77cc7/);
-assert.match(chartStylesSource, /\.remaining\s*\{\s*color: #9acd32/);
-for (const stateColor of [
-  "#db3737",
-  "#f08c3a",
-  "#f2c94c",
-  "#0f9960",
-  "#123f9f",
-]) {
-  assert.match(
-    chartStylesSource,
-    new RegExp(`completed-[a-z]+\\s*\\{\\s*color: ${stateColor}`),
-    `completed legend includes ${stateColor}`
+const render = (component: React.ReactElement) =>
+  ReactDOMServer.renderToStaticMarkup(
+    React.createElement(IntlProvider, { locale: "en", messages: {} }, component)
   );
-}
-assert.match(chartStylesSource, /\.cumulative\s*\{\s*color: #9acd32/);
-assert.doesNotMatch(chartSource, /averageLabel|averagePath|completedAverage/);
-assert.match(
-  chartSource,
-  /taskProgressHistoryPercentages/,
-  "chart tooltips calculate cumulative and period percentages"
+const totals = render(
+  React.createElement(TaskProgressHistoryTotals, {
+    points: daily,
+    title: "Project",
+    completionOnly: false,
+    view: "cumulative",
+    onView: () => {},
+  })
 );
-assert.match(chartSource, /task-progress-history-chart-tooltip/);
-assert.match(chartSource, /Progress this \{period\}/);
-assert.match(chartSource, /onMouseEnter=\{\(\) => setTooltipIndex\(index\)\}/);
-assert.match(
-  chartStylesSource,
-  /&-tooltip\s*\{[\s\S]*?position: absolute/,
-  "the custom tooltip is visually positioned over the chart"
+assert.match(totals, /Totals trend/);
+assert.match(totals, /Remaining/);
+assert.match(totals, /Show incoming/);
+assert.doesNotMatch(totals, /task-progress-history-chart-incoming-line/);
+assert.match(totals, /task-progress-history-chart-metric-line cumulative/);
+const completed = render(
+  React.createElement(TaskProgressHistoryTotals, {
+    points: daily,
+    title: "Project",
+    completionOnly: true,
+    view: "cumulative",
+    onView: () => {},
+  })
 );
 assert.doesNotMatch(
-  chartSource,
-  /<circle[\s\S]*?<title>/,
-  "metric points rely on the organized custom tooltip instead of native titles"
+  completed,
+  /aria-label="Line metric"/,
+  "completed trackers keep their cumulative-only totals view"
 );
-assert.doesNotMatch(
-  chartSource,
-  /<title(?:\s|>)/,
-  "the chart does not expose a competing native SVG tooltip"
+const tooltip = render(
+  React.createElement(TaskProgressHistoryTooltip, {
+    point: daily[5],
+    view: "cumulative",
+    showIncoming: true,
+  })
 );
-assert.match(
-  chartSource,
-  /maximumFractionDigits: 2,[\s\S]*?minimumFractionDigits: 2/,
-  "tooltip percentages consistently show two decimal places"
+assert.match(tooltip, /Completed this day<\/span><strong>10<\/strong>/);
+assert.match(tooltip, /Cumulative by this day/);
+assert.match(tooltip, /Progress this day/);
+assert.match(tooltip, /19\.61%/);
+assert.match(tooltip, /Incoming<\/dt><dd>2/);
+assert.match(tooltip, /Goal<\/dt><dd>20/);
+const remaining = render(
+  React.createElement(TaskProgressHistoryTooltip, {
+    point: daily[5],
+    view: "remaining",
+  })
 );
-assert.match(chartStylesSource, /\.baseline\s*\{\s*color: #8796a3/);
-assert.match(
-  chartStylesSource,
-  /&-goal-sapphire\s*\{\s*fill: #123f9f/,
-  "sapphire bars use the Rating Advisor royal sapphire shade"
-);
-assert.notEqual(
-  "#a77cc7",
-  "#0f9960",
-  "incoming and completed use distinct colors"
-);
-assert.notEqual(
-  "#a77cc7",
-  "#9acd32",
-  "incoming and remaining use distinct colors"
-);
-assert.notEqual(
-  "#9acd32",
-  "#123f9f",
-  "remaining and sapphire use distinct colors"
-);
+assert.match(remaining, /Remaining<\/dt><dd>82/);
+assert.doesNotMatch(remaining, /Incoming<\/dt>/);

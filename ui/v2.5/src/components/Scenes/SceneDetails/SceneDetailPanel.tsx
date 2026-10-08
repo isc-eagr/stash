@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react"; // CUSTOM
 import { FormattedMessage } from "react-intl"; // CUSTOM: maintenance metadata lives in Edit
 import * as GQL from "src/core/generated-graphql";
 import { TagLink } from "src/components/Shared/TagLink";
@@ -9,6 +9,11 @@ import { CustomFields } from "src/components/Shared/CustomFields";
 import { useScenePerformerOverview } from "./ScenePerformerOverviewPanel_custom"; // CUSTOM
 import { SceneCardInsights } from "../SceneCardInsights_custom"; // CUSTOM
 import { usePerformerCardRoleStatsState } from "../../Performers/performerRoleStats_custom"; // CUSTOM
+import { useConfigurationContext } from "src/hooks/Config"; // CUSTOM
+import {
+  getScenePerformerRoleSeconds,
+  NO_SCENE_PERFORMER_ROLE_SECONDS,
+} from "../scenePerformerRoleSeconds_custom"; // CUSTOM
 
 interface ISceneDetailProps {
   scene: GQL.SceneDataFragment;
@@ -19,6 +24,16 @@ export const SceneDetailPanel: React.FC<ISceneDetailProps> = (props) => {
   const performerOverview = useScenePerformerOverview(); // CUSTOM
   const { roleStatsByPerformer, loading: roleStatsPending } =
     usePerformerCardRoleStatsState(props.scene.performers); // CUSTOM
+  // CUSTOM: vato card sex/oral strips use Versatility by Time
+  const { configuration } = useConfigurationContext();
+  const roleSecondsByPerformer = useMemo(
+    () =>
+      getScenePerformerRoleSeconds(
+        props.scene,
+        configuration?.ui?.roleTagIds ?? {}
+      ),
+    [configuration?.ui?.roleTagIds, props.scene]
+  );
 
   function renderDetails() {
     if (!props.scene.details || props.scene.details === "") return;
@@ -64,6 +79,10 @@ export const SceneDetailPanel: React.FC<ISceneDetailProps> = (props) => {
         sceneId={props.scene.id} // CUSTOM
         scenePerformerCount={performers.length} // CUSTOM
         scenePartnerPerformers={performers} // CUSTOM
+        sceneRoleSeconds={
+          roleSecondsByPerformer.get(performer.id) ??
+          NO_SCENE_PERFORMER_ROLE_SECONDS
+        } // CUSTOM
         roleStats={roleStatsByPerformer.get(performer.id)} // CUSTOM: use the batched totals
         onOpenSceneOverview={performerOverview?.openPerformerOverview} // CUSTOM
       />
