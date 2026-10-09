@@ -18,7 +18,7 @@ func completeTaskProgressTrackersCustom(ctx context.Context, tagID int) error {
 	}
 	query := `UPDATE task_progress_trackers
  SET status = 'COMPLETED', is_working_on = 0, version = version + 1, updated_at = ?
- WHERE status IN ('ACTIVE', 'PAUSED') AND (? = 0 OR tag_id = ?)
+ WHERE status IN ('ACTIVE', 'PAUSED') AND tag_id IS NOT NULL AND (? = 0 OR tag_id = ?)
  AND (
   (mode = 'FIXED' AND NOT EXISTS (
    SELECT 1 FROM task_progress_tracker_members

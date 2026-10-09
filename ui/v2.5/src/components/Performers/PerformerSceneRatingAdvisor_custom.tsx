@@ -86,7 +86,7 @@ export const PerformerSceneRatingAdvisorStats: React.FC<{
 
   if (loading && !data) {
     return (
-      <LoadingIndicator message="Loading scene rating averages…" inline small />
+      <LoadingIndicator message="Pulling up his scene averages…" inline small />
     );
   }
   if (error) {
@@ -101,7 +101,7 @@ export const PerformerSceneRatingAdvisorStats: React.FC<{
 
   return (
     <RatingAdvisorStatsContent
-      description="Each bar averages only this vato's scenes where that criterion is set."
+      description="Each bar only counts this vato's scenes rated on that criterion."
       hideEmptySceneSections
       sectionKeys={performerSceneRatingAdvisorSectionKeys}
       stats={stats}

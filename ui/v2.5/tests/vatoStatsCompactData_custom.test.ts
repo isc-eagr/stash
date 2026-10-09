@@ -37,8 +37,6 @@ test("compact VatoStats preserves every metric, demographic and age bucket", () 
           ],
         },
       ],
-      o: 15,
-      t: 16,
     }),
     {
       vatoStatsPerformers: [
@@ -73,8 +71,6 @@ test("compact VatoStats preserves every metric, demographic and age bucket", () 
           ],
         },
       ],
-      sceneOrgasmCount: 15,
-      totalOrgasmTime: 16,
     }
   );
 });
@@ -82,8 +78,6 @@ test("compact VatoStats preserves every metric, demographic and age bucket", () 
 test("compact VatoStats preserves unknowns and an empty scope", () => {
   assert.deepEqual(expandVatoStatsCompactData(), {
     vatoStatsPerformers: [],
-    sceneOrgasmCount: 0,
-    totalOrgasmTime: 0,
   });
   const result = expandVatoStatsCompactData({
     p: [
@@ -115,8 +109,6 @@ test("compact VatoStats preserves unknowns and an empty scope", () => {
         ac: [],
       },
     ],
-    o: 0,
-    t: 0,
   });
   for (const field of [
     "image_path",

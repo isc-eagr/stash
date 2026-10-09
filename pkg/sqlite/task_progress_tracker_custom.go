@@ -18,23 +18,23 @@ import (
 const taskProgressTrackerTable = "task_progress_trackers"
 
 type taskProgressTrackerRow struct {
-	ID               int       `db:"id" goqu:"skipinsert,skipupdate"`
-	Title            string    `db:"title"`
-	Description      string    `db:"description"`
-	Goal             int       `db:"goal"`
-	GoalPerDay       *int      `db:"goal_per_day"`
-	TagID            int       `db:"tag_id"`
-	Position         int       `db:"position"`
-	IsWorkingOn      bool      `db:"is_working_on"`
-	StartedOn        string    `db:"started_on"`
-	Status           string    `db:"status"`
-	Mode             string    `db:"mode"`
-	Version          int       `db:"version"`
-	HistoryStartedOn string    `db:"history_started_on"`
-	ItemTypes        string    `db:"item_types"`
-	CreatedAt        time.Time `db:"created_at"`
-	UpdatedAt        time.Time `db:"updated_at"`
-	TagName          string    `db:"tag_name" goqu:"skipinsert,skipupdate"`
+	ID               int           `db:"id" goqu:"skipinsert,skipupdate"`
+	Title            string        `db:"title"`
+	Description      string        `db:"description"`
+	Goal             int           `db:"goal"`
+	GoalPerDay       *int          `db:"goal_per_day"`
+	TagID            sql.NullInt64 `db:"tag_id"`
+	Position         int           `db:"position"`
+	IsWorkingOn      bool          `db:"is_working_on"`
+	StartedOn        string        `db:"started_on"`
+	Status           string        `db:"status"`
+	Mode             string        `db:"mode"`
+	Version          int           `db:"version"`
+	HistoryStartedOn string        `db:"history_started_on"`
+	ItemTypes        string        `db:"item_types"`
+	CreatedAt        time.Time     `db:"created_at"`
+	UpdatedAt        time.Time     `db:"updated_at"`
+	TagName          string        `db:"tag_name"`
 }
 
 func (r *taskProgressTrackerRow) fromModel(tracker models.TaskProgressTracker) {
@@ -43,7 +43,8 @@ func (r *taskProgressTrackerRow) fromModel(tracker models.TaskProgressTracker) {
 	r.Description = tracker.Description
 	r.Goal = tracker.Goal
 	r.GoalPerDay = tracker.GoalPerDay
-	r.TagID = tracker.TagID
+	r.TagID = sql.NullInt64{Int64: int64(tracker.TagID), Valid: tracker.TagID != 0}
+	r.TagName = tracker.TagName
 	r.Position = tracker.Position
 	r.IsWorkingOn = tracker.IsWorkingOn
 	r.StartedOn = tracker.StartedOn
@@ -61,7 +62,7 @@ func (r *taskProgressTrackerRow) resolve() *models.TaskProgressTracker {
 		Description: r.Description,
 		Goal:        r.Goal,
 		GoalPerDay:  r.GoalPerDay,
-		TagID:       r.TagID,
+		TagID:       int(r.TagID.Int64),
 		TagName:     r.TagName,
 		Position:    r.Position,
 		IsWorkingOn: r.IsWorkingOn,
@@ -100,7 +101,7 @@ func (s *TaskProgressTrackerStore) selectDataset() *goqu.SelectDataset {
 	table := s.table()
 	tags := goqu.T(tagTable)
 	return dialect.From(table).
-		InnerJoin(tags, goqu.On(tags.Col(idColumn).Eq(table.Col("tag_id")))).
+		LeftJoin(tags, goqu.On(tags.Col(idColumn).Eq(table.Col("tag_id")))).
 		Select(
 			table.Col("id"),
 			table.Col("title"),
@@ -116,7 +117,7 @@ func (s *TaskProgressTrackerStore) selectDataset() *goqu.SelectDataset {
 			table.Col("item_types"),
 			table.Col("created_at"),
 			table.Col("updated_at"),
-			tags.Col("name"),
+			goqu.COALESCE(tags.Col("name"), table.Col("tag_name")).As("tag_name"),
 		)
 }
 

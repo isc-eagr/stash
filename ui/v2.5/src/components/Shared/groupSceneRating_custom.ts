@@ -19,32 +19,28 @@ export const GROUP_SCENE_ENERGY_COORDINATION_CHOICES_CUSTOM = [
   {
     label: "Disconnected",
     description:
-      "Dead energy, messy flow, and most of these vatos are basically furniture.",
+      "Pura hueva. Messy flow, and most of these vatos are basically muebles.",
   },
   {
     label: "Uneven",
-    description:
-      "A little action lands, but the energy and coordination stay inconsistent.",
+    description: "Ahí van. Some action lands, but it's all over the place.",
   },
   {
     label: "Good",
-    description:
-      "Good stretches, solid involvement, and a group flow that mostly works.",
+    description: "Normalito. Solid involvement, decent flow.",
   },
   {
     label: "Strong",
-    description:
-      "Good energy, most vatos get involved, and the group action works.",
+    description: "Most vatos get in on it. Está rico.",
   },
   {
     label: "Excellent",
     description:
-      "Every verga gets used well and the intensity stays hot throughout.",
+      "Every verga gets used right and the heat stays up the whole time.",
   },
   {
     label: "Perfect execution",
-    description:
-      "Seamless, intense, and fully coordinated. Every vato matters the whole time.",
+    description: "Pinche perfecto. Every vato matters, de principio a fin.",
   },
 ];
 

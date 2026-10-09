@@ -33,7 +33,7 @@ export const VatoStatsRatingAdvisor: React.FC<IProps> = ({
   });
 
   if (loading) {
-    return <LoadingIndicator message="Loading vato ratings…" inline />;
+    return <LoadingIndicator message="Pulling up the vato ratings…" inline />;
   }
   if (error) {
     return <ErrorMessage error={error.message} />;
@@ -44,8 +44,8 @@ export const VatoStatsRatingAdvisor: React.FC<IProps> = ({
     <RatingAdvisorStatsContent
       description={
         studioScope
-          ? `Averages for matching ${studioScope.name} vatos, using only vatos where each criterion is set.`
-          : "Averages for matching vatos, using only vatos where each criterion is set."
+          ? `Averages for these ${studioScope.name} vatos, only counting vatos rated on each criterion.`
+          : "Averages for these vatos, only counting vatos rated on each criterion."
       }
       sectionKeys={["performers"]}
       showOverallSceneAverage={false}

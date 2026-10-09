@@ -83,6 +83,18 @@ const SceneStats = lazyComponent(
 const VatoStats = lazyComponent(
   () => import("./components/VatoStats/VatoStats")
 ); // CUSTOM
+// CUSTOM: begin - Nut Stats and Facial Stats share one chunk.
+const NutStats = lazyComponent<object>(() =>
+  import("./components/MarkerEventStats/MarkerEventStats").then((module) => ({
+    default: module.NutStats,
+  }))
+);
+const FacialStats = lazyComponent<object>(() =>
+  import("./components/MarkerEventStats/MarkerEventStats").then((module) => ({
+    default: module.FacialStats,
+  }))
+);
+// CUSTOM: end
 const GEVILatest = lazyComponent(
   () => import("./components/GEVILatest/GEVILatest_custom")
 ); // CUSTOM
@@ -299,6 +311,8 @@ export const App: React.FC = () => {
             />{" "}
             {/* CUSTOM */}
             <Route path="/vatostats" component={VatoStats} /> {/* CUSTOM */}
+            <Route path="/nutstats" component={NutStats} /> {/* CUSTOM */}
+            <Route path="/facialstats" component={FacialStats} /> {/* CUSTOM */}
             <Route path="/gevi-latest" component={GEVILatest} /> {/* CUSTOM */}
             {/* CUSTOM */}
             <Route

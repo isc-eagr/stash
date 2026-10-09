@@ -33,7 +33,7 @@ export const SceneStatsInsights: React.FC<IProps> = ({
     : studioName
     ? `${studioName} scenes`
     : "every scene";
-  const ratingDescription = `Averages for ${scopeLabel}, using only scenes where each criterion is set.`;
+  const ratingDescription = `Averages for ${scopeLabel}, only counting scenes rated on each criterion.`;
 
   if (loading) {
     return <LoadingIndicator message="Loading scene insights…" />;

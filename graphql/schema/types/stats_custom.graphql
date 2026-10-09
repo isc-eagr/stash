@@ -475,34 +475,6 @@ extend type Query {
     depth: Int
     date_range: StatsDateRangeInput
   ): [VatoStatsPerformer!]!
-  "Get total number of 'orgasm' marker-tag entries"
-  sceneOrgasmCount(
-    studio_id: ID
-    depth: Int
-    date_range: StatsDateRangeInput
-    cohort: StatsCohortInput
-  ): Int!
-  "Get total number of facial markers (primary or secondary). Includes descendants of 'facial'."
-  sceneFacialCount(
-    studio_id: ID
-    depth: Int
-    date_range: StatsDateRangeInput
-    cohort: StatsCohortInput
-  ): Int!
-  "Get total time (in seconds) of orgasm markers. Uses 20s default if no end time."
-  totalOrgasmTime(
-    studio_id: ID
-    depth: Int
-    date_range: StatsDateRangeInput
-    cohort: StatsCohortInput
-  ): Float!
-  "Get total time (in seconds) of facial markers. Uses 20s default if no end time."
-  totalFacialTime(
-    studio_id: ID
-    depth: Int
-    date_range: StatsDateRangeInput
-    cohort: StatsCohortInput
-  ): Float!
   "Get total time (in seconds) of completed sex activity markers."
   totalSexTime(
     studio_id: ID

@@ -167,6 +167,13 @@ ORDER BY dates.tracker_id,dates.occurred_on`
 		t.IncomingCount += d.Incoming
 		t.History = append(t.History, d)
 	}
+	for _, tracker := range trackers {
+		if tracker.TagID == 0 && tracker.Mode == "BACKLOG" && len(tracker.History) > 0 {
+			if tracker.Status != models.TaskProgressTrackerStatusCompleted {
+				tracker.CurrentCount = tracker.History[len(tracker.History)-1].Remaining
+			}
+		}
+	}
 	return rows.Err()
 }
 

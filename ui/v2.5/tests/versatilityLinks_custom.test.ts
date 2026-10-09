@@ -7,6 +7,7 @@ import cx from "classnames";
 import ts from "typescript";
 import * as scale from "../src/components/Performers/PerformerDetails/versatilityScale_custom.ts";
 import * as navigation from "../src/utils/navigation_custom.ts";
+import * as sortHighlight from "../src/components/Shared/catalogCardSortHighlight_custom.ts";
 
 let roleTagIds = { sexTagId: "sex", oralTagId: "oral", facialTagId: "facial" };
 function loadComponent(file: string) {
@@ -35,6 +36,8 @@ function loadComponent(file: string) {
         if (name === "classnames") return cx;
         if (name === "./versatilityScale_custom") return scale;
         if (name === "src/utils/navigation_custom") return navigation;
+        if (name === "src/components/Shared/catalogCardSortHighlight_custom")
+          return sortHighlight;
         if (name === "src/hooks/Config")
           return {
             useConfigurationContext: () => ({

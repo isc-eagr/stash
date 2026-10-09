@@ -48,16 +48,6 @@ export const VATO_STATS_COMPACT_QUERY = gql`
         c: count
       }
     }
-    o: sceneOrgasmCount(
-      studio_id: $studioId
-      depth: $depth
-      date_range: $dateRange
-    )
-    t: totalOrgasmTime(
-      studio_id: $studioId
-      depth: $depth
-      date_range: $dateRange
-    )
   }
 `;
 

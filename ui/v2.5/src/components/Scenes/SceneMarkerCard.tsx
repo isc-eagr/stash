@@ -33,7 +33,10 @@ import {
 } from "./SceneDetails/sceneMarkerHoverPopover_custom"; // CUSTOM
 import { toSceneMarkerCardContext } from "./sceneMarkerCardContext_custom"; // CUSTOM
 import { ROLE_COLORS_CUSTOM } from "src/utils/roleColors_custom"; // CUSTOM
-import { SortMetricBadgeCustom } from "../Shared/SortMetricBadge_custom"; // CUSTOM
+import {
+  SortMetricBadgeCustom,
+  type ISortMetricBadgeCustom,
+} from "../Shared/SortMetricBadge_custom"; // CUSTOM
 import { getSceneMarkerSortMetricCustom } from "./sceneMarkerSortMetric_custom"; // CUSTOM
 import {
   catalogCardSortHighlightClassCustom,
@@ -55,6 +58,7 @@ interface ISceneMarkerCardProps {
   onSelectedChanged?: (selected: boolean, shiftKey: boolean) => void;
   activeSortBy?: string; // CUSTOM
   activeSortDirection?: GQL.SortDirectionEnum; // CUSTOM
+  sortMetric?: ISortMetricBadgeCustom; // CUSTOM: stats rankings supply their own value
 }
 
 const SceneMarkerCardPopovers = PatchComponent(
@@ -258,10 +262,9 @@ const SceneMarkerCardDetails = PatchComponent(
     );
     const sortDirection =
       props.activeSortDirection ?? GQL.SortDirectionEnum.Asc; // CUSTOM
-    const sortMetric = getSceneMarkerSortMetricCustom(
-      props.activeSortBy,
-      props.marker
-    ); // CUSTOM
+    const sortMetric =
+      props.sortMetric ??
+      getSceneMarkerSortMetricCustom(props.activeSortBy, props.marker); // CUSTOM
     const embeddedSortMetric =
       isCatalogCardSortHighlightedCustom(props.activeSortBy, "seconds") ||
       (isCatalogCardSortHighlightedCustom(props.activeSortBy, "duration") &&

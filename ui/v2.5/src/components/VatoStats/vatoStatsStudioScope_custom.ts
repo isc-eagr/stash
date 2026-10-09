@@ -20,7 +20,6 @@ export interface IVatoStatsSummaryPerformer {
 }
 
 export interface IVatoStatsSummary {
-  estimatedLiters: number;
   totalPenisMeters: number;
   measuredCount: number;
   assumedCount: number;
@@ -29,8 +28,7 @@ export interface IVatoStatsSummary {
 // Computed from the loaded vato rows for every scope. The unscoped list
 // includes zero-scene vatos, so it matches the old library-wide totals.
 export function getVatoStatsSummary(
-  performers: readonly IVatoStatsSummaryPerformer[],
-  orgasmCount: number
+  performers: readonly IVatoStatsSummaryPerformer[]
 ): IVatoStatsSummary {
   const measured = performers.filter(
     (p) =>
@@ -39,7 +37,6 @@ export function getVatoStatsSummary(
       p.penis_length > 0
   );
   return {
-    estimatedLiters: (orgasmCount * 3) / 1000,
     totalPenisMeters:
       (measured.reduce((total, p) => total + p.penis_length!, 0) +
         (performers.length - measured.length) * 17) /

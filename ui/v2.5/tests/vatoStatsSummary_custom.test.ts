@@ -13,6 +13,13 @@ const sceneStatsSource = readFileSync(
   new URL("../src/components/SceneStats/SceneStats.tsx", import.meta.url),
   "utf8"
 );
+const nutStatsSource = readFileSync(
+  new URL(
+    "../src/components/MarkerEventStats/MarkerEventStats.tsx",
+    import.meta.url
+  ),
+  "utf8"
+);
 
 const summaryStart = vatoStatsSource.indexOf("const VatoStatsSummary");
 const summaryEnd = vatoStatsSource.indexOf(
@@ -26,23 +33,16 @@ const primarySummary = summarySource.slice(
 );
 assert.deepEqual(
   [...primarySummary.matchAll(/label: "([^"]+)"/g)].map((match) => match[1]),
-  [
-    "Total Vatos",
-    "Meters of Pito",
-    "Total Nuts",
-    "Total Nut Time",
-    "Estimated Liters",
-  ],
-  "all five totals should remain visible in their original order"
+  ["Total Vatos", "Meters of Pito"],
+  "nut totals moved to Nut Stats"
 );
 assert.doesNotMatch(primarySummary, /<details|Fun stats/);
 assert.match(primarySummary, /summary\.totalPenisMeters/);
-assert.match(primarySummary, /summary\.estimatedLiters/);
 assert.match(
   primarySummary,
   /title:.*summary\.assumedCount.*estimated at 17 cm/
 );
-assert.match(primarySummary, /title: "Total Nuts × 3 mL"/);
+assert.doesNotMatch(vatoStatsSource, /sceneOrgasmCount|totalOrgasmTime/);
 assert.doesNotMatch(
   vatoStatsSource,
   /o_per_scene|O's per Scene|metricIncludesPerformer/
@@ -59,18 +59,19 @@ assert.doesNotMatch(
 );
 assert.match(
   vatoStatsStyles,
-  /\.vatostats-summary-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(5, minmax\(0, 1fr\)\);/,
-  "the summary should use an even five-column desktop layout"
+  /\.vatostats-summary-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\);/,
+  "the summary should use an even two-column desktop layout"
 );
-assert.match(
+assert.match(nutStatsSource, /countLabel: "Total Nuts"/);
+assert.match(nutStatsSource, /timeLabel: "Total Nut Time"/);
+assert.match(nutStatsSource, /label: "Estimated Liters"/);
+assert.match(nutStatsSource, /title: "Total Nuts × 3 mL"/);
+assert.match(nutStatsSource, /countLabel: "Total Facials"/);
+assert.match(nutStatsSource, /timeLabel: "Total Facial Time"/);
+assert.doesNotMatch(
   sceneStatsSource,
-  /scenestats-summary-label">Total Nuts<\/div>/,
-  "Scene Stats should call the orgasm total Total Nuts"
-);
-assert.match(
-  sceneStatsSource,
-  /scenestats-summary-label">\s*Total Nut Time\s*<\/div>/,
-  "Scene Stats should call the orgasm duration Total Nut Time"
+  /Total Nuts|Total Nut Time|Total Facials|Total Facial Time|sceneOrgasmCount\(|sceneFacialCount\(/,
+  "nut and facial totals moved to Nut Stats and Facial Stats"
 );
 assert.doesNotMatch(
   sceneStatsSource,

@@ -81,7 +81,9 @@ export const SceneStatsActivityMatrix: React.FC<IProps> = ({
   }
   if (error) return <ErrorMessage error={error.message} />;
   if (matrix.rows.length === 0) {
-    return <Alert variant="secondary">No tagged marker activity found.</Alert>;
+    return (
+      <Alert variant="secondary">No tagged marker activity yet. Nada.</Alert>
+    );
   }
 
   return (

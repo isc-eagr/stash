@@ -1,0 +1,95 @@
+# CUSTOM: Nut Stats and Facial Stats read one row per nut or facial event.
+# See CUSTOM_FEATURES.md.
+
+"Marker family a marker-event stats query reads"
+enum MarkerEventStatsKind {
+  "Orgasm markers (Nut Stats)"
+  ORGASM
+  "Facial markers (Facial Stats)"
+  FACIAL
+}
+
+"Really Hot or GOAT qualifier on a nut or facial; GOAT wins over Really Hot"
+enum MarkerEventQuality {
+  REGULAR
+  REALLY_HOT
+  GOAT
+}
+
+"What the vato who came was doing: an overlapping Sex, Oral, or Solo marker, or matching ones ending and starting within 10 seconds of it"
+enum MarkerEventActivity {
+  "Bottom in a Sex marker"
+  GETTING_FUCKED
+  "Top in a Sex marker"
+  FUCKING
+  "Top in an Oral marker"
+  GETTING_SUCKED
+  "Bottom in an Oral marker"
+  SUCKING
+  "In a Solo marker, or a Solo marker without assigned vatos"
+  SOLO
+}
+
+"A vato in a nut or facial"
+type MarkerEventStatsVato {
+  performer_id: ID!
+  "Age at the scene's effective date; null when unknown or outside 18-80"
+  age: Int
+}
+
+"One nut or facial: a marker counted once per assigned top, or once without one"
+type MarkerEventStatsEvent {
+  marker_id: ID!
+  scene_id: ID!
+  scene_title: String
+  scene_rating100: Int
+  "The scene's effective date (YYYY-MM-DD)"
+  scene_date: String
+  "Marker length in seconds; 20 when the marker has no end"
+  duration: Float!
+  "The top who came; null when the marker has no top"
+  giver: MarkerEventStatsVato
+  "Bottoms on the marker"
+  receivers: [MarkerEventStatsVato!]!
+  "Your O's whose video timestamp falls inside the marker"
+  o_count: Int!
+  "UTC time of the latest of those O's"
+  latest_o_date: String
+  "Sub-type tags; descendants roll up to the family tag's direct child. Empty means a plain one."
+  type_tag_ids: [ID!]!
+  quality: MarkerEventQuality!
+  "Empty without a giver or a matching Sex, Oral, or Solo marker"
+  activities: [MarkerEventActivity!]!
+}
+
+"A vato referenced by the events"
+type MarkerEventStatsPerformer {
+  id: ID!
+  name: String!
+  image_path: String
+  rating100: Int
+  ethnicity: String
+  country: String
+}
+
+"Name of a sub-type tag referenced by type_tag_ids"
+type MarkerEventStatsType {
+  id: ID!
+  name: String!
+}
+
+type MarkerEventStatsResult {
+  events: [MarkerEventStatsEvent!]!
+  performers: [MarkerEventStatsPerformer!]!
+  types: [MarkerEventStatsType!]!
+}
+
+extend type Query {
+  "Get nut or facial events for Nut Stats and Facial Stats"
+  markerEventStats(
+    kind: MarkerEventStatsKind!
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+  ): MarkerEventStatsResult!
+}

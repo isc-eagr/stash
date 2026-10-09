@@ -7,6 +7,7 @@ import {
 } from "../Shared/GridCard/GridCard";
 import { PatchComponent } from "src/patch";
 import { useSceneMarkerCardContextMap } from "./sceneMarkerCardContext_custom"; // CUSTOM
+import type { ISortMetricBadgeCustom } from "../Shared/SortMetricBadge_custom"; // CUSTOM
 
 interface ISceneMarkerCardGrid {
   markers: GQL.SceneMarkerDataFragment[];
@@ -15,6 +16,10 @@ interface ISceneMarkerCardGrid {
   onSelectChange: (id: string, selected: boolean, shiftKey: boolean) => void;
   activeSortBy?: string; // CUSTOM
   activeSortDirection?: GQL.SortDirectionEnum; // CUSTOM
+  // CUSTOM: per-card ranked value for stats pages
+  sortMetricFor?: (
+    marker: GQL.SceneMarkerDataFragment
+  ) => ISortMetricBadgeCustom | undefined;
 }
 
 const zoomWidths = [240, 340, 480, 640];
@@ -29,6 +34,7 @@ export const SceneMarkerCardGrid: React.FC<ISceneMarkerCardGrid> =
       onSelectChange,
       activeSortBy,
       activeSortDirection,
+      sortMetricFor, // CUSTOM
     }) => {
       const [componentRef, { width: containerWidth }] =
         useContainerDimensions();
@@ -52,6 +58,7 @@ export const SceneMarkerCardGrid: React.FC<ISceneMarkerCardGrid> =
               }
               activeSortBy={activeSortBy} // CUSTOM
               activeSortDirection={activeSortDirection} // CUSTOM
+              sortMetric={sortMetricFor?.(marker)} // CUSTOM
             />
           ))}
         </div>

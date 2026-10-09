@@ -31,9 +31,9 @@
 .vatostats-summary-grid {
   display: grid;
   gap: 1rem;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   margin: 0 auto 2rem;
-  max-width: 82rem;
+  max-width: 40rem;
 }
 
 .vatostats-summary-card {
@@ -164,14 +164,6 @@
 
   .vatostats-metric-control {
     min-width: 0;
-  }
-
-  .vatostats-summary-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .vatostats-summary-card:last-child {
-    grid-column: 1 / -1;
   }
 }
 @media (max-width: 520px) {

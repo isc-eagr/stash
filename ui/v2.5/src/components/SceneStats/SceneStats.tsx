@@ -68,7 +68,6 @@ import {
   sceneStatsReleaseYear,
 } from "./sceneStatsChartBuckets_custom";
 import {
-  makeSceneStatsMarkerTagURL,
   makeSceneStatsVatoCountURL,
   sceneStatsVatoCountBuckets,
 } from "./sceneStatsSummary_custom";
@@ -101,30 +100,6 @@ const SCENE_STATS_TOTALS = gql`
     $dateRange: StatsDateRangeInput
     $cohort: StatsCohortInput
   ) {
-    sceneOrgasmCount(
-      studio_id: $studioId
-      depth: $depth
-      date_range: $dateRange
-      cohort: $cohort
-    )
-    sceneFacialCount(
-      studio_id: $studioId
-      depth: $depth
-      date_range: $dateRange
-      cohort: $cohort
-    )
-    totalOrgasmTime(
-      studio_id: $studioId
-      depth: $depth
-      date_range: $dateRange
-      cohort: $cohort
-    )
-    totalFacialTime(
-      studio_id: $studioId
-      depth: $depth
-      date_range: $dateRange
-      cohort: $cohort
-    )
     totalSexTime(
       studio_id: $studioId
       depth: $depth
@@ -154,10 +129,6 @@ const SCENE_STATS_ROLE_TAGS = gql`
 `;
 
 type SceneStatsTotalsData = {
-  sceneOrgasmCount: number;
-  sceneFacialCount: number;
-  totalOrgasmTime: number;
-  totalFacialTime: number;
   totalSexTime: number;
   totalOralTime: number;
 };
@@ -1072,7 +1043,6 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
         stringRoleTagId(roleTagIds.oralTagId),
         stringRoleTagId(roleTagIds.soloTagId),
         stringRoleTagId(roleTagIds.facialTagId),
-        stringRoleTagId(roleTagIds.orgasmTagId),
         stringRoleTagId(roleTagIds.reallyHotTagId),
       ].filter((id): id is string => !!id),
     [roleTagIds]
@@ -1103,9 +1073,6 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
   const soloTag = roleTagsByID.get(stringRoleTagId(roleTagIds.soloTagId) ?? "");
   const facialTag = roleTagsByID.get(
     stringRoleTagId(roleTagIds.facialTagId) ?? ""
-  );
-  const orgasmTag = roleTagsByID.get(
-    stringRoleTagId(roleTagIds.orgasmTagId) ?? ""
   );
   const reallyHotTag = roleTagsByID.get(
     stringRoleTagId(roleTagIds.reallyHotTagId) ?? ""
@@ -1639,83 +1606,13 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
             </Link>
           </section>
 
-          {(typeof summary.sceneOrgasmCount === "number" ||
-            typeof summary.sceneFacialCount === "number" ||
-            typeof summary.totalOrgasmTime === "number" ||
-            typeof summary.totalFacialTime === "number" ||
-            typeof summary.totalSexTime === "number" ||
+          {(typeof summary.totalSexTime === "number" ||
             typeof summary.totalOralTime === "number") && (
             <>
               <section
                 className="scenestats-summary-grid"
                 aria-label="Scene metrics"
               >
-                {typeof summary.sceneOrgasmCount === "number" && (
-                  <Link
-                    className="scenestats-summary-card linked"
-                    title="A marker with two tops counts as two nuts; one without tops counts as one. The list counts markers and can include second-camera repeats, which this total skips."
-                    to={sceneStatsScopedListURL(
-                      makeSceneStatsMarkerTagURL(
-                        orgasmTag,
-                        hasChartFilters || dateRangeVariable
-                          ? filteredScenes
-                          : undefined
-                      ),
-                      effectiveStudioScope
-                    )}
-                  >
-                    <div className="scenestats-summary-value">
-                      {summary.sceneOrgasmCount.toLocaleString()}
-                    </div>
-                    <div className="scenestats-summary-label">Total Nuts</div>
-                    <small>View markers</small>
-                  </Link>
-                )}
-                {typeof summary.totalOrgasmTime === "number" &&
-                  summary.totalOrgasmTime > 0 && (
-                    <div className="scenestats-summary-card">
-                      <div className="scenestats-summary-value">
-                        {formatDuration(summary.totalOrgasmTime)}
-                      </div>
-                      <div className="scenestats-summary-label">
-                        Total Nut Time
-                      </div>
-                    </div>
-                  )}
-                {typeof summary.sceneFacialCount === "number" && (
-                  <Link
-                    className="scenestats-summary-card linked"
-                    title="A marker with two tops counts as two facials; one without tops counts as one. The list counts markers and can include second-camera repeats, which this total skips."
-                    to={sceneStatsScopedListURL(
-                      makeSceneStatsMarkerTagURL(
-                        facialTag,
-                        hasChartFilters || dateRangeVariable
-                          ? filteredScenes
-                          : undefined
-                      ),
-                      effectiveStudioScope
-                    )}
-                  >
-                    <div className="scenestats-summary-value">
-                      {summary.sceneFacialCount.toLocaleString()}
-                    </div>
-                    <div className="scenestats-summary-label">
-                      Total Facials
-                    </div>
-                    <small>View markers</small>
-                  </Link>
-                )}
-                {typeof summary.totalFacialTime === "number" &&
-                  summary.totalFacialTime > 0 && (
-                    <div className="scenestats-summary-card">
-                      <div className="scenestats-summary-value">
-                        {formatDuration(summary.totalFacialTime)}
-                      </div>
-                      <div className="scenestats-summary-label">
-                        Total Facial Time
-                      </div>
-                    </div>
-                  )}
                 {typeof summary.totalSexTime === "number" &&
                   summary.totalSexTime > 0 && (
                     <div className="scenestats-summary-card">

@@ -128,29 +128,27 @@ assert.deepEqual(SCENE_ORGASM_QUALITY_CHOICES_CUSTOM, [
   {
     value: 0,
     label: "Absent/bad orgasms",
-    description:
-      "No orgasm, very obviously fake, or it is actively bad, off camera, or off-putting.",
+    description: "Qué gacho. No nut, fake nut, or they hid it from you.",
   },
   {
     value: 1,
     label: "Below average orgasms",
-    description:
-      "The orgasms are there, but they are weak, barely there, or unimpressive.",
+    description: "There's a nut, but it's barely there, or meh.",
   },
   {
     value: 2,
     label: "Standard orgasms",
-    description: "A solid orgasm. Hot, just not legendary.",
+    description: "Normalito. A solid nut, nada legendary.",
   },
   {
     value: 3,
     label: "Above average",
-    description: "A hot nut or facial that gives the scene a real bump.",
+    description: "That nut hits. The scene's better for it.",
   },
   {
     value: 4,
     label: "Outstanding orgasms",
-    description: "That orgasm or facial is the damn highlight.",
+    description: "You're rewinding that nut. The pinche highlight.",
   },
 ]);
 assert.deepEqual(getSceneOrgasmQualityFilterChoicesCustom(), [

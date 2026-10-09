@@ -32,7 +32,7 @@ export const StudioRatingAdvisorPopover: React.FC<IProps> = ({
   const content = (
     <PopoverCard className="studio-rating-advisor-popover-card">
       {loading && !stats && (
-        <LoadingIndicator message="Loading rating averages…" inline small />
+        <LoadingIndicator message="Pulling up the averages…" inline small />
       )}
       {error && (
         <div className="studio-rating-advisor-popover-error">

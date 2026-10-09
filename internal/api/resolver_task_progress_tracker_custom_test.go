@@ -169,7 +169,7 @@ func TestTaskProgressTrackerRejectsStaleVersionCustom(t *testing.T) {
 func TestTaskProgressTrackerUndoPreservesBaselineCustom(t *testing.T) {
 	db := mocks.NewDatabase()
 	resolver := newResolver(db)
-	existing := &models.TaskProgressTracker{ID: 8, Version: 3, Status: "DELETED", Mode: "FIXED", Goal: 17, StartedOn: "2026-09-07", CurrentCount: 9}
+	existing := &models.TaskProgressTracker{ID: 8, TagID: 3, Version: 3, Status: "DELETED", Mode: "FIXED", Goal: 17, StartedOn: "2026-09-07", CurrentCount: 9}
 	db.TaskProgressTracker.On("Find", mock.Anything, 8).Return(existing, nil).Twice()
 	db.TaskProgressTracker.On("Update", mock.Anything, existing).Return(nil).Once()
 	status := "ACTIVE"
@@ -215,7 +215,7 @@ func TestTaskProgressTrackerStatusDrivesWorkingCustom(t *testing.T) {
 		t.Run(status, func(t *testing.T) {
 			db := mocks.NewDatabase()
 			resolver := newResolver(db)
-			existing := &models.TaskProgressTracker{ID: 8, Status: "ACTIVE", CurrentCount: 1, IsWorkingOn: true}
+			existing := &models.TaskProgressTracker{ID: 8, TagID: 3, Status: "ACTIVE", CurrentCount: 1, IsWorkingOn: true}
 			if status == "COMPLETED" {
 				existing.CurrentCount = 0
 			}
@@ -256,5 +256,31 @@ func TestTaskProgressCompletedTrackerMetadataCustom(t *testing.T) {
 	require.Equal(t, title, tracker.Title)
 	require.Equal(t, description, tracker.Description)
 	require.Equal(t, "COMPLETED", tracker.Status)
+	db.AssertExpectations(t)
+}
+
+func TestTaskProgressDetachedTrackerMetadataCustom(t *testing.T) {
+	db := mocks.NewDatabase()
+	resolver := newResolver(db)
+	existing := &models.TaskProgressTracker{ID: 8, TagID: 0, TagName: "Deleted project", Status: "COMPLETED", Mode: "BACKLOG", ItemTypes: []string{"scene"}}
+	db.TaskProgressTracker.On("Find", mock.Anything, 8).Return(existing, nil).Twice()
+	db.TaskProgressTracker.On("Update", mock.Anything, existing).Return(nil).Once()
+	tag, title := "0", "Kept history"
+	tracker, err := resolver.Mutation().TaskProgressTrackerUpdate(context.Background(), TaskProgressTrackerUpdateInput{ID: "8", TagID: &tag, Title: &title})
+	require.NoError(t, err)
+	require.Equal(t, title, tracker.Title)
+	db.Tag.AssertNotCalled(t, "Find", mock.Anything, mock.Anything)
+	db.AssertExpectations(t)
+}
+
+func TestTaskProgressDetachedTrackerNeedsReplacementTagCustom(t *testing.T) {
+	db := mocks.NewDatabase()
+	resolver := newResolver(db)
+	existing := &models.TaskProgressTracker{ID: 8, TagID: 0, Status: "ARCHIVED", CurrentCount: 5}
+	db.TaskProgressTracker.On("Find", mock.Anything, 8).Return(existing, nil).Once()
+	status := "ACTIVE"
+	_, err := resolver.Mutation().TaskProgressTrackerUpdate(context.Background(), TaskProgressTrackerUpdateInput{ID: "8", Status: &status})
+	require.ErrorContains(t, err, "choose a replacement tag")
+	db.TaskProgressTracker.AssertNotCalled(t, "Update", mock.Anything, mock.Anything)
 	db.AssertExpectations(t)
 }

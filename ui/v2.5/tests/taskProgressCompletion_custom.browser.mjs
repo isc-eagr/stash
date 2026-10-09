@@ -42,7 +42,7 @@ const bundle = await esbuild.build({
    if (operation.operationName === "TaskProgressPreview") previews++;
    observer.next({data: { taskProgressPreview: 0, findTags: { count: 0, tags: [] } }}); observer.complete();
   }))});
-  const tracker = {id: "1", title: "Finished project", description: "All done", goal: 10, goal_per_day: 2, tag_id: "2", tag_name: "Pending", position: 0,
+  const tracker = {id: "1", title: "Finished project", description: "All done", goal: 10, goal_per_day: 2, tag_id: "0", tag_name: "Pending", position: 0,
    started_on: "2026-10-01", history_started_on: "2026-10-01", status: "COMPLETED", mode: "FIXED", version: 2, item_types: ["scene"], current_count: 0,
    completed_count: 10, incoming_count: 0, item_counts: [], completed_item_counts: [{item_type: "scene", count: 10}],
    history: [{date: "2026-10-01", completed: 0, incoming: 0, remaining: 10, baseline_count: 10, goal_per_day: 2},
@@ -195,6 +195,11 @@ try {
     0
   );
   assert.equal(
+    await details.getByText("Deleted tag", { exact: true }).count(),
+    1
+  );
+  assert.equal(await details.locator('a[href="/tags/0"]').count(), 0);
+  assert.equal(
     await details.getByText("Activity progression", { exact: true }).count(),
     1
   );
@@ -209,10 +214,7 @@ try {
     await form.locator('#progress-status option[value="ACTIVE"]').isDisabled(),
     true
   );
-  assert.equal(
-    await form.locator('#progress-status option[value="ARCHIVED"]').isEnabled(),
-    true
-  );
+  assert.equal(await form.locator("#progress-status").isDisabled(), true);
   assert.equal(
     await form
       .getByRole("button", { name: "Save tracker", exact: true })

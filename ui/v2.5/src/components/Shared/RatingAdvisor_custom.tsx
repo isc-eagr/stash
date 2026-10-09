@@ -100,27 +100,28 @@ const RatingAdvisorScoresQuery = gql`
 const sceneVatoAttractivenessChoices = ratingAdvisorSixLevelChoicesCustom([
   {
     label: "Not attractive",
-    description: "He ain't the draw; you're here for somebody else.",
+    description: "Nel. He ain't why you're here, ni modo.",
   },
   {
     label: "Some appeal",
-    description: "He's got a little something, but the pull is light.",
+    description: "Not bad, pero no te prende.",
   },
   {
     label: "Decent",
-    description: "Cute enough, but you're not clicking just for him.",
+    description:
+      "Ahí la lleva. Cute enough, but he ain't the reason you clicked.",
   },
   {
     label: "Attractive",
-    description: "Hot vato. He definitely helps the scene.",
+    description: "Está rico. This vato makes the scene better, a huevo.",
   },
   {
     label: "Very attractive",
-    description: "Fine as hell and an instant reason to watch.",
+    description: "Qué rico, wey. Fine as hell and the reason you're watching.",
   },
   {
     label: "Perfect",
-    description: "Dead-on your type. Damn near no notes.",
+    description: "He's seriously one of the reasons you're into vatos.",
   },
 ]);
 
@@ -131,7 +132,7 @@ const sceneMetrics: IAdvisorMetric[] = [
     shortTitle: "Top",
     max: 5,
     weight: 0.6,
-    hint: "How hot the top vato or lineup looks specifically in this scene. This may differ from the performer's overall face and body ratings.",
+    hint: "Is the activo here a papacito or nah? Rate his look in this scene, not his overall face and body ratings.",
     choices: sceneVatoAttractivenessChoices,
   },
   {
@@ -140,7 +141,7 @@ const sceneMetrics: IAdvisorMetric[] = [
     shortTitle: "Bottom",
     max: 5,
     weight: 0.2,
-    hint: "How hot the bottom vato or lineup looks specifically in this scene. This may differ from the performer's overall face and body ratings.",
+    hint: "Is the pasivo a papacito or nah? Rate his look in this scene, not his overall face and body ratings.",
     choices: sceneVatoAttractivenessChoices,
   },
   {
@@ -149,31 +150,33 @@ const sceneMetrics: IAdvisorMetric[] = [
     shortTitle: "Energy",
     max: 5,
     weight: SCENE_ENERGY_WEIGHT_CUSTOM,
-    hint: "How hot the actual sex feels: rhythm, reactions, chemistry, all that.",
+    hint: "How hot the actual cogida feels: rhythm, reactions, chemistry, todo.",
     choices: ratingAdvisorSixLevelChoicesCustom([
       {
         label: "No energy",
-        description: "Dead and awkward. These vatos look clocked out.",
+        description: "Pura hueva. These vatos are clocked out, wey.",
       },
       {
         label: "Serviceable",
-        description: "Gets the job done, but there ain't much spark.",
+        description: "Ahí van. They're fucking, but sin chispa.",
       },
       {
         label: "Decent",
-        description: "Some hot stretches, nothing too crazy.",
+        description: "Ahí la lleva. Some rico stretches, nada too crazy.",
       },
       {
         label: "Strong",
-        description: "Good rhythm and reactions. The sex really lands.",
+        description: "Good rhythm and reactions. The fucking really lands.",
       },
       {
         label: "Excellent",
-        description: "Hot as hell and exactly the right vibe.",
+        description:
+          "Bien cachondos. Hot as hell, and they can't keep their hands off each other.",
       },
       {
         label: "Perfect quality",
-        description: "The sex alone carries the whole damn scene.",
+        description:
+          "Pinche perfecto. You'd watch this even if you didn't like the vatos.",
       },
     ]),
   },
@@ -182,17 +185,18 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "Uniform/setting factor",
     max: 0.5,
     section: "bonus",
-    hint: "Flip it on when the fantasy, setting, or uniform makes it hotter.",
+    hint: "Cop, mechanic, albañil... flip it on when the fantasy makes it hotter.",
     choices: [
       {
         value: 0,
         label: "No theme bonus",
-        description: "The theme ain't doing anything extra for you.",
+        description: "The theme ain't doing nada extra for you.",
       },
       {
         value: 0.5,
         label: "Theme present",
-        description: "The uniform, fantasy, or setup makes this way hotter.",
+        description:
+          "The uniform, fantasy, or setup makes this way hotter. Qué rico.",
       },
     ],
   },
@@ -201,17 +205,17 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "Oral-only scene",
     max: 0.5,
     section: "bonus",
-    hint: "Flip it on when the scene is entirely sucking pito.",
+    hint: "Flip it on when it's puro eating verga, start to finish.",
     choices: [
       {
         value: 0,
         label: "Not oral-only",
-        description: "There is more than sucking pito going on.",
+        description: "There's more than mamando pito going on.",
       },
       {
         value: 0.5,
         label: "Oral-only bonus",
-        description: "Sucking pito and nothing else.",
+        description: "Mamando rifle the entire time, nothing else.",
       },
     ],
   },
@@ -220,17 +224,17 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "God-tier orgasm bonus",
     max: SCENE_GOD_TIER_ORGASM_BONUS_CUSTOM,
     section: "bonus",
-    hint: "For an orgasm or facial so wild it takes the scene up a whole level.",
+    hint: "For a nut or facial so wild it takes the scene up a whole level.",
     choices: [
       {
         value: 0,
         label: "Not god-tier",
-        description: "Good maybe, but not god-tier crazy.",
+        description: "Rico maybe, but not god-tier crazy.",
       },
       {
         value: SCENE_GOD_TIER_ORGASM_BONUS_CUSTOM,
         label: "God-tier orgasms",
-        description: "The orgasm or facial is straight-up legendary.",
+        description: "That nut or facial is straight-up legendary. No mames.",
       },
     ],
   },
@@ -239,7 +243,7 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "GOAT element",
     max: 2,
     section: "bonus",
-    hint: "Choose how much one GOAT-level act, angle, blowjob, or other killer moment adds.",
+    hint: "Pick how much one GOAT act, angle, mamada, or killer moment adds.",
     choices: SCENE_GOAT_ELEMENT_BONUS_CHOICES_CUSTOM,
   },
   {
@@ -247,18 +251,18 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "Unlikely top",
     max: 0.5,
     section: "bonus",
-    hint: "For a bottom-looking vato who flips the script and tops.",
+    hint: "For a vato with bottom energy who flips the script and tops.",
     choices: [
       {
         value: 0,
         label: "No bonus",
-        description: "No surprise-top heat here.",
+        description: "No sorpresa activo here.",
       },
       {
         value: 0.5,
         label: "Unlikely top bonus",
         description:
-          "He looks like a bottom, then pulls out that top energy. Hot.",
+          "Looked like he'd be taking verga, but ended up providing it.",
       },
     ],
   },
@@ -268,37 +272,36 @@ const sceneMetrics: IAdvisorMetric[] = [
     shortTitle: "Usable",
     max: SCENE_USABLE_FACTOR_MAX_CUSTOM,
     weight: SCENE_USABLE_FACTOR_WEIGHT_CUSTOM,
-    hint: "How much of the whole scene works without needing to skip around.",
+    hint: "How much of the scene works without skipping around.",
     choices: [
       {
         value: 0,
         label: "Mostly unusable",
         description:
-          "Long setup, bad positions, negative stretches, or other dead weight makes most of this a skip.",
+          "Puro relleno. Long setup, bad positions, and dead stretches; most of it's a skip.",
       },
       {
         value: 1,
         label: "Limited use",
-        description:
-          "A few workable moments land, but you're skipping a lot to get to them.",
+        description: "Algo hay. You just gotta dig for it.",
       },
       {
         value: 2,
         label: "Standard or mixed",
         description:
-          "A standard usable range, or a messy scene with a few outstanding stretches worth keeping.",
+          "Normalito. Usable enough, or a desmadre with a few chingón stretches worth it.",
       },
       {
         value: 3,
         label: "Highly usable",
         description:
-          "Most of it works: good angles, positions, and intensity with very little dragging.",
+          "Most of it's jalable. Good angles, positions, and intensity.",
       },
       {
         value: 4,
         label: "Nearly unskippable",
         description:
-          "Almost every stretch delivers. No wasted setup, no dead air, damn near all usable.",
+          "You never touch the skip button. Puro usable, start to finish.",
       },
     ],
   },
@@ -309,7 +312,7 @@ const sceneMetrics: IAdvisorMetric[] = [
     shortTitle: "Orgasm",
     max: 4,
     weight: 0.5,
-    hint: "How good the orgasms, facials, and final payoff are.",
+    hint: "How good the nuts and facials are.",
     choices: SCENE_ORGASM_QUALITY_CHOICES_CUSTOM,
   },
   {
@@ -317,17 +320,17 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "No orgasm",
     max: 0,
     section: "penalty",
-    hint: "Flip it on if nobody finishes or the scene cuts off early.",
+    hint: "Flip it on if nobody nuts or the scene cuts off early.",
     choices: [
       {
         value: 0,
         label: "Orgasm present",
-        description: "Somebody delivers a real payoff.",
+        description: "Somebody delivers a real nut.",
       },
       {
         value: SCENE_NO_ORGASM_PENALTY_CUSTOM,
         label: "No orgasm penalty",
-        description: "No orgasm, no payoff, or they cut away. Lame.",
+        description: "They cut away before the nut. Qué gacho.",
       },
     ],
   },
@@ -336,18 +339,17 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "Production / visual quality",
     max: 0,
     section: "penalty",
-    hint: "Flip it on when bad camera work or quality kills the heat.",
+    hint: "Flip it on when the camera guy or the ancient encoding ruin it.",
     choices: [
       {
         value: 0,
         label: "No penalty",
-        description: "Looks fine enough and stays out of the way.",
+        description: "Looks fine and stays out of the way.",
       },
       {
         value: -1,
         label: "Quality works against it",
-        description:
-          "Bad angles, lighting, editing, or quality ruin the good stuff.",
+        description: "The camera guy and the ancient encoding ruined it.",
       },
     ],
   },
@@ -356,19 +358,18 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "Extremely polished",
     max: 0,
     section: "penalty",
-    hint: "Flip it on when heavy production makes the scene feel artificial and flaw-free.",
+    hint: "Flip it on when it's so produced it feels plastic.",
     choices: [
       {
         value: 0,
         label: "No penalty",
-        description:
-          "The scene still feels human, spontaneous, and believable.",
+        description: "Still feels human, spontaneous, and real.",
       },
       {
         value: -1,
         label: "Extremely polished penalty",
         description:
-          "Everything feels overproduced: flawless performers, fake moaning, and a manufactured aesthetic kill the authenticity.",
+          "Overproduced everything: plastic vatos, fake moaning, and a manufactured look kill the realness.",
       },
     ],
   },
@@ -381,7 +382,7 @@ const soloSceneMetrics: IAdvisorMetric[] = [
     shortTitle: "Vato",
     max: 5,
     weight: SOLO_SCENE_WEIGHTS_CUSTOM.attractiveness,
-    hint: "How hot the solo vato looks specifically in this scene, from face to body to rifle. This may differ from the performer's overall face and body ratings.",
+    hint: "How hot the solo vato looks in this scene, from face to body to rifle. Can differ from his overall face and body ratings.",
     choices: sceneVatoAttractivenessChoices,
   },
   {
@@ -389,36 +390,34 @@ const soloSceneMetrics: IAdvisorMetric[] = [
     title: "Performance",
     max: 4,
     weight: SOLO_SCENE_WEIGHTS_CUSTOM.performance,
-    hint: "How genuinely excited and into the solo action the vato looks.",
+    hint: "How into it the vato really is while he's stroking it.",
     choices: [
       {
         value: 0,
         label: "Clocked out",
         description:
-          "Bored, detached, and waiting to finish so he can collect the check.",
+          "Pura hueva. He's just waiting to nut so he can cash the check.",
       },
       {
         value: 1,
         label: "Going through it",
-        description:
-          "He does the job, but the energy says he just wants it over with.",
+        description: "Ahí va. Gets it done, but he wants it over with.",
       },
       {
         value: 2,
         label: "Into it",
-        description: "He looks engaged and is clearly enjoying himself.",
+        description: "He's enjoying that verga, no doubt.",
       },
       {
         value: 3,
         label: "Excited",
         description:
-          "Strong reactions and real enthusiasm. He wants to be right there.",
+          "Bien prendido. Real reactions, and he wants to be right there.",
       },
       {
         value: 4,
         label: "Loving it",
-        description:
-          "Fully turned on, completely committed, and loving every second of it.",
+        description: "Bien caliente and all in. He'd do this for free.",
       },
     ],
   },
@@ -427,24 +426,24 @@ const soloSceneMetrics: IAdvisorMetric[] = [
     key: SOLO_SCENE_RATING_KEYS_CUSTOM.usability,
     title: "Usability",
     weight: SOLO_SCENE_WEIGHTS_CUSTOM.usability,
-    hint: "How much works without skipping, including the angles and pacing.",
+    hint: "How much works without skipping, angles and pacing included.",
   },
   {
     key: "orgasmBonus",
     title: "Orgasm",
     max: 1,
     section: "bonus",
-    hint: "Flip it on when the solo orgasm makes the scene better.",
+    hint: "Flip it on when his nut makes the solo better.",
     choices: [
       {
         value: 0,
         label: "No orgasm bonus",
-        description: "No worthwhile orgasm to boost the scene.",
+        description: "No nut worth bumping the scene for.",
       },
       {
         value: 1,
         label: "Orgasm bonus",
-        description: "He delivers a hot nut that makes the solo worth it.",
+        description: "He drops a hot nut that makes the solo worth it.",
         scoreValue: 1,
       },
     ],
@@ -454,12 +453,12 @@ const soloSceneMetrics: IAdvisorMetric[] = [
     title: "Feet",
     max: 1,
     section: "bonus",
-    hint: "Flip it on when the feet are actually part of the fun.",
+    hint: "Flip it on when the feet get real screen time and you're into it.",
     choices: [
       {
         value: 0,
         label: "No feet bonus",
-        description: "No feet, or they ain't doing anything for you.",
+        description: "No feet, or they ain't doing nada for you.",
       },
       {
         value: 1,
@@ -487,7 +486,7 @@ const groupSceneMetrics: IAdvisorMetric[] = [
     title: "Top Lineup Attractiveness",
     shortTitle: "Tops",
     weight: GROUP_SCENE_WEIGHTS_CUSTOM.topAttractiveness,
-    hint: "How hot the vatos doing the topping look as a lineup specifically in this scene. This may differ from the performers' overall face and body ratings.",
+    hint: "Are the activos papacitos or nah? Rate the lineup in this scene, not their overall face and body ratings.",
   },
   {
     key: GROUP_SCENE_RATING_KEYS_CUSTOM.criteria.energyCoordination,
@@ -495,7 +494,7 @@ const groupSceneMetrics: IAdvisorMetric[] = [
     shortTitle: "Energy",
     max: 5,
     weight: GROUP_SCENE_WEIGHTS_CUSTOM.energyCoordination,
-    hint: "How hot the action feels and how well the whole lineup works together.",
+    hint: "How caliente it gets and whether every vato's in on it.",
     choices: ratingAdvisorSixLevelChoicesCustom(
       GROUP_SCENE_ENERGY_COORDINATION_CHOICES_CUSTOM
     ),
@@ -505,7 +504,7 @@ const groupSceneMetrics: IAdvisorMetric[] = [
     key: GROUP_SCENE_RATING_KEYS_CUSTOM.criteria.usability,
     title: "Usability",
     weight: GROUP_SCENE_WEIGHTS_CUSTOM.usability,
-    hint: "How much of the group scene works without needing to skip around.",
+    hint: "How much of the orgy works without skipping around.",
   },
   // Orgasm is always the last criterion.
   {
@@ -519,7 +518,7 @@ const groupSceneMetrics: IAdvisorMetric[] = [
     title: "Attractive Bottom",
     max: GROUP_SCENE_BONUSES_CUSTOM.bottomAttractiveness,
     section: "bonus",
-    hint: "Flip it on when the bottom lineup is fine enough to add extra heat.",
+    hint: "Flip it on when the bottoms are fine enough to add extra heat.",
     choices: [
       {
         value: 0,
@@ -530,7 +529,7 @@ const groupSceneMetrics: IAdvisorMetric[] = [
         value: GROUP_SCENE_BONUSES_CUSTOM.bottomAttractiveness,
         label: "Attractive bottom bonus",
         description:
-          "The bottom lineup is hot and gives the scene a nice bump.",
+          "The bottoms are bien buenos and give the scene a nice bump.",
       },
     ],
   },
@@ -539,17 +538,18 @@ const groupSceneMetrics: IAdvisorMetric[] = [
     title: "Group Oral-Only Scene",
     max: GROUP_SCENE_BONUSES_CUSTOM.oralOnly,
     section: "bonus",
-    hint: "The big bonus for four-plus vatos sucking pito and nothing else.",
+    hint: "The big bonus: an entire crew, puro mamar rifle, nothing else.",
     choices: [
       {
         value: 0,
         label: "Not group oral-only",
-        description: "There is more than oral going on.",
+        description: "There's more than mamadas going on.",
       },
       {
         value: GROUP_SCENE_BONUSES_CUSTOM.oralOnly,
         label: "Group oral-only bonus",
-        description: "Four-plus vatos sucking pito and nothing else.",
+        description:
+          "An entire crew of vatos mamando rifle and nothing else. Qué rico.",
       },
     ],
   },
@@ -567,31 +567,32 @@ const performerMetrics: IAdvisorMetric[] = [
     title: "Face",
     max: 5,
     weight: 0.6,
-    hint: "How much that face makes you stop and look.",
+    hint: "How much that face pulls you in. Just the face, nothing else.",
     choices: ratingAdvisorSixLevelChoicesCustom([
       {
         label: "Not Attractive",
-        description: "That face just ain't doing it for you.",
+        description: "Nel. That face does nada for you.",
       },
       {
         label: "Some Appeal",
-        description: "He's got a little something, but not a strong pull.",
+        description: "Tiene su chiste, but not a strong pull.",
       },
       {
         label: "Decent",
-        description: "Cute enough, but you ain't clicking just for his face.",
+        description: "Normalito. Cute face, nothing that stops you.",
       },
       {
         label: "Attractive",
-        description: "Handsome vato. That face definitely helps.",
+        description: "Bien guapo. That face definitely helps.",
       },
       {
         label: "Very Attractive",
-        description: "Fine as hell. His face pulls you in right away.",
+        description: "Bien pinche guapo. Instant pull.",
       },
       {
         label: "Perfect",
-        description: "That face is dead-on your type. Damn.",
+        description:
+          "That face is seriously one of the reasons you're into vatos.",
       },
     ]),
   },
@@ -604,7 +605,7 @@ const performerMetrics: IAdvisorMetric[] = [
     choices: ratingAdvisorSixLevelChoicesCustom([
       {
         label: "Not Appealing",
-        description: "That body ain't doing anything for you.",
+        description: "Nel. That body does nada for you.",
       },
       {
         label: "Some Appeal",
@@ -612,19 +613,20 @@ const performerMetrics: IAdvisorMetric[] = [
       },
       {
         label: "Decent",
-        description: "Decent build, but not enough to make you click.",
+        description: "Normalito. Decent build, nothing that stops you.",
       },
       {
         label: "Attractive",
-        description: "Hot body. He looks good moving around naked.",
+        description: "Bien bueno. He looks good moving around encuerado.",
       },
       {
         label: "Very Attractive",
-        description: "Built fine as hell and hard to look away from.",
+        description: "Bien pinche bueno. Hard to look away.",
       },
       {
         label: "Perfect",
-        description: "Your ideal body, straight up.",
+        description:
+          "That body is seriously one of the reasons you're into vatos.",
       },
     ]),
   },
@@ -634,32 +636,33 @@ const performerMetrics: IAdvisorMetric[] = [
     shortTitle: "Sex",
     max: 5,
     weight: 0.4,
-    hint: "How well he fucks, reacts, moves, and owns the screen.",
+    hint: "Does he know how to fuck or nah? Reactions, moves, screen presence.",
     choices: ratingAdvisorSixLevelChoicesCustom([
       {
         label: "Weak",
-        description: "Awkward, passive, or lost. He drags scenes down.",
+        description:
+          "Pura hueva. Awkward, passive, or lost; he drags scenes down.",
       },
       {
         label: "Serviceable",
-        description: "He gets through it fine, but you ain't seeking him out.",
+        description: "Ahí va. Gets it done, but you ain't looking for him.",
       },
       {
         label: "Good",
-        description: "Good reactions and confidence. He helps the scene click.",
+        description:
+          "He knows what he's doing. Good reactions, good confidence.",
       },
       {
         label: "Strong",
-        description: "He makes even basic scenes hit harder.",
+        description: "Está rico. Even basic scenes hit harder with him.",
       },
       {
         label: "Excellent",
-        description: "He knows how to fuck and is usually why the scene works.",
+        description: "This cabrón fucks like he's getting paid double.",
       },
       {
         label: "Perfect",
-        description:
-          "His name alone sells the scene. You know he's bringing it.",
+        description: "No mames. If he's in it, you're watching. Period.",
       },
     ]),
   },
@@ -669,27 +672,27 @@ const performerMetrics: IAdvisorMetric[] = [
     shortTitle: "Race",
     max: 3,
     weight: 1 / 3,
-    hint: "How much his background and skin tone hit your type.",
+    hint: "How much his background and skin tone hit your type. Moreno or nah?",
     choices: [
       {
         value: 0,
         label: "Negative ethnic appeal",
-        description: "Asian or super white.",
+        description: "Asian or güero güero. Not your thing.",
       },
       {
         value: 1,
         label: "Neutral background",
-        description: "White or other non-standard ethnicities",
+        description: "White or other backgrounds. Doesn't hurt, doesn't help.",
       },
       {
         value: 2,
         label: "Partial ethnic appeal",
-        description: "White latino, black-white mixed",
+        description: "Ahí la lleva. Güero latino or black-white mixed.",
       },
       {
         value: 3,
         label: "Full ethnic appeal",
-        description: "Latino, black, afrolatino",
+        description: "Latino, black, afrolatino. Moreno and exactly your type.",
       },
     ],
   },
@@ -699,27 +702,28 @@ const performerMetrics: IAdvisorMetric[] = [
     shortTitle: "Masc",
     max: 3,
     weight: 1 / 3,
-    hint: "How much rugged, dominant, bro, blue-collar energy he gives off.",
+    hint: "How much rugged, dominant, compa, blue-collar energy he gives off.",
     choices: [
       {
         value: 0,
         label: "No masculine appeal",
-        description: "No real masculine pull for your taste.",
+        description: "No masc energy for your taste, ni modo.",
       },
       {
         value: 1,
         label: "Some masculine appeal",
-        description: "A little masc energy in the voice, look, or attitude.",
+        description: "Algo hay. A little masc in the voice, look, or attitude.",
       },
       {
         value: 2,
         label: "Strong",
-        description: "Rugged, confident, dominant—the masc energy is strong.",
+        description: "Bien macho. Albañil energy, confident and in charge.",
       },
       {
         value: 3,
         label: "Core ideal",
-        description: "Peak vato energy. Can't get more masculine than this.",
+        description:
+          "Peak vato. He's seriously one of the reasons you're into vatos.",
       },
     ],
   },
@@ -728,17 +732,17 @@ const performerMetrics: IAdvisorMetric[] = [
     title: "Consistency",
     max: 0.5,
     section: "bonus",
-    hint: "Flip it on when he stays hot across a bunch of scenes.",
+    hint: "Flip it on when he stays hot scene after scene.",
     choices: [
       {
         value: 0,
         label: "No consistency bonus",
-        description: "Too inconsistent, or only hot that one time.",
+        description: "Too hit-or-miss, or only hot that one time.",
       },
       {
         value: 0.5,
         label: "Consistent draw",
-        description: "Scene after scene, the vato still brings it.",
+        description: "You see his name, you know it's gonna be rico.",
       },
     ],
   },
@@ -747,18 +751,18 @@ const performerMetrics: IAdvisorMetric[] = [
     title: "Pito",
     max: 0.5,
     section: "bonus",
-    hint: "Flip it on when the verga is particularly good.",
+    hint: "Flip it on when that rifle is something special.",
     choices: [
       {
         value: 0,
         label: "No pito bonus",
         description:
-          "The rifle is standard. Hot because pitos are hot but that's it.",
+          "Standard rifle. Hot because pitos are hot, but that's it.",
       },
       {
         value: 0.5,
         label: "Pito bonus",
-        description: "That verga is truly outstanding.",
+        description: "Qué rifle. You'd watch just for that verga.",
       },
     ],
   },
@@ -767,17 +771,17 @@ const performerMetrics: IAdvisorMetric[] = [
     title: "Tattoos",
     max: 0.5,
     section: "bonus",
-    hint: "Flip it on when the ink makes him look hotter or rougher.",
+    hint: "Flip it on when the ink gives him that malandro look you like.",
     choices: [
       {
         value: 0,
         label: "Not present",
-        description: "No ink, or the tattoos ain't adding anything.",
+        description: "No ink, or the tattoos ain't adding nada.",
       },
       {
         value: 0.5,
         label: "Present",
-        description: "The ink makes him look hotter or rougher.",
+        description: "The ink makes him look hotter and más malandro.",
       },
     ],
   },
@@ -786,18 +790,17 @@ const performerMetrics: IAdvisorMetric[] = [
     title: "Feminine",
     max: 0,
     section: "penalty",
-    hint: "Flip it on when feminine energy lowers the appeal for you.",
+    hint: "Flip it on when femme energy kills the appeal for you.",
     choices: [
       {
         value: 0,
         label: "No penalty",
-        description: "His presentation ain't hurting the attraction.",
+        description: "His vibe ain't hurting the attraction.",
       },
       {
         value: -1,
         label: "Feminine penalty",
-        description:
-          "Too feminine for your taste, and it pulls the rating down.",
+        description: "Nel. Too femme for you.",
       },
     ],
   },
@@ -1201,8 +1204,8 @@ const RatingAdvisorModal: React.FC<{
     if (
       !window.confirm(
         entityType === "scene"
-          ? "Clear every advisor answer and remove this scene's rating?"
-          : "Clear every advisor answer? The current overall rating will be preserved."
+          ? "Wipe every answer and remove this scene's rating?"
+          : "Wipe every answer? His overall rating stays put."
       )
     ) {
       return;
@@ -1330,7 +1333,7 @@ const RatingAdvisorModal: React.FC<{
               </div>
             </>
           ) : (
-            <span>Pick the one that fits best.</span>
+            <span>Pick whichever fits, wey.</span>
           )}
         </div>
       </section>
@@ -1479,8 +1482,7 @@ const RatingAdvisorModal: React.FC<{
         )}
         {advisorScoresError && (
           <div className="rating-advisor-save-status" role="alert">
-            Automatic bonus data could not be loaded. Saved values remain
-            intact.
+            Couldn&apos;t load the auto bonus data. Your saved answers are fine.
           </div>
         )}
       </div>
@@ -1491,7 +1493,7 @@ const RatingAdvisorModal: React.FC<{
       >
         {allCoreRated && (
           <p className="rating-advisor-note">
-            Core rating complete. Bonuses and penalties are optional.
+            Core rating done, ese. Bonuses and penalties are optional.
           </p>
         )}
         <Button
@@ -1518,7 +1520,7 @@ const RatingAdvisorModal: React.FC<{
         <div className="rating-advisor-section-heading">
           <div>
             <h4 id="rating-advisor-bonus-title">Bonuses</h4>
-            <span>Flip on only what really adds heat.</span>
+            <span>Only flip on what really makes it hotter.</span>
           </div>
         </div>
         <div className="rating-advisor-adjustment-grid">
@@ -1536,8 +1538,8 @@ const RatingAdvisorModal: React.FC<{
               <h4 id="rating-advisor-penalty-title">Penalties</h4>
               <span>
                 {entityType === "performer"
-                  ? "Flip on what drags the vato down."
-                  : "Flip on what drags the scene down."}
+                  ? "Flip on whatever's dragging the vato down."
+                  : "Flip on whatever's dragging the scene down."}
               </span>
             </div>
           </div>

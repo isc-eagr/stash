@@ -1,7 +1,8 @@
 package api
 
-// CUSTOM: statsWeightedMarkerCountQueryBodyCustom is shared by orgasm/facial
-// totals. Each marker counts once per assigned top, with a minimum of one.
+// CUSTOM: statsWeightedMarkerCountQueryBodyCustom backs the studio facial
+// count. Each marker counts once per assigned top, with a minimum of one, the
+// same rule Nut Stats and Facial Stats use for their events.
 const statsWeightedMarkerCountQueryBodyCustom = `target_tags(id) AS (
   SELECT id FROM tags WHERE id = ?
   UNION ALL

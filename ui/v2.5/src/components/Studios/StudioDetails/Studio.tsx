@@ -34,6 +34,7 @@ import { StudioExtraCounts } from "./StudioExtraCounts"; // CUSTOM
 import { StudioStatsPanel } from "./StudioStatsPanel"; // CUSTOM
 import { StudioVatoStatsPanel } from "./StudioVatoStatsPanel"; // CUSTOM
 import { StudioOStatsPanel } from "./StudioOStatsPanel"; // CUSTOM
+import { StudioMarkerEventStatsPanel } from "./StudioMarkerEventStatsPanel"; // CUSTOM
 import { StudioHeaderInsights } from "./StudioHeaderInsights"; // CUSTOM
 import { StudioSiteSyncButton } from "./StudioSiteSyncButton"; // CUSTOM
 import { faTrashAlt } from "@fortawesome/free-solid-svg-icons";
@@ -82,6 +83,8 @@ const validTabs = [
   "stats",
   "vatostats", // CUSTOM
   "ostats", // CUSTOM
+  "nutstats", // CUSTOM
+  "facialstats", // CUSTOM
 ] as const;
 type TabKey = (typeof validTabs)[number];
 
@@ -303,6 +306,22 @@ const StudioTabs: React.FC<{
       <Tab eventKey="ostats" title="O Stats">
         {contentSwitch}
         <StudioOStatsPanel
+          studio={studio}
+          showChildStudioContent={showAllDetails}
+        />
+      </Tab>
+      <Tab eventKey="nutstats" title="Nut Stats">
+        {contentSwitch}
+        <StudioMarkerEventStatsPanel
+          kind="nut"
+          studio={studio}
+          showChildStudioContent={showAllDetails}
+        />
+      </Tab>
+      <Tab eventKey="facialstats" title="Facial Stats">
+        {contentSwitch}
+        <StudioMarkerEventStatsPanel
+          kind="facial"
           studio={studio}
           showChildStudioContent={showAllDetails}
         />

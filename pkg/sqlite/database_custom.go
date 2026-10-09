@@ -21,7 +21,8 @@ CREATE TABLE IF NOT EXISTS task_progress_trackers (
   description TEXT NOT NULL DEFAULT '',
   goal INTEGER NOT NULL,
   goal_per_day INTEGER CHECK(goal_per_day IS NULL OR goal_per_day > 0),
-  tag_id INTEGER NOT NULL,
+  tag_id INTEGER,
+  tag_name TEXT NOT NULL DEFAULT '',
   position INTEGER NOT NULL DEFAULT 0,
   is_working_on BOOLEAN NOT NULL DEFAULT 0,
   started_on TEXT NOT NULL,
@@ -32,7 +33,7 @@ CREATE TABLE IF NOT EXISTS task_progress_trackers (
   version INTEGER NOT NULL DEFAULT 1 CHECK(version >= 1),
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY(tag_id) REFERENCES tags(id) ON DELETE CASCADE,
+  FOREIGN KEY(tag_id) REFERENCES tags(id) ON DELETE SET NULL,
   CHECK(goal >= 0)
 );
 
@@ -194,6 +195,10 @@ CREATE TABLE IF NOT EXISTS custom_schema_migrations (
 		return err
 	}
 
+	if err := ensureTaskProgressTagRetentionCustom(ctx, tx); err != nil {
+		return err
+	}
+
 	if err := completeTaskProgressTrackersCustom(context.WithValue(ctx, txnKey, tx), 0); err != nil {
 		return err
 	}
@@ -312,6 +317,7 @@ func ensureTaskProgressTrackerColumnsCustom(ctx context.Context, tx *sqlx.Tx) er
 		{"mode", "TEXT NOT NULL DEFAULT 'BACKLOG' CHECK(mode IN ('FIXED', 'BACKLOG'))"},
 		{"version", "INTEGER NOT NULL DEFAULT 1 CHECK(version >= 1)"},
 		{"goal_per_day", "INTEGER CHECK(goal_per_day IS NULL OR goal_per_day > 0)"},
+		{"tag_name", "TEXT NOT NULL DEFAULT ''"},
 	}
 
 	for _, addition := range additions {

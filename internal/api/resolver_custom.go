@@ -2739,39 +2739,3 @@ ORDER BY day ASC`
 	}
 	return ret, nil
 }
-
-// SceneOrgasmCount returns the total number of orgasm events using marker logic:
-//   - Find markers where the primary tag is the configured orgasm tag or any descendant of it, or
-//     where any secondary tag is the configured orgasm tag or any descendant of it
-//   - Count each matching marker once per assigned top, with a minimum of one
-//
-// Uses roleTagIds.orgasmTagId from UI config and includes all subtags recursively.
-func (r *queryResolver) SceneOrgasmCount(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput, cohort *StatsCohortInput) (int, error) {
-	return r.sceneWeightedMarkerCountCustom(ctx, "orgasmTagId", studioID, depth, dateRange, cohort)
-}
-
-// SceneFacialCount returns the total number of facial events.
-// A marker counts if:
-// - its primary tag is the configured facial tag or any descendant of it, or
-// - it has any secondary tag that is the configured facial tag or any descendant of it.
-// Each matching marker counts once per assigned top, with a minimum of one.
-// Uses roleTagIds.facialTagId from UI config and includes all subtags recursively.
-func (r *queryResolver) SceneFacialCount(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput, cohort *StatsCohortInput) (int, error) {
-	return r.sceneWeightedMarkerCountCustom(ctx, "facialTagId", studioID, depth, dateRange, cohort)
-}
-
-// TotalOrgasmTime calculates the total time (in seconds) of all orgasm markers.
-// For each orgasm marker, the duration is (end_seconds - seconds), or 20 seconds if end_seconds is NULL.
-// Duration is multiplied by the number of top performers (or 1 if no tops assigned).
-// Uses roleTagIds.orgasmTagId from UI config and includes all subtags recursively.
-func (r *queryResolver) TotalOrgasmTime(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput, cohort *StatsCohortInput) (float64, error) {
-	return r.totalWeightedMarkerTimeCustom(ctx, "orgasmTagId", studioID, depth, dateRange, cohort)
-}
-
-// TotalFacialTime calculates the total time (in seconds) of all facial markers.
-// For each facial marker, the duration is (end_seconds - seconds), or 20 seconds if end_seconds is NULL.
-// Duration is multiplied by the number of top performers (or 1 if no tops assigned).
-// Uses roleTagIds.facialTagId from UI config and includes all subtags recursively.
-func (r *queryResolver) TotalFacialTime(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput, cohort *StatsCohortInput) (float64, error) {
-	return r.totalWeightedMarkerTimeCustom(ctx, "facialTagId", studioID, depth, dateRange, cohort)
-}

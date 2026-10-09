@@ -13,6 +13,11 @@ func sceneMarkerEndExprCustom(smAlias string) string {
 	return fmt.Sprintf("COALESCE(%[1]s.end_seconds, %[1]s.seconds + %d)", smAlias, sceneMarkerDefaultEndOffsetCustom)
 }
 
+// SceneMarkerEndSQLCustom gives stats SQL the same 20-second default end.
+func SceneMarkerEndSQLCustom(smAlias string) string {
+	return sceneMarkerEndExprCustom(smAlias)
+}
+
 func sceneMarkerDurationExprCustom(smAlias string) string {
 	return fmt.Sprintf("(%[1]s - %[2]s.seconds)", sceneMarkerEndExprCustom(smAlias), smAlias)
 }

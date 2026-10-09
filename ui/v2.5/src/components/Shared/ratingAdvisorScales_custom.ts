@@ -16,22 +16,23 @@ export const SCENE_GOAT_ELEMENT_BONUS_CHOICES_CUSTOM: IRatingAdvisorChoiceCustom
     {
       value: 0.5,
       label: "GOAT +5",
-      description: "A standout GOAT touch gives the scene a small lift.",
+      description: "A little GOAT sazón. Nice touch.",
     },
     {
       value: 1,
       label: "GOAT +10",
-      description: "A strong GOAT moment gives the scene a real boost.",
+      description: "A chingón GOAT moment that bumps the scene for real.",
     },
     {
       value: 1.5,
       label: "GOAT +15",
-      description: "A major GOAT moment lifts the scene hard.",
+      description: "Big GOAT moment. You'd keep the scene just for this.",
     },
     {
       value: 2,
       label: "GOAT +20",
-      description: "One part is so damn good it lifts the whole scene.",
+      description:
+        "You're into vatos and collect porn exactly for moments like this.",
     },
   ];
 
@@ -47,29 +48,27 @@ export const SCENE_ORGASM_QUALITY_CHOICES_CUSTOM: IRatingAdvisorChoiceCustom[] =
     {
       value: 0,
       label: "Absent/bad orgasms",
-      description:
-        "No orgasm, very obviously fake, or it is actively bad, off camera, or off-putting.",
+      description: "Qué gacho. No nut, fake nut, or they hid it from you.",
     },
     {
       value: 1,
       label: "Below average orgasms",
-      description:
-        "The orgasms are there, but they are weak, barely there, or unimpressive.",
+      description: "There's a nut, but it's barely there, or meh.",
     },
     {
       value: 2,
       label: "Standard orgasms",
-      description: "A solid orgasm. Hot, just not legendary.",
+      description: "Normalito. A solid nut, nada legendary.",
     },
     {
       value: 3,
       label: "Above average",
-      description: "A hot nut or facial that gives the scene a real bump.",
+      description: "That nut hits. The scene's better for it.",
     },
     {
       value: 4,
       label: "Outstanding orgasms",
-      description: "That orgasm or facial is the damn highlight.",
+      description: "You're rewinding that nut. The pinche highlight.",
     },
   ];
 
@@ -118,10 +117,10 @@ export function getRatingAdvisorOrgasmBonusDescriptionCustom(
   entityType: RatingAdvisorEntityCustom
 ) {
   if (entityType === "scene") {
-    return "Auto bonus: every nut from the 3rd earns its tier (+1 at 3–5, +2 at 6–11, +3 at 12–23; tiers keep doubling).";
+    return "The more you nut, the more it earns: from the 3rd nut on, +1 at 3–5, +2 at 6–11, +3 at 12–23, and it keeps doubling.";
   }
 
-  return "Auto bonus: every 2 nuts from the 3rd earns its tier (+1 at 3–5, +2 at 6–11, +3 at 12–23; tiers keep doubling).";
+  return "The more you nut to him, the more it earns: every 2nd nut from the 3rd on, +1 at 3–5, +2 at 6–11, +3 at 12–23, and it keeps doubling.";
 }
 
 const RATING_ADVISOR_ADJUSTMENT_TOOLTIP_LABELS_CUSTOM: Record<string, string> =

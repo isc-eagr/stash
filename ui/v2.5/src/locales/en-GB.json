@@ -670,7 +670,7 @@
       "role_tags": {
         "heading": "Role Tags",
         "title": "Scene Marker Role Tags",
-        "description": "Select the tags used for scene markers that represent different vato roles. These are used to calculate role-based statistics.",
+        "description": "Pick the marker tag for each vato role. All the role stats get built off these.",
         "sex": "Sex marker tag",
         "oral": "Oral marker tag",
         "solo": "Solo marker tag",
@@ -686,37 +686,37 @@
         "heading": "Scene Card Insights",
         "caption_hidden_tags": {
           "heading": "Tags hidden from the thumbnail caption",
-          "description": "Scene card captions skip these exact tags, such as common activity or negative orgasm tags. Their subtags still show."
+          "description": "Thumbnail captions skip these exact tags, like everyday activity or negative orgasm tags. Their subtags still show."
         },
         "visible_limit": {
           "heading": "Visible insight chips",
-          "description": "Maximum number of insight chips shown on a scene card before the plus button appears."
+          "description": "Max insight chips on a scene card before the plus button kicks in."
         },
         "rare_role_maximum": {
           "heading": "Rare instance maximum role share (%)",
-          "description": "Topping in oral is rare for a vato when it accounts for no more than this percentage of the vato's oral scenes. The chip still requires at least five oral scenes."
+          "description": "Topping in oral counts as rare for a vato when it's no more than this % of his oral scenes. He still needs at least five oral scenes for the chip."
         }
       },
       "simple_marker_preview_excluded_tags": {
         "heading": "Simple marker preview skip tags",
-        "description": "Marker video/webp previews are skipped when the marker has one of these as its only tag. Screenshots are still generated."
+        "description": "Skips marker video/webp previews when one of these is the marker's only tag. Screenshots still get made."
       },
       "studio_site_sync": {
         "heading": "Studio Site Sync",
-        "description": "Logins and pictures folders used by the Sync button on Bilatinmen, NakedPapis and LatinBoyz studio pages."
+        "description": "Logins and picture folders the Sync button uses on the Bilatinmen, NakedPapis and LatinBoyz studio pages."
       },
       "card_rating_styles": {
         "heading": "Card Rating Styles",
         "theme": {
           "heading": "Scene and vato card style",
-          "description": "Choose how 100-based Bronze, Silver, Gold, and Royal Sapphire scene and vato cards are styled. GOAT-tagged cards use the Royal Sapphire override.",
+          "description": "Pick how Bronze, Silver, Gold, and Royal Sapphire scene and vato cards look (100-point scale). GOAT-tagged cards always go Royal Sapphire.",
           "options": {
             "premium": "Premium radiant outline",
             "classic": "Classic metallic shimmer"
           }
         },
         "override_tags": {
-          "description": "Cards with this tag use the matching metallic style before rating thresholds are checked.",
+          "description": "Cards with this tag get the matching metal no matter the rating.",
           "bronze": {
             "heading": "Bronze override tag"
           },
@@ -731,7 +731,7 @@
           }
         },
         "thresholds": {
-          "description": "Stored and displayed as direct 100-based rating values.",
+          "description": "Straight 100-point ratings, same as you see on the cards.",
           "scene": {
             "bronze": {
               "heading": "Scene bronze threshold"
@@ -1382,6 +1382,7 @@
   "height_cm": "Height (cm)",
   "help": "Help",
   "history": "History",
+  "hotness": "Hotness",
   "ignore_auto_tag": "Ignore auto tag",
   "image": "Image",
   "image_count": "Image Count",
@@ -1473,7 +1474,7 @@
   "orientation": "Orientation",
   "custom_filters": "Custom Filters",
   "custom_filters.versatile_scenes": "Versatile Scenes",
-  "custom_filters.versatile_scenes_desc": "Scenes where all vatos have topped AND bottomed",
+  "custom_filters.versatile_scenes_desc": "Scenes where every vato tops AND bottoms",
   "partners": "Partners",
   "partners_filter_hint": "Leave blank to ignore a metric. Empty value removes it from the filter.",
   "partners.topped": "Topped",
@@ -1486,16 +1487,16 @@
   "scene_type": "Scene Type",
   "scene_type.sex": "Sex Scene",
   "scene_type.sex_desc": "Scenes with at least one sex marker",
-  "scene_type.sex_performer_desc": "Vato has participated in at least one sex scene",
+  "scene_type.sex_performer_desc": "Vato's been in at least one sex scene",
   "scene_type.oral": "Oral Scene",
   "scene_type.oral_desc": "Scenes with oral markers but no sex markers",
-  "scene_type.oral_performer_desc": "Vato has participated in at least one oral scene",
+  "scene_type.oral_performer_desc": "Vato's been in at least one oral scene",
   "scene_type.solo": "Solo Scene",
   "scene_type.solo_desc": "Scenes with solo markers but no sex or oral markers",
-  "scene_type.solo_performer_desc": "Vato has participated in at least one solo scene",
+  "scene_type.solo_performer_desc": "Vato's been in at least one solo scene",
   "scene_type.facial": "Facial Scene",
   "scene_type.facial_desc": "Scenes with at least one facial marker",
-  "scene_type.facial_performer_desc": "Vato has participated in at least one facial scene",
+  "scene_type.facial_performer_desc": "Vato's been in at least one facial scene",
   "package_manager": {
     "add_source": "Add source",
     "check_for_updates": "Check for updates",

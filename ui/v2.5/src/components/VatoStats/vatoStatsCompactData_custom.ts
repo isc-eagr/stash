@@ -60,8 +60,6 @@ export type VatoStatsCompactData = {
     z: VatoStatsPerformer["unknown_scene_age_count"];
     ac: Array<{ a: string; c: number }>;
   }>;
-  o: number;
-  t: number;
 };
 
 export function expandVatoStatsCompactData(data?: VatoStatsCompactData) {
@@ -95,7 +93,5 @@ export function expandVatoStatsCompactData(data?: VatoStatsCompactData) {
         age_counts: p.ac.map((age) => ({ age_range: age.a, count: age.c })),
       })
     ),
-    sceneOrgasmCount: data?.o ?? 0,
-    totalOrgasmTime: data?.t ?? 0,
   };
 }

@@ -73,22 +73,6 @@ func configuredRoleTagIDCustom(uiConfig map[string]interface{}, key string) int 
 	return result
 }
 
-func (r *queryResolver) sceneWeightedMarkerCountCustom(ctx context.Context, roleTagKey string, studioID *string, depth *int, dateRange *StatsDateRangeInput, cohort *StatsCohortInput) (count int, err error) {
-	sceneScope, sceneScopeArgs, _, err := sceneStatsInputScopeCustom(studioID, depth, dateRange, cohort)
-	if err != nil {
-		return 0, err
-	}
-
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		count, err = weightedMarkerCountInScopeCustom(ctx, roleTagKey, sceneScope, sceneScopeArgs)
-		return err
-	}); err != nil {
-		return 0, err
-	}
-
-	return count, nil
-}
-
 // weightedMarkerCountInScopeCustom counts role markers in the selected scenes,
 // once per assigned top (minimum one), excluding 2nd-camera markers. Call it
 // inside a read transaction.
@@ -106,75 +90,4 @@ func weightedMarkerCountInScopeCustom(ctx context.Context, roleTagKey string, sc
 		return 0, err
 	}
 	return customStatsFirstInt(rows), nil
-}
-
-func (r *queryResolver) totalWeightedMarkerTimeCustom(ctx context.Context, roleTagKey string, studioID *string, depth *int, dateRange *StatsDateRangeInput, cohort *StatsCohortInput) (totalSeconds float64, err error) {
-	sceneScope, sceneScopeArgs, _, err := sceneStatsInputScopeCustom(studioID, depth, dateRange, cohort)
-	if err != nil {
-		return 0, err
-	}
-
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		uiConfig := config.GetInstance().GetUIConfiguration()
-		tagID := configuredRoleTagIDCustom(uiConfig, roleTagKey)
-		if tagID == 0 {
-			return nil
-		}
-
-		secondCameraTagID := configuredRoleTagIDCustom(uiConfig, "secondCameraTagId")
-		secondCameraCTE := ""
-		secondCameraExclude := ""
-		args := append(append([]interface{}{}, sceneScopeArgs...), tagID)
-		if secondCameraTagID > 0 {
-			secondCameraCTE = `,
-second_camera_tags(id) AS (
-  SELECT id FROM tags WHERE id = ?
-  UNION ALL
-  SELECT tr.child_id FROM tags_relations tr JOIN second_camera_tags sct ON tr.parent_id = sct.id
-)`
-			secondCameraExclude = `
-  AND sm.id NOT IN (
-    SELECT smt2.scene_marker_id FROM scene_markers_tags smt2
-    WHERE smt2.tag_id IN (SELECT id FROM second_camera_tags)
-  )`
-			args = append(args, secondCameraTagID)
-		}
-
-		query := sceneScope + `,
-target_tags(id) AS (
-  SELECT id FROM tags WHERE id = ?
-  UNION ALL
-  SELECT tr.child_id FROM tags_relations tr JOIN target_tags tt ON tr.parent_id = tt.id
-)` + secondCameraCTE + `,
-matching_markers AS (
-  SELECT DISTINCT sm.id, sm.seconds, sm.end_seconds
-  FROM scene_markers sm
-  LEFT JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
-  WHERE (sm.primary_tag_id IN (SELECT id FROM target_tags)
-     OR smt.tag_id IN (SELECT id FROM target_tags))
-    AND sm.scene_id IN (SELECT id FROM selected_scenes)` + secondCameraExclude + `
-)
-SELECT COALESCE(SUM(
-  (CASE WHEN end_seconds IS NOT NULL THEN end_seconds - seconds ELSE 20.0 END)
-  *
-  (CASE WHEN top_count > 0 THEN top_count ELSE 1 END)
-), 0) AS total_time
-FROM (
-  SELECT mm.id, mm.seconds, mm.end_seconds,
-    (SELECT COUNT(*) FROM scene_marker_performers smp WHERE smp.scene_marker_id = mm.id AND smp.role = 'top') AS top_count
-  FROM matching_markers mm
-) sub`
-		_, rows, err := manager.GetInstance().Database.QuerySQL(ctx, query, args)
-		if err != nil {
-			return err
-		}
-		if len(rows) > 0 && len(rows[0]) > 0 && rows[0][0] != nil {
-			totalSeconds = customStatsFloatValue(rows[0][0])
-		}
-		return nil
-	}); err != nil {
-		return 0, err
-	}
-
-	return totalSeconds, nil
 }

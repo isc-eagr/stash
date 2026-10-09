@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import type { TaskProgressTrackerDataFragment as Tracker } from "src/core/generated-graphql";
 import { TaskProgressHistoryChart } from "../TaskProgressHistoryChart";
 import { formatTaskProgressDate } from "../taskProgress_custom";
+import { TaskProgressProject } from "./TaskProgressProject";
 import { TaskProgressAtAGlance } from "./TaskProgressAtAGlance";
 import { taskProgressLastDataDate } from "./taskProgressCompletion_custom";
 import { TaskProgressGoalSummary } from "./TaskProgressGoalSummary";
@@ -57,13 +58,7 @@ export const TaskProgressTrackerModal: React.FC<IProps> = ({
               )}
             </div>
             <div className="progress-tracker-modal-context">
-              <Link
-                className="progress-tracker-modal-context-field"
-                to={`/tags/${tracker.tag_id}`}
-              >
-                <small>{t("Project")}</small>
-                <strong>{tracker.tag_name}</strong>
-              </Link>
+              <TaskProgressProject tracker={tracker} />
               <span className="progress-tracker-modal-context-field">
                 <small>{t("Started on")}</small>
                 <strong>{formatTaskProgressDate(tracker.started_on)}</strong>
@@ -128,7 +123,7 @@ export const TaskProgressTrackerModal: React.FC<IProps> = ({
               onSelectDay={(date) => onDetails({ tracker, date })}
             />
           </section>
-          {!completed && nonZeroItems.length > 0 && (
+          {!completed && tracker.tag_id !== "0" && nonZeroItems.length > 0 && (
             <section
               aria-label={t("Remaining items")}
               className="progress-tracker-modal-items"

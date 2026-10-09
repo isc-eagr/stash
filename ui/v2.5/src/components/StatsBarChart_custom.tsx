@@ -146,7 +146,7 @@ export const StatsBarChart: React.FC<IProps> = ({
               }
               size="sm"
               variant="secondary"
-              title="Toggle between natural order and highest count first"
+              title="Flip between natural order and highest count first"
             >
               {sort === "natural" ? "Sort by count" : "Natural order"}
             </Button>

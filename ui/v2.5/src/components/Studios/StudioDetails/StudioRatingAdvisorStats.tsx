@@ -235,7 +235,7 @@ export const RatingAdvisorStatsContent: React.FC<
     (definition) => definition.key
   ),
   title = "Rating Advisor Averages",
-  description = "Each strip averages only the scenes or performers where that criterion is set.",
+  description = "Each strip only counts scenes or vatos rated on that criterion.",
   showOverallSceneAverage = true,
   hideEmptySceneSections = false,
 }) => {

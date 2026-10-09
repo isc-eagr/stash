@@ -45,6 +45,7 @@ export const TaskProgressForm: React.FC<IProps> = ({
     id: tracker?.tag_id ?? "",
     name: tracker?.tag_name ?? "",
   });
+  const detached = tag.id === "0";
   const types = tracker?.item_types ?? itemTypes;
   const [mode, setMode] = useState(tracker?.mode ?? "BACKLOG");
   const [status, setStatus] = useState(tracker?.status ?? "ACTIVE");
@@ -66,7 +67,7 @@ export const TaskProgressForm: React.FC<IProps> = ({
     let current = true;
     setPreview(undefined);
     setError(undefined);
-    if (completed) {
+    if (completed || detached) {
       setPreview(tracker?.current_count);
       setCounting(false);
       return () => {
@@ -98,7 +99,7 @@ export const TaskProgressForm: React.FC<IProps> = ({
     return () => {
       current = false;
     };
-  }, [client, tag.id, types, completed, tracker?.current_count]);
+  }, [client, tag.id, types, completed, detached, tracker?.current_count]);
   const valid =
     title.trim() &&
     tag.id &&
@@ -175,6 +176,7 @@ export const TaskProgressForm: React.FC<IProps> = ({
                 <Form.Label>{t("Status")}</Form.Label>
                 <Form.Control
                   as="select"
+                  disabled={detached}
                   value={status}
                   onChange={(event) => setStatus(event.target.value)}
                 >
@@ -240,12 +242,13 @@ export const TaskProgressForm: React.FC<IProps> = ({
                   setTag({ id: tags[0]?.id ?? "", name: tags[0]?.name ?? "" })
                 }
               />
+              {detached && <Form.Text>{t("Deleted tag")}</Form.Text>}
             </Form.Group>
             <Form.Group controlId="progress-mode" className="mt-3">
               <Form.Label>{t("Tracking mode")}</Form.Label>
               <Form.Control
                 as="select"
-                disabled={completed}
+                disabled={completed || detached}
                 value={mode}
                 onChange={(e) => setMode(e.target.value)}
               >
@@ -267,10 +270,10 @@ export const TaskProgressForm: React.FC<IProps> = ({
                   id="progress-reset"
                   label={t("Reset baseline")}
                   checked={reset || scopeChanged}
-                  disabled={completed || scopeChanged}
+                  disabled={completed || detached || scopeChanged}
                   onChange={(e) => setReset(e.target.checked)}
                 />
-                {!completed && (
+                {!completed && !detached && (
                   <Form.Text className="d-block">
                     {t(
                       "Sets today's items as the new baseline and keeps history."
@@ -285,7 +288,7 @@ export const TaskProgressForm: React.FC<IProps> = ({
                 {preview ?? "…"}
               </Alert>
             )}
-            {!completed && (
+            {!completed && !detached && (
               <p className="mt-3" aria-live="polite">
                 {t("Matching items")}:{" "}
                 {counting ? "…" : preview ?? t("Unavailable")}

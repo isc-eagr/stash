@@ -1,0 +1,57 @@
+# CUSTOM: nut or facial events for Nut Stats and Facial Stats.
+query MarkerEventStats(
+  $kind: MarkerEventStatsKind!
+  $studioId: ID
+  $depth: Int
+  $dateRange: StatsDateRangeInput
+) {
+  markerEventStats(
+    kind: $kind
+    studio_id: $studioId
+    depth: $depth
+    date_range: $dateRange
+  ) {
+    events {
+      marker_id
+      scene_id
+      scene_title
+      scene_rating100
+      scene_date
+      duration
+      giver {
+        performer_id
+        age
+      }
+      receivers {
+        performer_id
+        age
+      }
+      o_count
+      latest_o_date
+      type_tag_ids
+      quality
+      activities
+    }
+    performers {
+      id
+      name
+      image_path
+      rating100
+      ethnicity
+      country
+    }
+    types {
+      id
+      name
+    }
+  }
+}
+
+# CUSTOM: full marker cards for the ranked Nut Stats and Facial Stats list.
+query MarkerEventStatsMarkers($ids: [ID!]) {
+  findSceneMarkers(ids: $ids) {
+    scene_markers {
+      ...SceneMarkerData
+    }
+  }
+}

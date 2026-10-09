@@ -47,7 +47,7 @@ func (r *studioResolver) StudioRoleCounts(ctx context.Context, obj *models.Studi
 	}, nil
 }
 
-// FacialCount uses the Scene Stats "Total Facials" rule for this studio's scenes.
+// FacialCount uses the Facial Stats "Total Facials" rule for this studio's scenes.
 func (r *studioResolver) FacialCount(ctx context.Context, obj *models.Studio, depth *int) (ret int, err error) {
 	studioID := strconv.Itoa(obj.ID)
 	sceneScope, sceneScopeArgs, err := sceneStatsSceneScopeCustom(&studioID, depth, nil)

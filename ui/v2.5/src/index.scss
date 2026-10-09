@@ -1514,6 +1514,16 @@ div.dropdown-menu {
   line-height: 1;
 }
 
+.stats-links-mask {
+  background-color: currentColor;
+  display: block;
+  height: 2rem;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
+  width: 2rem;
+}
+
 @media (max-width: 576px) {
   .stats-links {
     grid-template-columns: 1fr;

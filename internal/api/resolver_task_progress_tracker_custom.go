@@ -329,7 +329,7 @@ func (r *mutationResolver) TaskProgressTrackerUpdate(ctx context.Context, input 
 		}
 
 		tagChanged := false
-		if input.TagID != nil {
+		if input.TagID != nil && !(tracker.TagID == 0 && *input.TagID == "0") {
 			tagID, err := strconv.Atoi(*input.TagID)
 			if err != nil {
 				return fmt.Errorf("converting tag id: %w", err)
@@ -343,6 +343,7 @@ func (r *mutationResolver) TaskProgressTrackerUpdate(ctx context.Context, input 
 			}
 			tagChanged = tracker.TagID != tagID
 			tracker.TagID = tagID
+			tracker.TagName = tag.Name
 		}
 		if input.Status != nil {
 			status, err := taskProgressStatusCustom(*input.Status)
@@ -371,6 +372,9 @@ func (r *mutationResolver) TaskProgressTrackerUpdate(ctx context.Context, input 
 		resetGoal := input.ResetGoal != nil && *input.ResetGoal
 		if input.Status != nil && previousStatus == "ARCHIVED" && tracker.Status != "ARCHIVED" {
 			resetGoal = true
+		}
+		if tracker.TagID == 0 && (scopeChanged || resetGoal || tracker.Status == models.TaskProgressTrackerStatusActive || tracker.Status == models.TaskProgressTrackerStatusPaused) {
+			return fmt.Errorf("%w: choose a replacement tag before resuming or resetting this tracker", ErrInput)
 		}
 		if tagChanged || scopeChanged || resetGoal {
 			tracker.Goal, err = r.repository.TaskProgressTracker.CountDirectlyTaggedItems(ctx, tracker.TagID, tracker.ItemTypes)
