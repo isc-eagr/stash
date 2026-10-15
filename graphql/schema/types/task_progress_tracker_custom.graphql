@@ -51,6 +51,10 @@ type TaskProgressDay {
   completed: Int!
   incoming: Int!
   remaining: Int!
+  "Unfinished items brought into scope, such as a tracker joining a milestone"
+  added: Int!
+  "Unfinished items taken out of scope without being completed"
+  removed: Int!
   baseline_count: Int
   "Daily goal that applied on this calendar date"
   goal_per_day: Int

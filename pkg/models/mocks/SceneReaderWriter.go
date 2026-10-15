@@ -1395,6 +1395,54 @@ func (_m *SceneReaderWriter) AddOAtVideoTimestamp(ctx context.Context, id int, v
 	return r0, r1
 }
 
+// AddRetroactiveOCustom provides a mock function with given fields: ctx, id
+// CUSTOM
+func (_m *SceneReaderWriter) AddRetroactiveOCustom(ctx context.Context, id int) ([]time.Time, error) {
+	ret := _m.Called(ctx, id)
+
+	var r0 []time.Time
+	if rf, ok := ret.Get(0).(func(context.Context, int) []time.Time); ok {
+		r0 = rf(ctx, id)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]time.Time)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, int) error); ok {
+		r1 = rf(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// DeleteRetroactiveOCustom provides a mock function with given fields: ctx, id
+// CUSTOM
+func (_m *SceneReaderWriter) DeleteRetroactiveOCustom(ctx context.Context, id int) ([]time.Time, error) {
+	ret := _m.Called(ctx, id)
+
+	var r0 []time.Time
+	if rf, ok := ret.Get(0).(func(context.Context, int) []time.Time); ok {
+		r0 = rf(ctx, id)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]time.Time)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, int) error); ok {
+		r1 = rf(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetOVideoTimestamps provides a mock function with given fields: ctx, id
 // CUSTOM
 func (_m *SceneReaderWriter) GetOVideoTimestamps(ctx context.Context, id int) ([]*float64, error) {

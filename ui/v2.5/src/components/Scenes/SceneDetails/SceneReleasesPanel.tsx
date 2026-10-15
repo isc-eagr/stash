@@ -54,17 +54,18 @@ import {
 } from "src/components/Shared/CustomFields";
 import ImageUtils from "src/utils/image";
 import TextUtils from "src/utils/text";
+import { summarizeReleaseConversionCustom } from "./sceneReleaseConversionSummary_custom"; // CUSTOM
+import { stashDBFingerprintsURLCustom } from "./StashDBMatchesCount";
 import {
-  summarizeReleaseConversionCustom,
-  summarizeSceneConversionCustom,
-} from "./sceneReleaseConversionSummary_custom"; // CUSTOM
+  SceneReleaseConvertChoices,
+  SceneReleaseConvertDialog,
+} from "./SceneReleaseConvertDialog";
 import "./SceneReleasesPanel_custom.scss";
 
 interface IReleaseFormData {
   title: string;
   code: string;
   urls: string;
-  rating100: string;
   organized: boolean;
   date: string;
   details: string;
@@ -78,7 +79,6 @@ const emptyFormData: IReleaseFormData = {
   title: "",
   code: "",
   urls: "",
-  rating100: "",
   organized: false,
   date: "",
   details: "",
@@ -161,15 +161,15 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
   const [convertReleaseToScene, { loading: convertingToScene }] =
     useConvertReleaseToScene();
 
-  const { data: conversionSourceData, loading: conversionSourceLoading } =
-    GQL.useFindSceneQuery({
-      variables: { id: pendingConvertSceneId ?? "" },
-      skip: !pendingConvertSceneId,
-    }); // CUSTOM: show what the scene conversion moves
+  const {
+    data: conversionSourceData,
+    loading: conversionSourceLoading,
+    error: conversionSourceError,
+  } = GQL.useFindSceneQuery({
+    variables: { id: pendingConvertSceneId ?? "" },
+    skip: !pendingConvertSceneId,
+  }); // CUSTOM: source for the Convert to Release dialog
   const conversionSource = conversionSourceData?.findScene;
-  const sourceSummary = conversionSource
-    ? summarizeSceneConversionCustom(conversionSource)
-    : undefined; // CUSTOM
 
   const releases = useMemo(() => scene.releases ?? [], [scene.releases]);
   const conversionRelease = releases.find(
@@ -178,6 +178,13 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
   const releaseSummary = conversionRelease
     ? summarizeReleaseConversionCustom(conversionRelease)
     : undefined; // CUSTOM
+  // CUSTOM: deleting a release drops its own markers and activity
+  const deletingRelease = releases.find(
+    (release) => release.id === showDeleteReleaseModal
+  );
+  const deletingSummary = deletingRelease
+    ? summarizeReleaseConversionCustom(deletingRelease)
+    : undefined;
   const releaseDraftFingerprint = JSON.stringify({
     formData,
     studio: selectedStudio?.id,
@@ -242,7 +249,6 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
       title: release.title || "",
       code: release.code || "",
       urls: release.urls.join("\n"),
-      rating100: release.rating100?.toString() || "",
       organized: release.organized,
       date: release.date || "",
       details: release.details || "",
@@ -304,15 +310,6 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
       Toast.error(customFieldsError);
       return;
     }
-    const ratingText = formData.rating100.trim();
-    const rating100 = ratingText === "" ? null : Number(ratingText);
-    if (
-      rating100 !== null &&
-      (!Number.isInteger(rating100) || rating100 < 0 || rating100 > 100)
-    ) {
-      Toast.error("Rating must be a whole number from 0 to 100");
-      return;
-    }
     const urls = formData.urls
       .split(/\r?\n/)
       .map((url) => url.trim())
@@ -324,17 +321,10 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
       return;
     }
     try {
-      const editingRelease = releases.find(
-        (release) => release.id === editingReleaseId
-      );
       const input = {
         title: formData.title,
         code: formData.code,
         urls,
-        rating100:
-          editingRelease && rating100 === (editingRelease.rating100 ?? null)
-            ? undefined
-            : rating100,
         organized: formData.organized,
         performer_ids: selectedPerformers.map((performer) => performer.id),
         tag_ids: selectedTags.map((tag) => tag.id),
@@ -421,7 +411,10 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
     }
   };
 
-  const handleConvertScene = async (sourceSceneId: string) => {
+  const handleConvertScene = async (
+    sourceSceneId: string,
+    choices: SceneReleaseConvertChoices
+  ) => {
     const requestKey = `scene:${sourceSceneId}:${scene.id}`;
     try {
       await convertScene({
@@ -430,6 +423,7 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
             source_scene_id: sourceSceneId,
             target_scene_id: scene.id,
             request_id: conversionRequestId(requestKey),
+            ...choices,
           },
         },
       });
@@ -661,7 +655,15 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
                 }`}
               >
                 <Card.Header className="scene-release-summary">
-                  {hasScreenshot ? (
+                  {release.studio?.image_path &&
+                  !release.studio.image_path.includes("default=true") ? (
+                    <img
+                      className="scene-release-summary__cover scene-release-summary__logo"
+                      src={release.studio.image_path}
+                      alt=""
+                      title={release.studio.name}
+                    />
+                  ) : hasScreenshot ? (
                     <img
                       className="scene-release-summary__cover"
                       src={`${release.paths.screenshot!}?t=${new Date(
@@ -706,9 +708,6 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
                         .join(" · ")}
                     </span>
                   </Button>
-                  {release.rating100 != null && (
-                    <Badge variant="secondary">{release.rating100}/100</Badge>
-                  )}
                   {activeReleaseId === release.id && (
                     <Badge variant="primary">Playing</Badge>
                   )}
@@ -911,6 +910,28 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
                           </dd>
                         </>
                       )}
+                      {release.stashdb_matches != null && (
+                        <>
+                          <dt className="col-sm-3">
+                            <FormattedMessage id="stashdb_matches" />
+                          </dt>
+                          <dd className="col-sm-9">
+                            {stashDBFingerprintsURLCustom(release.stash_ids) ? (
+                              <a
+                                href={stashDBFingerprintsURLCustom(
+                                  release.stash_ids
+                                )}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                {release.stashdb_matches}
+                              </a>
+                            ) : (
+                              release.stashdb_matches
+                            )}
+                          </dd>
+                        </>
+                      )}
                       {(release.play_history.length > 0 ||
                         release.o_history.length > 0) && (
                         <>
@@ -918,23 +939,6 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
                           <dd className="col-sm-9">
                             {release.play_history.length} plays ·{" "}
                             {release.o_history.length} O events
-                          </dd>
-                        </>
-                      )}
-                      {release.rating_scores.length > 0 && (
-                        <>
-                          <dt className="col-sm-3">
-                            <FormattedMessage
-                              id="scene_release.rating_breakdown"
-                              defaultMessage="Rating breakdown"
-                            />
-                          </dt>
-                          <dd className="col-sm-9">
-                            {release.rating_scores.map((score) => (
-                              <div key={score.id}>
-                                {score.label || score.key}: {score.raw_value}
-                              </div>
-                            ))}
                           </dd>
                         </>
                       )}
@@ -1237,35 +1241,16 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
               />
             </Form.Group>
 
-            <Row>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Rating (0–100)</Form.Label>
-                  <Form.Control
-                    type="number"
-                    min={0}
-                    max={100}
-                    step={1}
-                    value={formData.rating100}
-                    onChange={(e) =>
-                      setFormData({ ...formData, rating100: e.target.value })
-                    }
-                  />
-                </Form.Group>
-              </Col>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Check
-                    type="checkbox"
-                    label={<FormattedMessage id="organized" />}
-                    checked={formData.organized}
-                    onChange={(e) =>
-                      setFormData({ ...formData, organized: e.target.checked })
-                    }
-                  />
-                </Form.Group>
-              </Col>
-            </Row>
+            <Form.Group className="mb-3">
+              <Form.Check
+                type="checkbox"
+                label={<FormattedMessage id="organized" />}
+                checked={formData.organized}
+                onChange={(e) =>
+                  setFormData({ ...formData, organized: e.target.checked })
+                }
+              />
+            </Form.Group>
 
             <Form.Group className="mb-3">
               <Form.Label>
@@ -1490,7 +1475,17 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
           <Modal.Title>Delete release</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          The release will be removed. Its files will return to the main scene.
+          <p>
+            The release will be removed. Its files return to the main scene.
+          </p>
+          {deletingRelease && deletingSummary && (
+            <p className="mb-0 text-warning">
+              Also deleted: {deletingRelease.scene_markers.length} markers ·{" "}
+              {deletingSummary.plays} plays · {deletingSummary.oEvents} O
+              events, plus its tags and skip ranges. Use Convert to scene to
+              keep them.
+            </p>
+          )}
         </Modal.Body>
         <Modal.Footer>
           <Button
@@ -1521,61 +1516,46 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
         />
       )}
 
-      {/* Convert Scene Options Modal */}
-      <Modal
-        show={!!pendingConvertSceneId}
-        onHide={() => setPendingConvertSceneId(null)}
-      >
-        <Modal.Header closeButton>
-          <Modal.Title>Convert Scene to Release</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          {conversionSourceLoading ? (
-            <LoadingIndicator />
-          ) : conversionSource ? (
-            <dl className="row mb-2">
-              <dt className="col-3">Source</dt>
-              <dd className="col-9">
-                {conversionSource.title || conversionSource.id}
-              </dd>
-              <dt className="col-3">Target</dt>
-              <dd className="col-9">{scene.title || scene.id}</dd>
-              <dt className="col-3">Moving</dt>
-              <dd className="col-9">
-                {sourceSummary?.files} files · {sourceSummary?.plays} plays ·{" "}
-                {sourceSummary?.oEvents} O events
-                {conversionSource.releases.length > 0 &&
-                  ` · ${conversionSource.releases.length} existing releases`}
-              </dd>
-            </dl>
-          ) : (
-            <p>Source scene is unavailable.</p>
-          )}
-          <p className="text-muted mb-0">
-            The source scene is removed after its data moves to the
-            target&apos;s releases.
-          </p>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button
-            variant="secondary"
-            onClick={() => setPendingConvertSceneId(null)}
-          >
-            <FormattedMessage id="actions.cancel" />
-          </Button>
-          <Button
-            variant="primary"
-            onClick={() =>
-              pendingConvertSceneId && handleConvertScene(pendingConvertSceneId)
-            }
-            disabled={
-              converting || conversionSourceLoading || !conversionSource
-            }
-          >
-            Convert to Release
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      {/* Convert Scene to Release: choose what this scene keeps */}
+      {pendingConvertSceneId && conversionSource ? (
+        <SceneReleaseConvertDialog
+          dest={scene}
+          source={conversionSource}
+          running={converting}
+          onClose={(choices) =>
+            choices
+              ? handleConvertScene(pendingConvertSceneId, choices)
+              : setPendingConvertSceneId(null)
+          }
+        />
+      ) : (
+        <Modal
+          show={!!pendingConvertSceneId}
+          onHide={() => setPendingConvertSceneId(null)}
+        >
+          <Modal.Header closeButton>
+            <Modal.Title>Convert Scene to Release</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            {conversionSourceLoading ? (
+              <LoadingIndicator />
+            ) : (
+              <p className="text-danger mb-0">
+                {conversionSourceError?.message ??
+                  "Source scene is unavailable."}
+              </p>
+            )}
+          </Modal.Body>
+          <Modal.Footer>
+            <Button
+              variant="secondary"
+              onClick={() => setPendingConvertSceneId(null)}
+            >
+              <FormattedMessage id="actions.cancel" />
+            </Button>
+          </Modal.Footer>
+        </Modal>
+      )}
 
       {/* Add File Modal */}
       <Modal

@@ -15,6 +15,8 @@ func TestSceneOEventOrdinalsQueryRanksEventsChronologicallyPerScene(t *testing.T
 	defer db.Close()
 
 	statements := []string{
+		`CREATE TABLE scenes (id INTEGER PRIMARY KEY, studio_id INTEGER)`,
+		`INSERT INTO scenes(id) VALUES (1), (2), (3)`,
 		`CREATE TABLE scenes_o_dates (scene_id INTEGER, o_date TEXT, video_timestamp REAL)`,
 		`INSERT INTO scenes_o_dates(scene_id, o_date, video_timestamp) VALUES
       (1, '2024-03-10 09:00:00', 30),

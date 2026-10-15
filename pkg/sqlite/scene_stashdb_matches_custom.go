@@ -116,7 +116,7 @@ func (db *Database) ensureSceneStashDBMatchesSchemaCustom(ctx context.Context) e
 	if _, err := db.writeDB.ExecContext(ctx, sceneStashDBMatchesSchemaCustom); err != nil {
 		return fmt.Errorf("creating scene StashDB matches schema: %w", err)
 	}
-	return nil
+	return db.ensureReleaseStashDBMatchesSchemaCustom(ctx)
 }
 
 // GetStashDBMatchesCustom returns nil when the scene has never been scraped
@@ -148,16 +148,32 @@ ON CONFLICT(scene_id) DO UPDATE SET matches = excluded.matches`, sceneID, *match
 	return err
 }
 
-// FindStashDBMatchTargetsCustom lists every scene linked to endpoint with its
-// stored count, ordered by scene.
+// FindStashDBMatchTargetsCustom lists every scene and release linked to
+// endpoint with its stored count, ordered by scene; releases follow their parent.
 func (qb *SceneStore) FindStashDBMatchTargetsCustom(ctx context.Context, endpoint string) ([]models.StashDBMatchTargetCustom, error) {
-	var ret []models.StashDBMatchTargetCustom
-	err := dbWrapper.Select(ctx, &ret, `
-SELECT s.scene_id, s.stash_id, m.matches
+	query := `
+SELECT s.scene_id, NULL AS release_id, s.stash_id, m.matches
   FROM scene_stash_ids s
   LEFT JOIN scene_stashdb_matches m ON m.scene_id = s.scene_id
- WHERE s.endpoint = ?
- ORDER BY s.scene_id`, endpoint)
+ WHERE s.endpoint = ?`
+	args := []interface{}{endpoint}
+	releases, err := releaseStashDBMatchesReadyCustom(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if releases {
+		query += `
+UNION ALL
+SELECT r.scene_id, rs.release_id, rs.stash_id, rm.matches
+  FROM scene_release_stash_ids rs
+  JOIN scene_releases r ON r.id = rs.release_id
+  LEFT JOIN scene_release_stashdb_matches rm ON rm.release_id = rs.release_id
+ WHERE rs.endpoint = ?`
+		args = append(args, endpoint)
+	}
+	var ret []models.StashDBMatchTargetCustom
+	err = dbWrapper.Select(ctx, &ret, `SELECT * FROM (`+query+`
+) ORDER BY scene_id, release_id`, args...)
 	return ret, err
 }
 
@@ -172,6 +188,17 @@ func (qb *SceneStore) SaveStashDBMatchesReportCustom(ctx context.Context, report
 	if _, err := dbWrapper.Exec(ctx, `DELETE FROM stashdb_matches_refresh_changes`); err != nil {
 		return err
 	}
+	releases, err := releaseStashDBMatchesReadyCustom(ctx)
+	if err != nil {
+		return err
+	}
+	if releases {
+		for _, table := range []string{"stashdb_matches_refresh_release_changes", "stashdb_matches_refresh_release_unsubmitted"} {
+			if _, err := dbWrapper.Exec(ctx, `DELETE FROM `+table); err != nil {
+				return err
+			}
+		}
+	}
 	if _, err := dbWrapper.Exec(ctx, `
 INSERT OR REPLACE INTO stashdb_matches_refresh_report
   (id, started_at, finished_at, checked, changed, unchanged, not_found, failed, cancelled)
@@ -181,9 +208,11 @@ VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		return err
 	}
 	for _, change := range report.Changes {
-		if _, err := dbWrapper.Exec(ctx, `
-INSERT INTO stashdb_matches_refresh_changes (scene_id, previous, current) VALUES (?, ?, ?)`,
-			change.SceneID, change.Previous, change.Current); err != nil {
+		query, ownerID := `INSERT INTO stashdb_matches_refresh_changes (scene_id, previous, current) VALUES (?, ?, ?)`, change.SceneID
+		if change.ReleaseID != nil {
+			query, ownerID = `INSERT INTO stashdb_matches_refresh_release_changes (release_id, previous, current) VALUES (?, ?, ?)`, *change.ReleaseID
+		}
+		if _, err := dbWrapper.Exec(ctx, query, ownerID, change.Previous, change.Current); err != nil {
 			return err
 		}
 	}
@@ -193,9 +222,11 @@ INSERT INTO stashdb_matches_refresh_changes (scene_id, previous, current) VALUES
 		}
 	}
 	for _, scene := range report.Unsubmitted {
-		if _, err := dbWrapper.Exec(ctx, `
-INSERT INTO stashdb_matches_refresh_unsubmitted (scene_id, stash_id, matches) VALUES (?, ?, ?)`,
-			scene.SceneID, scene.StashID, scene.Matches); err != nil {
+		query, ownerID := `INSERT INTO stashdb_matches_refresh_unsubmitted (scene_id, stash_id, matches) VALUES (?, ?, ?)`, scene.SceneID
+		if scene.ReleaseID != nil {
+			query, ownerID = `INSERT INTO stashdb_matches_refresh_release_unsubmitted (release_id, stash_id, matches) VALUES (?, ?, ?)`, *scene.ReleaseID
+		}
+		if _, err := dbWrapper.Exec(ctx, query, ownerID, scene.StashID, scene.Matches); err != nil {
 			return err
 		}
 	}
@@ -215,8 +246,21 @@ SELECT started_at, finished_at, checked, changed, unchanged, not_found, failed, 
 	if err != nil {
 		return nil, err
 	}
-	if err := dbWrapper.Select(ctx, &report.Changes, `
-SELECT scene_id, previous, current FROM stashdb_matches_refresh_changes ORDER BY scene_id`); err != nil {
+	releases, err := releaseStashDBMatchesReadyCustom(ctx)
+	if err != nil {
+		return nil, err
+	}
+	changesQuery := `SELECT scene_id, NULL AS release_id, previous, current FROM stashdb_matches_refresh_changes`
+	unsubmittedQuery := `SELECT scene_id, NULL AS release_id, stash_id, matches FROM stashdb_matches_refresh_unsubmitted`
+	if releases {
+		// Release rows report under their current parent scene.
+		changesQuery += ` UNION ALL SELECT r.scene_id, c.release_id, c.previous, c.current
+  FROM stashdb_matches_refresh_release_changes c JOIN scene_releases r ON r.id = c.release_id`
+		unsubmittedQuery += ` UNION ALL SELECT r.scene_id, u.release_id, u.stash_id, u.matches
+  FROM stashdb_matches_refresh_release_unsubmitted u JOIN scene_releases r ON r.id = u.release_id`
+	}
+	const ownerOrder = ` ORDER BY scene_id, release_id`
+	if err := dbWrapper.Select(ctx, &report.Changes, changesQuery+ownerOrder); err != nil {
 		return nil, err
 	}
 	var endpoint string
@@ -225,23 +269,19 @@ SELECT scene_id, previous, current FROM stashdb_matches_refresh_changes ORDER BY
 	} else if err == nil {
 		report.Endpoint = &endpoint
 	}
-	if err := dbWrapper.Select(ctx, &report.Unsubmitted, `
-SELECT scene_id, stash_id, matches FROM stashdb_matches_refresh_unsubmitted ORDER BY scene_id`); err != nil {
+	if err := dbWrapper.Select(ctx, &report.Unsubmitted, unsubmittedQuery+ownerOrder); err != nil {
 		return nil, err
 	}
 	return &report, nil
 }
 
+// The filter and sort use the scene's count plus its releases', as shown.
 func (qb *sceneFilterHandler) stashDBMatchesCriterionHandlerCustom(c *models.IntCriterionInput) criterionHandlerFunc {
-	return intCriterionHandler(c, "scene_stashdb_matches.matches", func(f *filterBuilder) {
-		f.addLeftJoin(sceneStashDBMatchesTableCustom, "", "scene_stashdb_matches.scene_id = scenes.id")
-	})
+	return intCriterionHandler(c, sceneTotalStashDBMatchesSQLCustom("scenes.id"), nil)
 }
 
 // Unscraped scenes sort last in both directions.
 func (qb *SceneStore) sortByStashDBMatchesCustom(query *queryBuilder, direction string) string {
-	query.joinSort(sceneStashDBMatchesTableCustom, "scene_sort_stashdb_matches_custom",
-		"scene_sort_stashdb_matches_custom.scene_id = scenes.id")
-	return " ORDER BY scene_sort_stashdb_matches_custom.matches IS NULL, scene_sort_stashdb_matches_custom.matches " +
-		getSortDirection(direction)
+	matches := sceneTotalStashDBMatchesSQLCustom("scenes.id")
+	return " ORDER BY " + matches + " IS NULL, " + matches + " " + getSortDirection(direction)
 }

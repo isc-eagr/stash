@@ -471,7 +471,7 @@ o_stats AS (
     scene_id,
     COUNT(*) AS o_counter,
     MAX(o_date) AS most_recent_o_date
-  FROM scenes_o_dates od
+  FROM `+sqlite.SceneOEventsSQLCustom()+` od
   WHERE scene_id IN (SELECT id FROM selected_scenes)%s
   GROUP BY scene_id
 ),
@@ -737,7 +737,7 @@ func (r *queryResolver) SceneOYearCounts(ctx context.Context, studioID *string, 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		db := manager.GetInstance().Database
 		query := `SELECT CAST(strftime('%Y', od.o_date, 'localtime') AS INT) AS year, COUNT(*) AS cnt
-FROM scenes_o_dates od
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
 WHERE od.o_date IS NOT NULL AND date(od.o_date, 'localtime') >= date(?)` + scope + `
 GROUP BY year ORDER BY year ASC`
 		args := append([]interface{}{sceneODateTrackingStart}, scopeArgs...)
@@ -806,7 +806,7 @@ func (r *queryResolver) SceneOMonthCounts(ctx context.Context, year int, studioI
 		db := manager.GetInstance().Database
 		query := `
 SELECT CAST(strftime('%m', o_date, 'localtime') AS INT) AS month, COUNT(*) AS cnt
-FROM scenes_o_dates od
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
 WHERE od.o_date IS NOT NULL
   AND date(od.o_date, 'localtime') >= date(?)
   AND CAST(strftime('%Y', od.o_date, 'localtime') AS INT) = ?` + scope + `
@@ -853,7 +853,7 @@ func (r *queryResolver) SceneODayCounts(ctx context.Context, year int, month int
 		db := manager.GetInstance().Database
 		query := `
 SELECT date(o_date, 'localtime') AS day_date, CAST(strftime('%d', o_date, 'localtime') AS INT) AS day, COUNT(*) AS cnt
-FROM scenes_o_dates od
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
 WHERE od.o_date IS NOT NULL
   AND date(od.o_date, 'localtime') >= date(?)
   AND CAST(strftime('%Y', od.o_date, 'localtime') AS INT) = ?
@@ -902,7 +902,7 @@ func (r *queryResolver) SceneOEventsByDate(ctx context.Context, date string, stu
 		db := manager.GetInstance().Database
 		query := `
 SELECT od.rowid, od.scene_id, od.o_date, od.video_timestamp
-FROM scenes_o_dates od
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
 JOIN scenes s ON s.id = od.scene_id
 WHERE od.o_date IS NOT NULL AND date(od.o_date, 'localtime') = date(?)
   AND date(od.o_date, 'localtime') >= date(?)` + scope + `
@@ -971,8 +971,8 @@ covered_markers AS (
         )
       THEN 1 ELSE 0
     END AS is_orgasm
-  FROM scenes_o_dates od
-  JOIN scene_markers sm ON sm.scene_id = od.scene_id
+  FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
+  JOIN scene_markers sm ON ` + sqlite.SceneOEventMarkerJoinCustom("sm", "od") + `
   WHERE od.video_timestamp IS NOT NULL
     AND od.o_date IS NOT NULL
     AND sm.end_seconds IS NOT NULL
@@ -1001,7 +1001,7 @@ tagged_o_events AS (
      )
 )
 SELECT od.rowid, od.scene_id, od.o_date, od.video_timestamp
-FROM scenes_o_dates od
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
 JOIN scenes s ON s.id = od.scene_id
 JOIN tagged_o_events toe ON toe.o_id = od.rowid
 WHERE od.o_date IS NOT NULL` + scope + `
@@ -1011,8 +1011,8 @@ ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1)
 			query = `
 WITH tagged_o_events AS (
   SELECT DISTINCT od.rowid AS o_id
-  FROM scenes_o_dates od
-  JOIN scene_markers sm ON sm.scene_id = od.scene_id
+  FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
+  JOIN scene_markers sm ON ` + sqlite.SceneOEventMarkerJoinCustom("sm", "od") + `
   WHERE od.video_timestamp IS NOT NULL
     AND od.o_date IS NOT NULL
     AND sm.end_seconds IS NOT NULL
@@ -1028,7 +1028,7 @@ WITH tagged_o_events AS (
     )
 )
 SELECT od.rowid, od.scene_id, od.o_date, od.video_timestamp
-FROM scenes_o_dates od
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
 JOIN scenes s ON s.id = od.scene_id
 JOIN tagged_o_events toe ON toe.o_id = od.rowid
 WHERE od.o_date IS NOT NULL` + scope + `
@@ -1056,13 +1056,13 @@ ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1)
 	return ret, nil
 }
 
-const sceneOWithoutMarkerTagsPredicate = `
+var sceneOWithoutMarkerTagsPredicate = `
   AND (
     od.video_timestamp IS NULL
     OR NOT EXISTS (
       SELECT 1
       FROM scene_markers sm
-      WHERE sm.scene_id = od.scene_id
+      WHERE ` + sqlite.SceneOEventMarkerJoinCustom("sm", "od") + `
         AND sm.end_seconds IS NOT NULL
         AND od.video_timestamp >= sm.seconds
         AND od.video_timestamp <= sm.end_seconds
@@ -1080,7 +1080,7 @@ func (r *queryResolver) SceneOCountWithoutMarkerTags(ctx context.Context, studio
 		db := manager.GetInstance().Database
 		query := `
 SELECT COUNT(*)
-FROM scenes_o_dates od
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
 WHERE od.o_date IS NOT NULL` + scope + sceneOWithoutMarkerTagsPredicate
 		_, rows, err := db.QuerySQL(ctx, query, scopeArgs)
 		if err != nil {
@@ -1105,7 +1105,7 @@ func (r *queryResolver) SceneOEventsWithoutMarkerTags(ctx context.Context, studi
 	}
 	query := `
 SELECT od.rowid, od.scene_id, od.o_date, od.video_timestamp
-FROM scenes_o_dates od
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
 JOIN scenes s ON s.id = od.scene_id
 WHERE od.o_date IS NOT NULL` + scope + sceneOWithoutMarkerTagsPredicate + `
 ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) DESC, od.rowid DESC, s.title ASC`
@@ -1128,9 +1128,9 @@ func (r *queryResolver) SceneOEventsByPerformer(ctx context.Context, performerID
 		db := manager.GetInstance().Database
 		query := `
 SELECT od.rowid, od.scene_id, od.o_date, od.video_timestamp
-FROM scenes_o_dates od
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
 JOIN scenes s ON s.id = od.scene_id
-JOIN performers_scenes ps ON ps.scene_id = od.scene_id
+JOIN ` + sqlite.SceneOEventCastSQLCustom() + ` ps ON ps.owner_key = od.owner_key
 WHERE ps.performer_id = ?
   AND od.o_date IS NOT NULL
 ` + scope + `
@@ -1168,7 +1168,7 @@ func (r *queryResolver) SceneOEventsByScene(ctx context.Context, sceneID string,
 
 	query := `
 SELECT od.rowid, od.scene_id, od.o_date, od.video_timestamp
-FROM scenes_o_dates od
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
 JOIN scenes s ON s.id = od.scene_id
 WHERE od.scene_id = ?
   AND od.o_date IS NOT NULL
@@ -1219,8 +1219,8 @@ covered_markers AS (
         )
       THEN 1 ELSE 0
     END AS is_orgasm
-  FROM scenes_o_dates od
-  JOIN scene_markers sm ON sm.scene_id = od.scene_id
+  FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
+  JOIN scene_markers sm ON ` + sqlite.SceneOEventMarkerJoinCustom("sm", "od") + `
   WHERE od.video_timestamp IS NOT NULL
     AND od.o_date IS NOT NULL
     AND sm.end_seconds IS NOT NULL
@@ -1270,8 +1270,8 @@ WITH covered_o_tags AS (
     od.video_timestamp,
     t.id AS tag_id,
     t.name AS tag_name
-  FROM scenes_o_dates od
-  JOIN scene_markers sm ON sm.scene_id = od.scene_id
+  FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
+  JOIN scene_markers sm ON ` + sqlite.SceneOEventMarkerJoinCustom("sm", "od") + `
   JOIN tags t ON t.id = sm.primary_tag_id
   WHERE od.video_timestamp IS NOT NULL
     AND od.o_date IS NOT NULL
@@ -1287,8 +1287,8 @@ WITH covered_o_tags AS (
     od.video_timestamp,
     t.id AS tag_id,
     t.name AS tag_name
-  FROM scenes_o_dates od
-  JOIN scene_markers sm ON sm.scene_id = od.scene_id
+  FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
+  JOIN scene_markers sm ON ` + sqlite.SceneOEventMarkerJoinCustom("sm", "od") + `
   JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
   JOIN tags t ON t.id = smt.tag_id
   WHERE od.video_timestamp IS NOT NULL
@@ -1457,8 +1457,8 @@ WITH %scovered_marker_tags AS (
     t.id AS tag_id,
     t.name AS tag_name,
     0 AS tag_sort
-  FROM scenes_o_dates od
-  JOIN scene_markers sm ON sm.scene_id = od.scene_id
+  FROM `+sqlite.SceneOEventsSQLCustom()+` od
+  JOIN scene_markers sm ON `+sqlite.SceneOEventMarkerJoinCustom("sm", "od")+`
   JOIN tags t ON t.id = sm.primary_tag_id
   WHERE od.rowid IN (%s)
     AND od.video_timestamp IS NOT NULL
@@ -1475,8 +1475,8 @@ WITH %scovered_marker_tags AS (
     t.id AS tag_id,
     t.name AS tag_name,
     1 AS tag_sort
-  FROM scenes_o_dates od
-  JOIN scene_markers sm ON sm.scene_id = od.scene_id
+  FROM `+sqlite.SceneOEventsSQLCustom()+` od
+  JOIN scene_markers sm ON `+sqlite.SceneOEventMarkerJoinCustom("sm", "od")+`
   JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
   JOIN tags t ON t.id = smt.tag_id
   WHERE od.rowid IN (%s)
@@ -1590,7 +1590,7 @@ FROM (
         COALESCE(od.video_timestamp, -1) ASC,
         od.rowid ASC
     ) AS scene_o_number
-  FROM scenes_o_dates od
+  FROM `+sqlite.SceneOEventsSQLCustom()+` od
   WHERE od.scene_id IN (%s)
     AND od.o_date IS NOT NULL
 ) ranked`, placeholders)
@@ -1667,6 +1667,9 @@ func (r *queryResolver) sceneOEventsFromRows(ctx context.Context, rows [][]inter
 	if err := r.populateSceneOEventSequence(ctx, out); err != nil {
 		return nil, err
 	}
+	if err := populateSceneOEventOwnersCustom(ctx, out); err != nil {
+		return nil, err
+	}
 
 	return out, nil
 }
@@ -1710,8 +1713,8 @@ WITH o_ethnicities AS (
       THEN 'Unknown'
       ELSE TRIM(performers.ethnicity)
     END AS ethnicity
-  FROM scenes_o_dates od
-  LEFT JOIN performers_scenes ps ON ps.scene_id = od.scene_id
+  FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
+  LEFT JOIN ` + sqlite.SceneOEventCastSQLCustom() + ` ps ON ps.owner_key = od.owner_key
   LEFT JOIN performers ON performers.id = ps.performer_id
   WHERE od.o_date IS NOT NULL` + scope + `
 )
@@ -1761,9 +1764,9 @@ func (r *queryResolver) SceneOEventsByEthnicity(ctx context.Context, ethnicity s
 		ethnicityPredicate := `
   AND EXISTS (
     SELECT 1
-    FROM performers_scenes ps
+    FROM ` + sqlite.SceneOEventCastSQLCustom() + ` ps
     JOIN performers ON performers.id = ps.performer_id
-    WHERE ps.scene_id = od.scene_id
+    WHERE ps.owner_key = od.owner_key
       AND TRIM(performers.ethnicity) = ?
   )`
 		args := []interface{}{ethnicity}
@@ -1772,18 +1775,18 @@ func (r *queryResolver) SceneOEventsByEthnicity(ctx context.Context, ethnicity s
   AND (
     NOT EXISTS (
       SELECT 1
-      FROM performers_scenes known_ps
+      FROM ` + sqlite.SceneOEventCastSQLCustom() + ` known_ps
       JOIN performers known_p ON known_p.id = known_ps.performer_id
-      WHERE known_ps.scene_id = od.scene_id
+      WHERE known_ps.owner_key = od.owner_key
         AND known_p.ethnicity IS NOT NULL
         AND TRIM(known_p.ethnicity) <> ''
         AND LOWER(TRIM(known_p.ethnicity)) NOT IN ('<nil>', 'null')
     )
     OR EXISTS (
       SELECT 1
-      FROM performers_scenes unknown_ps
+      FROM ` + sqlite.SceneOEventCastSQLCustom() + ` unknown_ps
       LEFT JOIN performers unknown_p ON unknown_p.id = unknown_ps.performer_id
-      WHERE unknown_ps.scene_id = od.scene_id
+      WHERE unknown_ps.owner_key = od.owner_key
         AND (unknown_p.ethnicity IS NULL OR TRIM(unknown_p.ethnicity) = '' OR LOWER(TRIM(unknown_p.ethnicity)) IN ('<nil>', 'null'))
     )
   )`
@@ -1792,7 +1795,7 @@ func (r *queryResolver) SceneOEventsByEthnicity(ctx context.Context, ethnicity s
 		args = append(args, scopeArgs...)
 		query := fmt.Sprintf(`
 SELECT od.rowid, od.scene_id, od.o_date, od.video_timestamp
-FROM scenes_o_dates od
+FROM `+sqlite.SceneOEventsSQLCustom()+` od
 JOIN scenes s ON s.id = od.scene_id
 WHERE od.o_date IS NOT NULL
   %s
@@ -1834,8 +1837,8 @@ WITH o_countries AS (
       THEN 'Unknown'
       ELSE TRIM(performers.country)
     END AS country
-  FROM scenes_o_dates od
-  LEFT JOIN performers_scenes ps ON ps.scene_id = od.scene_id
+  FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
+  LEFT JOIN ` + sqlite.SceneOEventCastSQLCustom() + ` ps ON ps.owner_key = od.owner_key
   LEFT JOIN performers ON performers.id = ps.performer_id
   WHERE od.o_date IS NOT NULL` + scope + `
 )
@@ -1883,9 +1886,9 @@ func (r *queryResolver) SceneOEventsByCountry(ctx context.Context, country strin
 	countryPredicate := `
   AND EXISTS (
     SELECT 1
-    FROM performers_scenes ps
+    FROM ` + sqlite.SceneOEventCastSQLCustom() + ` ps
     JOIN performers ON performers.id = ps.performer_id
-    WHERE ps.scene_id = od.scene_id
+    WHERE ps.owner_key = od.owner_key
       AND TRIM(performers.country) = ?
   )`
 	args := []interface{}{country}
@@ -1894,18 +1897,18 @@ func (r *queryResolver) SceneOEventsByCountry(ctx context.Context, country strin
   AND (
     NOT EXISTS (
       SELECT 1
-      FROM performers_scenes known_ps
+      FROM ` + sqlite.SceneOEventCastSQLCustom() + ` known_ps
       JOIN performers known_p ON known_p.id = known_ps.performer_id
-      WHERE known_ps.scene_id = od.scene_id
+      WHERE known_ps.owner_key = od.owner_key
         AND known_p.country IS NOT NULL
         AND TRIM(known_p.country) <> ''
         AND LOWER(TRIM(known_p.country)) NOT IN ('<nil>', 'null')
     )
     OR EXISTS (
       SELECT 1
-      FROM performers_scenes unknown_ps
+      FROM ` + sqlite.SceneOEventCastSQLCustom() + ` unknown_ps
       LEFT JOIN performers unknown_p ON unknown_p.id = unknown_ps.performer_id
-      WHERE unknown_ps.scene_id = od.scene_id
+      WHERE unknown_ps.owner_key = od.owner_key
         AND (unknown_p.country IS NULL OR TRIM(unknown_p.country) = '' OR LOWER(TRIM(unknown_p.country)) IN ('<nil>', 'null'))
     )
   )`
@@ -1915,7 +1918,7 @@ func (r *queryResolver) SceneOEventsByCountry(ctx context.Context, country strin
 
 	query := fmt.Sprintf(`
 SELECT od.rowid, od.scene_id, od.o_date, od.video_timestamp
-FROM scenes_o_dates od
+FROM `+sqlite.SceneOEventsSQLCustom()+` od
 JOIN scenes s ON s.id = od.scene_id
 WHERE od.o_date IS NOT NULL
   %s
@@ -1925,7 +1928,8 @@ ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1)
 }
 
 // SceneOCountsByStudio returns all recorded O events grouped by the studio of
-// each event's scene, plus a separate count for scenes without a studio.
+// each event's owner (a release O goes to the release's studio), plus a
+// separate count for owners without a studio.
 func (r *queryResolver) SceneOCountsByStudio(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret *SceneOCountsByStudio, err error) {
 	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
 	if err != nil {
@@ -1936,17 +1940,15 @@ func (r *queryResolver) SceneOCountsByStudio(ctx context.Context, studioID *stri
 		query := `
 WITH studio_counts AS (
 SELECT studios.id AS studio_id, studios.name AS studio_name, COUNT(*) AS cnt, 0 AS is_unknown
-FROM scenes_o_dates od
-JOIN scenes s ON s.id = od.scene_id
-JOIN studios ON studios.id = s.studio_id
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
+JOIN studios ON studios.id = od.studio_id
 WHERE od.o_date IS NOT NULL` + scope + `
 GROUP BY studios.id, studios.name
 UNION ALL
 SELECT 0 AS studio_id, '' AS studio_name, COUNT(*) AS cnt, 1 AS is_unknown
-FROM scenes_o_dates od
-JOIN scenes s ON s.id = od.scene_id
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
 WHERE od.o_date IS NOT NULL
-  AND s.studio_id IS NULL` + scope + `
+  AND od.studio_id IS NULL` + scope + `
 )
 SELECT studio_id, studio_name, cnt, is_unknown
 FROM studio_counts
@@ -1981,8 +1983,8 @@ ORDER BY is_unknown ASC, cnt DESC, studio_name COLLATE NOCASE ASC`
 	return ret, nil
 }
 
-// SceneOEventsByStudio returns all recorded O events for scenes assigned to a
-// studio, newest first.
+// SceneOEventsByStudio returns all recorded O events whose owner (scene or
+// release) is assigned to a studio, newest first.
 func (r *queryResolver) SceneOEventsByStudio(ctx context.Context, studioID string, scopeStudioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOEvent, err error) {
 	studioIDInt, err := sceneOStatsStudioID(studioID)
 	if err != nil {
@@ -1995,16 +1997,16 @@ func (r *queryResolver) SceneOEventsByStudio(ctx context.Context, studioID strin
 
 	query := `
 SELECT od.rowid, od.scene_id, od.o_date, od.video_timestamp
-FROM scenes_o_dates od
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
 JOIN scenes s ON s.id = od.scene_id
-WHERE s.studio_id = ?
+WHERE od.studio_id = ?
   AND od.o_date IS NOT NULL` + scope + `
 ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) DESC, od.rowid DESC, s.title ASC`
 	args := append([]interface{}{studioIDInt}, scopeArgs...)
 	return r.sceneOEventsFromStatsQuery(ctx, query, args)
 }
 
-// SceneOEventsWithUnknownStudio returns all recorded O events whose scene has
+// SceneOEventsWithUnknownStudio returns all recorded O events whose owner has
 // no assigned studio, newest first.
 func (r *queryResolver) SceneOEventsWithUnknownStudio(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOEvent, err error) {
 	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
@@ -2013,9 +2015,9 @@ func (r *queryResolver) SceneOEventsWithUnknownStudio(ctx context.Context, studi
 	}
 	query := `
 SELECT od.rowid, od.scene_id, od.o_date, od.video_timestamp
-FROM scenes_o_dates od
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
 JOIN scenes s ON s.id = od.scene_id
-WHERE s.studio_id IS NULL
+WHERE od.studio_id IS NULL
   AND od.o_date IS NOT NULL` + scope + `
 ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) DESC, od.rowid DESC, s.title ASC`
 	return r.sceneOEventsFromStatsQuery(ctx, query, scopeArgs)
@@ -2034,9 +2036,9 @@ func (r *queryResolver) SceneOCountsByPerformerAge(ctx context.Context, studioID
 		query := fmt.Sprintf(`
 WITH o_performer_ages AS (
   SELECT DISTINCT od.rowid AS o_id, %s AS age
-  FROM scenes_o_dates od
+  FROM `+sqlite.SceneOEventsSQLCustom()+` od
   JOIN scenes s ON s.id = od.scene_id
-  LEFT JOIN performers_scenes ps ON ps.scene_id = od.scene_id
+  LEFT JOIN `+sqlite.SceneOEventCastSQLCustom()+` ps ON ps.owner_key = od.owner_key
   LEFT JOIN performers p ON p.id = ps.performer_id
   WHERE od.o_date IS NOT NULL%s
 ),
@@ -2094,9 +2096,9 @@ func (r *queryResolver) sceneOEventsByPerformerAgeQuery(ctx context.Context, age
 	query := fmt.Sprintf(`
 WITH o_performer_ages AS (
   SELECT DISTINCT od.rowid AS o_id, %s AS age
-  FROM scenes_o_dates od
+  FROM `+sqlite.SceneOEventsSQLCustom()+` od
   JOIN scenes s ON s.id = od.scene_id
-  LEFT JOIN performers_scenes ps ON ps.scene_id = od.scene_id
+  LEFT JOIN `+sqlite.SceneOEventCastSQLCustom()+` ps ON ps.owner_key = od.owner_key
   LEFT JOIN performers p ON p.id = ps.performer_id
   WHERE od.o_date IS NOT NULL%s
 ),
@@ -2106,7 +2108,7 @@ matching_o_events AS (
   WHERE %s
 )
 SELECT od.rowid, od.scene_id, od.o_date, od.video_timestamp
-FROM scenes_o_dates od
+FROM `+sqlite.SceneOEventsSQLCustom()+` od
 JOIN scenes s ON s.id = od.scene_id
 JOIN matching_o_events moe ON moe.o_id = od.rowid
 ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) DESC, od.rowid DESC, s.title ASC`, ageExpr, scope, agePredicate)
@@ -2142,7 +2144,7 @@ func (r *queryResolver) SceneOCountsByReleaseYear(ctx context.Context, studioID 
 		query := fmt.Sprintf(`
 WITH o_release_years AS (
   SELECT od.rowid AS o_id, CAST(strftime('%%Y', %s) AS INT) AS year
-  FROM scenes_o_dates od
+  FROM `+sqlite.SceneOEventsSQLCustom()+` od
   JOIN scenes s ON s.id = od.scene_id
   WHERE od.o_date IS NOT NULL%s
 )
@@ -2192,7 +2194,7 @@ func (r *queryResolver) sceneOEventsByReleaseYearQuery(ctx context.Context, year
 	query := fmt.Sprintf(`
 WITH o_release_years AS (
   SELECT od.rowid AS o_id, CAST(strftime('%%Y', %s) AS INT) AS year
-  FROM scenes_o_dates od
+  FROM `+sqlite.SceneOEventsSQLCustom()+` od
   JOIN scenes s ON s.id = od.scene_id
   WHERE od.o_date IS NOT NULL%s
 ),
@@ -2202,7 +2204,7 @@ matching_o_events AS (
   WHERE %s
 )
 SELECT od.rowid, od.scene_id, od.o_date, od.video_timestamp
-FROM scenes_o_dates od
+FROM `+sqlite.SceneOEventsSQLCustom()+` od
 JOIN scenes s ON s.id = od.scene_id
 JOIN matching_o_events moe ON moe.o_id = od.rowid
 	ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) DESC, od.rowid DESC, s.title ASC`, effectiveDateExpr, scope, yearPredicate)
@@ -2236,7 +2238,7 @@ func (r *queryResolver) SceneOUnreliableDateCount(ctx context.Context, studioID 
 		db := manager.GetInstance().Database
 		query := `
 SELECT COUNT(*)
-FROM scenes_o_dates od
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
 WHERE od.o_date IS NOT NULL
   AND (date(od.o_date, 'localtime') < date(?) OR date(od.o_date, 'localtime') IS NULL)` + scope
 		args := append([]interface{}{sceneODateTrackingStart}, scopeArgs...)
@@ -2263,7 +2265,7 @@ func (r *queryResolver) SceneOEventsBeforeTrackingStart(ctx context.Context, stu
 	}
 	query := `
 SELECT od.rowid, od.scene_id, od.o_date, od.video_timestamp
-FROM scenes_o_dates od
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
 JOIN scenes s ON s.id = od.scene_id
 WHERE od.o_date IS NOT NULL
   AND (date(od.o_date, 'localtime') < date(?) OR date(od.o_date, 'localtime') IS NULL)` + scope + `
@@ -2336,7 +2338,7 @@ scene_o_stats AS (
     scene_id,
     COUNT(*) AS scene_o_count,
     strftime('%%Y-%%m-%%dT%%H:%%M:%%SZ', MAX(datetime(o_date))) AS most_recent_o_date
-  FROM scenes_o_dates od
+  FROM `+sqlite.SceneOEventsSQLCustom()+` od
   WHERE o_date IS NOT NULL
     AND scene_id IN (SELECT id FROM selected_scenes)%s
   GROUP BY scene_id
@@ -2604,7 +2606,7 @@ GROUP BY ps.performer_id, scene_age`, ageIDClause)
 // O date charts.
 func sceneOMostOsInDayQueryCustom(scope string) string {
 	return `SELECT date(od.o_date, 'localtime') AS day, COUNT(*) AS cnt
-FROM scenes_o_dates od
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
 WHERE od.o_date IS NOT NULL AND date(od.o_date, 'localtime') >= date(?) AND date(od.o_date, 'localtime') <> date(?)` + scope + `
 GROUP BY day ORDER BY cnt DESC, day ASC LIMIT 1`
 }
@@ -2664,7 +2666,7 @@ func (r *queryResolver) LongestPeriodWithoutO(ctx context.Context, studioID *str
 		// CUSTOM: local days match the date charts; the current gap ends today or
 		// at the end of the selected range.
 		query := `SELECT DISTINCT date(od.o_date, 'localtime') AS day
-FROM scenes_o_dates od
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
 WHERE od.o_date IS NOT NULL AND date(od.o_date, 'localtime') >= date(?)` + scope + `
 ORDER BY day ASC`
 		args := append([]interface{}{sceneODateTrackingStart}, scopeArgs...)

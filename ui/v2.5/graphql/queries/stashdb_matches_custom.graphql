@@ -13,6 +13,15 @@ query StashDBMatchesReport {
     changes {
       previous
       current
+      release {
+        id
+        title
+        date
+        studio {
+          id
+          name
+        }
+      }
       scene {
         id
         title
@@ -29,6 +38,15 @@ query StashDBMatchesReport {
     unsubmitted {
       stash_id
       matches
+      release {
+        id
+        title
+        date
+        studio {
+          id
+          name
+        }
+      }
       scene {
         id
         title

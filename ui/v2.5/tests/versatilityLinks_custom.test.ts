@@ -49,9 +49,13 @@ function loadComponent(file: string) {
             Link: ({ to, children, ...props }: any) =>
               React.createElement("a", { href: to, ...props }, children),
           };
+        if (name === "src/utils/text")
+          return {
+            __esModule: true,
+            default: { secondsToTimestamp: (seconds: number) => `${seconds}s` },
+          };
         if (
           name.endsWith(".scss") ||
-          name === "src/utils/text" ||
           name === "src/components/Shared/HoverPopover"
         )
           return {};
@@ -149,4 +153,23 @@ assert.doesNotMatch(
   /href=/,
   "missing configured tags leave readable plain labels"
 );
+
+const { PerformerVersatilityByTime } = loadComponent(
+  "PerformerVersatility_custom.tsx"
+);
+const byTime = renderToStaticMarkup(
+  React.createElement(PerformerVersatilityByTime, {
+    sexTopSeconds: 30,
+    sexBottomSeconds: 90,
+    oralTopSeconds: 60,
+    oralBottomSeconds: 20,
+  })
+);
+assert.deepEqual(
+  [...byTime.matchAll(/<h3>([^<]+)<\/h3>/g)].map((match) => match[1]),
+  ["Sex", "Oral"],
+  "Versatility by Time shows only Sex and Oral bars"
+);
+assert.match(byTime, /Got fucked for 90s/);
+assert.match(byTime, /Got his pito sucked for 60s/);
 console.log("Versatility percentage and role link tests passed.");

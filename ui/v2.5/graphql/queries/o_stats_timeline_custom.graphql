@@ -5,6 +5,8 @@ fragment OStatsTimelineEvent on SceneOEvent {
   is_first_for_scene
   scene_o_number
   video_timestamp
+  release_id
+  screenshot_path
   associated_tags {
     id
     name

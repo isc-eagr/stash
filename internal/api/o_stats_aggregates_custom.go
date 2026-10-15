@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/stashapp/stash/internal/manager"
+	"github.com/stashapp/stash/pkg/sqlite"
 )
 
 // sceneOCalendarDayCountsQueryCustom groups reliable O events by local day for
@@ -17,7 +18,7 @@ func sceneOCalendarDayCountsQueryCustom(scope string) string {
 SELECT date(od.o_date, 'localtime') AS day_date,
   CAST(strftime('%d', od.o_date, 'localtime') AS INT) AS day,
   COUNT(*) AS cnt
-FROM scenes_o_dates od
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
 WHERE od.o_date IS NOT NULL
   AND date(od.o_date, 'localtime') >= date(?)
   AND strftime('%Y', od.o_date, 'localtime') = ?` + scope + `
@@ -66,7 +67,7 @@ func sceneOCountsBySceneQueryCustom(scope string) string {
 	return `
 WITH scene_counts AS (
   SELECT od.scene_id, COUNT(*) AS cnt, MAX(datetime(od.o_date)) AS last_o
-  FROM scenes_o_dates od
+  FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
   WHERE od.o_date IS NOT NULL` + scope + `
   GROUP BY od.scene_id
 )
@@ -135,8 +136,8 @@ func sceneOCountsByPerformerQueryCustom(scope string) string {
 SELECT p.id, p.name, COUNT(DISTINCT od.rowid) AS cnt,
   CASE WHEN p.image_blob IS NULL OR TRIM(p.image_blob) = '' THEN 0 ELSE 1 END AS has_image,
   p.rating
-FROM scenes_o_dates od
-JOIN performers_scenes ps ON ps.scene_id = od.scene_id
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
+JOIN ` + sqlite.SceneOEventCastSQLCustom() + ` ps ON ps.owner_key = od.owner_key
 JOIN performers p ON p.id = ps.performer_id
 WHERE od.o_date IS NOT NULL` + scope + `
 GROUP BY p.id, p.name, p.image_blob, p.rating
@@ -205,7 +206,7 @@ func (r *queryResolver) SceneOEventsByScenes(ctx context.Context, sceneIDs []str
 
 	query := `
 SELECT od.rowid, od.scene_id, od.o_date, od.video_timestamp
-FROM scenes_o_dates od
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
 JOIN scenes s ON s.id = od.scene_id
 WHERE od.scene_id IN (SELECT value FROM json_each(?))
   AND od.o_date IS NOT NULL` + scope + `

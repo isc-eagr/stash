@@ -438,3 +438,36 @@ func TestRemotePlaybackConcurrentRecordWritesOnceCustom(t *testing.T) {
 	db.Scene.AssertExpectations(t)
 	db.RatingScore.AssertExpectations(t)
 }
+
+func TestRemotePlaybackRecordMatchesPlayingReleaseCustom(t *testing.T) {
+	h := newRemotePlaybackHubCustom()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	state := remoteTestStateCustom()
+	release := "9"
+	state.ReleaseID = &release
+	_ = h.subscribeCommands(ctx, state.PlayerID)
+	if _, err := h.update(state); err != nil {
+		t.Fatal(err)
+	}
+	if got := h.state(state.PlayerID); got.ReleaseID == nil || *got.ReleaseID != release {
+		t.Fatalf("state release = %v", got.ReleaseID)
+	}
+	request := remoteTestRequestCustom(h, state)
+	if _, err := h.request(request); err != nil {
+		t.Fatal(err)
+	}
+	record := remoteTestRecordCustom(request)
+	if _, err := h.validateRecord(record); err == nil {
+		t.Fatal("record without the playing release was accepted")
+	}
+	other := "8"
+	record.ReleaseID = &other
+	if _, err := h.validateRecord(record); err == nil {
+		t.Fatal("record for another release was accepted")
+	}
+	record.ReleaseID = &release
+	if previous, err := h.validateRecord(record); err != nil || previous != nil {
+		t.Fatalf("record for the playing release: %+v, %v", previous, err)
+	}
+}

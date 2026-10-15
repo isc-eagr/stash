@@ -199,6 +199,10 @@ CREATE TABLE IF NOT EXISTS custom_schema_migrations (
 		return err
 	}
 
+	if err := ensureTaskProgressMilestoneMemberHistoryCustom(ctx, tx); err != nil {
+		return err
+	}
+
 	if err := completeTaskProgressTrackersCustom(context.WithValue(ctx, txnKey, tx), 0); err != nil {
 		return err
 	}

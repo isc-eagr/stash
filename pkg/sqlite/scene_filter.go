@@ -304,13 +304,7 @@ func (qb *sceneFilterHandler) playCountCriterionHandler(count *models.IntCriteri
 }
 
 func (qb *sceneFilterHandler) oCountCriterionHandler(count *models.IntCriterionInput) criterionHandlerFunc {
-	h := countCriterionHandlerBuilder{
-		primaryTable: sceneTable,
-		joinTable:    scenesODatesTable,
-		primaryFK:    sceneIDColumn,
-	}
-
-	return h.handler(count)
+	return intCriterionHandler(count, sceneTotalOCountSQLCustom("scenes.id"), nil) // CUSTOM: plus release O's
 }
 
 func (qb *sceneFilterHandler) fileCountCriterionHandler(fileCount *models.IntCriterionInput) criterionHandlerFunc {

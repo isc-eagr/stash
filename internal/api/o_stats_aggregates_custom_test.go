@@ -122,7 +122,9 @@ func TestSceneOMostOsInDayQueryCustomUsesLocalDays(t *testing.T) {
 	before := localMidnight.Add(-30 * time.Minute).UTC().Format(time.RFC3339)
 	after := localMidnight.Add(30 * time.Minute).UTC().Format(time.RFC3339)
 	afterAgain := localMidnight.Add(45 * time.Minute).UTC().Format(time.RFC3339)
-	_, err = db.Exec(`CREATE TABLE scenes_o_dates (scene_id INTEGER, o_date TEXT)`)
+	_, err = db.Exec(`CREATE TABLE scenes (id INTEGER PRIMARY KEY, studio_id INTEGER);
+INSERT INTO scenes(id) VALUES (1);
+CREATE TABLE scenes_o_dates (scene_id INTEGER, o_date TEXT, video_timestamp REAL)`)
 	require.NoError(t, err)
 	_, err = db.Exec(`INSERT INTO scenes_o_dates(scene_id, o_date) VALUES (1, ?), (1, ?), (1, ?)`, before, after, afterAgain)
 	require.NoError(t, err)

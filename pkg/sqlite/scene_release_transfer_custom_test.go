@@ -79,6 +79,9 @@ INSERT INTO rating_penalty_scores VALUES ('scene', 1, 'penalty', 1);`
 	if err := store.TransferSceneMetadataToReleaseCustom(ctx, 1, 8); err != nil {
 		t.Fatal(err)
 	}
+	if got, err := store.CountByTagIDCustom(ctx, 21); err != nil || got != 1 {
+		t.Fatalf("release count by tag = %d, %v; want 1", got, err)
+	}
 	if _, err := tx.Exec(`INSERT INTO scenes VALUES (3, NULL, 0, 0, 0)`); err != nil {
 		t.Fatal(err)
 	}
@@ -86,15 +89,14 @@ INSERT INTO rating_penalty_scores VALUES ('scene', 1, 'penalty', 1);`
 		t.Fatal(err)
 	}
 	var row struct {
-		Rating       int     `db:"rating"`
 		Organized    bool    `db:"organized"`
 		ResumeTime   float64 `db:"resume_time"`
 		PlayDuration float64 `db:"play_duration"`
 	}
-	if err := tx.Get(&row, `SELECT rating,organized,resume_time,play_duration FROM scenes WHERE id = 3`); err != nil {
+	if err := tx.Get(&row, `SELECT organized,resume_time,play_duration FROM scenes WHERE id = 3`); err != nil {
 		t.Fatal(err)
 	}
-	if row.Rating != 87 || !row.Organized || row.ResumeTime != 14.5 || row.PlayDuration != 123.25 {
+	if !row.Organized || row.ResumeTime != 14.5 || row.PlayDuration != 123.25 {
 		t.Fatalf("scalar metadata changed: %+v", row)
 	}
 	checks := []struct {
@@ -109,9 +111,12 @@ INSERT INTO rating_penalty_scores VALUES ('scene', 1, 'penalty', 1);`
 		{`SELECT COUNT(*) FROM scene_custom_fields WHERE scene_id = 3 AND value = x'010203'`, 1},
 		{`SELECT COUNT(*) FROM scenes_view_dates WHERE scene_id = 3`, 2},
 		{`SELECT COUNT(*) FROM scenes_o_dates WHERE scene_id = 3 AND video_timestamp = 9.5`, 2},
-		{`SELECT COUNT(*) FROM rating_criteria_scores WHERE entity_type = 'scene' AND entity_id = 3`, 1},
-		{`SELECT COUNT(*) FROM rating_bonus_scores WHERE entity_type = 'scene' AND entity_id = 3`, 1},
-		{`SELECT COUNT(*) FROM rating_penalty_scores WHERE entity_type = 'scene' AND entity_id = 3`, 1},
+		// Ratings stay with scenes; conversions copy them in the resolver.
+		{`SELECT COUNT(*) FROM scenes WHERE id = 3 AND rating IS NULL`, 1},
+		{`SELECT COUNT(*) FROM scene_release_metadata WHERE rating IS NOT NULL`, 0},
+		{`SELECT COUNT(*) FROM rating_criteria_scores WHERE entity_type = 'scene' AND entity_id = 3`, 0},
+		{`SELECT COUNT(*) FROM rating_criteria_scores WHERE entity_type = 'scene' AND entity_id = 1`, 1},
+		{`SELECT COUNT(*) FROM rating_criteria_scores WHERE entity_type = 'scene_release'`, 0},
 		{`SELECT COUNT(*) FROM scenes_view_dates WHERE scene_id = 2`, 0},
 	}
 	for _, check := range checks {
@@ -288,9 +293,7 @@ INSERT INTO scene_multi_segment_loop_presets VALUES (66, 4, 'loop', '[]', 1, 0, 
 	if err := store.DeleteLoopPresetCustom(ctx, 9, "best"); err != nil {
 		t.Fatal(err)
 	}
-	rating := 91
 	if err := store.UpdateExtendedCustom(ctx, 9, models.SceneReleaseExtendedUpdateCustom{
-		RatingSet: true, Rating: &rating,
 		OrganizedSet: true, Organized: true,
 		URLsSet: true, URLs: []string{"https://one.example", "https://two.example"},
 		PerformerIDsSet: true, PerformerIDs: []int{11},
@@ -303,7 +306,7 @@ INSERT INTO scene_multi_segment_loop_presets VALUES (66, 4, 'loop', '[]', 1, 0, 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if metadata.Rating == nil || *metadata.Rating != 91 || !metadata.Organized {
+	if !metadata.Organized {
 		t.Fatalf("release edit metadata = %+v", metadata)
 	}
 	urls, err := store.GetURLsCustom(ctx, 9)
@@ -315,8 +318,8 @@ INSERT INTO scene_multi_segment_loop_presets VALUES (66, 4, 'loop', '[]', 1, 0, 
 		t.Fatalf("release custom fields = %v, err = %v", fields, err)
 	}
 	if err := store.UpdateExtendedCustom(ctx, 9, models.SceneReleaseExtendedUpdateCustom{
-		RatingSet: true, OrganizedSet: true,
-		URLsSet: true, PerformerIDsSet: true, TagIDsSet: true,
+		OrganizedSet: true,
+		URLsSet:      true, PerformerIDsSet: true, TagIDsSet: true,
 		CustomFields: &models.CustomFieldsInput{Full: map[string]interface{}{}},
 	}); err != nil {
 		t.Fatal(err)
@@ -325,7 +328,7 @@ INSERT INTO scene_multi_segment_loop_presets VALUES (66, 4, 'loop', '[]', 1, 0, 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if metadata.Rating != nil || metadata.Organized {
+	if metadata.Organized {
 		t.Fatalf("release fields did not clear: %+v", metadata)
 	}
 	urls, err = store.GetURLsCustom(ctx, 9)
@@ -339,6 +342,122 @@ INSERT INTO scene_multi_segment_loop_presets VALUES (66, 4, 'loop', '[]', 1, 0, 
 		}
 		if count != 0 {
 			t.Fatalf("%s was not cleared", table)
+		}
+	}
+}
+
+func TestSceneReleaseCopyRatingFromSceneCustom(t *testing.T) {
+	db, err := sqlx.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	db.SetMaxOpenConns(1)
+	schema := `
+CREATE TABLE scenes(id INTEGER PRIMARY KEY, rating INTEGER);
+INSERT INTO scenes VALUES (3, 40), (4, 80), (9, 60);`
+	for _, table := range []string{"rating_criteria_scores", "rating_bonus_scores", "rating_penalty_scores"} {
+		schema += `
+CREATE TABLE ` + table + `(id INTEGER PRIMARY KEY AUTOINCREMENT, entity_type TEXT NOT NULL, entity_id INTEGER NOT NULL, key TEXT NOT NULL,
+ raw_value REAL NOT NULL DEFAULT 0, weighted_value REAL NOT NULL DEFAULT 0, label TEXT,
+ created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(entity_type,entity_id,key));`
+	}
+	schema += `
+INSERT INTO rating_criteria_scores(entity_type,entity_id,key,raw_value,weighted_value,label) VALUES
+ ('scene', 9, 'chemistry', 3, 1.2, 'Strong'), ('scene', 9, 'payoff', 2, 1, 'Standard'),
+ ('scene', 3, 'chemistry', 1, 0.4, 'Weak'), ('scene', 3, 'standout', 1, 0.5, NULL), ('scene', 4, 'chemistry', 4, 1.6, NULL);
+INSERT INTO rating_bonus_scores(entity_type,entity_id,key,raw_value,weighted_value) VALUES ('scene', 9, 'goat', 1, 5);
+INSERT INTO rating_penalty_scores(entity_type,entity_id,key,raw_value,weighted_value) VALUES ('scene', 3, 'audio', 1, -2);`
+	if _, err := db.Exec(schema); err != nil {
+		t.Fatal(err)
+	}
+	tx, err := db.BeginTxx(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	ctx := context.WithValue(context.Background(), txnKey, tx)
+	if err := (&SceneReleaseStore{}).CopyRatingFromSceneCustom(ctx, 9, 3); err != nil {
+		t.Fatal(err)
+	}
+
+	checks := []struct {
+		query string
+		want  int
+	}{
+		{`SELECT rating FROM scenes WHERE id = 3`, 60},
+		{`SELECT rating FROM scenes WHERE id = 4`, 80},
+		{`SELECT COUNT(*) FROM rating_criteria_scores WHERE entity_type = 'scene' AND entity_id = 3`, 2},
+		{`SELECT COUNT(*) FROM rating_criteria_scores WHERE entity_type = 'scene' AND entity_id = 3 AND key = 'chemistry' AND raw_value = 3 AND weighted_value = 1.2 AND label = 'Strong'`, 1},
+		{`SELECT COUNT(*) FROM rating_bonus_scores WHERE entity_type = 'scene' AND entity_id = 3 AND key = 'goat'`, 1},
+		{`SELECT COUNT(*) FROM rating_penalty_scores WHERE entity_type = 'scene' AND entity_id = 3`, 0},
+		{`SELECT rating FROM scenes WHERE id = 9`, 60},
+		{`SELECT COUNT(*) FROM rating_criteria_scores WHERE entity_type = 'scene' AND entity_id = 9`, 2},
+		{`SELECT COUNT(*) FROM rating_bonus_scores WHERE entity_type = 'scene' AND entity_id = 9`, 1},
+		{`SELECT COUNT(*) FROM rating_criteria_scores WHERE entity_type = 'scene' AND entity_id = 4`, 1},
+	}
+	for _, check := range checks {
+		var got int
+		if err := tx.Get(&got, check.query); err != nil {
+			t.Fatal(err)
+		}
+		if got != check.want {
+			t.Fatalf("%s: got %d, want %d", check.query, got, check.want)
+		}
+	}
+}
+
+func TestSceneReleaseCopyMarkersToSceneCustom(t *testing.T) {
+	db, err := sqlx.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	db.SetMaxOpenConns(1)
+	if _, err := db.Exec(`
+CREATE TABLE scene_markers(id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, seconds REAL NOT NULL, end_seconds REAL,
+ primary_tag_id INTEGER NOT NULL, scene_id INTEGER, release_id INTEGER, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL,
+ CHECK ((scene_id IS NOT NULL) != (release_id IS NOT NULL)));
+CREATE TABLE scene_markers_tags(scene_marker_id INTEGER, tag_id INTEGER);
+CREATE TABLE scene_marker_performers(id INTEGER PRIMARY KEY AUTOINCREMENT, scene_marker_id INTEGER NOT NULL, performer_id INTEGER NOT NULL, role TEXT NOT NULL);
+INSERT INTO scene_markers(id,title,seconds,end_seconds,primary_tag_id,scene_id,release_id,created_at,updated_at) VALUES
+ (1,'Kiss',10,20,5,NULL,9,'2020-01-01','2020-01-01'), (2,'Ride',30,NULL,6,NULL,9,'2020-01-01','2020-01-01'),
+ (3,'Other',40,NULL,7,NULL,8,'2020-01-01','2020-01-01'), (4,'Own',50,NULL,7,3,NULL,'2020-01-01','2020-01-01');
+INSERT INTO scene_markers_tags VALUES (1,50), (1,51), (3,70);
+INSERT INTO scene_marker_performers(scene_marker_id,performer_id,role) VALUES (1,100,'top'), (1,101,'bottom'), (3,102,'top');`); err != nil {
+		t.Fatal(err)
+	}
+	tx, err := db.BeginTxx(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	ctx := context.WithValue(context.Background(), txnKey, tx)
+	if err := (&SceneReleaseStore{}).CopyMarkersToSceneCustom(ctx, 9, 3); err != nil {
+		t.Fatal(err)
+	}
+
+	checks := []struct {
+		query string
+		want  int
+	}{
+		{`SELECT COUNT(*) FROM scene_markers WHERE scene_id = 3`, 3},
+		{`SELECT COUNT(*) FROM scene_markers WHERE release_id = 9`, 2},
+		{`SELECT COUNT(*) FROM scene_markers WHERE release_id = 8`, 1},
+		{`SELECT COUNT(*) FROM scene_markers WHERE scene_id = 3 AND title = 'Kiss' AND seconds = 10 AND end_seconds = 20 AND primary_tag_id = 5`, 1},
+		{`SELECT COUNT(*) FROM scene_markers WHERE scene_id = 3 AND title = 'Ride' AND end_seconds IS NULL`, 1},
+		{`SELECT COUNT(*) FROM scene_markers_tags t JOIN scene_markers m ON m.id = t.scene_marker_id WHERE m.scene_id = 3`, 2},
+		{`SELECT COUNT(*) FROM scene_marker_performers p JOIN scene_markers m ON m.id = p.scene_marker_id WHERE m.scene_id = 3 AND m.title = 'Kiss'`, 2},
+		{`SELECT COUNT(*) FROM scene_marker_performers p JOIN scene_markers m ON m.id = p.scene_marker_id WHERE m.scene_id = 3 AND p.role = 'bottom' AND p.performer_id = 101`, 1},
+		{`SELECT COUNT(*) FROM scene_markers_tags WHERE scene_marker_id = 1`, 2},
+	}
+	for _, check := range checks {
+		var got int
+		if err := tx.Get(&got, check.query); err != nil {
+			t.Fatal(err)
+		}
+		if got != check.want {
+			t.Fatalf("%s: got %d, want %d", check.query, got, check.want)
 		}
 	}
 }

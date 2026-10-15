@@ -295,6 +295,8 @@ assert.deepEqual(
     date: "2026-09-07",
     completed: 4,
     incoming: 6,
+    added: 0,
+    removed: 0,
     remaining: 12,
     baselineCount: undefined,
     completedAverage: 4,
@@ -390,4 +392,45 @@ assert.ok(
 assert.ok(
   Math.abs(currentPercentageChanges.month - 70) < 0.000001,
   "this month compares with the previous month's close"
+);
+
+const scopeHistory = buildTaskProgressHistorySeries(
+  [
+    { date: "2026-10-12", completed: 1, incoming: 0, remaining: 30 },
+    {
+      date: "2026-10-13",
+      completed: 0,
+      incoming: 0,
+      added: 61,
+      removed: 203,
+      remaining: 0,
+    },
+    { date: "2026-10-14", completed: 0, incoming: 0, remaining: 0 },
+  ],
+  "all",
+  "2026-10-14"
+);
+assert.deepEqual(
+  scopeHistory.map((point) => [point.added, point.removed]),
+  [
+    [0, 0],
+    [61, 203],
+    [0, 0],
+  ],
+  "scope changes stay on their recorded day"
+);
+assert.deepEqual(
+  filterTaskProgressHistoryActivityPoints(scopeHistory).map(
+    (point) => point.date
+  ),
+  ["2026-10-12", "2026-10-13"],
+  "days with only scope changes still appear in the daily data"
+);
+const scopeWeek = aggregateTaskProgressHistorySeries(scopeHistory, "week");
+assert.equal(scopeWeek[0].added, 61, "weekly totals sum added work");
+assert.equal(scopeWeek[0].removed, 203, "weekly totals sum removed work");
+assert.equal(
+  taskProgressHistoryPercentages(scopeHistory[1]).periodProgressPercentage,
+  0,
+  "scope changes are not reported as completion progress"
 );

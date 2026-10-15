@@ -13,6 +13,11 @@
     width: 4rem;
   }
 
+  &__logo {
+    object-fit: contain;
+    padding: 0.25rem;
+  }
+
   &__placeholder {
     align-items: center;
     background: var(--secondary);
@@ -45,4 +50,13 @@
 
 .scene-releases-panel .card-body dd {
   overflow-wrap: anywhere;
+}
+
+// Let the actions menu escape its card and sit above the cards below it.
+.scene-releases-panel .card {
+  overflow: visible;
+
+  &:has(.dropdown-menu.show) {
+    z-index: 2;
+  }
 }

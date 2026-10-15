@@ -8,6 +8,9 @@ fragment SlimSceneData on Scene {
   date
   effective_date # CUSTOM
   stashdb_matches # CUSTOM
+  release_stashdb_matches # CUSTOM
+  release_o_counter # CUSTOM
+  release_last_o_at # CUSTOM
   rating100
   # CUSTOM: scene Rating Advisor criteria used by negative insight chips
   rating_scores {

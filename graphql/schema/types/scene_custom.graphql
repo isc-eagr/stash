@@ -26,6 +26,15 @@ extend type Scene {
 
   "Users who matched this scene on StashDB (summed PHASH submissions); null until scraped"
   stashdb_matches: Int
+
+  "O events recorded on this scene's releases; o_counter counts only the scene's own"
+  release_o_counter: Int!
+
+  "Latest dated O on this scene's releases"
+  release_last_o_at: Time
+
+  "StashDB Matches summed across this scene's releases; null when none has a count"
+  release_stashdb_matches: Int
 }
 
 extend type ScrapedScene {
@@ -75,13 +84,19 @@ type StashDBMatchesReport {
 }
 
 type StashDBUnsubmittedScene {
+  "The release's parent scene when release is set"
   scene: Scene!
+  "Set when the StashDB link belongs to this release"
+  release: SceneRelease
   stash_id: ID!
   matches: Int!
 }
 
 type StashDBMatchesChange {
+  "The release's parent scene when release is set"
   scene: Scene!
+  "Set when the count belongs to this release"
+  release: SceneRelease
   "Null for a first-time count"
   previous: Int
   current: Int!

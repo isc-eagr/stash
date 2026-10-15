@@ -61,7 +61,12 @@ type SceneOEvent {
   video_timestamp: Float
   "Primary and secondary marker tags associated with the O timestamp"
   associated_tags: [Tag!]!
+  "The parent scene; release O's count with their scene"
   scene: Scene!
+  "Set when the O was recorded on one of the scene's releases"
+  release_id: ID
+  "The O screenshot, when the O has a video timestamp"
+  screenshot_path: String
 }
 # CUSTOM: end
 

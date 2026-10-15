@@ -7,12 +7,14 @@ import (
 	"time"
 )
 
-// StashDBMatchTargetCustom is a scene linked to a stash-box endpoint and its
-// stored count (nil when never fetched).
+// StashDBMatchTargetCustom is a scene or release linked to a stash-box
+// endpoint and its stored count (nil when never fetched). For a release,
+// SceneID is its parent scene.
 type StashDBMatchTargetCustom struct {
-	SceneID int    `db:"scene_id"`
-	StashID string `db:"stash_id"`
-	Matches *int   `db:"matches"`
+	SceneID   int    `db:"scene_id"`
+	ReleaseID *int   `db:"release_id"`
+	StashID   string `db:"stash_id"`
+	Matches   *int   `db:"matches"`
 }
 
 // StashDBMatchesReportCustom summarises the latest refresh-task run.
@@ -34,17 +36,19 @@ type StashDBMatchesReportCustom struct {
 // StashDBUnsubmittedSceneCustom is a linked scene with no PHASH submitted by
 // the account authenticated through the report's endpoint API key.
 type StashDBUnsubmittedSceneCustom struct {
-	SceneID int    `db:"scene_id"`
-	StashID string `db:"stash_id"`
-	Matches int    `db:"matches"`
+	SceneID   int    `db:"scene_id"`
+	ReleaseID *int   `db:"release_id"`
+	StashID   string `db:"stash_id"`
+	Matches   int    `db:"matches"`
 }
 
 // StashDBMatchesChangeCustom is one count the refresh wrote; Previous is nil
 // for a first-time count.
 type StashDBMatchesChangeCustom struct {
-	SceneID  int  `db:"scene_id"`
-	Previous *int `db:"previous"`
-	Current  int  `db:"current"`
+	SceneID   int  `db:"scene_id"`
+	ReleaseID *int `db:"release_id"`
+	Previous  *int `db:"previous"`
+	Current   int  `db:"current"`
 }
 
 type StashDBMatchesReaderCustom interface {

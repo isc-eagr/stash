@@ -1,6 +1,6 @@
 package manager
 
-// CUSTOM: Generate screenshots for timestamped scene O events.
+// CUSTOM: Generate screenshots for timestamped scene and release O events.
 
 import (
 	"context"
@@ -13,11 +13,13 @@ import (
 	"github.com/stashapp/stash/pkg/logger"
 	"github.com/stashapp/stash/pkg/models"
 	"github.com/stashapp/stash/pkg/scene/generate"
+	"github.com/stashapp/stash/pkg/sqlite"
 )
 
 type sceneOEventScreenshot struct {
 	ID             int
 	SceneID        int
+	ReleaseID      int // set for a release O; ID is then its release O rowid
 	VideoTimestamp float64
 }
 
@@ -33,26 +35,42 @@ func (t *GenerateOScreenshotTask) GetDescription() string {
 	return fmt.Sprintf("Generating O screenshot for O ID %d", t.Event.ID)
 }
 
+// oScreenshotVideoCustom returns the file an O was recorded on and the hash
+// naming its screenshot: the scene's primary file, or the release's.
+func oScreenshotVideoCustom(ctx context.Context, r models.Repository, event sceneOEventScreenshot, algorithm models.HashAlgorithm) (*models.VideoFile, string, error) {
+	if event.ReleaseID != 0 {
+		files, err := r.SceneRelease.GetFiles(ctx, event.ReleaseID)
+		if err != nil || len(files) == 0 {
+			return nil, "", err
+		}
+		return files[0], models.ReleaseVideoHashCustom(files[0], algorithm), nil
+	}
+	scene, err := r.Scene.Find(ctx, event.SceneID)
+	if err != nil {
+		return nil, "", err
+	}
+	if scene == nil {
+		return nil, "", fmt.Errorf("scene with id %d not found", event.SceneID)
+	}
+	if err := scene.LoadPrimaryFile(ctx, r.File); err != nil {
+		return nil, "", err
+	}
+	return scene.Files.Primary(), scene.GetHash(algorithm), nil
+}
+
 func (t *GenerateOScreenshotTask) Start(ctx context.Context) {
-	var scene *models.Scene
+	var videoFile *models.VideoFile
+	var sceneHash string
 	r := t.repository
 	if err := r.WithReadTxn(ctx, func(ctx context.Context) error {
 		var err error
-		scene, err = r.Scene.Find(ctx, t.Event.SceneID)
-		if err != nil {
-			return err
-		}
-		if scene == nil {
-			return fmt.Errorf("scene with id %d not found", t.Event.SceneID)
-		}
-
-		return scene.LoadPrimaryFile(ctx, r.File)
+		videoFile, sceneHash, err = oScreenshotVideoCustom(ctx, r, t.Event, t.fileNamingAlgorithm)
+		return err
 	}); err != nil {
-		logger.Errorf("error finding scene for O screenshot generation: %v", err)
+		logger.Errorf("error finding video for O screenshot generation: %v", err)
 		return
 	}
 
-	videoFile := scene.Files.Primary()
 	if videoFile == nil {
 		return
 	}
@@ -62,7 +80,6 @@ func (t *GenerateOScreenshotTask) Start(ctx context.Context) {
 		return
 	}
 
-	sceneHash := scene.GetHash(t.fileNamingAlgorithm)
 	output := instance.Paths.Generated.GetOScreenshotPath(sceneHash, t.Event.ID)
 	if err := fsutil.EnsureDirAll(filepath.Dir(output)); err != nil {
 		logger.Warnf("could not create the O screenshot folder (%v): %v", filepath.Dir(output), err)
@@ -96,45 +113,31 @@ func (j *GenerateJob) queueOScreenshotTasks(ctx context.Context, g *generate.Gen
 		logger.Errorf("error finding O events for screenshot generation: %s", err.Error())
 		return
 	}
-
-	for _, event := range events {
-		if job.IsCancelled(ctx) {
-			return
-		}
-
-		scene, err := j.repository.Scene.Find(ctx, event.SceneID)
-		if err != nil {
-			logger.Errorf("error finding scene for O screenshot generation: %s", err.Error())
-			return
-		}
-		if scene == nil {
-			continue
-		}
-
-		task := &GenerateOScreenshotTask{
-			repository:          j.repository,
-			Event:               event,
-			Overwrite:           j.overwrite,
-			fileNamingAlgorithm: j.fileNamingAlgo,
-			generator:           g,
-		}
-
-		if task.required(scene.GetHash(j.fileNamingAlgo)) {
-			j.totals.oScreenshots++
-			j.totals.tasks++
-			queue <- task
-		}
-	}
+	j.queueOScreenshotEventTasks(ctx, g, events, queue)
 }
 
+// queueSceneOScreenshotJobs covers the scene's O's and its releases'.
 func (j *GenerateJob) queueSceneOScreenshotJobs(ctx context.Context, g *generate.Generator, scene *models.Scene, queue chan<- Task) {
 	events, err := j.findOScreenshotEvents(ctx, []int{scene.ID}, nil)
 	if err != nil {
 		logger.Errorf("error finding O events for screenshot generation: %s", err.Error())
 		return
 	}
+	j.queueOScreenshotEventTasks(ctx, g, events, queue)
+}
 
+func (j *GenerateJob) queueOScreenshotEventTasks(ctx context.Context, g *generate.Generator, events []sceneOEventScreenshot, queue chan<- Task) {
 	for _, event := range events {
+		if job.IsCancelled(ctx) {
+			return
+		}
+
+		_, hash, err := oScreenshotVideoCustom(ctx, j.repository, event, j.fileNamingAlgo)
+		if err != nil {
+			logger.Errorf("error finding video for O screenshot generation: %s", err.Error())
+			return
+		}
+
 		task := &GenerateOScreenshotTask{
 			repository:          j.repository,
 			Event:               event,
@@ -143,7 +146,7 @@ func (j *GenerateJob) queueSceneOScreenshotJobs(ctx context.Context, g *generate
 			generator:           g,
 		}
 
-		if task.required(scene.GetHash(j.fileNamingAlgo)) {
+		if task.required(hash) {
 			j.totals.oScreenshots++
 			j.totals.tasks++
 			queue <- task
@@ -151,42 +154,76 @@ func (j *GenerateJob) queueSceneOScreenshotJobs(ctx context.Context, g *generate
 	}
 }
 
-func (j *GenerateJob) findOScreenshotEvents(ctx context.Context, sceneIDs []int, paths []string) ([]sceneOEventScreenshot, error) {
+// oScreenshotPathFilterCustom limits O events to owners with a file under one
+// of paths; filesSQL selects the owner's file IDs.
+func oScreenshotPathFilterCustom(filesSQL string, paths []string) (string, []interface{}) {
+	if len(paths) == 0 {
+		return "", nil
+	}
+	query := " AND EXISTS (SELECT 1 FROM files f JOIN folders fo ON fo.id = f.parent_folder_id WHERE f.id IN (" + filesSQL + ") AND ("
+	args := []interface{}{}
+	for i, path := range paths {
+		if i > 0 {
+			query += " OR "
+		}
+		query += "fo.path LIKE ? OR (fo.path || ? || f.basename) LIKE ?"
+		pathPattern := path + "%"
+		args = append(args, pathPattern, string(filepath.Separator), pathPattern)
+	}
+	return query + "))", args
+}
+
+func oScreenshotSceneFilterCustom(column string, sceneIDs []int) (string, []interface{}) {
+	if len(sceneIDs) == 0 {
+		return "", nil
+	}
+	query := " AND " + column + " IN ("
+	args := make([]interface{}, len(sceneIDs))
+	for i, sceneID := range sceneIDs {
+		if i > 0 {
+			query += ", "
+		}
+		query += "?"
+		args[i] = sceneID
+	}
+	return query + ")", args
+}
+
+// oScreenshotEventsQueryCustom selects timestamped O's as (rowid, scene_id,
+// release_id or 0, video_timestamp), optionally limited to scenes and paths.
+// Release O's count for their parent scene.
+func oScreenshotEventsQueryCustom(sceneIDs []int, paths []string, releaseReady bool) (string, []interface{}) {
 	query := `
-SELECT od.rowid, od.scene_id, od.video_timestamp
+SELECT od.rowid, od.scene_id, 0, od.video_timestamp
 FROM scenes_o_dates od
 JOIN scenes s ON s.id = od.scene_id
 WHERE od.video_timestamp IS NOT NULL`
-	args := []interface{}{}
+	sceneFilter, args := oScreenshotSceneFilterCustom("od.scene_id", sceneIDs)
+	pathFilter, pathArgs := oScreenshotPathFilterCustom("SELECT sf.file_id FROM scenes_files sf WHERE sf.scene_id = s.id", paths)
+	query += sceneFilter + pathFilter
+	args = append(args, pathArgs...)
 
-	if len(sceneIDs) > 0 {
-		query += " AND od.scene_id IN ("
-		for i, sceneID := range sceneIDs {
-			if i > 0 {
-				query += ", "
-			}
-			query += "?"
-			args = append(args, sceneID)
-		}
-		query += ")"
+	if releaseReady {
+		releaseSceneFilter, releaseArgs := oScreenshotSceneFilterCustom("rel.scene_id", sceneIDs)
+		releasePathFilter, releasePathArgs := oScreenshotPathFilterCustom("SELECT rf.file_id FROM scene_release_files rf WHERE rf.release_id = rel.id", paths)
+		query += `
+UNION ALL
+SELECT rod.rowid, rel.scene_id, rod.release_id, rod.video_timestamp
+FROM scene_release_o_dates rod
+JOIN scene_releases rel ON rel.id = rod.release_id
+WHERE rod.video_timestamp IS NOT NULL` + releaseSceneFilter + releasePathFilter
+		args = append(append(args, releaseArgs...), releasePathArgs...)
 	}
 
-	if len(paths) > 0 {
-		query += " AND EXISTS (SELECT 1 FROM scenes_files sf JOIN files f ON f.id = sf.file_id JOIN folders fo ON fo.id = f.parent_folder_id WHERE sf.scene_id = s.id"
-		for i, path := range paths {
-			if i == 0 {
-				query += " AND (fo.path LIKE ? OR (fo.path || ? || f.basename) LIKE ?"
-			} else {
-				query += " OR fo.path LIKE ? OR (fo.path || ? || f.basename) LIKE ?"
-			}
-			pathPattern := path + "%"
-			args = append(args, pathPattern, string(filepath.Separator), pathPattern)
-		}
-		query += "))"
+	return query + " ORDER BY 3, 1", args
+}
+
+func (j *GenerateJob) findOScreenshotEvents(ctx context.Context, sceneIDs []int, paths []string) ([]sceneOEventScreenshot, error) {
+	releaseReady, err := sqlite.ReleaseODatesReadyCustom(ctx)
+	if err != nil {
+		return nil, err
 	}
-
-	query += " ORDER BY od.rowid ASC"
-
+	query, args := oScreenshotEventsQueryCustom(sceneIDs, paths, releaseReady)
 	_, rows, err := instance.Database.QuerySQL(ctx, query, args)
 	if err != nil {
 		return nil, err
@@ -194,14 +231,15 @@ WHERE od.video_timestamp IS NOT NULL`
 
 	events := make([]sceneOEventScreenshot, 0, len(rows))
 	for _, row := range rows {
-		if len(row) < 3 {
+		if len(row) < 4 {
 			continue
 		}
 
 		events = append(events, sceneOEventScreenshot{
 			ID:             oScreenshotIntValue(row[0]),
 			SceneID:        oScreenshotIntValue(row[1]),
-			VideoTimestamp: oScreenshotFloatValue(row[2]),
+			ReleaseID:      oScreenshotIntValue(row[2]),
+			VideoTimestamp: oScreenshotFloatValue(row[3]),
 		})
 	}
 

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/stashapp/stash/pkg/sqlite"
 )
 
 // statsDateRangeCustom is a validated StatsDateRangeInput. A nil range, or one
@@ -81,9 +83,9 @@ func (r *statsDateRangeCustom) sceneWhereSQL(sceneAlias string) (string, []inter
 		bounds, args := r.boundsSQL("date(range_od.o_date, 'localtime')")
 		return fmt.Sprintf(`
     AND EXISTS (
-      SELECT 1 FROM scenes_o_dates range_od
+      SELECT 1 FROM %s range_od
       WHERE range_od.scene_id = %s.id AND range_od.o_date IS NOT NULL%s
-    )`, sceneAlias, bounds), args
+    )`, sqlite.SceneOEventsSQLCustom(), sceneAlias, bounds), args // CUSTOM: scene or release O's
 	default:
 		return r.boundsSQL(fmt.Sprintf("date(%s)", sceneOStatsEffectiveDateExpr(sceneAlias)))
 	}

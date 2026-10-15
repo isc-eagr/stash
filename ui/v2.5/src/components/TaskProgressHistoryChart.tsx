@@ -87,10 +87,15 @@ export const TaskProgressHistoryChart: React.FC<IProps> = ({
     [history, period, points, selected, today]
   );
   const tablePoints = filterTaskProgressHistoryActivityPoints(points);
+  // Scope columns only appear when the range has membership or deletion changes.
+  const hasScopeChanges = tablePoints.some(
+    (point) => point.added > 0 || point.removed > 0
+  );
   const headings = [
     "Date",
     "Completed",
     "Incoming",
+    ...(hasScopeChanges ? ["Added", "Removed"] : []),
     "Remaining",
     "Cumulative",
     "Goal",
@@ -216,6 +221,7 @@ export const TaskProgressHistoryChart: React.FC<IProps> = ({
                     {[
                       point.completed,
                       point.incoming,
+                      ...(hasScopeChanges ? [point.added, point.removed] : []),
                       point.remaining,
                       point.cumulativeCompleted,
                       point.goalPerDay || undefined,

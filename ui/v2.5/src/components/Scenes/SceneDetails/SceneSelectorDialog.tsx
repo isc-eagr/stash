@@ -23,14 +23,20 @@ export const SceneSelectorDialog: React.FC<ISceneSelectorDialogProps> = ({
   };
 
   return (
-    <Modal show onHide={onClose} size="xl" dialogClassName="scene-selector-modal">
+    <Modal
+      show
+      onHide={onClose}
+      size="xl"
+      dialogClassName="scene-selector-modal"
+    >
       <Modal.Header closeButton>
         <Modal.Title>Select Scene to Convert</Modal.Title>
       </Modal.Header>
       <Modal.Body style={{ minHeight: "400px" }}>
         <p className="text-muted mb-3">
-          The selected scene will be converted into a release for the current scene.
-          The original scene will be deleted and its data will be preserved as a release.
+          The selected scene will be converted into a release for the current
+          scene. The original scene will be deleted and its data will be
+          preserved as a release.
         </p>
         <SceneSelect
           onSelect={(scenes) => {
@@ -55,7 +61,7 @@ export const SceneSelectorDialog: React.FC<ISceneSelectorDialogProps> = ({
           onClick={handleConfirm}
           disabled={!selectedScene}
         >
-          Convert to Release
+          <FormattedMessage id="actions.next_action" />
         </Button>
       </Modal.Footer>
     </Modal>

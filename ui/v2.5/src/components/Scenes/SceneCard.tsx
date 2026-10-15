@@ -49,6 +49,11 @@ import { SortMetricBadgeCustom } from "../Shared/SortMetricBadge_custom"; // CUS
 import { getSceneSortMetricCustom } from "./sceneSortMetric_custom"; // CUSTOM
 import { StashDBMatchesCardButton } from "./SceneDetails/StashDBMatchesCount"; // CUSTOM
 import {
+  sceneOTotalCustom,
+  sceneStashDBMatchesTotalCustom,
+  sceneTotalHintCustom,
+} from "./sceneReleaseTotals_custom"; // CUSTOM
+import {
   catalogCardSortHighlightClassCustom,
   hasCatalogCardSortValueCustom,
   isCatalogCardSortHighlightedCustom,
@@ -286,14 +291,20 @@ const SceneCardPopovers = PatchComponent(
         props.activeSortBy,
         "o_counter"
       );
-      if (props.scene.o_counter || highlighted) {
+      const oTotal = sceneOTotalCustom(props.scene); // CUSTOM: plus release O's
+      if (oTotal.total || highlighted) {
+        const hint = sceneTotalHintCustom(oTotal);
         return (
           <OCounterButton
-            className={catalogCardSortHighlightClassCustom(
-              props.activeSortBy,
-              "o_counter"
+            className={cx(
+              catalogCardSortHighlightClassCustom(
+                props.activeSortBy,
+                "o_counter"
+              ),
+              hint.className
             )}
-            value={props.scene.o_counter ?? 0}
+            value={oTotal.total}
+            valueTitle={hint.title}
           />
         );
       }
@@ -380,10 +391,10 @@ const SceneCardPopovers = PatchComponent(
           props.scene.performers.length > 0 ||
           props.scene.groups.length > 0 ||
           props.scene.scene_markers.length > 0 ||
-          props.scene?.o_counter ||
+          sceneOTotalCustom(props.scene).total > 0 || // CUSTOM: plus release O's
           props.scene.galleries.length > 0 ||
           props.scene.organized ||
-          props.scene.stashdb_matches != null || // CUSTOM
+          !!sceneStashDBMatchesTotalCustom(props.scene) || // CUSTOM
           sceneNumber !== undefined ||
           highlightsVisiblePopoverMetric);
 
@@ -420,7 +431,7 @@ const SceneCardPopovers = PatchComponent(
                     props.activeSortBy,
                     "stashdb_matches"
                   )}
-                  value={props.scene.stashdb_matches}
+                  total={sceneStashDBMatchesTotalCustom(props.scene)}
                   stashIDs={props.scene.stash_ids}
                 />
                 {maybeRenderOrganized()}
@@ -479,7 +490,7 @@ const SceneCardDetails = PatchComponent(
           props.activeSortBy,
           "stashdb_matches"
         ) &&
-          props.scene.stashdb_matches != null) ||
+          !!sceneStashDBMatchesTotalCustom(props.scene)) ||
           (isCatalogCardSortHighlightedCustom(
             props.activeSortBy,
             "organized"

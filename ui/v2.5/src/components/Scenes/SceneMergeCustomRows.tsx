@@ -186,11 +186,47 @@ const SceneValueRow: React.FC<ISceneValueRowProps> = (props) => {
   );
 };
 
+interface ISceneRatingChoiceRowProps {
+  choice: ISceneValueChoice<GQL.SceneDataFragment>;
+  result: ScrapeResult<string>;
+  dest: GQL.SceneDataFragment;
+  onChange: (value: ScrapeResult<string>) => void;
+}
+
+// Rating with its advisor answers; also used by the Convert to Release dialog.
+export const SceneRatingChoiceRow: React.FC<ISceneRatingChoiceRowProps> = (
+  props
+) => {
+  const intl = useIntl();
+  return (
+    <SceneValueRow
+      {...props}
+      field="rating"
+      title={intl.formatMessage({ id: "rating" })}
+      renderValue={(scene) => (
+        <>
+          <RatingSystem value={scene.rating100} disabled />
+          {scene.rating_scores.length > 0 && (
+            <small className="text-muted">
+              <FormattedMessage
+                id="dialogs.merge.advisor_answers"
+                values={{ count: scene.rating_scores.length }}
+              />
+            </small>
+          )}
+        </>
+      )}
+    />
+  );
+};
+
 const listResult = (choice: IMergeItemChoice) =>
   new ScrapeResult<string[]>(choice.destIDs, choice.keptIDs);
 
-const valueResult = (dest: GQL.SceneDataFragment, choice: ISceneValueChoice) =>
-  new ScrapeResult<string>(dest.id, choice.sourceID, choice.useSource);
+export const valueResult = (
+  dest: GQL.SceneDataFragment,
+  choice: ISceneValueChoice
+) => new ScrapeResult<string>(dest.id, choice.sourceID, choice.useSource);
 
 // CUSTOM: merge dialog rows for releases, skip ranges, loop presets, rating,
 // and StashDB Matches.
@@ -278,26 +314,11 @@ export function useSceneMergeCustomChoices(
 
   const rows = (
     <>
-      <SceneValueRow
-        field="rating"
-        title={intl.formatMessage({ id: "rating" })}
+      <SceneRatingChoiceRow
         choice={choices.rating}
         result={rating}
         dest={dest}
         onChange={setRating}
-        renderValue={(scene) => (
-          <>
-            <RatingSystem value={scene.rating100} disabled />
-            {scene.rating_scores.length > 0 && (
-              <small className="text-muted">
-                <FormattedMessage
-                  id="dialogs.merge.advisor_answers"
-                  values={{ count: scene.rating_scores.length }}
-                />
-              </small>
-            )}
-          </>
-        )}
       />
       <SceneValueRow
         field="stashdb_matches"

@@ -18,13 +18,17 @@ import {
   stashDBMatchesDeltaCustom,
   stashDBMatchesDeltaLabelCustom,
   stashDBReportFingerprintsURLCustom,
+  stashDBReportRowKeyCustom,
 } from "./stashDBMatchesReport_custom";
 import { StashDBMatchesStudioGroup } from "./StashDBMatchesStudioGroup";
 import "./StashDBMatchesReport.scss";
 
-type ReportScene = NonNullable<
-  StashDbMatchesReportQuery["stashDBMatchesReport"]
->["changes"][number]["scene"];
+type ReportEntry = Pick<
+  NonNullable<
+    StashDbMatchesReportQuery["stashDBMatchesReport"]
+  >["changes"][number],
+  "scene" | "release"
+>;
 
 // CUSTOM: report of the latest StashDB Matches refresh task run.
 const StashDBMatchesReport: React.FC = () => {
@@ -46,7 +50,22 @@ const StashDBMatchesReport: React.FC = () => {
   );
   const title = `${intl.formatMessage({ id: "stashdb_matches" })} report`;
 
-  function renderScene(scene: ReportScene) {
+  // Release rows open the parent scene with that release selected.
+  function renderScene({ scene, release }: ReportEntry) {
+    if (release) {
+      return (
+        <>
+          <Link to={`/scenes/${scene.id}?release=${release.id}`}>
+            {release.title || `Release ${release.id}`}
+          </Link>
+          <div className="text-muted small">
+            {[release.date, `Release of ${objectTitle(scene)}`]
+              .filter(Boolean)
+              .join(" · ")}
+          </div>
+        </>
+      );
+    }
     return (
       <>
         <Link to={`/scenes/${scene.id}`}>{objectTitle(scene)}</Link>
@@ -118,8 +137,8 @@ const StashDBMatchesReport: React.FC = () => {
                   {group.entries.map((change) => {
                     const delta = stashDBMatchesDeltaCustom(change);
                     return (
-                      <tr key={change.scene.id}>
-                        <td>{renderScene(change.scene)}</td>
+                      <tr key={stashDBReportRowKeyCustom(change)}>
+                        <td>{renderScene(change)}</td>
                         <td className="text-right">{change.previous ?? "—"}</td>
                         <td className="text-right">{change.current}</td>
                         <td
@@ -172,8 +191,8 @@ const StashDBMatchesReport: React.FC = () => {
                     </thead>
                     <tbody>
                       {group.entries.map((entry) => (
-                        <tr key={entry.scene.id}>
-                          <td>{renderScene(entry.scene)}</td>
+                        <tr key={stashDBReportRowKeyCustom(entry)}>
+                          <td>{renderScene(entry)}</td>
                           <td className="text-right">{entry.matches}</td>
                           <td>
                             <a

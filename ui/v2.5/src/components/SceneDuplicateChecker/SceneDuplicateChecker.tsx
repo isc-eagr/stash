@@ -45,6 +45,11 @@ import {
 import { SceneMergeModal } from "../Scenes/SceneMergeDialog";
 import { objectTitle } from "src/core/files";
 import { FileSize } from "../Shared/FileSize";
+import cx from "classnames"; // CUSTOM
+import {
+  sceneOTotalCustom,
+  sceneTotalHintCustom,
+} from "../Scenes/sceneReleaseTotals_custom"; // CUSTOM
 
 const CLASSNAME = "duplicate-checker";
 
@@ -449,14 +454,17 @@ export const SceneDuplicateChecker: React.FC = () => {
   }
 
   function maybeRenderOCounter(scene: GQL.SlimSceneDataFragment) {
-    if (scene.o_counter) {
+    // CUSTOM: plus release O's
+    const oTotal = sceneOTotalCustom(scene);
+    const hint = sceneTotalHintCustom(oTotal);
+    if (oTotal.total) {
       return (
         <div>
-          <Button className="minimal">
+          <Button className={cx("minimal", hint.className)} title={hint.title}>
             <span className="fa-icon">
               <SweatDrops />
             </span>
-            <span>{scene.o_counter}</span>
+            <span>{oTotal.total}</span>
           </Button>
         </div>
       );
@@ -518,7 +526,7 @@ export const SceneDuplicateChecker: React.FC = () => {
       scene.performers.length > 0 ||
       scene.groups.length > 0 ||
       scene.scene_markers.length > 0 ||
-      scene?.o_counter ||
+      sceneOTotalCustom(scene).total > 0 || // CUSTOM: plus release O's
       scene.galleries.length > 0 ||
       scene.files.length > 1 ||
       scene.organized

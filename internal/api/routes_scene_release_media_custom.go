@@ -5,10 +5,12 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/stashapp/stash/internal/manager"
 	"github.com/stashapp/stash/pkg/file/video"
+	"github.com/stashapp/stash/pkg/fsutil"
 	"github.com/stashapp/stash/pkg/models"
 	"github.com/stashapp/stash/pkg/utils"
 )
@@ -23,7 +25,7 @@ func (rs sceneReleaseRoutes) releaseGeneratedAssetCustom(w http.ResponseWriter, 
 		http.NotFound(w, r)
 		return
 	}
-	hash := releaseMarkerVideoHashCustom(primaryFile, manager.GetInstance().Config.GetVideoFileNamingAlgorithm())
+	hash := models.ReleaseVideoHashCustom(primaryFile, manager.GetInstance().Config.GetVideoFileNamingAlgorithm())
 	if hash == "" {
 		http.NotFound(w, r)
 		return
@@ -141,4 +143,47 @@ func (rs sceneReleaseRoutes) CaptionCustom(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	http.NotFound(w, r)
+}
+
+// OScreenshotCustom serves the screenshot of a timestamped release O, named by
+// the release file's hash like the scene O screenshots.
+func (rs sceneReleaseRoutes) OScreenshotCustom(w http.ResponseWriter, r *http.Request) {
+	release := r.Context().Value(sceneReleaseKey).(*models.SceneRelease)
+	oID, err := strconv.Atoi(chi.URLParam(r, "oId"))
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+	var exists bool
+	if err := rs.withReadTxn(r, func(ctx context.Context) error {
+		_, rows, err := manager.GetInstance().Database.QuerySQL(ctx,
+			"SELECT 1 FROM scene_release_o_dates WHERE rowid = ? AND release_id = ? AND video_timestamp IS NOT NULL LIMIT 1",
+			[]interface{}{oID, release.ID})
+		exists = len(rows) > 0
+		return err
+	}); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if !exists {
+		http.NotFound(w, r)
+		return
+	}
+	primaryFile, err := rs.getPrimaryFile(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	hash := models.ReleaseVideoHashCustom(primaryFile, manager.GetInstance().Config.GetVideoFileNamingAlgorithm())
+	if hash == "" {
+		http.NotFound(w, r)
+		return
+	}
+	path := manager.GetInstance().Paths.Generated.GetOScreenshotPath(hash, oID)
+	if exists, _ := fsutil.FileExists(path); !exists {
+		w.Header().Set("Content-Type", "image/png")
+		utils.ServeStaticContent(w, r, utils.PendingGenerateResource)
+		return
+	}
+	utils.ServeStaticFile(w, r, path)
 }

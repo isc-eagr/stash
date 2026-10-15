@@ -31,6 +31,32 @@ func (r *queryResolver) StashDBMatchesReport(ctx context.Context) (ret *StashDBM
 		for _, scene := range scenes {
 			byID[scene.ID] = scene
 		}
+		var releaseIDs []int
+		for _, change := range report.Changes {
+			if change.ReleaseID != nil {
+				releaseIDs = append(releaseIDs, *change.ReleaseID)
+			}
+		}
+		for _, entry := range report.Unsubmitted {
+			if entry.ReleaseID != nil {
+				releaseIDs = append(releaseIDs, *entry.ReleaseID)
+			}
+		}
+		releaseByID := make(map[int]*models.SceneRelease, len(releaseIDs))
+		for _, id := range releaseIDs {
+			if releaseByID[id] != nil {
+				continue
+			}
+			if releaseByID[id], err = r.repository.SceneRelease.Find(ctx, id); err != nil {
+				return err
+			}
+		}
+		release := func(id *int) *models.SceneRelease {
+			if id == nil {
+				return nil
+			}
+			return releaseByID[*id]
+		}
 
 		ret = &StashDBMatchesReport{
 			StartedAt:   report.StartedAt,
@@ -49,6 +75,7 @@ func (r *queryResolver) StashDBMatchesReport(ctx context.Context) (ret *StashDBM
 			if scene := byID[entry.SceneID]; scene != nil {
 				ret.Unsubmitted = append(ret.Unsubmitted, &StashDBUnsubmittedScene{
 					Scene:   scene,
+					Release: release(entry.ReleaseID),
 					StashID: entry.StashID,
 					Matches: entry.Matches,
 				})
@@ -58,6 +85,7 @@ func (r *queryResolver) StashDBMatchesReport(ctx context.Context) (ret *StashDBM
 			if scene := byID[change.SceneID]; scene != nil {
 				ret.Changes = append(ret.Changes, &StashDBMatchesChange{
 					Scene:    scene,
+					Release:  release(change.ReleaseID),
 					Previous: change.Previous,
 					Current:  change.Current,
 				})

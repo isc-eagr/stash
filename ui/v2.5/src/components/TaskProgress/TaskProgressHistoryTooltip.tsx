@@ -59,6 +59,18 @@ export const TaskProgressHistoryTooltip: React.FC<{
             <dd>{intl.formatNumber(point.incoming)}</dd>
           </div>
         )}
+        {point.added > 0 && (
+          <div>
+            <dt>{t("Added")}</dt>
+            <dd>+{intl.formatNumber(point.added)}</dd>
+          </div>
+        )}
+        {point.removed > 0 && (
+          <div>
+            <dt>{t("Removed")}</dt>
+            <dd>−{intl.formatNumber(point.removed)}</dd>
+          </div>
+        )}
         {!!point.goalPerDay && (
           <div>
             <dt>{t("Goal")}</dt>

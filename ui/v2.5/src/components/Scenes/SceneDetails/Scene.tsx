@@ -16,6 +16,7 @@ import {
   useFindScene,
   useSceneIncrementO,
   useSceneRecordOAtTimestamp, // CUSTOM
+  useSceneAddRetroactiveO, // CUSTOM
   useSceneGenerateScreenshot,
   useSceneUpdate,
   useSceneOrganizedUpdate, // CUSTOM
@@ -25,6 +26,7 @@ import {
 } from "src/core/StashService";
 
 import { SceneEditPanel } from "./SceneEditPanel";
+import { SceneOCounterMenu } from "./SceneOCounterMenu"; // CUSTOM
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { Icon } from "src/components/Shared/Icon";
@@ -35,6 +37,11 @@ import { ListFilterModel } from "src/models/list-filter/filter";
 import Mousetrap from "mousetrap";
 import { OrganizedButton } from "./OrganizedButton";
 import { StashDBMatchesCount } from "./StashDBMatchesCount"; // CUSTOM
+import {
+  sceneOTotalCustom,
+  sceneStashDBMatchesTotalCustom,
+  sceneTotalHintCustom,
+} from "../sceneReleaseTotals_custom"; // CUSTOM
 import { useConfigurationContext } from "src/hooks/Config";
 import {
   getAbLoopPlugin,
@@ -282,6 +289,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
 
   const [incrementO] = useSceneIncrementO(scene.id);
   const [recordOAtTimestamp] = useSceneRecordOAtTimestamp(scene.id); // CUSTOM
+  const [addRetroactiveO] = useSceneAddRetroactiveO(scene.id); // CUSTOM
   const [recordReleaseOAtTimestamp] = useSceneReleaseRecordOCustom(); // CUSTOM
 
   const [incrementPlay] = useSceneIncrementPlayCount();
@@ -339,6 +347,15 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
         await incrementO();
         Toast.success(formatORecordedToastCustom());
       }
+    } catch (e) {
+      Toast.error(e);
+    }
+  };
+
+  const onRetroactiveOClick = async () => {
+    try {
+      await addRetroactiveO();
+      Toast.success("Retroactive O recorded");
     } catch (e) {
       Toast.error(e);
     }
@@ -1044,6 +1061,9 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     scene.performers.length,
     sceneTypeForRating === "hand"
   ); // CUSTOM
+  // CUSTOM: the parent's O's include its releases'
+  const oTotal = sceneOTotalCustom(scene);
+  const oTotalHint = sceneTotalHintCustom(oTotal);
 
   return (
     <ScenePerformerOverviewProvider scene={scene}>
@@ -1125,20 +1145,29 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
                 />
               </span>
               <span>
-                <OCounterButton
-                  value={
-                    activeReleaseId
-                      ? scene.releases?.find(
-                          (release) => release.id === activeReleaseId
-                        )?.o_history.length ?? 0
-                      : scene.o_counter ?? 0
-                  }
-                  onIncrement={() => onIncrementOClick()}
-                />
+                {/* CUSTOM: scenes offer a retroactive O; releases keep the plain button */}
+                {activeReleaseId ? (
+                  <OCounterButton
+                    value={
+                      scene.releases?.find(
+                        (release) => release.id === activeReleaseId
+                      )?.o_history.length ?? 0
+                    }
+                    onIncrement={() => onIncrementOClick()}
+                  />
+                ) : (
+                  <SceneOCounterMenu
+                    value={oTotal.total}
+                    className={oTotalHint.className}
+                    valueTitle={oTotalHint.title}
+                    onIncrement={() => onIncrementOClick()}
+                    onRetroactive={() => onRetroactiveOClick()}
+                  />
+                )}
               </span>
               {/* CUSTOM */}
               <StashDBMatchesCount
-                value={scene.stashdb_matches}
+                total={sceneStashDBMatchesTotalCustom(scene)}
                 stashIDs={scene.stash_ids}
               />
               <span>
@@ -1340,12 +1369,9 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
   // CUSTOM: keep the remote publisher beside the player, while its pairing
   // control lives in the File Info panel so it is easy to find later.
   const remotePlayerReady = useRef(false);
-  const onRemotePlayerReady = useCallback(
-    (ready: boolean) => {
-      remotePlayerReady.current = ready && !activeReleaseId;
-    },
-    [activeReleaseId]
-  );
+  const onRemotePlayerReady = useCallback((ready: boolean) => {
+    remotePlayerReady.current = ready;
+  }, []);
   const remotePlayer = useRemotePlayerCustom(
     `${sceneForPlayer?.id ?? id}-${sceneForPlayer?.files[0]?.id ?? ""}`,
     (): PlaybackSnapshot | undefined => {
@@ -1360,6 +1386,7 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
       }
       return {
         scene_id: sceneForPlayer.id,
+        release_id: activeReleaseId, // CUSTOM: remote O's follow the playing release
         scene_title: sceneForPlayer.title || "Untitled scene",
         video_timestamp: player.currentTime(),
         duration: player.duration(),

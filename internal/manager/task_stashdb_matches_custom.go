@@ -1,6 +1,6 @@
 package manager
 
-// CUSTOM: Refresh StashDB Matches for every scene linked to StashDB.
+// CUSTOM: Refresh StashDB Matches for every scene and release linked to StashDB.
 
 import (
 	"context"
@@ -97,9 +97,10 @@ func refreshStashDBMatchesCustom(ctx context.Context, repo models.Repository, fe
 			result, found := results[target.StashID]
 			if found && !result.Submitted {
 				report.Unsubmitted = append(report.Unsubmitted, models.StashDBUnsubmittedSceneCustom{
-					SceneID: target.SceneID,
-					StashID: target.StashID,
-					Matches: result.Matches,
+					SceneID:   target.SceneID,
+					ReleaseID: target.ReleaseID,
+					StashID:   target.StashID,
+					Matches:   result.Matches,
 				})
 			}
 			switch {
@@ -109,9 +110,10 @@ func refreshStashDBMatchesCustom(ctx context.Context, repo models.Repository, fe
 				report.Unchanged++
 			default:
 				changes = append(changes, models.StashDBMatchesChangeCustom{
-					SceneID:  target.SceneID,
-					Previous: target.Matches,
-					Current:  result.Matches,
+					SceneID:   target.SceneID,
+					ReleaseID: target.ReleaseID,
+					Previous:  target.Matches,
+					Current:   result.Matches,
 				})
 			}
 		}
@@ -119,6 +121,12 @@ func refreshStashDBMatchesCustom(ctx context.Context, repo models.Repository, fe
 		if len(changes) > 0 {
 			if err := repo.WithTxn(ctx, func(ctx context.Context) error {
 				for _, change := range changes {
+					if change.ReleaseID != nil {
+						if err := repo.SceneRelease.SetStashDBMatchesCustom(ctx, *change.ReleaseID, &change.Current); err != nil {
+							return err
+						}
+						continue
+					}
 					if err := repo.Scene.SetStashDBMatchesCustom(ctx, change.SceneID, &change.Current); err != nil {
 						return err
 					}

@@ -1,6 +1,7 @@
 import {
   faFilm,
   faThumbsUp, // CUSTOM
+  faClone, // CUSTOM
   faImage,
   faImages,
   faPlayCircle,
@@ -49,6 +50,7 @@ type PopoverLinkType =
   | "sub_group"
   | "performer"
   | "studio"
+  | "release" // CUSTOM
   | "o_count"; // CUSTOM
 type StandardPopoverLinkType = Exclude<PopoverLinkType, "o_count">; // CUSTOM
 
@@ -108,6 +110,8 @@ export const PopoverCountButton: React.FC<IProps> = ({
         return faUser;
       case "studio":
         return faVideo;
+      case "release": // CUSTOM
+        return faClone;
     }
   }
 
@@ -153,6 +157,13 @@ export const PopoverCountButton: React.FC<IProps> = ({
           one: "studio",
           other: "studios",
         };
+      // CUSTOM: begin - release count tooltip
+      case "release":
+        return {
+          one: "release",
+          other: "releases",
+        };
+      // CUSTOM: end
       // CUSTOM: begin - O count tooltip
       case "o_count":
         return {

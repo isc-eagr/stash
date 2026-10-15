@@ -23,6 +23,18 @@ func (s *RatingScoreStore) AdjustRatingsForSceneOCountChangeCustom(ctx context.C
 		return nil
 	}
 
+	// Performer O counts include their release O's, like countOrgasmRatingBonus.
+	releasePerformerOCount := ""
+	if ready, err := ReleaseODatesReadyCustom(ctx); err != nil {
+		return err
+	} else if ready {
+		releasePerformerOCount = ` + (
+					SELECT COUNT(*) FROM scene_release_performers rp
+					JOIN scene_release_o_dates rod ON rod.release_id = rp.release_id
+					WHERE rp.performer_id = target.` + performerIDColumn + `
+				)`
+	}
+
 	query := fmt.Sprintf(`
 		WITH affected(entity_type, entity_id, o_count, rating) AS (
 			SELECT 'scene', ?, ?, (SELECT rating FROM %s WHERE id = ?)
@@ -33,7 +45,7 @@ func (s *RatingScoreStore) AdjustRatingsForSceneOCountChangeCustom(ctx context.C
 					FROM %s all_scenes
 					LEFT JOIN %s sod ON sod.%s = all_scenes.%s
 					WHERE all_scenes.%s = target.%s
-				),
+				)%s,
 				(SELECT rating FROM %s WHERE id = target.%s)
 			FROM %s target
 			WHERE target.%s = ?
@@ -57,10 +69,11 @@ func (s *RatingScoreStore) AdjustRatingsForSceneOCountChangeCustom(ctx context.C
 	`,
 		sceneTable,
 		performerIDColumn,
-		sceneODateColumn,
+		sceneIDColumn, // counts retroactive O's without a date
 		performersScenesTable,
 		scenesODatesTable, sceneIDColumn, sceneIDColumn,
 		performerIDColumn, performerIDColumn,
+		releasePerformerOCount,
 		performerTable, performerIDColumn,
 		performersScenesTable, sceneIDColumn,
 		ratingCriteriaScoresTable,
@@ -69,7 +82,12 @@ func (s *RatingScoreStore) AdjustRatingsForSceneOCountChangeCustom(ctx context.C
 	)
 
 	var targets []oRatingAdjustmentTargetCustom
-	if err := dbWrapper.Select(ctx, &targets, query, sceneID, updatedCount, sceneID, sceneID); err != nil {
+	// The scene's O bonus counts its releases' O's too.
+	sceneReleaseOCount, err := sceneReleaseOCountCustom(ctx, sceneID)
+	if err != nil {
+		return err
+	}
+	if err := dbWrapper.Select(ctx, &targets, query, sceneID, updatedCount+sceneReleaseOCount, sceneID, sceneID); err != nil {
 		return fmt.Errorf("finding O-rating adjustment targets for scene %d: %w", sceneID, err)
 	}
 

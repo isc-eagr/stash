@@ -16,19 +16,11 @@ func (qb *SceneReleaseStore) UpdateExtendedCustom(ctx context.Context, releaseID
 	if err := requireReleaseMetadataUpgradeCustom(ctx); err != nil {
 		return err
 	}
-	if update.RatingSet || update.OrganizedSet {
+	if update.OrganizedSet {
 		if _, err := dbWrapper.Exec(ctx,
 			`INSERT OR IGNORE INTO scene_release_metadata(release_id) VALUES (?)`, releaseID); err != nil {
 			return err
 		}
-	}
-	if update.RatingSet {
-		if _, err := dbWrapper.Exec(ctx,
-			`UPDATE scene_release_metadata SET rating = ? WHERE release_id = ?`, update.Rating, releaseID); err != nil {
-			return err
-		}
-	}
-	if update.OrganizedSet {
 		if _, err := dbWrapper.Exec(ctx,
 			`UPDATE scene_release_metadata SET organized = ? WHERE release_id = ?`, update.Organized, releaseID); err != nil {
 			return err
@@ -90,6 +82,10 @@ func (qb *SceneReleaseStore) UpdateExtendedCustom(ctx context.Context, releaseID
 		}
 	}
 	if update.StashIDsSet {
+		before, err := qb.GetStashIDsCustom(ctx, releaseID)
+		if err != nil {
+			return err
+		}
 		if _, err := dbWrapper.Exec(ctx, `DELETE FROM scene_release_stash_ids WHERE release_id = ?`, releaseID); err != nil {
 			return err
 		}
@@ -102,6 +98,9 @@ func (qb *SceneReleaseStore) UpdateExtendedCustom(ctx context.Context, releaseID
 				releaseID, stashID.Endpoint, stashID.StashID, stashID.UpdatedAt); err != nil {
 				return err
 			}
+		}
+		if err := resetReleaseStashDBMatchesCustom(ctx, releaseID, before, update.StashIDs); err != nil {
+			return err
 		}
 	}
 	if update.CustomFields != nil {
@@ -123,21 +122,16 @@ func (qb *SceneReleaseStore) GetMetadataCustom(ctx context.Context, releaseID in
 		return ret, err
 	}
 	var row struct {
-		Rating       sql.NullInt64 `db:"rating"`
-		Organized    bool          `db:"organized"`
-		ResumeTime   float64       `db:"resume_time"`
-		PlayDuration float64       `db:"play_duration"`
+		Organized    bool    `db:"organized"`
+		ResumeTime   float64 `db:"resume_time"`
+		PlayDuration float64 `db:"play_duration"`
 	}
 	if err := dbWrapper.Get(ctx, &row,
-		`SELECT rating,organized,resume_time,play_duration FROM scene_release_metadata WHERE release_id = ?`, releaseID); err != nil {
+		`SELECT organized,resume_time,play_duration FROM scene_release_metadata WHERE release_id = ?`, releaseID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ret, nil
 		}
 		return ret, err
-	}
-	if row.Rating.Valid {
-		rating := int(row.Rating.Int64)
-		ret.Rating = &rating
 	}
 	ret.Organized = row.Organized
 	ret.ResumeTime = row.ResumeTime
@@ -176,6 +170,17 @@ func (qb *SceneReleaseStore) GetTagIDsCustom(ctx context.Context, releaseID int)
 	err = dbWrapper.Select(ctx, &ids,
 		`SELECT tag_id FROM scene_release_tags WHERE release_id = ? ORDER BY tag_id`, releaseID)
 	return ids, err
+}
+
+// CountByTagIDCustom counts releases tagged directly with tagID.
+func (qb *SceneReleaseStore) CountByTagIDCustom(ctx context.Context, tagID int) (int, error) {
+	exists, err := releaseTransferTableExistsCustom(ctx, "scene_release_tags")
+	if err != nil || !exists {
+		return 0, err
+	}
+	var count int
+	err = dbWrapper.Get(ctx, &count, `SELECT COUNT(*) FROM scene_release_tags WHERE tag_id = ?`, tagID)
+	return count, err
 }
 
 func (qb *SceneReleaseStore) GetGroupsCustom(ctx context.Context, releaseID int) ([]models.GroupsScenes, error) {
@@ -246,7 +251,7 @@ func (qb *SceneReleaseStore) GetOHistoryCustom(ctx context.Context, releaseID in
 	}
 	var dates []time.Time
 	err = dbWrapper.Select(ctx, &dates,
-		`SELECT o_date FROM scene_release_o_dates WHERE release_id = ? ORDER BY o_date DESC,rowid DESC`, releaseID)
+		`SELECT o_date FROM scene_release_o_dates WHERE release_id = ? AND o_date IS NOT NULL ORDER BY o_date DESC,rowid DESC`, releaseID)
 	return dates, err
 }
 
@@ -257,6 +262,6 @@ func (qb *SceneReleaseStore) GetOVideoTimestampsCustom(ctx context.Context, rele
 	}
 	var timestamps []*float64
 	err = dbWrapper.Select(ctx, &timestamps,
-		`SELECT video_timestamp FROM scene_release_o_dates WHERE release_id = ? ORDER BY o_date DESC,rowid DESC`, releaseID)
+		`SELECT video_timestamp FROM scene_release_o_dates WHERE release_id = ? AND o_date IS NOT NULL ORDER BY o_date DESC,rowid DESC`, releaseID)
 	return timestamps, err
 }

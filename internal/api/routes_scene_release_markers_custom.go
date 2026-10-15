@@ -13,20 +13,6 @@ import (
 	"github.com/stashapp/stash/pkg/utils"
 )
 
-func releaseMarkerVideoHashCustom(video *models.VideoFile, algorithm models.HashAlgorithm) string {
-	if video == nil || video.BaseFile == nil {
-		return ""
-	}
-	fingerprintType := models.FingerprintTypeOshash
-	if algorithm == models.HashAlgorithmMd5 {
-		fingerprintType = models.FingerprintTypeMD5
-	}
-	if fingerprint := video.Fingerprints.For(fingerprintType); fingerprint != nil {
-		return fingerprint.Value()
-	}
-	return ""
-}
-
 func (rs sceneReleaseRoutes) releaseMarkerAssetCustom(w http.ResponseWriter, r *http.Request, kind string) {
 	release := r.Context().Value(sceneReleaseKey).(*models.SceneRelease)
 	markerID, err := strconv.Atoi(chi.URLParam(r, "sceneMarkerId"))
@@ -56,7 +42,7 @@ func (rs sceneReleaseRoutes) releaseMarkerAssetCustom(w http.ResponseWriter, r *
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	hash := releaseMarkerVideoHashCustom(video, manager.GetInstance().Config.GetVideoFileNamingAlgorithm())
+	hash := models.ReleaseVideoHashCustom(video, manager.GetInstance().Config.GetVideoFileNamingAlgorithm())
 	if hash == "" {
 		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		return

@@ -17,7 +17,7 @@ func studioRatingAdvisorTestStatsCustom(t *testing.T, db *sql.DB, depth int) *St
 func ratingAdvisorTestStatsFromQueryCustom(t *testing.T, db *sql.DB, query string, args ...interface{}) *StudioRatingAdvisorStats {
 	t.Helper()
 
-	queryRows, err := db.Query(query, args...)
+	queryRows, err := db.Query(ratingAdvisorOEventsSQLCustom(query), args...)
 	require.NoError(t, err)
 	defer queryRows.Close()
 
@@ -91,7 +91,7 @@ func TestStudioRatingAdvisorStatsCustomAveragesOnlySetCriteria(t *testing.T) {
 		`CREATE TABLE scenes (id INTEGER PRIMARY KEY, studio_id INTEGER, rating INTEGER)`,
 		`CREATE TABLE performers (id INTEGER PRIMARY KEY, rating INTEGER)`,
 		`CREATE TABLE performers_scenes (performer_id INTEGER, scene_id INTEGER)`,
-		`CREATE TABLE scenes_o_dates (scene_id INTEGER)`,
+		`CREATE TABLE scenes_o_dates (scene_id INTEGER, o_date TEXT, video_timestamp REAL)`,
 		`CREATE TABLE rating_criteria_scores (entity_type TEXT, entity_id INTEGER, key TEXT, raw_value REAL, weighted_value REAL)`,
 		`CREATE TABLE rating_bonus_scores (entity_type TEXT, entity_id INTEGER, key TEXT, raw_value REAL, weighted_value REAL)`,
 		`CREATE TABLE rating_penalty_scores (entity_type TEXT, entity_id INTEGER, key TEXT, raw_value REAL, weighted_value REAL)`,

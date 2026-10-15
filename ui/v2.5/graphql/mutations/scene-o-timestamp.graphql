@@ -1,7 +1,19 @@
-# CUSTOM: Mutation to record an O with the current video player position.
+# CUSTOM: Mutations to record an O at the player position, or add/remove retroactive O's.
 
 mutation SceneRecordOAtTimestamp($id: ID!, $video_timestamp: Float!) {
   sceneRecordOAtTimestamp(id: $id, video_timestamp: $video_timestamp) {
+    count
+  }
+}
+
+mutation SceneAddRetroactiveO($id: ID!) {
+  sceneAddRetroactiveO(id: $id) {
+    count
+  }
+}
+
+mutation SceneDeleteRetroactiveO($id: ID!) {
+  sceneDeleteRetroactiveO(id: $id) {
     count
   }
 }

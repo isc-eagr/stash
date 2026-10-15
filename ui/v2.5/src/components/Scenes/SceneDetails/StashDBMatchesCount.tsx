@@ -7,6 +7,10 @@ import { CountButton } from "src/components/Shared/CountButton";
 import { HoverPopover } from "src/components/Shared/HoverPopover"; // CUSTOM
 import { Icon } from "src/components/Shared/Icon";
 import { getStashboxBase } from "src/utils/stashbox";
+import {
+  type ISceneTotalCustom,
+  sceneTotalHintCustom,
+} from "../sceneReleaseTotals_custom";
 
 // The StashDB scene page's fingerprints tab, or undefined without a StashDB ID.
 export function stashDBFingerprintsURLCustom(
@@ -26,13 +30,13 @@ export function stashDBFingerprintsURLCustom(
 }
 
 // CUSTOM: StashDB Matches in the scene toolbar, linking to the StashDB
-// fingerprints that produce the count.
+// fingerprints that produce the count. The total includes the releases'.
 export const StashDBMatchesCount: React.FC<{
-  value?: number | null;
+  total?: ISceneTotalCustom;
   stashIDs: { endpoint: string; stash_id: string }[];
-}> = ({ value, stashIDs }) => {
+}> = ({ total, stashIDs }) => {
   const intl = useIntl();
-  if (value == null) return null;
+  if (!total) return null;
 
   const title = intl.formatMessage({ id: "stashdb_matches" });
   const url = stashDBFingerprintsURLCustom(stashIDs);
@@ -40,13 +44,16 @@ export const StashDBMatchesCount: React.FC<{
     ? () => window.open(url, "_blank", "noopener,noreferrer")
     : undefined;
 
+  const hint = sceneTotalHintCustom(total);
   return (
     <span>
       <CountButton
-        value={value}
+        className={hint.className}
+        value={total.total}
         icon={<Icon icon={faFingerprint} />}
         title={title}
         countTitle={title}
+        valueTitle={hint.title}
         onIncrement={open}
         onValueClicked={open}
       />
@@ -56,18 +63,20 @@ export const StashDBMatchesCount: React.FC<{
 
 // CUSTOM: StashDB Matches on scene cards, linking to the StashDB fingerprints.
 export const StashDBMatchesCardButton: React.FC<{
-  value?: number | null;
+  total?: ISceneTotalCustom;
   stashIDs: { endpoint: string; stash_id: string }[];
   className?: string;
-}> = ({ value, stashIDs, className }) => {
+}> = ({ total, stashIDs, className }) => {
   const intl = useIntl();
-  if (value == null) return null;
+  if (!total) return null;
 
   const url = stashDBFingerprintsURLCustom(stashIDs);
+  const hint = sceneTotalHintCustom(total);
+  const title = intl.formatMessage({ id: "stashdb_matches" });
   return (
     <HoverPopover
-      className={cx("stashdb-matches-count", className)}
-      content={intl.formatMessage({ id: "stashdb_matches" })}
+      className={cx("stashdb-matches-count", className, hint.className)}
+      content={hint.title ? `${title}: ${hint.title}` : title}
       placement="bottom"
     >
       <Button
@@ -77,7 +86,7 @@ export const StashDBMatchesCardButton: React.FC<{
         rel="noopener noreferrer"
       >
         <Icon icon={faFingerprint} />
-        <span>{value}</span>
+        <span>{total.total}</span>
       </Button>
     </HoverPopover>
   );

@@ -1020,8 +1020,14 @@ func (qb *SceneStore) OCountByGroupID(ctx context.Context, groupID int) (int, er
 	if err := querySimple(ctx, q, &ret); err != nil {
 		return 0, err
 	}
+	// CUSTOM: begin - plus O's on releases assigned to the group
+	releaseCount, err := releaseOCountByGroupCustom(ctx, groupID)
+	if err != nil {
+		return 0, err
+	}
+	// CUSTOM: end
 
-	return ret, nil
+	return ret + releaseCount, nil // CUSTOM
 }
 
 func (qb *SceneStore) OCountByStudioID(ctx context.Context, studioID int, depth *int, performerID *string) (int, error) { // CUSTOM: added depth and performerID params
@@ -1034,12 +1040,14 @@ func (qb *SceneStore) OCountByStudioID(ctx context.Context, studioID int, depth 
 	)
 
 	// CUSTOM: begin - include child studios when a depth is provided
+	releaseStudioWhere, releaseStudioArgs := "r.studio_id = ?", []interface{}{studioID}
 	if depth != nil && *depth != 0 {
 		valuesClause, err := getHierarchicalValues(ctx, []string{strconv.Itoa(studioID)}, studioTable, "", "parent_id", "child_id", depth)
 		if err != nil {
 			return 0, err
 		}
 		q = q.Where(goqu.L(fmt.Sprintf("%s.%s IN (SELECT column2 FROM (%s))", sceneTable, studioIDColumn, valuesClause)))
+		releaseStudioWhere, releaseStudioArgs = fmt.Sprintf("r.studio_id IN (SELECT column2 FROM (%s))", valuesClause), nil
 	} else {
 		q = q.Where(table.Col(studioIDColumn).Eq(studioID))
 	}
@@ -1059,8 +1067,14 @@ func (qb *SceneStore) OCountByStudioID(ctx context.Context, studioID int, depth 
 	if err := querySimple(ctx, q, &ret); err != nil {
 		return 0, err
 	}
+	// CUSTOM: begin - plus O's on releases credited to the studio
+	releaseCount, err := releaseOCountByStudioCustom(ctx, releaseStudioWhere, releaseStudioArgs, performerID)
+	if err != nil {
+		return 0, err
+	}
+	// CUSTOM: end
 
-	return ret, nil
+	return ret + releaseCount, nil // CUSTOM
 }
 
 func (qb *SceneStore) FindByGroupID(ctx context.Context, groupID int) ([]*models.Scene, error) {
@@ -1514,9 +1528,9 @@ func (qb *SceneStore) setSceneSort(query *queryBuilder, findFilter *models.FindF
 	case "last_played_at":
 		query.sortAndPagination += fmt.Sprintf(" ORDER BY (SELECT MAX(view_date) FROM %s AS sort WHERE sort.%s = %s.id) %s", scenesViewDatesTable, sceneIDColumn, sceneTable, getSortDirection(direction))
 	case "last_o_at":
-		query.sortAndPagination += fmt.Sprintf(" ORDER BY (SELECT MAX(o_date) FROM %s AS sort WHERE sort.%s = %s.id) %s", scenesODatesTable, sceneIDColumn, sceneTable, getSortDirection(direction))
+		query.sortAndPagination += " ORDER BY " + sceneLastOSQLCustom("scenes.id") + " " + getSortDirection(direction) // CUSTOM: plus release O's
 	case "o_counter":
-		query.sortAndPagination += getCountSort(sceneTable, scenesODatesTable, sceneIDColumn, direction)
+		query.sortAndPagination += " ORDER BY " + sceneTotalOCountSQLCustom("scenes.id") + " " + getSortDirection(direction) // CUSTOM: plus release O's
 	case "performer_age":
 		// Looking at the youngest performer by default
 		aggregation := "MIN"

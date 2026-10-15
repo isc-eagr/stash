@@ -138,3 +138,50 @@ func TestRefreshStashDBMatchesCustomCancelled(t *testing.T) {
 	}, report.Unsubmitted, "only successfully checked scenes enter a partial report")
 	db.AssertExpectations(t)
 }
+
+type fakeReleaseStashDBMatchesCustom struct {
+	models.SceneReleaseReaderWriter
+	written map[int]int
+}
+
+func (f *fakeReleaseStashDBMatchesCustom) SetStashDBMatchesCustom(_ context.Context, releaseID int, matches *int) error {
+	f.written[releaseID] = *matches
+	return nil
+}
+
+// A release's own StashDB link refreshes into the release, and the report keeps
+// the parent scene beside the release.
+func TestRefreshStashDBMatchesReleasesCustom(t *testing.T) {
+	const endpoint = "https://stashdb.org/graphql"
+	releaseID, three := 36, 3
+	targets := []models.StashDBMatchTargetCustom{
+		{SceneID: 7, StashID: "id1"},
+		{SceneID: 7, ReleaseID: &releaseID, StashID: "id3", Matches: &three},
+	}
+
+	db := mocks.NewDatabase()
+	db.Scene.On("FindStashDBMatchTargetsCustom", mock.Anything, endpoint).Return(targets, nil).Once()
+	sceneWrites := map[int]int{}
+	db.Scene.On("SetStashDBMatchesCustom", mock.Anything, mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) { sceneWrites[args.Int(1)] = *args.Get(2).(*int) }).
+		Return(nil)
+	var saved models.StashDBMatchesReportCustom
+	db.Scene.On("SaveStashDBMatchesReportCustom", mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) { saved = args.Get(1).(models.StashDBMatchesReportCustom) }).
+		Return(nil).Once()
+	repo := db.Repository()
+	releases := &fakeReleaseStashDBMatchesCustom{written: map[int]int{}}
+	repo.SceneRelease = releases
+
+	_, err := refreshStashDBMatchesCustom(context.Background(), repo, &fakeStashDBMatchesFetcherCustom{}, endpoint,
+		&fakeStashDBMatchesProgressCustom{}, time.Now)
+	require.NoError(t, err)
+	require.Equal(t, map[int]int{7: 5}, sceneWrites)
+	require.Equal(t, map[int]int{36: 9}, releases.written)
+	require.Len(t, saved.Changes, 2)
+	require.Equal(t, 7, saved.Changes[1].SceneID)
+	require.Equal(t, &releaseID, saved.Changes[1].ReleaseID)
+	require.Equal(t, &three, saved.Changes[1].Previous)
+	require.Len(t, saved.Unsubmitted, 2, "id1 and id3 are not submitted by this account")
+	require.Equal(t, &releaseID, saved.Unsubmitted[1].ReleaseID)
+}

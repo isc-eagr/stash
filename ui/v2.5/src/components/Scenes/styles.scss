@@ -4616,3 +4616,15 @@ input[type="range"].blue-slider {
   max-height: 12rem;
   overflow-y: auto;
 }
+
+/* CUSTOM: a scene total that also counts its releases' O's or StashDB
+   Matches. Rating themes own card colors, so mark it with a dotted underline. */
+.scene-total-includes-releases {
+  .count-value span,
+  > .btn span,
+  &.btn span {
+    text-decoration: underline dotted;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+  }
+}

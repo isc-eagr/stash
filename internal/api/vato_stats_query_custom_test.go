@@ -34,7 +34,7 @@ func TestVatoStatsPerformersQueryCustomAggregatesSceneOsAndCareerOnce(t *testing
     )`,
 		`CREATE TABLE performers_scenes (performer_id INTEGER, scene_id INTEGER)`,
 		`CREATE TABLE scenes (id INTEGER PRIMARY KEY, date TEXT, rating INTEGER, studio_id INTEGER)`,
-		`CREATE TABLE scenes_o_dates (scene_id INTEGER, o_date TEXT)`,
+		`CREATE TABLE scenes_o_dates (scene_id INTEGER, o_date TEXT, video_timestamp REAL)`,
 		`INSERT INTO performers(id, name, rating, created_at) VALUES
       (1, 'Alpha', 80, datetime('now', '-6 months')),
       (2, 'Bravo', 60, datetime('now', '-2 years')),

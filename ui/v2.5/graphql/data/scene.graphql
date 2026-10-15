@@ -8,6 +8,9 @@ fragment SceneData on Scene {
   date
   effective_date # CUSTOM
   stashdb_matches # CUSTOM
+  release_stashdb_matches # CUSTOM
+  release_o_counter # CUSTOM
+  release_last_o_at # CUSTOM
   rating100
   rating_scores {
     id
@@ -154,15 +157,6 @@ fragment SceneReleaseData on SceneRelease {
   url
   urls
   date
-  rating100
-  rating_scores {
-    id
-    section
-    key
-    raw_value
-    weighted_value
-    label
-  }
   organized
   resume_time
   play_duration
@@ -205,6 +199,7 @@ fragment SceneReleaseData on SceneRelease {
     stash_id
     updated_at
   }
+  stashdb_matches # CUSTOM
   custom_fields
   play_history
   o_history

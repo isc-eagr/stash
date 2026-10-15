@@ -10,6 +10,11 @@ import {
   type SceneActivityRoleTagIds,
   type SceneMarkerCountKeyCustom,
 } from "./sceneActivityMetricsData_custom";
+import {
+  sceneLastOAtCustom,
+  sceneOTotalCustom,
+  sceneStashDBMatchesTotalCustom,
+} from "./sceneReleaseTotals_custom";
 
 type SceneSortMetricScene = GQL.SlimSceneDataFragment & {
   created_at?: string;
@@ -136,7 +141,7 @@ const definitions: Record<
   stashdb_matches: {
     messageID: "stashdb_matches",
     format: "count",
-    value: ({ scene }) => scene.stashdb_matches,
+    value: ({ scene }) => sceneStashDBMatchesTotalCustom(scene)?.total,
   },
   file_count: {
     messageID: "file_count",
@@ -268,15 +273,12 @@ const definitions: Record<
   o_counter: {
     messageID: "o_count",
     format: "count",
-    value: ({ scene }) => scene.o_counter,
+    value: ({ scene }) => sceneOTotalCustom(scene).total,
   },
   last_o_at: {
     messageID: "last_o_at",
     format: "datetime",
-    value: ({ scene }) =>
-      scene.o_history && scene.o_history.length > 0
-        ? [...scene.o_history].sort()[scene.o_history.length - 1]
-        : undefined,
+    value: ({ scene }) => sceneLastOAtCustom(scene),
   },
   group_scene_number: {
     messageID: "group_scene_number",

@@ -12,6 +12,7 @@ import (
 
 	"github.com/stashapp/stash/internal/manager"
 	"github.com/stashapp/stash/pkg/models"
+	"github.com/stashapp/stash/pkg/sqlite"
 )
 
 const (
@@ -220,14 +221,14 @@ persisted_scores(category, entity_type, entity_id, section, key, raw_value, weig
   FROM eligible_entities eligible
   WHERE (
     eligible.entity_type = 'scene'
-    AND (SELECT COUNT(*) FROM scenes_o_dates WHERE scenes_o_dates.scene_id = eligible.entity_id) >= 3
+    AND (SELECT COUNT(*) FROM {{scene_o_events}} od WHERE od.scene_id = eligible.entity_id) >= 3
   ) OR (
     eligible.entity_type = 'performer'
     AND (
       SELECT COUNT(*)
-      FROM scenes_o_dates
-      JOIN performers_scenes orgasm_scenes ON orgasm_scenes.scene_id = scenes_o_dates.scene_id
-      WHERE orgasm_scenes.performer_id = eligible.entity_id
+      FROM {{scene_o_events}} od
+      JOIN {{scene_o_event_cast}} orgasm_cast ON orgasm_cast.owner_key = od.owner_key
+      WHERE orgasm_cast.performer_id = eligible.entity_id
     ) >= 3
   )
 )
@@ -519,10 +520,19 @@ func queryPerformerRatingAdvisorStatsCustom(ctx context.Context, performerID int
 	)
 }
 
+// ratingAdvisorOEventsSQLCustom fills in the O-event sources: the O-count
+// bonus counts release O's like the rating does.
+func ratingAdvisorOEventsSQLCustom(query string) string {
+	return strings.NewReplacer(
+		"{{scene_o_events}}", sqlite.SceneOEventsSQLCustom(),
+		"{{scene_o_event_cast}}", sqlite.SceneOEventCastSQLCustom(),
+	).Replace(query)
+}
+
 func queryRatingAdvisorStatsCustom(ctx context.Context, query string, args []interface{}) (*StudioRatingAdvisorStats, error) {
 	_, rawRows, err := manager.GetInstance().Database.QuerySQL(
 		ctx,
-		query,
+		ratingAdvisorOEventsSQLCustom(query),
 		args,
 	)
 	if err != nil {

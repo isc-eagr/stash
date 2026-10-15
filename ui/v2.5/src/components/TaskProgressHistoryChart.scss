@@ -144,6 +144,14 @@
     .baseline {
       color: #8796a3;
     }
+
+    .added {
+      color: #48aff0;
+    }
+
+    .removed {
+      color: #f29d49;
+    }
   }
 
   &-plan {
@@ -243,6 +251,16 @@
 
   &-baseline-marker {
     fill: #8796a3;
+  }
+
+  &-scope-marker {
+    &.added {
+      fill: #48aff0;
+    }
+
+    &.removed {
+      fill: #f29d49;
+    }
   }
 
   &-day-target {

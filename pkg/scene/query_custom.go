@@ -1558,6 +1558,9 @@ func queryPerformerMarkerRoleRows(
 
 	rows := make([]*models.PerformerMarkerRoleRow, 0)
 	for _, marker := range markers {
+		if marker.ReleaseID != nil {
+			continue // release-owned markers stay out of scene stats
+		}
 		for _, mp := range performersByMarker[marker.ID] {
 			if !targets[mp.PerformerID] || !roleMatches(mp.Role, role) {
 				continue

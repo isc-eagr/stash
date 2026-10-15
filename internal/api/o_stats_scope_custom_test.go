@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/stashapp/stash/pkg/sqlite"
 )
 
 func TestSceneOStatsScopeCustomFiltersStudioTree(t *testing.T) {
@@ -17,7 +18,7 @@ func TestSceneOStatsScopeCustomFiltersStudioTree(t *testing.T) {
 	statements := []string{
 		`CREATE TABLE studios (id INTEGER PRIMARY KEY, parent_id INTEGER)`,
 		`CREATE TABLE scenes (id INTEGER PRIMARY KEY, studio_id INTEGER)`,
-		`CREATE TABLE scenes_o_dates (scene_id INTEGER, o_date TEXT)`,
+		`CREATE TABLE scenes_o_dates (scene_id INTEGER, o_date TEXT, video_timestamp REAL)`,
 		`INSERT INTO studios(id, parent_id) VALUES (1, NULL), (2, 1), (3, 2), (4, NULL)`,
 		`INSERT INTO scenes(id, studio_id) VALUES (10, 1), (20, 2), (30, 3), (40, 4)`,
 		`INSERT INTO scenes_o_dates(scene_id, o_date) VALUES (10, '2026-01-01'), (20, '2026-01-02'), (30, '2026-01-03'), (40, '2026-01-04')`,
@@ -43,7 +44,7 @@ func TestSceneOStatsScopeCustomFiltersStudioTree(t *testing.T) {
 				t.Fatal(err)
 			}
 			var count int
-			query := "SELECT COUNT(*) FROM scenes_o_dates od WHERE 1 = 1" + scope
+			query := "SELECT COUNT(*) FROM " + sqlite.SceneOEventsSQLCustom() + " od WHERE 1 = 1" + scope
 			if err := db.QueryRow(query, args...).Scan(&count); err != nil {
 				t.Fatal(err)
 			}
@@ -71,7 +72,7 @@ func TestSceneOStatsScopeCustomFiltersLocalODateRange(t *testing.T) {
 	for _, statement := range []string{
 		`CREATE TABLE studios (id INTEGER PRIMARY KEY, parent_id INTEGER)`,
 		`CREATE TABLE scenes (id INTEGER PRIMARY KEY, studio_id INTEGER)`,
-		`CREATE TABLE scenes_o_dates (scene_id INTEGER, o_date TEXT)`,
+		`CREATE TABLE scenes_o_dates (scene_id INTEGER, o_date TEXT, video_timestamp REAL)`,
 		`INSERT INTO studios(id, parent_id) VALUES (1, NULL)`,
 		`INSERT INTO scenes(id, studio_id) VALUES (10, 1), (20, NULL)`,
 		`INSERT INTO scenes_o_dates(scene_id, o_date) VALUES (10, '2025-01-15 12:00:00'), (10, '2025-03-01 12:00:00'), (20, '2025-02-01 12:00:00')`,
@@ -100,7 +101,7 @@ func TestSceneOStatsScopeCustomFiltersLocalODateRange(t *testing.T) {
 				t.Fatal(err)
 			}
 			var count int
-			if err := db.QueryRow("SELECT COUNT(*) FROM scenes_o_dates od WHERE 1 = 1"+scope, args...).Scan(&count); err != nil {
+			if err := db.QueryRow("SELECT COUNT(*) FROM "+sqlite.SceneOEventsSQLCustom()+" od WHERE 1 = 1"+scope, args...).Scan(&count); err != nil {
 				t.Fatal(err)
 			}
 			if count != test.want {

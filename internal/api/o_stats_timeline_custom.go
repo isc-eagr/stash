@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/stashapp/stash/internal/manager"
+	"github.com/stashapp/stash/pkg/sqlite"
 )
 
 // A page cap bounds scene/tag/ordinal hydration as well as SQL results.
@@ -16,7 +17,7 @@ func validateSceneOEventPageCustom(page, perPage int) error {
 }
 
 func sceneOEventPageFromCustom(scope string) string {
-	return ` FROM scenes_o_dates od
+	return ` FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
 JOIN scenes s ON s.id = od.scene_id
 WHERE od.o_date IS NOT NULL` + scope
 }

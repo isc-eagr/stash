@@ -7,6 +7,7 @@ import {
   sortStashDBMatchesChangesCustom,
   stashDBMatchesDeltaLabelCustom,
   stashDBReportFingerprintsURLCustom,
+  stashDBReportRowKeyCustom,
 } from "../src/components/StashDBMatches/stashDBMatchesReport_custom.ts";
 import { StashDBMatchesStudioGroup } from "../src/components/StashDBMatches/StashDBMatchesStudioGroup.tsx";
 import { stashDBFingerprintsURLCustom } from "../src/components/Scenes/SceneDetails/StashDBMatchesCount.tsx";
@@ -98,4 +99,24 @@ test("toolbar count links to the StashDB fingerprints tab", () => {
     ]),
     undefined
   );
+});
+
+test("release rows group by the release's studio and keep distinct keys", () => {
+  const sayUncle = { id: "55", name: "SayUncle" };
+  const rawHole = { id: "27", name: "Raw Hole" };
+  const sceneRow = { scene: { id: "16318", studio: sayUncle } };
+  const releaseRow = {
+    scene: { id: "16318", studio: sayUncle },
+    release: { id: "36", studio: rawHole },
+  };
+  const groups = groupStashDBMatchesByStudioCustom([sceneRow, releaseRow]);
+  assert.deepEqual(
+    groups.map((g) => [g.name, g.entries.length]),
+    [
+      ["Raw Hole", 1],
+      ["SayUncle", 1],
+    ]
+  );
+  assert.equal(stashDBReportRowKeyCustom(sceneRow), "scene-16318");
+  assert.equal(stashDBReportRowKeyCustom(releaseRow), "release-36");
 });

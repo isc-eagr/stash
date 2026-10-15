@@ -15,6 +15,7 @@ interface ICountButtonProps {
   onValueClicked?: () => void;
   title?: string;
   countTitle?: string;
+  valueTitle?: string; // CUSTOM: tooltip on the count, e.g. a total's breakdown
 }
 
 export const CountButton: React.FC<ICountButtonProps> = ({
@@ -25,6 +26,7 @@ export const CountButton: React.FC<ICountButtonProps> = ({
   onValueClicked,
   title,
   countTitle,
+  valueTitle, // CUSTOM
 }) => {
   return (
     <ButtonGroup
@@ -46,7 +48,7 @@ export const CountButton: React.FC<ICountButtonProps> = ({
         className="minimal count-value"
         variant="secondary"
         onClick={() => (onValueClicked ?? onIncrement)?.()}
-        title={!!onValueClicked ? countTitle : undefined}
+        title={valueTitle ?? (!!onValueClicked ? countTitle : undefined)} // CUSTOM: valueTitle
       >
         <span>{value}</span>
       </Button>

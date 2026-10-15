@@ -373,7 +373,6 @@ export const MarkerPlaylistPlayer: React.FC = () => {
 
   // CUSTOM: begin - each marker activation gets a fresh remote session.
   useRemotePlayerCustom(`${currentMarker?.id ?? ""}:${currentIndex}`, () => {
-    if (currentMarker?.releaseId) return undefined; // CUSTOM: remote O API owns scenes only
     const video = getActiveVideo();
     const prepared = preparedVideoSlotsRef.current[activeVideoSlotRef.current];
     if (
@@ -384,6 +383,7 @@ export const MarkerPlaylistPlayer: React.FC = () => {
       return undefined;
     return {
       scene_id: currentMarker.sceneId,
+      release_id: currentMarker.releaseId,
       scene_title: currentMarker.sceneTitle,
       video_timestamp: video.currentTime,
       duration: video.duration,

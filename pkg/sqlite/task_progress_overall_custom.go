@@ -125,13 +125,18 @@ WITH dates AS (
   SELECT occurred_on,
          SUM(event_type = 'COMPLETED') AS completed,
          SUM(event_type = 'INCOMING') AS incoming,
+         -- A deletion only removes work when the snapshot's remaining count drops,
+         -- so deleted organized scenes keep their completion and count nowhere.
+         SUM(CASE WHEN event_type = 'ADJUSTMENT' THEN MAX(previous_remaining - remaining_count, 0) END) AS removed,
          MAX(CASE WHEN event_type = 'BASELINE' THEN id END) AS baseline_id
-    FROM task_progress_overall_events
+    FROM (SELECT *, LAG(remaining_count) OVER (ORDER BY id) AS previous_remaining
+            FROM task_progress_overall_events)
    GROUP BY occurred_on
 )
 SELECT dates.occurred_on,
        COALESCE(d.completed, 0),
        COALESCE(d.incoming, 0),
+       COALESCE(d.removed, 0),
        (SELECT remaining_count FROM task_progress_overall_events e
          WHERE e.occurred_on <= dates.occurred_on ORDER BY e.occurred_on DESC, e.id DESC LIMIT 1),
        baseline.remaining_count,
@@ -149,7 +154,7 @@ SELECT dates.occurred_on,
 	defer rows.Close()
 	for rows.Next() {
 		day := &models.TaskProgressDay{}
-		if err := rows.Scan(&day.Date, &day.Completed, &day.Incoming, &day.Remaining, &day.BaselineCount, &day.GoalPerDay); err != nil {
+		if err := rows.Scan(&day.Date, &day.Completed, &day.Incoming, &day.Removed, &day.Remaining, &day.BaselineCount, &day.GoalPerDay); err != nil {
 			return nil, fmt.Errorf("scanning overall task progress history: %w", err)
 		}
 		ret.CompletedCount += day.Completed

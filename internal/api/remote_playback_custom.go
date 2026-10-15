@@ -33,6 +33,7 @@ type RemotePlaybackState struct {
 	PlayerID           string               `json:"player_id"`
 	SessionID          string               `json:"session_id"`
 	SceneID            string               `json:"scene_id"`
+	ReleaseID          *string              `json:"release_id"`
 	SceneTitle         string               `json:"scene_title"`
 	VideoTimestamp     float64              `json:"video_timestamp"`
 	Duration           float64              `json:"duration"`
@@ -49,6 +50,7 @@ type RemotePlaybackStateInput struct {
 	PlayerID           string                    `json:"player_id"`
 	SessionID          string                    `json:"session_id"`
 	SceneID            string                    `json:"scene_id"`
+	ReleaseID          *string                   `json:"release_id"`
 	SceneTitle         string                    `json:"scene_title"`
 	VideoTimestamp     float64                   `json:"video_timestamp"`
 	Duration           float64                   `json:"duration"`
@@ -79,6 +81,7 @@ type RemotePlaybackORecordInput struct {
 	PlayerID       string  `json:"player_id"`
 	SessionID      string  `json:"session_id"`
 	SceneID        string  `json:"scene_id"`
+	ReleaseID      *string `json:"release_id"`
 	VideoTimestamp float64 `json:"video_timestamp"`
 }
 
@@ -86,6 +89,7 @@ type RemotePlaybackOResult struct {
 	CommandID      string  `json:"command_id"`
 	PlayerID       string  `json:"player_id"`
 	SceneID        string  `json:"scene_id"`
+	ReleaseID      *string `json:"release_id"`
 	VideoTimestamp float64 `json:"video_timestamp"`
 	Count          int     `json:"count"`
 	RecordedAt     string  `json:"recorded_at"`
@@ -200,6 +204,14 @@ func copyRemotePlaybackCommandCustom(command *RemotePlaybackCommand) *RemotePlay
 	return &copy
 }
 
+// remotePlaybackReleaseIDCustom compares optional release IDs; blank is none.
+func remotePlaybackReleaseIDCustom(id *string) string {
+	if id == nil {
+		return ""
+	}
+	return strings.TrimSpace(*id)
+}
+
 func copyRemotePlaybackResultCustom(result *RemotePlaybackOResult) *RemotePlaybackOResult {
 	copy := *result
 	return &copy
@@ -243,7 +255,7 @@ func (h *remotePlaybackHubCustom) update(input RemotePlaybackStateInput) (*Remot
 		SelectedSegmentIDs: append([]string{}, input.SelectedSegmentIDs...),
 		ServerID:           h.serverID,
 		PlayerID:           input.PlayerID, SessionID: input.SessionID,
-		SceneID: input.SceneID, SceneTitle: strings.TrimSpace(input.SceneTitle),
+		SceneID: input.SceneID, ReleaseID: input.ReleaseID, SceneTitle: strings.TrimSpace(input.SceneTitle),
 		VideoTimestamp: input.VideoTimestamp, Duration: input.Duration,
 		PlaybackRate: input.PlaybackRate, Status: input.Status,
 		UpdatedAt: now.Format(time.RFC3339Nano),
@@ -410,7 +422,8 @@ func (h *remotePlaybackHubCustom) validateRecord(input RemotePlaybackORecordInpu
 		return nil, errors.New("video timestamp does not match the original remote tap")
 	}
 	state := h.states[input.PlayerID]
-	if state == nil || state.SessionID != input.SessionID || state.SceneID != input.SceneID {
+	if state == nil || state.SessionID != input.SessionID || state.SceneID != input.SceneID ||
+		remotePlaybackReleaseIDCustom(state.ReleaseID) != remotePlaybackReleaseIDCustom(input.ReleaseID) {
 		return nil, errors.New("the player changed sessions or scenes before recording")
 	}
 	if state.Status == "buffering" || state.Duration <= 0 {

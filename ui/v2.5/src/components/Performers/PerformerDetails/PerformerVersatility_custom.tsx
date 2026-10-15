@@ -259,9 +259,8 @@ export const PerformerVersatility: React.FC<{
   );
 };
 
-// CUSTOM: overall, sex, and oral versatility from top vs bottom time; Overall
-// adds sex and oral role seconds like the scene stats. Used by the performer
-// Stats tab and, per vato, the scene stats Performer Explorer.
+// CUSTOM: sex and oral versatility from top vs bottom time. Used by the
+// performer Stats tab and, per vato, the scene stats Performer Explorer.
 export const PerformerVersatilityByTime: React.FC<{
   sexTopSeconds: number;
   sexBottomSeconds: number;
@@ -281,12 +280,6 @@ export const PerformerVersatilityByTime: React.FC<{
     className={className}
     showTitle={showTitle}
     scales={[
-      timeScale(
-        "overall",
-        "Overall",
-        sexTopSeconds + oralTopSeconds,
-        sexBottomSeconds + oralBottomSeconds
-      ),
       timeScale("sex", "Sex", sexTopSeconds, sexBottomSeconds),
       timeScale("oral", "Oral", oralTopSeconds, oralBottomSeconds),
     ]}

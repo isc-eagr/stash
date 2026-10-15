@@ -17,7 +17,7 @@ CREATE TABLE studios(id INTEGER PRIMARY KEY, parent_id INTEGER);
 CREATE TABLE scenes(id INTEGER PRIMARY KEY, studio_id INTEGER, created_at TEXT, date TEXT, rating INTEGER);
 CREATE TABLE performers(id INTEGER PRIMARY KEY, rating INTEGER);
 CREATE TABLE performers_scenes(scene_id INTEGER, performer_id INTEGER);
-CREATE TABLE scenes_o_dates(scene_id INTEGER, o_date TEXT);
+CREATE TABLE scenes_o_dates(scene_id INTEGER, o_date TEXT, video_timestamp REAL);
 CREATE TABLE rating_criteria_scores(entity_type TEXT, entity_id INTEGER, section TEXT, key TEXT, raw_value REAL, weighted_value REAL);
 CREATE TABLE rating_bonus_scores(entity_type TEXT, entity_id INTEGER, key TEXT, raw_value REAL, weighted_value REAL);
 CREATE TABLE rating_penalty_scores(entity_type TEXT, entity_id INTEGER, key TEXT, raw_value REAL, weighted_value REAL);

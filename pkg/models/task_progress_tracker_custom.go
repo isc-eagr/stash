@@ -38,6 +38,8 @@ type TaskProgressDay struct {
 	Completed     int    `json:"completed"`
 	Incoming      int    `json:"incoming"`
 	Remaining     int    `json:"remaining"`
+	Added         int    `json:"added"`
+	Removed       int    `json:"removed"`
 	BaselineCount *int   `json:"baseline_count,omitempty"`
 	GoalPerDay    *int   `json:"goal_per_day,omitempty"`
 }

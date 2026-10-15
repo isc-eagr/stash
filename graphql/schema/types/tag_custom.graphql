@@ -6,4 +6,6 @@
 extend type Tag {
   # CUSTOM: Sum of timed marker lengths for this tag and optional descendants.
   scene_marker_duration(depth: Int): Float!
+  # CUSTOM: Number of scene releases tagged directly with this tag.
+  release_count: Int!
 }

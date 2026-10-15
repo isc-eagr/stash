@@ -31,9 +31,13 @@ interface IStashDBMatchesStudioEntryCustom {
   scene: {
     studio?: { id: string; name: string } | null;
   };
+  release?: {
+    studio?: { id: string; name: string } | null;
+  } | null;
 }
 
 // Group by ID so studios with the same name remain separate. Preserve row order.
+// A release row belongs to the release's own studio.
 export function groupStashDBMatchesByStudioCustom<
   T extends IStashDBMatchesStudioEntryCustom
 >(entries: readonly T[]) {
@@ -42,7 +46,7 @@ export function groupStashDBMatchesByStudioCustom<
     { id: string | null; name: string; entries: T[] }
   >();
   entries.forEach((entry) => {
-    const { studio } = entry.scene;
+    const studio = entry.release ? entry.release.studio : entry.scene.studio;
     const id = studio?.id ?? null;
     const group = groups.get(id) ?? {
       id,
@@ -57,6 +61,16 @@ export function groupStashDBMatchesByStudioCustom<
     if (b.id === null) return -1;
     return a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
   });
+}
+
+// Rows are unique per owner; a scene and its release can both appear.
+export function stashDBReportRowKeyCustom(entry: {
+  scene: { id: string };
+  release?: { id: string } | null;
+}) {
+  return entry.release
+    ? `release-${entry.release.id}`
+    : `scene-${entry.scene.id}`;
 }
 
 export function stashDBReportFingerprintsURLCustom(

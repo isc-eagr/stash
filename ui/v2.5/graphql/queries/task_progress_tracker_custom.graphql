@@ -62,6 +62,8 @@ query TaskProgressOrganizedScenes {
       completed
       incoming
       remaining
+      added
+      removed
       baseline_count
       goal_per_day
     }

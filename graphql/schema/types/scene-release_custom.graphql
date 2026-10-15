@@ -1,4 +1,4 @@
-"A release represents an alternate version/release of a scene (e.g., from a different studio)"
+"A release represents an alternate version/release of a scene (e.g., from a different studio). It inherits the parent scene's rating and Rating Advisor answers."
 type SceneRelease {
   id: ID!
   "The parent scene this release belongs to"
@@ -11,8 +11,6 @@ type SceneRelease {
   urls: [String!]!
   date: String
   studio: Studio
-  rating100: Int
-  rating_scores: [RatingScore!]!
   organized: Boolean!
   resume_time: Float!
   play_duration: Float!
@@ -23,6 +21,8 @@ type SceneRelease {
   tags: [Tag!]!
   groups: [SceneGroup!]!
   stash_ids: [StashID!]!
+  "Users who matched this release on StashDB; null when never fetched"
+  stashdb_matches: Int
   custom_fields: Map!
   play_history: [Time!]!
   o_history: [Time!]!
@@ -65,7 +65,6 @@ input SceneReleaseCreateInput {
   url: String
   urls: [String!]
   date: String
-  rating100: Int
   organized: Boolean
   performer_ids: [ID!]
   tag_ids: [ID!]
@@ -92,7 +91,6 @@ input SceneReleaseUpdateInput {
   url: String
   urls: [String!]
   date: String
-  rating100: Int
   organized: Boolean
   performer_ids: [ID!]
   tag_ids: [ID!]
@@ -172,6 +170,12 @@ input ConvertSceneToReleaseInput {
   source_scene_id: ID!
   "The scene ID that will become the parent of the new release"
   target_scene_id: ID!
+  "Values the target scene takes from the source; omitted fields keep the target's values"
+  target_values: SceneUpdateInput
+  "Copy the source's rating and Rating Advisor answers to the target scene"
+  copy_rating_to_target: Boolean
+  "Copy all of the source's markers to the target scene; the release keeps its own"
+  copy_markers_to_target: Boolean
 }
 
 "Input for converting a release into a new scene"

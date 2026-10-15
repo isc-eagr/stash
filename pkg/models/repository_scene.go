@@ -122,6 +122,8 @@ type OHistoryWriter interface {
 	DeleteO(ctx context.Context, id int, dates []time.Time) ([]time.Time, error)
 	ResetO(ctx context.Context, id int) (int, error)
 	AddOAtVideoTimestamp(ctx context.Context, id int, videoTimestamp float64) ([]time.Time, error) // CUSTOM
+	AddRetroactiveOCustom(ctx context.Context, id int) ([]time.Time, error)                        // CUSTOM
+	DeleteRetroactiveOCustom(ctx context.Context, id int) ([]time.Time, error)                     // CUSTOM
 }
 
 type ViewHistoryWriter interface {

@@ -49,15 +49,24 @@ func (r *mutationResolver) RemotePlaybackRecordO(ctx context.Context, input Remo
 	if err != nil {
 		return nil, fmt.Errorf("converting scene id: %w", err)
 	}
-	ctx = models.WithHistoryMutationCountOnlyCustom(ctx)
-	updatedTimes, err := r.recordSceneOAtTimestampCustom(ctx, sceneID, input.VideoTimestamp)
-	if err != nil {
-		return nil, err
+	// A release playing on the scene records the O like its local O button.
+	var count int
+	if releaseID := remotePlaybackReleaseIDCustom(input.ReleaseID); releaseID != "" {
+		if count, err = r.recordRemoteReleaseOCustom(ctx, sceneID, releaseID, input.VideoTimestamp); err != nil {
+			return nil, err
+		}
+	} else {
+		ctx = models.WithHistoryMutationCountOnlyCustom(ctx)
+		updatedTimes, err := r.recordSceneOAtTimestampCustom(ctx, sceneID, input.VideoTimestamp)
+		if err != nil {
+			return nil, err
+		}
+		count = models.HistoryMutationResultCountCustom(ctx, len(updatedTimes))
 	}
 	result := &RemotePlaybackOResult{
 		CommandID: input.CommandID, PlayerID: input.PlayerID,
-		SceneID: input.SceneID, VideoTimestamp: input.VideoTimestamp,
-		Count: models.HistoryMutationResultCountCustom(ctx, len(updatedTimes)), RecordedAt: time.Now().Format(time.RFC3339Nano), sessionID: input.SessionID,
+		SceneID: input.SceneID, ReleaseID: input.ReleaseID, VideoTimestamp: input.VideoTimestamp,
+		Count: count, RecordedAt: time.Now().Format(time.RFC3339Nano), sessionID: input.SessionID,
 	}
 	remotePlaybackHub.complete(result)
 	return result, nil

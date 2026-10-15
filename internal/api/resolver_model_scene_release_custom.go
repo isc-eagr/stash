@@ -11,26 +11,6 @@ import (
 	"github.com/stashapp/stash/pkg/models"
 )
 
-func (r *sceneReleaseResolver) Rating100(ctx context.Context, obj *models.SceneRelease) (*int, error) {
-	var metadata models.SceneReleaseMetadataCustom
-	err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		var err error
-		metadata, err = r.repository.SceneRelease.GetMetadataCustom(ctx, obj.ID)
-		return err
-	})
-	return metadata.Rating, err
-}
-
-func (r *sceneReleaseResolver) RatingScores(ctx context.Context, obj *models.SceneRelease) ([]*models.RatingScore, error) {
-	var scores []*models.RatingScore
-	err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		var err error
-		scores, err = r.repository.RatingScore.FindByEntity(ctx, models.RatingEntityRelease, obj.ID)
-		return err
-	})
-	return scores, err
-}
-
 func (r *sceneReleaseResolver) Organized(ctx context.Context, obj *models.SceneRelease) (bool, error) {
 	var metadata models.SceneReleaseMetadataCustom
 	err := r.withReadTxn(ctx, func(ctx context.Context) error {
@@ -128,6 +108,14 @@ func (r *sceneReleaseResolver) StashIds(ctx context.Context, obj *models.SceneRe
 		return err
 	})
 	return stashIDsSliceToPtrSlice(ids), err
+}
+
+func (r *sceneReleaseResolver) StashdbMatches(ctx context.Context, obj *models.SceneRelease) (ret *int, err error) {
+	err = r.withReadTxn(ctx, func(ctx context.Context) error {
+		ret, err = r.repository.SceneRelease.GetStashDBMatchesCustom(ctx, obj.ID)
+		return err
+	})
+	return ret, err
 }
 
 func (r *sceneReleaseResolver) CustomFields(ctx context.Context, obj *models.SceneRelease) (map[string]interface{}, error) {
@@ -254,7 +242,7 @@ func (r *sceneReleaseResolver) Paths(ctx context.Context, obj *models.SceneRelea
 	if err != nil || primaryFile == nil {
 		return paths, err
 	}
-	hash := releaseMarkerVideoHashCustom(primaryFile, manager.GetInstance().Config.GetVideoFileNamingAlgorithm())
+	hash := models.ReleaseVideoHashCustom(primaryFile, manager.GetInstance().Config.GetVideoFileNamingAlgorithm())
 	return releaseMediaPathsCustom(paths, baseURL, obj.ID, hash), nil
 }
 

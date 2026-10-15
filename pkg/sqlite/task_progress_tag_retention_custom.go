@@ -44,6 +44,7 @@ CREATE TEMP TABLE task_progress_retained_events AS SELECT * FROM task_progress_t
 CREATE TEMP TABLE task_progress_retained_members AS SELECT * FROM task_progress_tracker_members;
 CREATE TEMP TABLE task_progress_retained_goals AS SELECT * FROM task_progress_goal_history;
 CREATE TEMP TABLE task_progress_retained_milestones AS SELECT * FROM task_progress_milestone_members;
+CREATE TEMP TABLE task_progress_retained_milestone_history AS SELECT * FROM task_progress_milestone_member_history;
 CREATE TEMP TABLE task_progress_retained_sequence AS SELECT name,seq FROM sqlite_sequence WHERE name='task_progress_trackers';
 DROP TABLE task_progress_trackers;
 `); err != nil {
@@ -59,6 +60,7 @@ INSERT OR IGNORE INTO task_progress_tracker_events SELECT * FROM task_progress_r
 INSERT OR IGNORE INTO task_progress_tracker_members SELECT * FROM task_progress_retained_members;
 INSERT OR IGNORE INTO task_progress_goal_history SELECT * FROM task_progress_retained_goals;
 INSERT OR IGNORE INTO task_progress_milestone_members SELECT * FROM task_progress_retained_milestones;
+INSERT OR IGNORE INTO task_progress_milestone_member_history SELECT * FROM task_progress_retained_milestone_history;
 UPDATE sqlite_sequence SET seq = MAX(seq, COALESCE((SELECT seq FROM task_progress_retained_sequence), seq)) WHERE name='task_progress_trackers';
 INSERT INTO sqlite_sequence SELECT name,seq FROM task_progress_retained_sequence WHERE NOT EXISTS (SELECT 1 FROM sqlite_sequence WHERE name='task_progress_trackers');
 DROP TABLE task_progress_retained_trackers;
@@ -66,6 +68,7 @@ DROP TABLE task_progress_retained_events;
 DROP TABLE task_progress_retained_members;
 DROP TABLE task_progress_retained_goals;
 DROP TABLE task_progress_retained_milestones;
+DROP TABLE task_progress_retained_milestone_history;
 DROP TABLE task_progress_retained_sequence;
 `); err != nil {
 			return fmt.Errorf("restoring tracker tag migration: %w", err)

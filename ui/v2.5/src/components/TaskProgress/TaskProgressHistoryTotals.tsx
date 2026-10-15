@@ -42,6 +42,8 @@ export const TaskProgressHistoryTotals: React.FC<{
       )
       .join(" ");
   const hovered = points.find((point) => point.date === hoverDate);
+  const hasAdded = points.some((point) => point.added > 0);
+  const hasRemoved = points.some((point) => point.removed > 0);
   const tickCount = Math.min(6, points.length);
   const ticks = new Set(
     Array.from({ length: tickCount }, (_, index) =>
@@ -86,6 +88,8 @@ export const TaskProgressHistoryTotals: React.FC<{
         </span>
         {showIncoming && <span className="incoming">{t("Incoming")}</span>}
         <span className="baseline">{t("Baseline")}</span>
+        {hasAdded && <span className="added">{t("Added")}</span>}
+        {hasRemoved && <span className="removed">{t("Removed")}</span>}
       </div>
       <div className="task-progress-history-chart-plot">
         <svg
@@ -96,7 +100,7 @@ export const TaskProgressHistoryTotals: React.FC<{
         >
           <desc>
             {t(
-              "Cumulative or remaining totals, baseline markers, and optional incoming activity. A data table follows the chart."
+              "Cumulative or remaining totals, baseline and scope-change markers, and optional incoming activity. A data table follows the chart."
             )}
           </desc>
           {[0, 0.25, 0.5, 0.75, 1].map((ratio) => (
@@ -165,6 +169,24 @@ export const TaskProgressHistoryTotals: React.FC<{
                     )},${top + 7} Z`}
                   />
                 </g>
+              )}
+              {point.added > 0 && (
+                <path
+                  className="task-progress-history-chart-scope-marker added"
+                  d={`M${x(index) - 5},${bottom - 9} L${x(index) + 5},${
+                    bottom - 9
+                  } L${x(index)},${bottom - 16} Z`}
+                  aria-hidden="true"
+                />
+              )}
+              {point.removed > 0 && (
+                <path
+                  className="task-progress-history-chart-scope-marker removed"
+                  d={`M${x(index) - 5},${bottom - 7} L${x(index) + 5},${
+                    bottom - 7
+                  } L${x(index)},${bottom} Z`}
+                  aria-hidden="true"
+                />
               )}
               {ticks.has(index) && (
                 <text

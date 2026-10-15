@@ -23,6 +23,8 @@ fragment TaskProgressMilestoneData on TaskProgressMilestone {
     completed
     incoming
     remaining
+    added
+    removed
     baseline_count
     goal_per_day
   }

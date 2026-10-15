@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strconv"
 
@@ -252,19 +253,30 @@ func taskProgressEventURLCustom(ctx context.Context, e *models.TaskProgressEvent
 		return "", nil
 	}
 	if e.ItemType == "scene_marker" {
-		var sceneID int
-		var seconds float64
-		rows, err := dbWrapper.QueryxContext(ctx, "SELECT scene_id,seconds FROM scene_markers WHERE id=?", e.ItemID)
+		// Release-owned markers have no scene_id; link to the parent scene with
+		// that release selected.
+		var marker struct {
+			SceneID   int           `db:"scene_id"`
+			ReleaseID sql.NullInt64 `db:"release_id"`
+			Seconds   float64       `db:"seconds"`
+		}
+		query := "SELECT scene_id,NULL AS release_id,seconds FROM scene_markers WHERE id=?"
+		upgraded, err := releaseTransferTableExistsCustom(ctx, "scene_release_activity_upgrade_guard")
 		if err != nil {
 			return "", err
 		}
-		defer rows.Close()
-		if rows.Next() {
-			if err := rows.Scan(&sceneID, &seconds); err != nil {
-				return "", err
-			}
+		if upgraded {
+			query = `SELECT COALESCE(sm.scene_id,r.scene_id) AS scene_id,sm.release_id,sm.seconds
+				FROM scene_markers sm LEFT JOIN scene_releases r ON r.id=sm.release_id WHERE sm.id=?`
 		}
-		return fmt.Sprintf("/scenes/%d?t=%s", sceneID, strconv.FormatFloat(seconds, 'f', -1, 64)), rows.Err()
+		if err := dbWrapper.Get(ctx, &marker, query, e.ItemID); err != nil {
+			return "", err
+		}
+		url := fmt.Sprintf("/scenes/%d?t=%s", marker.SceneID, strconv.FormatFloat(marker.Seconds, 'f', -1, 64))
+		if marker.ReleaseID.Valid {
+			url += fmt.Sprintf("&release=%d", marker.ReleaseID.Int64)
+		}
+		return url, nil
 	}
 	return fmt.Sprintf("/%s/%d", table, e.ItemID), nil
 }

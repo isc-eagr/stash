@@ -9,18 +9,11 @@ import (
 	"github.com/stashapp/stash/pkg/models"
 )
 
-func TestReleaseRatingUpgradePreservesScoresCustom(t *testing.T) {
+func TestClearReleaseRatingsCustom(t *testing.T) {
 	db := openRatingScriptDatabaseCustom(t)
 	if _, err := db.Exec(`CREATE TABLE scene_releases(id INTEGER PRIMARY KEY, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP);
 INSERT INTO scenes(id,rating) VALUES (1,87);
-INSERT INTO scene_releases(id) VALUES (5);
-INSERT INTO rating_criteria_scores
- (id,entity_type,entity_id,key,raw_value,weighted_value,label,created_at,updated_at)
- VALUES (77,'scene',1,'chemistry',4,7.5,'Original label','2020-01-02','2020-03-04');
-INSERT INTO rating_bonus_scores(entity_type,entity_id,key,raw_value,weighted_value)
- VALUES ('scene',1,'bonus',2,1.5);
-INSERT INTO rating_penalty_scores(entity_type,entity_id,key,raw_value,weighted_value)
- VALUES ('scene',1,'penalty',1,0.5);`); err != nil {
+INSERT INTO scene_releases(id) VALUES (5);`); err != nil {
 		t.Fatal(err)
 	}
 	upgrade, err := os.ReadFile("../../scene_releases_rating_v2.up.sql")
@@ -30,74 +23,66 @@ INSERT INTO rating_penalty_scores(entity_type,entity_id,key,raw_value,weighted_v
 	if _, err := db.Exec(string(upgrade)); err != nil {
 		t.Fatalf("rating upgrade SQL: %v", err)
 	}
-	for _, table := range []string{ratingCriteriaScoresTable, ratingBonusScoresTable, ratingPenaltyScoresTable} {
-		if _, err := db.Exec(`UPDATE ` + table + ` SET entity_type='scene_release',entity_id=5 WHERE entity_type='scene' AND entity_id=1`); err != nil {
-			t.Fatalf("%s rejected release ownership: %v", table, err)
-		}
-		var count int
-		if err := db.QueryRow(`SELECT COUNT(*) FROM ` + table + ` WHERE entity_type='scene_release' AND entity_id=5`).Scan(&count); err != nil {
+	if _, err := db.Exec(`CREATE TABLE scene_release_metadata(release_id INTEGER PRIMARY KEY, rating INTEGER);
+INSERT INTO scene_release_metadata VALUES (5, 60);
+INSERT INTO rating_criteria_scores(entity_type,entity_id,key,raw_value,weighted_value) VALUES ('scene',1,'chemistry',4,7.5), ('scene_release',5,'chemistry',3,6);
+INSERT INTO rating_bonus_scores(entity_type,entity_id,key,raw_value,weighted_value) VALUES ('scene_release',5,'bonus',2,1.5);`); err != nil {
+		t.Fatal(err)
+	}
+	store := &Database{writeDB: sqlx.NewDb(db, "sqlite3")}
+	for i := 0; i < 2; i++ { // reruns are a no-op
+		if err := store.clearReleaseRatingsCustom(context.Background()); err != nil {
 			t.Fatal(err)
 		}
-		if count != 1 {
-			t.Fatalf("%s has %d transferred rows, want 1", table, count)
+	}
+	checks := map[string]int{
+		`SELECT COUNT(*) FROM rating_criteria_scores WHERE entity_type = 'scene_release'`: 0,
+		`SELECT COUNT(*) FROM rating_bonus_scores WHERE entity_type = 'scene_release'`:    0,
+		`SELECT COUNT(*) FROM rating_criteria_scores WHERE entity_type = 'scene'`:         1,
+		`SELECT COUNT(*) FROM scene_release_metadata WHERE rating IS NOT NULL`:            0,
+		`SELECT rating FROM scenes WHERE id = 1`:                                          87,
+	}
+	for query, want := range checks {
+		var got int
+		if err := db.QueryRow(query).Scan(&got); err != nil {
+			t.Fatal(err)
+		}
+		if got != want {
+			t.Fatalf("%s: got %d, want %d", query, got, want)
 		}
 	}
-	var score struct {
-		ID        int
-		Label     string
-		CreatedAt string
-		UpdatedAt string
+	if _, err := normalizeRatingEntityType("scene_release"); err == nil {
+		t.Fatal("releases must not take rating scores")
 	}
-	if err := db.QueryRow(`SELECT id,label,CAST(created_at AS TEXT),CAST(updated_at AS TEXT) FROM rating_criteria_scores WHERE entity_id=5`).Scan(
-		&score.ID, &score.Label, &score.CreatedAt, &score.UpdatedAt,
-	); err != nil {
+}
+
+func TestSceneOBonusCountsReleaseOCustom(t *testing.T) {
+	db, err := sqlx.Open("sqlite3", ":memory:")
+	if err != nil {
 		t.Fatal(err)
 	}
-	if score.ID != 77 || score.Label != "Original label" || score.CreatedAt != "2020-01-02" || score.UpdatedAt != "2020-03-04" {
-		t.Fatalf("rating row changed during ownership transfer: %+v", score)
-	}
-	if _, err := db.Exec(`INSERT INTO rating_criteria_scores(entity_type,entity_id,key) VALUES ('scene_release',999,'invalid')`); err == nil {
-		t.Fatal("rating upgrade accepted a missing release owner")
-	}
-	if _, err := db.Exec(`CREATE TABLE scene_release_metadata(release_id INTEGER PRIMARY KEY, rating INTEGER, organized BOOLEAN DEFAULT 0, resume_time REAL DEFAULT 0, play_duration REAL DEFAULT 0);
-CREATE TABLE scene_release_performers(release_id INTEGER, performer_id INTEGER);
+	defer db.Close()
+	db.SetMaxOpenConns(1)
+	if _, err := db.Exec(`CREATE TABLE scenes_o_dates(scene_id INTEGER, o_date DATETIME);
+CREATE TABLE scene_releases(id INTEGER PRIMARY KEY, scene_id INTEGER);
 CREATE TABLE scene_release_o_dates(release_id INTEGER, o_date DATETIME);
-INSERT INTO scene_release_o_dates VALUES (5,CURRENT_TIMESTAMP),(5,CURRENT_TIMESTAMP),(5,CURRENT_TIMESTAMP);`); err != nil {
+INSERT INTO scenes_o_dates VALUES (3,'2024-01-01'), (8,'2024-01-01');
+INSERT INTO scene_releases VALUES (4,3), (5,3), (6,8);
+INSERT INTO scene_release_o_dates VALUES (4,'2024-01-02'), (5,NULL), (6,'2024-01-03');`); err != nil {
 		t.Fatal(err)
 	}
-	xdb := sqlx.NewDb(db, "sqlite3")
-	tx, err := xdb.BeginTxx(context.Background(), nil)
+	tx, err := db.BeginTxx(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer tx.Rollback()
 	ctx := context.WithValue(context.Background(), txnKey, tx)
-	gotRating, err := NewRatingScoreStore().RecalculateRating(ctx, models.RatingEntityRelease, 5)
+	bonus, err := NewRatingScoreStore().countOrgasmRatingBonus(ctx, models.RatingEntityScene, 3)
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantRating := 16 + calculateOrgasmRatingBonus(models.RatingEntityRelease, 3)
-	if gotRating != wantRating {
-		t.Fatalf("release rating = %d, want %d", gotRating, wantRating)
-	}
-	var storedRating int
-	if err := tx.Get(&storedRating, `SELECT rating FROM scene_release_metadata WHERE release_id=5`); err != nil {
-		t.Fatal(err)
-	}
-	if storedRating != wantRating {
-		t.Fatalf("stored release rating = %d, want %d", storedRating, wantRating)
-	}
-	if err := tx.Commit(); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.Exec(`DELETE FROM scene_releases WHERE id=5`); err != nil {
-		t.Fatal(err)
-	}
-	var count int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM rating_criteria_scores WHERE entity_type='scene_release'`).Scan(&count); err != nil {
-		t.Fatal(err)
-	}
-	if count != 0 {
-		t.Fatal("release deletion left orphan rating rows")
+	if want := calculateOrgasmRatingBonus(models.RatingEntityScene, 3); bonus != want || want == 0 {
+		t.Fatalf("scene bonus = %d, want %d", bonus, want)
 	}
 }
 

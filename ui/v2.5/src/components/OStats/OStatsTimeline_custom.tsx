@@ -38,11 +38,9 @@ function formatODate(value: string) {
 const OStatsTimestampImage: React.FC<{
   event: SceneOEvent;
 }> = ({ event }) => {
-  const hasTimestamp =
-    event.video_timestamp !== null && event.video_timestamp !== undefined;
-  const imagePath = hasTimestamp
-    ? `/scene/${event.scene.id}/o/${event.id}/screenshot`
-    : event.scene.paths.screenshot;
+  // CUSTOM: release O screenshots come from the release's file.
+  const hasTimestamp = !!event.screenshot_path;
+  const imagePath = event.screenshot_path ?? event.scene.paths.screenshot;
 
   if (imagePath) {
     // CUSTOM: dim fallback scene covers while exact O screenshots stay normal.
@@ -122,7 +120,8 @@ export const OStatsEventList: React.FC<{
             const scenePath = makeOStatsSceneEventUrl(
               event.scene.id,
               event.video_timestamp,
-              linkToEntity
+              linkToEntity,
+              event.release_id
             );
 
             return (

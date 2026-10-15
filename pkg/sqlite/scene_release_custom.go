@@ -261,18 +261,6 @@ func (qb *SceneReleaseStore) Destroy(ctx context.Context, id int) error {
 	if err := qb.UpdateCover(ctx, id, nil); err != nil {
 		return err
 	}
-	for _, table := range []string{ratingCriteriaScoresTable, ratingBonusScoresTable, ratingPenaltyScoresTable} {
-		exists, err := releaseTransferTableExistsCustom(ctx, table)
-		if err != nil {
-			return err
-		}
-		if exists {
-			query := fmt.Sprintf(`DELETE FROM %s WHERE entity_type = 'scene_release' AND entity_id = ?`, table)
-			if _, err := dbWrapper.Exec(ctx, query, id); err != nil {
-				return err
-			}
-		}
-	}
 	return qb.tableMgr.destroyExisting(ctx, []int{id})
 }
 

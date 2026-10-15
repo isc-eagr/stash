@@ -54,6 +54,7 @@ UPDATE task_progress_overall_events
 	require.Equal(t, 1, overall.CompletedCount)
 	require.Equal(t, 2, overall.IncomingCount, "scene creation and reopening are incoming work")
 	require.Equal(t, 1, overall.History[len(overall.History)-1].Remaining, "deletion recalculates remaining without completing work")
+	require.Equal(t, 1, overall.History[len(overall.History)-1].Removed, "deleting an unorganized scene removes its work")
 
 	_, err = dbWrapper.Exec(ctx, "DELETE FROM scenes WHERE id=2")
 	require.NoError(t, err)
@@ -64,6 +65,7 @@ UPDATE task_progress_overall_events
 	require.Zero(t, overall.OrganizedCount)
 	require.Equal(t, 1, overall.History[len(overall.History)-1].Remaining)
 	require.Equal(t, 1, overall.CompletedCount, "deleting an organized scene is not completed work")
+	require.Equal(t, 1, overall.History[len(overall.History)-1].Removed, "deleting an organized scene removes no remaining work")
 
 	var deletedCompletions int
 	require.NoError(t, dbWrapper.Get(ctx, &deletedCompletions, `

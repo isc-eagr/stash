@@ -19,10 +19,10 @@ func TestReleaseMarkerUsesReleaseAssetPathCustom(t *testing.T) {
 		{Type: models.FingerprintTypeMD5, Fingerprint: "release-md5"},
 		{Type: models.FingerprintTypeOshash, Fingerprint: int64(0x1234)},
 	}}}
-	if got := releaseMarkerVideoHashCustom(video, models.HashAlgorithmMd5); got != "release-md5" {
+	if got := models.ReleaseVideoHashCustom(video, models.HashAlgorithmMd5); got != "release-md5" {
 		t.Fatalf("release marker MD5 hash = %q", got)
 	}
-	if got := releaseMarkerVideoHashCustom(video, models.HashAlgorithmOshash); got != "1234" {
+	if got := models.ReleaseVideoHashCustom(video, models.HashAlgorithmOshash); got != "1234" {
 		t.Fatalf("release marker oshash = %q", got)
 	}
 }

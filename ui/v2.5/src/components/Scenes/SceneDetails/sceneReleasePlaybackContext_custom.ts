@@ -19,7 +19,6 @@ export const getSceneReleasePlaybackContextCustom = (
     scene: {
       ...scene,
       title: release.title,
-      rating100: release.rating100,
       studio: release.studio,
       tags: release.tags,
       galleries: release.galleries,

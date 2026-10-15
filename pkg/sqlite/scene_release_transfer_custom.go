@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 )
 
 func releaseTransferTableExistsCustom(ctx context.Context, name string) (bool, error) {
@@ -131,8 +132,23 @@ func ensureSceneHasNoUnownedReleaseActivityCustom(ctx context.Context, sceneID i
 	return nil
 }
 
+// copyStashDBMatchesCustom carries the StashDB count with the Stash IDs it
+// belongs to, when both owners have a matches table.
+func copyStashDBMatchesCustom(ctx context.Context, query string, toID, fromID int) error {
+	ready, err := releaseStashDBMatchesReadyCustom(ctx)
+	if err != nil || !ready {
+		return err
+	}
+	if exists, err := releaseTransferTableExistsCustom(ctx, sceneStashDBMatchesTableCustom); err != nil || !exists {
+		return err
+	}
+	_, err = dbWrapper.Exec(ctx, query, toID, fromID)
+	return err
+}
+
 // TransferSceneMetadataToReleaseCustom moves all supported scene-owned data
-// before the source scene row is deleted. The caller owns the transaction.
+// before the source scene row is deleted. Ratings stay with scenes: the caller
+// copies or drops the source's. The caller owns the transaction.
 func (qb *SceneReleaseStore) TransferSceneMetadataToReleaseCustom(ctx context.Context, sceneID, releaseID int) error {
 	if err := requireReleaseMetadataUpgradeCustom(ctx); err != nil {
 		return err
@@ -141,8 +157,8 @@ func (qb *SceneReleaseStore) TransferSceneMetadataToReleaseCustom(ctx context.Co
 		return err
 	}
 	statements := []string{
-		`INSERT INTO scene_release_metadata(release_id,rating,organized,resume_time,play_duration)
-		 SELECT ?,rating,organized,resume_time,play_duration FROM scenes WHERE id = ?`,
+		`INSERT INTO scene_release_metadata(release_id,organized,resume_time,play_duration)
+		 SELECT ?,organized,resume_time,play_duration FROM scenes WHERE id = ?`,
 		`INSERT INTO scene_release_urls(release_id,position,url)
 		 SELECT ?,position,url FROM scene_urls WHERE scene_id = ?`,
 		`INSERT INTO scene_release_performers(release_id,performer_id)
@@ -165,6 +181,11 @@ func (qb *SceneReleaseStore) TransferSceneMetadataToReleaseCustom(ctx context.Co
 			return fmt.Errorf("transferring scene metadata: %w", err)
 		}
 	}
+	if err := copyStashDBMatchesCustom(ctx,
+		`INSERT INTO scene_release_stashdb_matches(release_id,matches) SELECT ?,matches FROM scene_stashdb_matches WHERE scene_id = ?`,
+		releaseID, sceneID); err != nil {
+		return fmt.Errorf("transferring StashDB matches: %w", err)
+	}
 	upgraded, err := releaseTransferTableExistsCustom(ctx, "scene_release_activity_upgrade_guard")
 	if err != nil {
 		return err
@@ -177,15 +198,69 @@ func (qb *SceneReleaseStore) TransferSceneMetadataToReleaseCustom(ctx context.Co
 			}
 		}
 	}
-	for _, table := range []string{ratingCriteriaScoresTable, ratingBonusScoresTable, ratingPenaltyScoresTable} {
-		exists, err := releaseTransferTableExistsCustom(ctx, table)
+	return nil
+}
+
+// CopyRatingFromSceneCustom replaces the target scene's rating and Rating
+// Advisor answers with copies of the source scene's.
+func (qb *SceneReleaseStore) CopyRatingFromSceneCustom(ctx context.Context, sourceSceneID, targetSceneID int) error {
+	if _, err := dbWrapper.Exec(ctx, `UPDATE scenes SET rating = (SELECT rating FROM scenes WHERE id = ?) WHERE id = ?`,
+		sourceSceneID, targetSceneID); err != nil {
+		return fmt.Errorf("copying scene rating: %w", err)
+	}
+	for _, table := range ratingScoreTables {
+		exists, err := releaseTransferTableExistsCustom(ctx, table.table)
 		if err != nil {
 			return err
 		}
-		if exists {
-			query := fmt.Sprintf(`UPDATE %s SET entity_type = 'scene_release', entity_id = ? WHERE entity_type = 'scene' AND entity_id = ?`, table)
-			if _, err := dbWrapper.Exec(ctx, query, releaseID, sceneID); err != nil {
-				return fmt.Errorf("transferring rating scores: %w", err)
+		if !exists {
+			continue
+		}
+		if _, err := dbWrapper.Exec(ctx, fmt.Sprintf(`DELETE FROM %s WHERE entity_type = 'scene' AND entity_id = ?`, table.table), targetSceneID); err != nil {
+			return fmt.Errorf("clearing %s advisor scores: %w", table.section, err)
+		}
+		if _, err := dbWrapper.Exec(ctx, fmt.Sprintf(`INSERT INTO %[1]s(entity_type,entity_id,key,raw_value,weighted_value,label,created_at,updated_at)
+			SELECT 'scene',?,key,raw_value,weighted_value,label,created_at,updated_at FROM %[1]s
+			WHERE entity_type = 'scene' AND entity_id = ?`, table.table), targetSceneID, sourceSceneID); err != nil {
+			return fmt.Errorf("copying %s advisor scores: %w", table.section, err)
+		}
+	}
+	return nil
+}
+
+// CopyMarkersToSceneCustom gives the scene a new copy of each release marker,
+// with its tags and performers; the release keeps its own.
+func (qb *SceneReleaseStore) CopyMarkersToSceneCustom(ctx context.Context, releaseID, sceneID int) error {
+	var markerIDs []int
+	if err := dbWrapper.Select(ctx, &markerIDs, `SELECT id FROM scene_markers WHERE release_id = ? ORDER BY id`, releaseID); err != nil {
+		return fmt.Errorf("finding release markers: %w", err)
+	}
+	if len(markerIDs) == 0 {
+		return nil
+	}
+	hasPerformers, err := releaseTransferTableExistsCustom(ctx, "scene_marker_performers")
+	if err != nil {
+		return err
+	}
+	now := time.Now()
+	for _, markerID := range markerIDs {
+		result, err := dbWrapper.Exec(ctx, `INSERT INTO scene_markers(title,seconds,end_seconds,primary_tag_id,scene_id,created_at,updated_at)
+			SELECT title,seconds,end_seconds,primary_tag_id,?,?,? FROM scene_markers WHERE id = ?`, sceneID, now, now, markerID)
+		if err != nil {
+			return fmt.Errorf("copying marker %d: %w", markerID, err)
+		}
+		copyID, err := result.LastInsertId()
+		if err != nil {
+			return err
+		}
+		if _, err := dbWrapper.Exec(ctx, `INSERT INTO scene_markers_tags(scene_marker_id,tag_id)
+			SELECT ?,tag_id FROM scene_markers_tags WHERE scene_marker_id = ?`, copyID, markerID); err != nil {
+			return fmt.Errorf("copying marker %d tags: %w", markerID, err)
+		}
+		if hasPerformers {
+			if _, err := dbWrapper.Exec(ctx, `INSERT INTO scene_marker_performers(scene_marker_id,performer_id,role)
+				SELECT ?,performer_id,role FROM scene_marker_performers WHERE scene_marker_id = ?`, copyID, markerID); err != nil {
+				return fmt.Errorf("copying marker %d performers: %w", markerID, err)
 			}
 		}
 	}
@@ -193,17 +268,17 @@ func (qb *SceneReleaseStore) TransferSceneMetadataToReleaseCustom(ctx context.Co
 }
 
 // TransferReleaseMetadataToSceneCustom restores only the selected release's
-// data; it never reads or changes metadata on the parent scene.
+// data; it never changes metadata on the parent scene. The caller gives the
+// new scene its rating, which releases inherit from their parent.
 func (qb *SceneReleaseStore) TransferReleaseMetadataToSceneCustom(ctx context.Context, releaseID, sceneID int) error {
 	if err := requireReleaseMetadataUpgradeCustom(ctx); err != nil {
 		return err
 	}
 	if _, err := dbWrapper.Exec(ctx, `UPDATE scenes SET
-		rating = (SELECT rating FROM scene_release_metadata WHERE release_id = ?),
 		organized = COALESCE((SELECT organized FROM scene_release_metadata WHERE release_id = ?), 0),
 		resume_time = COALESCE((SELECT resume_time FROM scene_release_metadata WHERE release_id = ?), 0),
 		play_duration = COALESCE((SELECT play_duration FROM scene_release_metadata WHERE release_id = ?), 0)
-		WHERE id = ?`, releaseID, releaseID, releaseID, releaseID, sceneID); err != nil {
+		WHERE id = ?`, releaseID, releaseID, releaseID, sceneID); err != nil {
 		return err
 	}
 	var urlCount int
@@ -240,6 +315,11 @@ func (qb *SceneReleaseStore) TransferReleaseMetadataToSceneCustom(ctx context.Co
 			return fmt.Errorf("restoring release metadata: %w", err)
 		}
 	}
+	if err := copyStashDBMatchesCustom(ctx,
+		`INSERT INTO scene_stashdb_matches(scene_id,matches) SELECT ?,matches FROM scene_release_stashdb_matches WHERE release_id = ?`,
+		sceneID, releaseID); err != nil {
+		return fmt.Errorf("restoring StashDB matches: %w", err)
+	}
 	upgraded, err := releaseTransferTableExistsCustom(ctx, "scene_release_activity_upgrade_guard")
 	if err != nil {
 		return err
@@ -249,18 +329,6 @@ func (qb *SceneReleaseStore) TransferReleaseMetadataToSceneCustom(ctx context.Co
 			query := fmt.Sprintf(`UPDATE %s SET release_id = NULL, scene_id = ? WHERE release_id = ?`, table)
 			if _, err := dbWrapper.Exec(ctx, query, sceneID, releaseID); err != nil {
 				return fmt.Errorf("restoring release activity: %w", err)
-			}
-		}
-	}
-	for _, table := range []string{ratingCriteriaScoresTable, ratingBonusScoresTable, ratingPenaltyScoresTable} {
-		exists, err := releaseTransferTableExistsCustom(ctx, table)
-		if err != nil {
-			return err
-		}
-		if exists {
-			query := fmt.Sprintf(`UPDATE %s SET entity_type = 'scene', entity_id = ? WHERE entity_type = 'scene_release' AND entity_id = ?`, table)
-			if _, err := dbWrapper.Exec(ctx, query, sceneID, releaseID); err != nil {
-				return fmt.Errorf("restoring release rating scores: %w", err)
 			}
 		}
 	}

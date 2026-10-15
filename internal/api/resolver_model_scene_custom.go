@@ -4,6 +4,7 @@ package api
 
 import (
 	"context"
+	"time"
 
 	"github.com/stashapp/stash/internal/api/loaders"
 	"github.com/stashapp/stash/pkg/models"
@@ -93,4 +94,19 @@ func (r *sceneResolver) StashdbMatches(ctx context.Context, obj *models.Scene) (
 		return nil, err
 	}
 	return ret, nil
+}
+
+func (r *sceneResolver) ReleaseOCounter(ctx context.Context, obj *models.Scene) (int, error) {
+	totals, err := loaders.From(ctx).SceneReleaseTotals.Load(obj.ID)
+	return totals.OCount, err
+}
+
+func (r *sceneResolver) ReleaseStashdbMatches(ctx context.Context, obj *models.Scene) (*int, error) {
+	totals, err := loaders.From(ctx).SceneReleaseTotals.Load(obj.ID)
+	return totals.StashDBMatches, err
+}
+
+func (r *sceneResolver) ReleaseLastOAt(ctx context.Context, obj *models.Scene) (*time.Time, error) {
+	totals, err := loaders.From(ctx).SceneReleaseTotals.Load(obj.ID)
+	return totals.LastODate, err
 }

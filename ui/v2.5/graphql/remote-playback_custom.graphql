@@ -66,6 +66,7 @@ mutation RemotePlaybackRecordO($input: RemotePlaybackORecordInput!) {
     command_id
     player_id
     scene_id
+    release_id
     video_timestamp
     count
     recorded_at

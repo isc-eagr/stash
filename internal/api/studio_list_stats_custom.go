@@ -194,6 +194,19 @@ func studioListIDArgsCustom(studioIDs []int) []interface{} {
 }
 
 func queryStudioListBasicStatsCustom(ctx context.Context, studioIDs []int, statsByID map[int]*StudioListStats) error {
+	// A release's O's go to its own studio, never the parent scene's.
+	releaseOCountsSQL := "SELECT NULL AS root_id, 0 AS value WHERE 0"
+	if ready, err := sqlite.ReleaseODatesReadyCustom(ctx); err != nil {
+		return err
+	} else if ready {
+		releaseOCountsSQL = `
+  SELECT studio_scope.root_id, COUNT(*) AS value
+  FROM studio_scope
+  JOIN scene_releases ON scene_releases.studio_id = studio_scope.studio_id
+  JOIN scene_release_o_dates ON scene_release_o_dates.release_id = scene_releases.id
+  GROUP BY studio_scope.root_id
+`
+	}
 	query := fmt.Sprintf(`
 WITH RECURSIVE requested(id) AS (VALUES %s),
 studio_scope(root_id, studio_id) AS (
@@ -267,6 +280,7 @@ scene_o_counts AS (
   JOIN scenes_o_dates ON scenes_o_dates.scene_id = scenes.id
   GROUP BY studio_scope.root_id
 ),
+release_o_counts AS (%s),
 image_o_counts AS (
   SELECT studio_scope.root_id, COALESCE(SUM(images.o_counter), 0) AS value
   FROM studio_scope
@@ -279,7 +293,7 @@ SELECT requested.id,
        COALESCE(gallery_counts.value, 0),
        COALESCE(performer_counts.value, 0),
        COALESCE(group_counts.value, 0),
-       COALESCE(scene_o_counts.value, 0) + COALESCE(image_o_counts.value, 0),
+       COALESCE(scene_o_counts.value, 0) + COALESCE(release_o_counts.value, 0) + COALESCE(image_o_counts.value, 0),
        COALESCE(unique_performers.value, 0)
 FROM requested
 LEFT JOIN scene_counts ON scene_counts.studio_id = requested.id
@@ -288,8 +302,9 @@ LEFT JOIN gallery_counts ON gallery_counts.studio_id = requested.id
 LEFT JOIN performer_counts ON performer_counts.studio_id = requested.id
 LEFT JOIN group_counts ON group_counts.studio_id = requested.id
 LEFT JOIN scene_o_counts ON scene_o_counts.root_id = requested.id
+LEFT JOIN release_o_counts ON release_o_counts.root_id = requested.id
 LEFT JOIN image_o_counts ON image_o_counts.root_id = requested.id
-LEFT JOIN unique_performers ON unique_performers.studio_id = requested.id`, studioListRequestedValuesCustom(len(studioIDs)))
+LEFT JOIN unique_performers ON unique_performers.studio_id = requested.id`, studioListRequestedValuesCustom(len(studioIDs)), releaseOCountsSQL)
 
 	_, rows, err := manager.GetInstance().Database.QuerySQL(ctx, query, studioListIDArgsCustom(studioIDs))
 	if err != nil {

@@ -212,6 +212,8 @@ func (qb *SceneMarkerStore) FindPerformerMarkerRoleRows(ctx context.Context, per
 
 		whereParts := []string{
 			fmt.Sprintf("smp.performer_id IN (%s)", sqlitePlaceholders(len(performerChunk))),
+			// Release-owned markers have no scene and stay out of scene stats.
+			"sm.scene_id IS NOT NULL",
 		}
 		args := make([]interface{}, 0, len(performerChunk)+roleBindCount+tagBindCount)
 		for _, id := range performerChunk {
@@ -337,6 +339,7 @@ func (qb *SceneMarkerStore) FindPerformerPartnerRoleRows(ctx context.Context, pe
 			fmt.Sprintf("target.performer_id IN (%s)", sqlitePlaceholders(len(performerChunk))),
 			"target.role IN ('top', 'bottom')",
 			"partner.performer_id <> target.performer_id",
+			"sm.scene_id IS NOT NULL",
 			`(
 				(target.role = 'top' AND partner.role = 'bottom')
 				OR (target.role = 'bottom' AND partner.role = 'top')

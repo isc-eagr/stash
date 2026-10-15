@@ -7,7 +7,6 @@ import (
 
 const (
 	RatingEntityScene     = "scene"
-	RatingEntityRelease   = "scene_release"
 	RatingEntityPerformer = "performer"
 
 	RatingScoreSectionCriterion = "criterion"

@@ -46,6 +46,7 @@ func (rs sceneReleaseRoutes) Routes() chi.Router {
 		r.Get("/scene_marker/{sceneMarkerId}/stream", rs.SceneMarkerStreamCustom)         // CUSTOM
 		r.Get("/scene_marker/{sceneMarkerId}/preview", rs.SceneMarkerPreviewCustom)       // CUSTOM
 		r.Get("/scene_marker/{sceneMarkerId}/screenshot", rs.SceneMarkerScreenshotCustom) // CUSTOM
+		r.Get("/o/{oId}/screenshot", rs.OScreenshotCustom)                                // CUSTOM
 
 		// streaming endpoints
 		r.Get("/stream", rs.StreamDirect)

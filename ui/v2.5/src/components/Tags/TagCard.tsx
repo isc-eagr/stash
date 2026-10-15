@@ -221,6 +221,15 @@ const TagCardPopovers: React.FC<IProps> = PatchComponent(
               "scene_markers_count"
             )} // CUSTOM
           />
+          {/* CUSTOM: begin - scene release count */}
+          <PopoverCountButton
+            className="release-count"
+            type="release"
+            count={tag.release_count}
+            url={`/tags/${tag.id}`}
+            showZero={false}
+          />
+          {/* CUSTOM: end */}
           <PopoverCountButton
             className="o-count"
             type="o_count"

@@ -795,5 +795,5 @@ func (qb *GroupStore) FindInAncestors(ctx context.Context, ascestorIDs []int, id
 
 func (qb *GroupStore) sortByOCounter(direction string) string {
 	// need to sum the o_counter from scenes and images
-	return " ORDER BY (" + selectGroupOCountSQL + ") " + direction
+	return " ORDER BY " + groupTotalOCountSQLCustom() + " " + direction // CUSTOM: plus O's on the group's releases
 }

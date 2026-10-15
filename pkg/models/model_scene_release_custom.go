@@ -29,15 +29,12 @@ type SceneRelease struct {
 }
 
 type SceneReleaseMetadataCustom struct {
-	Rating       *int
 	Organized    bool
 	ResumeTime   float64
 	PlayDuration float64
 }
 
 type SceneReleaseExtendedUpdateCustom struct {
-	RatingSet       bool
-	Rating          *int
 	OrganizedSet    bool
 	Organized       bool
 	URLsSet         bool
@@ -164,6 +161,14 @@ type SceneReleaseGalleryHandler interface {
 	GetGalleryIDs(ctx context.Context, releaseID int) ([]int, error)
 }
 
+// SceneReleaseTotalsCustom sums a scene's releases. StashDBMatches is nil
+// when no release has a stored count.
+type SceneReleaseTotalsCustom struct {
+	OCount         int
+	LastODate      *time.Time
+	StashDBMatches *int
+}
+
 // SceneReleaseReader provides all methods to read scene releases.
 type SceneReleaseReader interface {
 	SceneReleaseFinder
@@ -175,6 +180,7 @@ type SceneReleaseReader interface {
 	GetURLsCustom(ctx context.Context, releaseID int) ([]string, error)
 	GetPerformerIDsCustom(ctx context.Context, releaseID int) ([]int, error)
 	GetTagIDsCustom(ctx context.Context, releaseID int) ([]int, error)
+	CountByTagIDCustom(ctx context.Context, tagID int) (int, error)
 	GetGroupsCustom(ctx context.Context, releaseID int) ([]GroupsScenes, error)
 	GetStashIDsCustom(ctx context.Context, releaseID int) ([]StashID, error)
 	GetCustomFieldsCustom(ctx context.Context, releaseID int) (map[string]interface{}, error)
@@ -184,6 +190,9 @@ type SceneReleaseReader interface {
 	GetMarkersCustom(ctx context.Context, releaseID int) ([]*SceneMarker, error)
 	GetNegativeMarkersCustom(ctx context.Context, releaseID int) ([]*SceneNegativeMarker, error)
 	GetLoopPresetsCustom(ctx context.Context, releaseID int) ([]*SceneLoopPreset, error)
+	// GetStashDBMatchesCustom returns nil when the release has no stored count.
+	GetStashDBMatchesCustom(ctx context.Context, releaseID int) (*int, error)
+	GetSceneTotalsCustom(ctx context.Context, sceneIDs []int) (map[int]SceneReleaseTotalsCustom, error)
 }
 
 // SceneReleaseWriter provides all methods to modify scene releases.
@@ -193,6 +202,9 @@ type SceneReleaseWriter interface {
 	SceneReleaseDestroyer
 	SceneReleaseFileHandler
 	TransferSceneMetadataToReleaseCustom(ctx context.Context, sceneID, releaseID int) error
+	CopyRatingFromSceneCustom(ctx context.Context, sourceSceneID, targetSceneID int) error
+	CopyMarkersToSceneCustom(ctx context.Context, releaseID, sceneID int) error
+	SetStashDBMatchesCustom(ctx context.Context, releaseID int, matches *int) error
 	CheckConversionFileConflictsCustom(ctx context.Context, sourceSceneID, targetSceneID int) error
 	TransferReleaseMetadataToSceneCustom(ctx context.Context, releaseID, sceneID int) error
 	DetachCoverForConversionCustom(ctx context.Context, releaseID int) error
@@ -215,4 +227,20 @@ type SceneReleaseWriter interface {
 type SceneReleaseReaderWriter interface {
 	SceneReleaseReader
 	SceneReleaseWriter
+}
+
+// ReleaseVideoHashCustom names a release file's generated media, as a scene's
+// hash names the scene's.
+func ReleaseVideoHashCustom(video *VideoFile, algorithm HashAlgorithm) string {
+	if video == nil || video.BaseFile == nil {
+		return ""
+	}
+	fingerprintType := FingerprintTypeOshash
+	if algorithm == HashAlgorithmMd5 {
+		fingerprintType = FingerprintTypeMD5
+	}
+	if fingerprint := video.Fingerprints.For(fingerprintType); fingerprint != nil {
+		return fingerprint.Value()
+	}
+	return ""
 }

@@ -80,7 +80,7 @@ func NewRatingScoreStore() *RatingScoreStore {
 func normalizeRatingEntityType(entityType string) (string, error) {
 	ret := strings.ToLower(strings.TrimSpace(entityType))
 	switch ret {
-	case models.RatingEntityScene, models.RatingEntityRelease, models.RatingEntityPerformer:
+	case models.RatingEntityScene, models.RatingEntityPerformer: // CUSTOM: releases inherit their scene's rating
 		return ret, nil
 	default:
 		return "", fmt.Errorf("unsupported rating entity type %q", entityType)
@@ -215,13 +215,7 @@ func (s *RatingScoreStore) rubricForEntityCustom(ctx context.Context, entityType
 		return performerRatingRubricCustom, nil
 	}
 
-	var mode string
-	var err error
-	if entityType == models.RatingEntityRelease {
-		mode, err = s.releaseModeCustom(ctx, entityID)
-	} else {
-		mode, err = s.SceneMode(ctx, entityID)
-	}
+	mode, err := s.SceneMode(ctx, entityID)
 	if err != nil {
 		return nil, err
 	}
@@ -260,14 +254,8 @@ func (s *RatingScoreStore) scoreRowsForRating(ctx context.Context, entityType st
 	}
 
 	allowed := performerRatingScoreKeys
-	if entityType == models.RatingEntityScene || entityType == models.RatingEntityRelease {
-		var performerCount int
-		var err error
-		if entityType == models.RatingEntityRelease {
-			err = dbWrapper.Get(ctx, &performerCount, `SELECT COUNT(DISTINCT performer_id) FROM scene_release_performers WHERE release_id = ?`, entityID)
-		} else {
-			performerCount, err = scenePerformerCount(ctx, entityID)
-		}
+	if entityType == models.RatingEntityScene {
+		performerCount, err := scenePerformerCount(ctx, entityID)
 		if err != nil {
 			return nil, err
 		}
@@ -277,12 +265,7 @@ func (s *RatingScoreStore) scoreRowsForRating(ctx context.Context, entityType st
 		} else if sceneUsesSoloRatingByCastCustom(performerCount) {
 			allowed = soloSceneRatingScoreKeys
 		} else {
-			var isSolo bool
-			if entityType == models.RatingEntityRelease {
-				isSolo, err = releaseUsesSoloRatingCustom(ctx, entityID)
-			} else {
-				isSolo, err = sceneUsesSoloRating(ctx, entityID)
-			}
+			isSolo, err := sceneUsesSoloRating(ctx, entityID)
 			if err != nil {
 				return nil, err
 			}
@@ -470,42 +453,17 @@ func (s *RatingScoreStore) RecalculateRating(ctx context.Context, entityType str
 	}
 	rating100 += orgasmBonus
 
-	var table string
-	var idColumn string = "id"
-	switch normalizedEntityType {
-	case models.RatingEntityScene:
+	table := performerTable
+	if normalizedEntityType == models.RatingEntityScene {
 		table = sceneTable
-	case models.RatingEntityRelease:
-		table = "scene_release_metadata"
-		idColumn = "release_id"
-	case models.RatingEntityPerformer:
-		table = performerTable
-	default:
-		return 0, fmt.Errorf("unsupported rating entity type %q", entityType)
 	}
 
-	updateSQL := fmt.Sprintf("UPDATE %s SET rating = ?, updated_at = CURRENT_TIMESTAMP WHERE %s = ?", table, idColumn)
-	if normalizedEntityType == models.RatingEntityRelease {
-		updateSQL = `INSERT INTO scene_release_metadata(release_id,rating) VALUES (?,?)
-			ON CONFLICT(release_id) DO UPDATE SET rating = excluded.rating`
-	}
-	var result sql.Result
-	if normalizedEntityType == models.RatingEntityRelease {
-		result, err = dbWrapper.Exec(ctx, updateSQL, entityID, rating100)
-	} else {
-		result, err = dbWrapper.Exec(ctx, updateSQL, rating100, entityID)
-	}
+	result, err := dbWrapper.Exec(ctx, fmt.Sprintf("UPDATE %s SET rating = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", table), rating100, entityID)
 	if err != nil {
 		return 0, fmt.Errorf("updating %s rating: %w", normalizedEntityType, err)
 	}
 	if rowsAffected, err := result.RowsAffected(); err == nil && rowsAffected == 0 {
 		return 0, fmt.Errorf("%s %d not found", normalizedEntityType, entityID)
-	}
-	if normalizedEntityType == models.RatingEntityRelease {
-		if _, err := dbWrapper.Exec(ctx,
-			`UPDATE scene_releases SET updated_at = CURRENT_TIMESTAMP WHERE id = ?`, entityID); err != nil {
-			return 0, fmt.Errorf("updating release rating timestamp: %w", err)
-		}
 	}
 
 	return rating100, nil
@@ -583,47 +541,36 @@ func (s *RatingScoreStore) ResetAllSceneScores(ctx context.Context) (int, error)
 }
 
 func (s *RatingScoreStore) countOrgasmRatingBonus(ctx context.Context, entityType string, entityID int) (int, error) {
-	var count int
-	var query string
-	includeReleasePerformerO := false // CUSTOM
+	// CUSTOM: scenes and performers count their releases' O's too.
+	includeReleaseO, err := ReleaseODatesReadyCustom(ctx)
+	if err != nil {
+		return 0, err
+	}
 
+	var query string
 	switch entityType {
 	case models.RatingEntityScene:
-		query = fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE %s = ?", scenesODatesTable, sceneIDColumn)
-	case models.RatingEntityRelease:
-		query = `SELECT COUNT(*) FROM scene_release_o_dates WHERE release_id = ?`
+		query = fmt.Sprintf("SELECT (SELECT COUNT(*) FROM %s WHERE %s = ?)", scenesODatesTable, sceneIDColumn)
+		if includeReleaseO {
+			query += ` + (SELECT COUNT(*) FROM scene_release_o_dates rod
+				JOIN scene_releases r ON r.id = rod.release_id WHERE r.scene_id = ?)`
+		}
 	case models.RatingEntityPerformer:
-		var err error // CUSTOM
-		includeReleasePerformerO, err = releaseTransferTableExistsCustom(ctx, "scene_release_o_dates") // CUSTOM
-		if err != nil { // CUSTOM
-			return 0, err // CUSTOM
-		} // CUSTOM
-		if includeReleasePerformerO { // CUSTOM
-			query = fmt.Sprintf(`
-			SELECT (
-				SELECT COUNT(sod.%s) FROM %s ps
-				JOIN %s sod ON sod.%s = ps.%s
-				WHERE ps.%s = ?
-			) + (
-				SELECT COUNT(rod.o_date) FROM scene_release_performers rp
-				JOIN scene_release_o_dates rod ON rod.release_id = rp.release_id
-				WHERE rp.performer_id = ?
-			)
-		`, sceneODateColumn, performersScenesTable, scenesODatesTable, sceneIDColumn, sceneIDColumn, performerIDColumn)
-		} else { // CUSTOM
-			query = fmt.Sprintf(`SELECT COUNT(sod.%s) FROM %s ps JOIN %s sod ON sod.%s = ps.%s WHERE ps.%s = ?`,
-				sceneODateColumn, performersScenesTable, scenesODatesTable, sceneIDColumn, sceneIDColumn, performerIDColumn) // CUSTOM
-		} // CUSTOM
+		query = fmt.Sprintf(`SELECT (SELECT COUNT(sod.%s) FROM %s ps JOIN %s sod ON sod.%s = ps.%s WHERE ps.%s = ?)`,
+			sceneIDColumn, performersScenesTable, scenesODatesTable, sceneIDColumn, sceneIDColumn, performerIDColumn) // CUSTOM: count retroactive O's without a date
+		if includeReleaseO {
+			query += ` + (SELECT COUNT(*) FROM scene_release_performers rp
+				JOIN scene_release_o_dates rod ON rod.release_id = rp.release_id WHERE rp.performer_id = ?)`
+		}
 	default:
 		return 0, fmt.Errorf("unsupported rating entity type %q", entityType)
 	}
 
-	var args []interface{} // CUSTOM: performer history includes both owners
-	if includeReleasePerformerO { // CUSTOM
-		args = []interface{}{entityID, entityID} // CUSTOM
-	} else { // CUSTOM
-		args = []interface{}{entityID} // CUSTOM
-	} // CUSTOM
+	args := []interface{}{entityID}
+	if includeReleaseO {
+		args = append(args, entityID)
+	}
+	var count int
 	if err := dbWrapper.Get(ctx, &count, query, args...); err != nil {
 		return 0, fmt.Errorf("counting orgasm rating bonus for %s %d: %w", entityType, entityID, err)
 	}
@@ -638,7 +585,7 @@ func calculateOrgasmRatingBonus(entityType string, count int) int {
 
 	step := 0
 	switch entityType {
-	case models.RatingEntityScene, models.RatingEntityRelease:
+	case models.RatingEntityScene:
 		step = 1
 	case models.RatingEntityPerformer:
 		step = 2

@@ -1,5 +1,7 @@
 export type PlaybackSnapshot = {
   scene_id: string;
+  // The release playing on the scene; remote O's go to it, like local O's.
+  release_id?: string | null;
   scene_title: string;
   video_timestamp: number;
   duration: number;

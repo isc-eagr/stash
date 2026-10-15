@@ -35,6 +35,8 @@ type RemotePlaybackState {
   player_id: String!
   session_id: String!
   scene_id: ID!
+  "The release playing on the scene, if any; its O's go to the release"
+  release_id: ID
   scene_title: String!
   video_timestamp: Float!
   duration: Float!
@@ -51,6 +53,7 @@ input RemotePlaybackStateInput {
   player_id: String!
   session_id: String!
   scene_id: ID!
+  release_id: ID
   scene_title: String!
   video_timestamp: Float!
   duration: Float!
@@ -107,6 +110,8 @@ input RemotePlaybackORecordInput {
   player_id: String!
   session_id: String!
   scene_id: ID!
+  "Must match the release the player reported"
+  release_id: ID
   video_timestamp: Float!
 }
 
@@ -114,6 +119,7 @@ type RemotePlaybackOResult {
   command_id: String!
   player_id: String!
   scene_id: ID!
+  release_id: ID
   video_timestamp: Float!
   count: Int!
   recorded_at: String!
@@ -188,6 +194,10 @@ extend type Mutation {
     id: ID!
     video_timestamp: Float!
   ): HistoryMutationResult!
+  "Record an O without a date or video timestamp"
+  sceneAddRetroactiveO(id: ID!): HistoryMutationResult!
+  "Remove one O without a date"
+  sceneDeleteRetroactiveO(id: ID!): HistoryMutationResult!
 
   "Save resume position and elapsed playback time for a release"
   sceneReleaseSaveActivity(id: ID!, resume_time: Float, play_duration: Float): Boolean!

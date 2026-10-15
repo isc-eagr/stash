@@ -65,7 +65,7 @@ CREATE TABLE scenes_files (scene_id INTEGER, file_id INTEGER, "primary" BOOLEAN)
 CREATE TABLE files (id INTEGER PRIMARY KEY, size INTEGER);
 CREATE TABLE video_files (file_id INTEGER, duration REAL, width INTEGER, height INTEGER);
 CREATE TABLE scene_releases (scene_id INTEGER, date DATETIME);
-CREATE TABLE scenes_o_dates (scene_id INTEGER, o_date DATETIME);
+CREATE TABLE scenes_o_dates (scene_id INTEGER, o_date DATETIME, video_timestamp REAL);
 CREATE TABLE rating_bonus_scores (entity_type TEXT, entity_id INTEGER, key TEXT, raw_value REAL);
 INSERT INTO studios(id, parent_id) VALUES (1, NULL);
 INSERT INTO scenes(id, title, date, rating, studio_id, created_at) VALUES

@@ -97,7 +97,7 @@ export function versatilityRoleText(
   }
 }
 
-export type VersatilityTimeCategory = "overall" | "sex" | "oral";
+export type VersatilityTimeCategory = "sex" | "oral";
 
 // Role copy for Versatility by Time; duration comes preformatted.
 export function versatilityRoleTimeText(
@@ -105,11 +105,6 @@ export function versatilityRoleTimeText(
   role: "top" | "bottom",
   duration: string
 ) {
-  if (category === "overall") {
-    return role === "top"
-      ? `Topped for ${duration}`
-      : `Bottomed for ${duration}`;
-  }
   if (category === "sex") {
     return role === "top"
       ? `Fucked for ${duration}`

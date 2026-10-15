@@ -117,7 +117,7 @@ func ratingScoreKeysForRubricCustom(rubric ratingScoreRubricCustom) map[string]m
 
 func ratingScoreMetricForRowCustom(row ratingScoreRow) (ratingScoreMetricCustom, bool) {
 	rubrics := []ratingScoreRubricCustom{performerRatingRubricCustom}
-	if row.EntityType == models.RatingEntityScene || row.EntityType == models.RatingEntityRelease {
+	if row.EntityType == models.RatingEntityScene {
 		rubrics = []ratingScoreRubricCustom{
 			defaultSceneRatingRubricCustom,
 			groupSceneRatingRubricCustom,

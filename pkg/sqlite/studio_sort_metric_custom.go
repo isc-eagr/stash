@@ -106,6 +106,11 @@ func studioOCountExprCustom() string {
 	INNER JOIN %s s ON sod.%s = s.id
 	WHERE s.%s = studios.id
 ), 0) + COALESCE((
+	SELECT COUNT(*)
+	FROM scene_release_o_dates rod
+	INNER JOIN scene_releases r ON r.id = rod.release_id
+	WHERE r.studio_id = studios.id
+), 0) + COALESCE((
 	SELECT SUM(o_counter)
 	FROM %s
 	WHERE %s = studios.id

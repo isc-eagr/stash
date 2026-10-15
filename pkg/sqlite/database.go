@@ -282,20 +282,20 @@ func (db *Database) initialise() error {
 		return fmt.Errorf("opening write database: %w", err)
 	}
 
-	// CUSTOM: begin - Bootstrap fork-owned task progress tables outside the upstream migration chain.
-	if err := db.ensureTaskProgressSchemaCustom(context.Background()); err != nil {
-		_ = db.readDB.Close()
-		_ = db.writeDB.Close()
-		db.readDB = nil
-		db.writeDB = nil
-		return fmt.Errorf("initializing custom database schema: %w", err)
-	}
-	if err := db.ensureSceneStashDBMatchesSchemaCustom(context.Background()); err != nil {
-		_ = db.readDB.Close()
-		_ = db.writeDB.Close()
-		db.readDB = nil
-		db.writeDB = nil
-		return fmt.Errorf("initializing custom database schema: %w", err)
+	// CUSTOM: begin - Bootstrap fork-owned tables outside the upstream migration chain.
+	for _, ensure := range []func(context.Context) error{
+		db.ensureTaskProgressSchemaCustom,
+		db.ensureSceneStashDBMatchesSchemaCustom,
+		db.detectReleaseOEventsCustom,
+		db.clearReleaseRatingsCustom,
+	} {
+		if err := ensure(context.Background()); err != nil {
+			_ = db.readDB.Close()
+			_ = db.writeDB.Close()
+			db.readDB = nil
+			db.writeDB = nil
+			return fmt.Errorf("initializing custom database schema: %w", err)
+		}
 	}
 	// CUSTOM: end
 

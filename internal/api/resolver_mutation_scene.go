@@ -979,6 +979,9 @@ func (r *mutationResolver) SceneMarkerUpdate(ctx context.Context, input SceneMar
 		if existingMarker == nil {
 			return fmt.Errorf("scene marker with id %d not found", markerID)
 		}
+		if err := r.guardReleaseMarkerSceneCustom(ctx, existingMarker, &updatedMarker); err != nil { // CUSTOM
+			return err
+		}
 		updatedSceneID := existingMarker.SceneID
 		if updatedMarker.SceneID.Set {
 			updatedSceneID = updatedMarker.SceneID.Value
@@ -1062,19 +1065,23 @@ func (r *mutationResolver) SceneMarkerUpdate(ctx context.Context, input SceneMar
 			return err
 		}
 
-		existingScene, err := sqb.Find(ctx, existingMarker.SceneID)
-		if err != nil {
-			return err
-		}
-		if existingScene == nil {
-			return fmt.Errorf("scene with id %d not found", existingMarker.SceneID)
-		}
-
-		// remove the marker preview if the scene changed or if the timestamp was changed
-		if existingMarker.SceneID != newMarker.SceneID || existingMarker.Seconds != newMarker.Seconds || float64OrZero(existingMarker.EndSeconds) != float64OrZero(newMarker.EndSeconds) {
-			seconds := int(existingMarker.Seconds)
-			if err := fileDeleter.MarkMarkerFiles(existingScene, seconds); err != nil {
+		// CUSTOM: release markers have no scene; release marker saves leave
+		// generated previews in place too.
+		if existingMarker.ReleaseID == nil {
+			existingScene, err := sqb.Find(ctx, existingMarker.SceneID)
+			if err != nil {
 				return err
+			}
+			if existingScene == nil {
+				return fmt.Errorf("scene with id %d not found", existingMarker.SceneID)
+			}
+
+			// remove the marker preview if the scene changed or if the timestamp was changed
+			if existingMarker.SceneID != newMarker.SceneID || existingMarker.Seconds != newMarker.Seconds || float64OrZero(existingMarker.EndSeconds) != float64OrZero(newMarker.EndSeconds) {
+				seconds := int(existingMarker.Seconds)
+				if err := fileDeleter.MarkMarkerFiles(existingScene, seconds); err != nil {
+					return err
+				}
 			}
 		}
 
@@ -1094,6 +1101,9 @@ func (r *mutationResolver) SceneMarkerUpdate(ctx context.Context, input SceneMar
 		}
 		// CUSTOM: end - update marker performers (top/bottom)
 
+		if err := r.recalculateMarkerReleasesCustom(ctx, []*models.SceneMarker{existingMarker}); err != nil { // CUSTOM
+			return err
+		}
 		return r.resetSceneAdvisorsIfModeChangedCustom(ctx, previousModes)
 	}); err != nil {
 		fileDeleter.Rollback()
@@ -1139,6 +1149,7 @@ func (r *mutationResolver) BulkSceneMarkerUpdate(ctx context.Context, input Bulk
 		qb := r.repository.SceneMarker
 		// CUSTOM: capture every affected scene mode before the bulk retag.
 		var affectedSceneIDs []int
+		var affectedMarkers []*models.SceneMarker // CUSTOM
 		for _, id := range ids {
 			marker, err := qb.Find(ctx, id)
 			if err != nil {
@@ -1148,6 +1159,7 @@ func (r *mutationResolver) BulkSceneMarkerUpdate(ctx context.Context, input Bulk
 				return fmt.Errorf("scene marker with id %d not found", id)
 			}
 			affectedSceneIDs = append(affectedSceneIDs, marker.SceneID)
+			affectedMarkers = append(affectedMarkers, marker) // CUSTOM
 		}
 		previousModes, err := r.sceneRatingModesCustom(ctx, affectedSceneIDs)
 		if err != nil {
@@ -1169,6 +1181,9 @@ func (r *mutationResolver) BulkSceneMarkerUpdate(ctx context.Context, input Bulk
 			ret = append(ret, updated)
 		}
 
+		if err := r.recalculateMarkerReleasesCustom(ctx, affectedMarkers); err != nil { // CUSTOM
+			return err
+		}
 		return r.resetSceneAdvisorsIfModeChangedCustom(ctx, previousModes)
 	}); err != nil {
 		return nil, err
@@ -1276,6 +1291,12 @@ func (r *mutationResolver) SceneMarkersDestroy(ctx context.Context, markerIDs []
 				return fmt.Errorf("scene marker with id %d not found", markerID)
 			}
 
+			// CUSTOM: release markers have no scene to look up
+			if marker.ReleaseID != nil {
+				markers = append(markers, marker)
+				continue
+			}
+
 			s, err := sqb.Find(ctx, marker.SceneID)
 
 			if err != nil {
@@ -1297,6 +1318,14 @@ func (r *mutationResolver) SceneMarkersDestroy(ctx context.Context, markerIDs []
 		}
 
 		for _, marker := range markers {
+			// CUSTOM: delete release markers as sceneReleaseMarkerDestroy does
+			if marker.ReleaseID != nil {
+				if err := qb.Destroy(ctx, marker.ID); err != nil {
+					return err
+				}
+				continue
+			}
+
 			s, err := sqb.Find(ctx, marker.SceneID)
 			if err != nil {
 				return err
@@ -1311,6 +1340,9 @@ func (r *mutationResolver) SceneMarkersDestroy(ctx context.Context, markerIDs []
 			}
 		}
 
+		if err := r.recalculateMarkerReleasesCustom(ctx, markers); err != nil { // CUSTOM
+			return err
+		}
 		return r.resetSceneAdvisorsIfModeChangedCustom(ctx, previousModes)
 	}); err != nil {
 		fileDeleter.Rollback()

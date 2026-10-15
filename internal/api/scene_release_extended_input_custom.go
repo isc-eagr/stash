@@ -9,7 +9,6 @@ import (
 
 func sceneReleaseExtendedInputCustom(
 	translator changesetTranslator,
-	rating *int,
 	organized *bool,
 	urls []string,
 	performerIDs []string,
@@ -19,13 +18,6 @@ func sceneReleaseExtendedInputCustom(
 	customFields *models.CustomFieldsInput,
 ) (models.SceneReleaseExtendedUpdateCustom, bool, error) {
 	var update models.SceneReleaseExtendedUpdateCustom
-	if translator.hasField("rating100") {
-		if rating != nil && (*rating < 0 || *rating > 100) {
-			return update, false, fmt.Errorf("rating100 must be between 0 and 100")
-		}
-		update.RatingSet = true
-		update.Rating = rating
-	}
 	if translator.hasField("organized") {
 		update.OrganizedSet = true
 		update.Organized = organized != nil && *organized
@@ -75,7 +67,7 @@ func sceneReleaseExtendedInputCustom(
 	if translator.hasField("custom_fields") {
 		update.CustomFields = customFields
 	}
-	changed := update.RatingSet || update.OrganizedSet || update.URLsSet ||
+	changed := update.OrganizedSet || update.URLsSet ||
 		update.PerformerIDsSet || update.TagIDsSet || update.GroupsSet ||
 		update.StashIDsSet || update.CustomFields != nil
 	return update, changed, nil

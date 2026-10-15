@@ -87,6 +87,7 @@ export function useRemotePlayerCustom(
                   player_id: playerId,
                   session_id: sessionId,
                   scene_id: snapshot.scene_id,
+                  release_id: snapshot.release_id,
                   video_timestamp: command.video_timestamp,
                 },
               },

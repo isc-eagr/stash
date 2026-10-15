@@ -9,6 +9,7 @@ import (
 	"github.com/stashapp/stash/internal/manager"
 	"github.com/stashapp/stash/pkg/file"
 	"github.com/stashapp/stash/pkg/models"
+	"github.com/stashapp/stash/pkg/plugin/hook"
 	"github.com/stashapp/stash/pkg/utils"
 )
 
@@ -17,7 +18,7 @@ func (r *mutationResolver) SceneReleaseCreate(ctx context.Context, input SceneRe
 		inputMap: getUpdateInputMap(ctx),
 	}
 	extended, hasExtended, err := sceneReleaseExtendedInputCustom(translator,
-		input.Rating100, input.Organized, input.Urls, input.PerformerIds,
+		input.Organized, input.Urls, input.PerformerIds,
 		input.TagIds, input.Groups, input.StashIds, input.CustomFields)
 	if err != nil {
 		return nil, err
@@ -151,7 +152,7 @@ func (r *mutationResolver) SceneReleaseUpdate(ctx context.Context, input SceneRe
 		inputMap: getUpdateInputMap(ctx),
 	}
 	extended, hasExtended, err := sceneReleaseExtendedInputCustom(translator,
-		input.Rating100, input.Organized, input.Urls, input.PerformerIds,
+		input.Organized, input.Urls, input.PerformerIds,
 		input.TagIds, input.Groups, input.StashIds, input.CustomFields)
 	if err != nil {
 		return nil, err
@@ -249,11 +250,6 @@ func (r *mutationResolver) SceneReleaseUpdate(ctx context.Context, input SceneRe
 			if err := r.repository.SceneRelease.UpdateExtendedCustom(ctx, releaseID, extended); err != nil {
 				return err
 			}
-			if extended.RatingSet { // CUSTOM: a manual rating relinquishes advisor ownership
-				if err := r.repository.RatingScore.DeleteByEntity(ctx, models.RatingEntityRelease, releaseID); err != nil {
-					return err
-				}
-			} // CUSTOM
 			ret, err = r.repository.SceneRelease.Find(ctx, releaseID)
 			if err != nil {
 				return err
@@ -328,6 +324,20 @@ func (r *mutationResolver) ConvertSceneToRelease(ctx context.Context, input Conv
 	if sourceSceneID == targetSceneID {
 		return nil, fmt.Errorf("source and target scene cannot be the same")
 	}
+
+	// The conversion dialog's choices for what the target scene takes from the source.
+	var targetTranslator changesetTranslator
+	if input.TargetValues != nil {
+		if input.TargetValues.ID != input.TargetSceneID {
+			return nil, fmt.Errorf("target_values.id must match target_scene_id")
+		}
+		targetTranslator = changesetTranslator{
+			inputMap: getNamedUpdateInputMap(ctx, "input.target_values"),
+		}
+	}
+	copyRating := utils.IsTrue(input.CopyRatingToTarget)
+	copyMarkers := utils.IsTrue(input.CopyMarkersToTarget)
+	targetUpdated := false
 
 	var ret *models.SceneRelease
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
@@ -413,11 +423,44 @@ func (r *mutationResolver) ConvertSceneToRelease(ctx context.Context, input Conv
 
 		newRelease.GalleryIDs = sourceScene.GalleryIDs
 
+		// The mode the source's advisor answers were given in, read before
+		// its cast and markers move to the release.
+		var sourceRatingModes map[int]string
+		if copyRating {
+			if sourceRatingModes, err = r.sceneRatingModesCustom(ctx, []int{sourceSceneID}); err != nil {
+				return err
+			}
+		}
+
 		if err := r.repository.SceneRelease.Create(ctx, &newRelease, fileIDs); err != nil {
 			return err
 		}
 		if err := r.repository.SceneRelease.TransferSceneMetadataToReleaseCustom(ctx, sourceSceneID, newRelease.ID); err != nil {
 			return err
+		}
+		// Copied before the rating so copied advisor answers are checked
+		// against the target's mode with its new markers.
+		if copyMarkers {
+			var targetRatingModes map[int]string
+			if !copyRating {
+				if targetRatingModes, err = r.sceneRatingModesCustom(ctx, []int{targetSceneID}); err != nil {
+					return err
+				}
+			}
+			if err := r.repository.SceneRelease.CopyMarkersToSceneCustom(ctx, newRelease.ID, targetSceneID); err != nil {
+				return err
+			}
+			if err := r.resetSceneAdvisorsIfModeChangedCustom(ctx, targetRatingModes); err != nil {
+				return err
+			}
+		}
+		if copyRating {
+			if err := r.repository.SceneRelease.CopyRatingFromSceneCustom(ctx, sourceSceneID, targetSceneID); err != nil {
+				return err
+			}
+			if err := r.resetSceneAdvisorsIfModeChangedCustom(ctx, map[int]string{targetSceneID: sourceRatingModes[sourceSceneID]}); err != nil {
+				return err
+			}
 		}
 
 		// Copy cover if exists
@@ -442,8 +485,24 @@ func (r *mutationResolver) ConvertSceneToRelease(ctx context.Context, input Conv
 			}
 		}
 
+		// Releases inherit the target's rating, so the source's answers go
+		// with the source scene.
+		if err := r.repository.RatingScore.DeleteByEntity(ctx, models.RatingEntityScene, sourceSceneID); err != nil {
+			return err
+		}
 		// Delete the source scene (files are now with the release)
 		if err := r.repository.Scene.Destroy(ctx, sourceSceneID); err != nil {
+			return err
+		}
+
+		if input.TargetValues != nil {
+			if _, err := r.sceneUpdate(ctx, *input.TargetValues, targetTranslator); err != nil {
+				return fmt.Errorf("updating target scene: %w", err)
+			}
+			targetUpdated = true
+		}
+		// The target's O bonus now counts the new release's O's too.
+		if err := r.recalculateRatingIfAdvisorScoresExist(ctx, models.RatingEntityScene, targetSceneID); err != nil {
 			return err
 		}
 
@@ -459,6 +518,10 @@ func (r *mutationResolver) ConvertSceneToRelease(ctx context.Context, input Conv
 		return nil
 	}); err != nil {
 		return nil, err
+	}
+
+	if targetUpdated {
+		r.hookExecutor.ExecutePostHooks(ctx, targetSceneID, hook.SceneUpdatePost, *input.TargetValues, targetTranslator.getFields())
 	}
 
 	return ret, nil
@@ -626,6 +689,18 @@ func (r *mutationResolver) ConvertReleaseToScene(ctx context.Context, input Conv
 		if err := r.repository.SceneRelease.TransferReleaseMetadataToSceneCustom(ctx, releaseID, newScene.ID); err != nil {
 			return err
 		}
+		// The release showed its parent's rating; the new scene starts from a
+		// copy, reset if its own cast and markers rate in another mode.
+		parentRatingModes, err := r.sceneRatingModesCustom(ctx, []int{release.SceneID})
+		if err != nil {
+			return err
+		}
+		if err := r.repository.SceneRelease.CopyRatingFromSceneCustom(ctx, release.SceneID, newScene.ID); err != nil {
+			return err
+		}
+		if err := r.resetSceneAdvisorsIfModeChangedCustom(ctx, map[int]string{newScene.ID: parentRatingModes[release.SceneID]}); err != nil {
+			return err
+		}
 
 		// Set the cover if exists
 		if len(cover) > 0 {
@@ -641,8 +716,19 @@ func (r *mutationResolver) ConvertReleaseToScene(ctx context.Context, input Conv
 		if err := r.repository.SceneRelease.Destroy(ctx, releaseID); err != nil {
 			return err
 		}
+		// The release's O's moved from the parent's O bonus to the new scene's.
+		for _, sceneID := range []int{release.SceneID, newScene.ID} {
+			if err := r.recalculateRatingIfAdvisorScoresExist(ctx, models.RatingEntityScene, sceneID); err != nil {
+				return err
+			}
+		}
 
-		ret = &newScene
+		// Return the stored scene: rating, organized, and resume state were
+		// copied after newScene was built, and the UI caches this result.
+		ret, err = r.repository.Scene.Find(ctx, newScene.ID)
+		if err != nil {
+			return err
+		}
 		if input.RequestID != nil {
 			return r.repository.SceneRelease.SaveConversionRequestCustom(ctx, *input.RequestID, "release_to_scene", releaseID, 0, newScene.ID)
 		}

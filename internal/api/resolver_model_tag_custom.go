@@ -18,3 +18,15 @@ func (r *tagResolver) SceneMarkerDuration(ctx context.Context, obj *models.Tag, 
 
 	return ret, nil
 }
+
+// ReleaseCount resolves how many scene releases carry this tag directly. // CUSTOM
+func (r *tagResolver) ReleaseCount(ctx context.Context, obj *models.Tag) (ret int, err error) {
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		ret, err = r.repository.SceneRelease.CountByTagIDCustom(ctx, obj.ID)
+		return err
+	}); err != nil {
+		return 0, err
+	}
+
+	return ret, nil
+}

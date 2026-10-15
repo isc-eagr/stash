@@ -110,6 +110,7 @@ func (qb *StudioStore) sortByUniquePerformerCount(direction string) string {
 
 // sortByOCount sorts by the total o-count for a studio, which is the sum of:
 // - scene o_dates counts (entries in scenes_o_dates for scenes belonging to the studio)
+// - release o_dates counts (releases credited to the studio, not their parent scene's)
 // - image o_counter values (o_counter column in images belonging to the studio)
 func (qb *StudioStore) sortByOCount(direction string) string {
 	return studioSortMetricOrderClauseCustom(studioOCountExprCustom(), direction) // CUSTOM

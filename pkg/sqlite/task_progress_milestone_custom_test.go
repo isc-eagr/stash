@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stashapp/stash/pkg/models"
 	"github.com/stretchr/testify/require"
@@ -34,7 +35,7 @@ func TestTaskProgressMilestoneAggregateCustom(t *testing.T) {
 		ItemCounts: []*models.TaskProgressItemCount{},
 		History:    []*models.TaskProgressDay{},
 	}
-	aggregateTaskProgressMilestoneCustom(m, map[string]*int{"2026-09-23": &goal}, "2026-09-23")
+	aggregateTaskProgressMilestoneCustom(m, nil, map[string]*int{"2026-09-23": &goal}, "2026-09-23")
 	require.Equal(t, 47, m.CompletedCount)
 	require.Equal(t, 63, m.CurrentCount)
 	require.Equal(t, 110, m.TotalCount)
@@ -51,6 +52,82 @@ func TestTaskProgressMilestoneAggregateCustom(t *testing.T) {
 	require.Equal(t, 63, m.History[3].Remaining)
 	require.Nil(t, m.History[2].GoalPerDay, "new milestone goals do not backdate")
 	require.Equal(t, 5, *m.History[3].GoalPerDay)
+}
+
+func TestTaskProgressMilestoneMembershipSpansCustom(t *testing.T) {
+	stays := &models.TaskProgressTracker{
+		ID: 1, Mode: "BACKLOG", CurrentCount: 8, CompletedCount: 2,
+		ItemCounts:          []*models.TaskProgressItemCount{{ItemType: "scene", Count: 8}},
+		CompletedItemCounts: []*models.TaskProgressItemCount{{ItemType: "scene", Count: 2}},
+		History: []*models.TaskProgressDay{
+			{Date: "2026-10-01", Remaining: 10, BaselineCount: intPointerMilestoneCustom(10)},
+			{Date: "2026-10-03", Remaining: 8, Completed: 2},
+		},
+	}
+	leaves := &models.TaskProgressTracker{
+		ID: 2, Mode: "BACKLOG", CurrentCount: 15, CompletedCount: 5,
+		History: []*models.TaskProgressDay{
+			{Date: "2026-10-01", Remaining: 20, BaselineCount: intPointerMilestoneCustom(20)},
+			{Date: "2026-10-02", Remaining: 17, Completed: 3},
+			{Date: "2026-10-03", Remaining: 16, Completed: 1},
+			{Date: "2026-10-04", Remaining: 15, Completed: 1},
+		},
+	}
+	joins := &models.TaskProgressTracker{
+		ID: 3, Mode: "BACKLOG", CurrentCount: 4, CompletedCount: 2,
+		ItemCounts: []*models.TaskProgressItemCount{{ItemType: "image", Count: 4}},
+		History: []*models.TaskProgressDay{
+			{Date: "2026-09-30", Remaining: 6, BaselineCount: intPointerMilestoneCustom(6)},
+			{Date: "2026-10-01", Remaining: 5, Completed: 1},
+			{Date: "2026-10-03", Remaining: 4, Completed: 1},
+		},
+	}
+	m := &models.TaskProgressMilestone{Trackers: []*models.TaskProgressTracker{stays, joins}}
+	spans := []*taskProgressMilestoneSpanCustom{
+		{Tracker: stays},
+		{Tracker: leaves, RemovedOn: "2026-10-03", CompletedItemCounts: map[string]int{"scene": 4}},
+		{Tracker: joins, AddedOn: "2026-10-03", CompletedItemCounts: map[string]int{"image": 1}},
+	}
+	aggregateTaskProgressMilestoneCustom(m, spans, nil, "2026-10-04")
+
+	require.Equal(t, 7, m.CompletedCount, "completions while a member stay; none before joining")
+	require.Equal(t, 12, m.CurrentCount, "only current members have remaining work")
+	require.Equal(t, 19, m.TotalCount)
+	require.Equal(t, []*models.TaskProgressItemCount{
+		{ItemType: "scene", Count: 6},
+		{ItemType: "image", Count: 1},
+	}, m.CompletedItemCounts)
+	require.Len(t, m.History, 4, "history starts at the first member day")
+	require.Equal(t, "2026-10-01", m.History[0].Date)
+	require.Equal(t, 30, m.History[0].Remaining)
+	require.Equal(t, 27, m.History[1].Remaining)
+
+	removal := m.History[2]
+	require.Equal(t, 16, removal.Removed, "a departing tracker's remaining work is removed")
+	require.Equal(t, 5, removal.Added, "a joining tracker brings its carried remaining work")
+	require.Equal(t, 4, removal.Completed, "same-day completions count for both")
+	require.Equal(t, 12, removal.Remaining)
+	require.Nil(t, removal.BaselineCount, "joining is not a baseline reset")
+
+	after := m.History[3]
+	require.Zero(t, after.Completed, "completions after leaving do not count")
+	require.Zero(t, after.Removed)
+	require.Equal(t, 12, after.Remaining)
+}
+
+func TestTaskProgressMilestoneJoinBeforeHistoryCustom(t *testing.T) {
+	tracker := &models.TaskProgressTracker{
+		ID: 1, Mode: "BACKLOG", CurrentCount: 61,
+		History: []*models.TaskProgressDay{
+			{Date: "2026-10-12", Remaining: 61, BaselineCount: intPointerMilestoneCustom(61)},
+		},
+	}
+	m := &models.TaskProgressMilestone{Trackers: []*models.TaskProgressTracker{tracker}}
+	aggregateTaskProgressMilestoneCustom(m, []*taskProgressMilestoneSpanCustom{{Tracker: tracker, AddedOn: "2026-10-12"}}, nil, "2026-10-12")
+	require.Len(t, m.History, 1)
+	require.Equal(t, 61, m.History[0].Added, "a new tracker's baseline joins as added work")
+	require.Equal(t, 61, m.History[0].Remaining)
+	require.Nil(t, m.History[0].BaselineCount)
 }
 
 func TestTaskProgressMilestoneStoreCustom(t *testing.T) {
@@ -122,6 +199,54 @@ func TestTaskProgressMilestoneStoreCustom(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, withoutTracker.TrackerIDs, "physical tracker deletion cleans up membership")
 	require.NoError(t, reopenedTx.Rollback())
+}
+
+func TestTaskProgressMilestoneMembershipLogCustom(t *testing.T) {
+	db := newTaskProgressBootstrapDBCustom(t)
+	createTaskProgressSourceTablesCustom(t, db, true)
+	require.NoError(t, (&Database{writeDB: db}).ensureTaskProgressSchemaCustom(context.Background()))
+	_, err := db.Exec(`INSERT INTO tags(id,name) VALUES (1,'One'),(2,'Two')`)
+	require.NoError(t, err)
+	tx, err := db.BeginTxx(context.Background(), nil)
+	require.NoError(t, err)
+	defer func() { _ = tx.Rollback() }()
+	ctx := context.WithValue(context.Background(), txnKey, tx)
+	store := NewTaskProgressTrackerStore()
+	one := &models.TaskProgressTracker{Title: "One", TagID: 1}
+	two := &models.TaskProgressTracker{Title: "Two", TagID: 2}
+	require.NoError(t, store.Create(ctx, one))
+	require.NoError(t, store.Create(ctx, two))
+	m := &models.TaskProgressMilestone{Name: "Scope", TrackerIDs: []int{one.ID}}
+	require.NoError(t, store.CreateMilestone(ctx, m))
+
+	type span struct {
+		TrackerID int     `db:"tracker_id"`
+		AddedOn   *string `db:"added_on"`
+		RemovedOn *string `db:"removed_on"`
+	}
+	spans := func() []span {
+		rows := []span{}
+		require.NoError(t, dbWrapper.Select(ctx, &rows, `SELECT tracker_id,added_on,removed_on
+FROM task_progress_milestone_member_history WHERE milestone_id=? ORDER BY id`, m.ID))
+		return rows
+	}
+	today := models.TaskProgressReportingDate(time.Now())
+	require.Equal(t, []span{{TrackerID: one.ID}}, spans(), "creation counts full history")
+
+	m.TrackerIDs = []int{two.ID}
+	require.NoError(t, store.UpdateMilestone(ctx, m, true))
+	require.Equal(t, []span{{TrackerID: one.ID, RemovedOn: &today}, {TrackerID: two.ID, AddedOn: &today}}, spans())
+
+	m.TrackerIDs = []int{one.ID, two.ID}
+	require.NoError(t, store.UpdateMilestone(ctx, m, true))
+	require.Equal(t, []span{{TrackerID: one.ID}, {TrackerID: two.ID, AddedOn: &today}}, spans(), "same-day re-add restores the span")
+
+	m.TrackerIDs = []int{one.ID}
+	require.NoError(t, store.UpdateMilestone(ctx, m, true))
+	require.Equal(t, []span{{TrackerID: one.ID}}, spans(), "same-day join and leave leaves no trace")
+
+	require.NoError(t, store.Delete(ctx, one.ID))
+	require.Empty(t, spans(), "physical tracker deletion removes its spans")
 }
 
 func intPointerMilestoneCustom(value int) *int { return &value }

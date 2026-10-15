@@ -501,11 +501,11 @@ var selectPerformerOCountSQL = utils.StrFormat(
 		"LEFT JOIN {images} ON {images}.id = s.{images_id} "+
 		"WHERE s.{performer_id} = {performers}.id "+
 		"UNION ALL "+
-		"SELECT COUNT({scenes_o_dates}.{o_date}) as o_counter from {performers_scenes} s "+
+		"SELECT COUNT({scenes_o_dates}.{scene_id}) as o_counter from {performers_scenes} s "+ // CUSTOM: count retroactive O's without a date
 		"LEFT JOIN {scenes} ON {scenes}.id = s.{scene_id} "+
 		"LEFT JOIN {scenes_o_dates} ON {scenes_o_dates}.{scene_id} = {scenes}.id "+
 		"WHERE s.{performer_id} = {performers}.id "+
-		"UNION ALL SELECT COUNT(o.o_date) FROM scene_release_performers rp "+ // CUSTOM: release-owned events use release cast
+		"UNION ALL SELECT COUNT(*) FROM scene_release_performers rp "+ // CUSTOM: release-owned events use release cast
 		"JOIN scene_release_o_dates o ON o.release_id = rp.release_id "+ // CUSTOM
 		"WHERE rp.performer_id = {performers}.id "+ // CUSTOM
 		")",
@@ -519,7 +519,6 @@ var selectPerformerOCountSQL = utils.StrFormat(
 		"scenes":            sceneTable,
 		"scene_id":          sceneIDColumn,
 		"scenes_o_dates":    scenesODatesTable,
-		"o_date":            sceneODateColumn,
 	},
 )
 

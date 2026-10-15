@@ -923,6 +923,70 @@ export const useSceneRecordOAtTimestamp = (id: string) =>
     },
   });
 
+// CUSTOM: begin - add/remove O's without a date or video timestamp
+function updateSceneRetroactiveOCustom(
+  cache: ApolloCache<Record<string, StoreObject>>,
+  id: string,
+  count: number
+) {
+  const scene = cache.readFragment<GQL.SceneHistoryCacheDataFragment>({
+    id: cache.identify({ __typename: "Scene", id }),
+    fragment: GQL.SceneHistoryCacheDataFragmentDoc,
+    fragmentName: "SceneHistoryCacheData",
+  });
+
+  const diff = scene ? count - (scene.o_counter ?? 0) : 0;
+
+  if (scene) {
+    for (const performer of scene.performers) {
+      cache.modify({
+        id: cache.identify(performer),
+        fields: {
+          o_counter(value) {
+            return Math.max(0, value + diff);
+          },
+        },
+      });
+    }
+  } else {
+    evictTypeFields(cache, {
+      Performer: ["o_counter"],
+    });
+  }
+
+  updateStats(cache, "total_o_count", diff);
+  updateO(cache, "Scene", id, count);
+
+  evictQueries(
+    cache,
+    [GQL.FindScenesDocument, GQL.FindPerformersDocument],
+    false
+  );
+}
+
+export const useSceneAddRetroactiveO = (id: string) =>
+  GQL.useSceneAddRetroactiveOMutation({
+    variables: { id },
+    update(cache, result) {
+      const mutationResult = result.data?.sceneAddRetroactiveO;
+      if (mutationResult) {
+        updateSceneRetroactiveOCustom(cache, id, mutationResult.count);
+      }
+    },
+  });
+
+export const useSceneDeleteRetroactiveO = (id: string) =>
+  GQL.useSceneDeleteRetroactiveOMutation({
+    variables: { id },
+    update(cache, result) {
+      const mutationResult = result.data?.sceneDeleteRetroactiveO;
+      if (mutationResult) {
+        updateSceneRetroactiveOCustom(cache, id, mutationResult.count);
+      }
+    },
+  });
+// CUSTOM: end
+
 export const useSceneDecrementO = (id: string) =>
   GQL.useSceneDeleteOMutation({
     variables: { id },

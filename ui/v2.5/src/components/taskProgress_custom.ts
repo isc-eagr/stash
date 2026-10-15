@@ -3,11 +3,17 @@ export interface ITaskProgressHistoryEntry {
   completed: number;
   incoming: number;
   remaining: number;
+  /** Unfinished items brought into scope, such as a tracker joining a milestone. */
+  added?: number;
+  /** Unfinished items taken out of scope without being completed. */
+  removed?: number;
   baselineCount?: number;
   goalPerDay?: number | null;
 }
 
 export interface ITaskProgressHistoryPoint extends ITaskProgressHistoryEntry {
+  added: number;
+  removed: number;
   completedAverage: number;
   cumulativeCompleted: number;
 }
@@ -128,6 +134,11 @@ export function buildTaskProgressHistorySeries(
       incoming:
         (existing?.incoming ?? 0) +
         safeTaskProgressHistoryCount(entry.incoming),
+      added:
+        (existing?.added ?? 0) + safeTaskProgressHistoryCount(entry.added ?? 0),
+      removed:
+        (existing?.removed ?? 0) +
+        safeTaskProgressHistoryCount(entry.removed ?? 0),
       remaining: safeTaskProgressHistoryCount(entry.remaining),
       baselineCount:
         entry.baselineCount === undefined
@@ -177,6 +188,8 @@ export function buildTaskProgressHistorySeries(
       date,
       completed,
       incoming,
+      added: entry?.added ?? 0,
+      removed: entry?.removed ?? 0,
       remaining,
       baselineCount: entry?.baselineCount,
       ...(goalPerDay !== undefined ? { goalPerDay } : {}),
@@ -230,6 +243,11 @@ export function aggregateTaskProgressHistorySeries(
       (total, point) => total + point.incoming,
       0
     );
+    const added = periodPoints.reduce((total, point) => total + point.added, 0);
+    const removed = periodPoints.reduce(
+      (total, point) => total + point.removed,
+      0
+    );
     const goal = periodPoints.reduce(
       (total, point) => total + Math.max(0, point.goalPerDay ?? 0),
       0
@@ -246,6 +264,8 @@ export function aggregateTaskProgressHistorySeries(
       date,
       completed,
       incoming,
+      added,
+      removed,
       remaining: last.remaining,
       baselineCount: baseline,
       goalPerDay: goal > 0 ? goal : null,
@@ -339,7 +359,13 @@ export function taskProgressCurrentPercentageChanges(
 export function filterTaskProgressHistoryActivityPoints(
   points: readonly ITaskProgressHistoryPoint[]
 ): ITaskProgressHistoryPoint[] {
-  return points.filter((point) => point.completed > 0 || point.incoming > 0);
+  return points.filter(
+    (point) =>
+      point.completed > 0 ||
+      point.incoming > 0 ||
+      point.added > 0 ||
+      point.removed > 0
+  );
 }
 
 function padTaskProgressDatePart(value: number): string {

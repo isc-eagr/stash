@@ -29,10 +29,39 @@ func (qb *oDateManager) AddOAtVideoTimestamp(ctx context.Context, id int, videoT
 	return qb.tableMgr.resultDatesCustom(ctx, id)
 }
 
-// GetOVideoTimestamps returns video_timestamp values for ALL O entries of the
-// given scene, ordered by date DESC (same order as o_history). Entries without
-// a recorded video position are returned as nil, keeping the array parallel
-// with o_history so callers can zip them together.
+// AddRetroactiveOCustom inserts an O without a date or video timestamp. It
+// counts toward the O counter but stays out of o_history and dated stats.
+func (qb *oDateManager) AddRetroactiveOCustom(ctx context.Context, id int) ([]time.Time, error) {
+	q := dialect.Insert(qb.tableMgr.table.table).
+		Cols(qb.tableMgr.idColumn.GetCol()).
+		Vals(goqu.Vals{id})
+
+	if _, err := exec(ctx, q); err != nil {
+		return nil, fmt.Errorf("inserting retroactive o: %w", err)
+	}
+
+	return qb.tableMgr.resultDatesCustom(ctx, id)
+}
+
+// DeleteRetroactiveOCustom removes one O without a date from the scene.
+func (qb *oDateManager) DeleteRetroactiveOCustom(ctx context.Context, id int) ([]time.Time, error) {
+	table := qb.tableMgr.table.table
+	dateCol := table.Col(qb.tableMgr.dateColumn.GetCol())
+	subquery := dialect.Select("rowid").From(table).
+		Where(qb.tableMgr.idColumn.Eq(id), dateCol.IsNull()).
+		Limit(1)
+
+	if _, err := exec(ctx, dialect.Delete(table).Where(goqu.I("rowid").Eq(subquery))); err != nil {
+		return nil, fmt.Errorf("deleting retroactive o: %w", err)
+	}
+
+	return qb.tableMgr.resultDatesCustom(ctx, id)
+}
+
+// GetOVideoTimestamps returns video_timestamp values for every dated O entry of
+// the given scene, ordered by date DESC (same order as o_history). Entries
+// without a recorded video position are returned as nil, keeping the array
+// parallel with o_history so callers can zip them together.
 func (qb *oDateManager) GetOVideoTimestamps(ctx context.Context, id int) ([]*float64, error) {
 	table := qb.tableMgr.table.table
 	tsCol := table.Col("video_timestamp")
@@ -40,7 +69,7 @@ func (qb *oDateManager) GetOVideoTimestamps(ctx context.Context, id int) ([]*flo
 
 	q := dialect.Select(tsCol).
 		From(table).
-		Where(qb.tableMgr.idColumn.Eq(id)).
+		Where(qb.tableMgr.idColumn.Eq(id), dateCol.IsNotNull()).
 		Order(dateCol.Desc())
 
 	const single = false
