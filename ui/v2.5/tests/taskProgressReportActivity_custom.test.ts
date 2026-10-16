@@ -7,10 +7,9 @@ import type {
   ITaskProgressReportDay,
   TaskProgressReportRange,
 } from "../src/components/TaskProgress/taskProgressReports_custom.ts";
-import { taskProgressTrendGeometry } from "../src/components/TaskProgress/taskProgressTrend_custom.ts";
 
 const renderActivity = (
-  range: TaskProgressReportRange,
+  range: Exclude<TaskProgressReportRange, "day">,
   days: readonly ITaskProgressReportDay[]
 ) =>
   ReactDOMServer.renderToStaticMarkup(
@@ -121,47 +120,7 @@ assert.equal(
   "monthly bars compare completions to elapsed daily goals and exclude future targets"
 );
 
-const trendMarkup = renderActivity("day", days);
-assert.match(trendMarkup, /progress-report-trend-area/);
-assert.match(trendMarkup, /progress-report-trend-goal/);
-assert.deepEqual(
-  [
-    ...trendMarkup.matchAll(/<circle class="progress-report-goal-([^"]+)"/g),
-  ].map((match) => match[1]),
-  colors,
-  "Daily trend dots use each day's own goal state"
-);
-const geometry = taskProgressTrendGeometry(mixedDays);
-const narrowGeometry = taskProgressTrendGeometry(mixedDays, 280);
-assert.equal(narrowGeometry.width, 280);
-assert.equal(narrowGeometry.height, 220);
-assert.ok(
-  narrowGeometry.points.every((point) => point.x >= 42 && point.x <= 238),
-  "narrow trends leave room for readable endpoint dates"
-);
-assert.equal(geometry.points.length, 4);
-assert.equal(geometry.points[2].completed, 4);
-assert.ok(
-  !geometry.line.includes(`${geometry.points[3].x},`),
-  "future dates are not plotted as zero completions"
-);
-assert.ok(
-  !geometry.goal.includes(`${geometry.points[2].x},`),
-  "removed goals do not become a zero goal line"
-);
-assert.doesNotMatch(
-  renderActivity(
-    "day",
-    days.map((day) => ({ ...day, goal: 0 }))
-  ),
-  /progress-report-trend-goal/
-);
-assert.doesNotMatch(
-  renderActivity("day", []),
-  /NaN|progress-report-trend-area/
-);
 assert.doesNotMatch(renderActivity("year", []), /NaN|progress-report-bars/);
-assert.doesNotMatch(renderActivity("day", [days[0]]), /NaN/);
 
 const selectableMarkup = ReactDOMServer.renderToStaticMarkup(
   React.createElement(
@@ -184,3 +143,20 @@ assert.match(
   /<button[^>]*disabled=""[^>]*aria-label="24\/09\/2026:/,
   "future cells cannot open daily details"
 );
+
+const calendar = renderActivity("month", mixedDays);
+assert.match(
+  calendar,
+  /aria-label="24\/09\/2026:[^>]*><small>24<\/small><\/span>/,
+  "future dates have no completion count"
+);
+for (const goal of [0, 4]) {
+  const quietCalendar = renderActivity("month", [
+    { date: "2026-09-23", completed: 0, goal, future: false },
+  ]);
+  assert.match(
+    quietCalendar,
+    /<small>23<\/small><strong>0<\/strong>/,
+    "elapsed zero-completion days display zero with or without a goal"
+  );
+}

@@ -41,7 +41,7 @@ export function sceneCardOrgasmReportGroupLabelCustom({
         ? "facial"
         : "facials"
       : count === 1
-      ? "orgasm"
-      : "orgasms";
+      ? "nut"
+      : "nuts";
   return [count, quality, noun].filter(Boolean).join(" ");
 }

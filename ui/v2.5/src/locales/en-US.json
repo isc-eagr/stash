@@ -44,7 +44,7 @@
         "heading": "Scene Card Insights",
         "caption_hidden_tags": {
           "heading": "Tags hidden from the thumbnail caption",
-          "description": "Scene card captions skip these exact tags, such as common activity or negative orgasm tags. Their subtags still show."
+          "description": "Scene card captions skip these exact tags, such as common activity or negative nut tags. Their subtags still show."
         },
         "visible_limit": {
           "heading": "Visible insight chips",
@@ -169,11 +169,11 @@
   "rating_criteria_top_attractiveness": "Avg Standard Top(s) Attractiveness",
   "rating_criteria_bottom_attractiveness": "Avg Standard Bottom(s) Attractiveness",
   "rating_criteria_chemistry": "Avg Standard Energy / Quality",
-  "rating_criteria_payoff": "Avg Standard Orgasm Quality",
+  "rating_criteria_payoff": "Avg Standard Nut Quality",
   "rating_criteria_standout": "Avg Standard Usable Factor",
   "rating_criteria_group_top_attractiveness": "Avg Group Top Lineup Attractiveness",
   "rating_criteria_group_energy": "Avg Group Energy / Coordination",
-  "rating_criteria_group_payoff": "Avg Group Orgasm Quality",
+  "rating_criteria_group_payoff": "Avg Group Nut Quality",
   "rating_criteria_group_usability": "Avg Group Usability",
   "sex_top_activity_percent": "Sex Top %",
   "sex_bottom_activity_percent": "Sex Bottom %",

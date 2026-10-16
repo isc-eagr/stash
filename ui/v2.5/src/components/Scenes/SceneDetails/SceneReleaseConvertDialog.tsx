@@ -39,7 +39,6 @@ import {
   convertSourceDefaults,
   convertStashDBMatchesCustom,
 } from "./sceneReleaseConvertChoices_custom";
-import { summarizeSceneConversionCustom } from "./sceneReleaseConversionSummary_custom";
 
 export type SceneReleaseConvertChoices = Pick<
   GQL.ConvertSceneToReleaseInput,
@@ -79,7 +78,6 @@ export const SceneReleaseConvertDialog: React.FC<
     () => ratingMergeChoice(dest, [source]),
     [dest, source]
   );
-  const summary = summarizeSceneConversionCustom(source);
 
   const [title, setTitle] = useState(
     () => new ScrapeResult(dest.title, source.title, defaults.title)
@@ -467,26 +465,6 @@ export const SceneReleaseConvertDialog: React.FC<
       scrapedLabel={intl.formatMessage({ id: "dialogs.merge.source" })}
       acceptText="Convert to Release"
       isRunning={running}
-      header={
-        <div className="px-3 pt-3">
-          <dl className="row mb-2">
-            <dt className="col-3">Source</dt>
-            <dd className="col-9">{source.title || source.id}</dd>
-            <dt className="col-3">Moving</dt>
-            <dd className="col-9">
-              {summary.files} files · {summary.plays} plays · {summary.oEvents}{" "}
-              O events
-              {source.releases.length > 0 &&
-                ` · ${source.releases.length} existing releases`}
-            </dd>
-          </dl>
-          <p className="text-muted mb-0">
-            The new release keeps everything but the rating from the source
-            scene, which is then removed. Releases share this scene&apos;s
-            rating. Pick what this scene also takes.
-          </p>
-        </div>
-      }
       onClose={(apply) => onClose(apply ? createChoices() : undefined)}
     >
       {renderRows()}

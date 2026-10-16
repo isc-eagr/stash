@@ -85,8 +85,8 @@ assert.deepEqual(groups, [
   { category: "facial", quality: "Really Hot", count: 1 },
 ]);
 assert.deepEqual(groups.map(sceneCardOrgasmReportGroupLabelCustom), [
-  "2 orgasms",
-  "1 GOAT orgasm",
+  "2 nuts",
+  "1 GOAT nut",
   "1 Really Hot facial",
 ]);
 assert.deepEqual(
@@ -205,7 +205,7 @@ for (const property of ["maskImage", "WebkitMaskImage"]) {
 }
 assert.match(
   orgasmReportSource,
-  /aria-label="No orgasms"[\s\S]*?<ReportIcon category="orgasm" \/>/,
+  /aria-label="No nuts"[\s\S]*?<ReportIcon category="orgasm" \/>/,
   "the empty report crosses out the same performer orgasm icon"
 );
 for (const counterPath of [

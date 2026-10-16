@@ -283,19 +283,6 @@ export function taskProgressComparisonLabel(
   return `vs ${period.through < period.end ? "same point " : ""}last ${range}`;
 }
 
-/** Seven daily points ending on the selected report date, without later activity. */
-export function taskProgressReportTrendDays(
-  history: readonly ITaskProgressReportHistoryDay[],
-  anchor: string,
-  today: string
-): ITaskProgressReportDay[] {
-  return taskProgressReportDays(
-    history,
-    { start: addDays(anchor, -6), end: anchor, through: anchor },
-    today
-  );
-}
-
 /** One entry per calendar day of the period; days after `through` are future. */
 export function taskProgressReportDays(
   history: readonly ITaskProgressReportHistoryDay[],

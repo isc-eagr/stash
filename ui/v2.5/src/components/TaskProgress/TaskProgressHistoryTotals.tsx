@@ -51,8 +51,10 @@ export const TaskProgressHistoryTotals: React.FC<{
     )
   );
   return (
-    <details className="task-progress-history-chart-totals">
-      <summary>{t("Totals trend")}</summary>
+    <section
+      className="task-progress-history-chart-totals"
+      aria-label={t("Totals trend")}
+    >
       <div className="task-progress-history-chart-controls">
         {!completionOnly && (
           <div
@@ -244,6 +246,6 @@ export const TaskProgressHistoryTotals: React.FC<{
           </div>
         )}
       </div>
-    </details>
+    </section>
   );
 };

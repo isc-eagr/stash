@@ -99,8 +99,7 @@ export function SceneCardOrgasmFacialPopover({
             <div className="scene-card-orgasm-facial-event-heading">
               <h4>
                 <span>
-                  {isFacial ? "Facial" : "Orgasm"}{" "}
-                  {eventNumbers[event.category]}
+                  {isFacial ? "Facial" : "Nut"} {eventNumbers[event.category]}
                 </span>
                 {event.quality && (
                   <span
@@ -118,7 +117,7 @@ export function SceneCardOrgasmFacialPopover({
                   performer={performer}
                   role={isFacial ? "Top" : undefined}
                   detailLink={`/performers/${performer.id}`}
-                  title={`${isFacial ? "Top" : "Orgasm"}: ${performer.name}`}
+                  title={`${isFacial ? "Top" : "Nut"}: ${performer.name}`}
                 />
               ))}
               {isFacial &&

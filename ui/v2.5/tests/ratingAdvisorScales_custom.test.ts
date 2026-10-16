@@ -127,17 +127,17 @@ assert.equal(
 assert.deepEqual(SCENE_ORGASM_QUALITY_CHOICES_CUSTOM, [
   {
     value: 0,
-    label: "Absent/bad orgasms",
+    label: "Absent/bad nuts",
     description: "Qué gacho. No nut, fake nut, or they hid it from you.",
   },
   {
     value: 1,
-    label: "Below average orgasms",
+    label: "Below average nuts",
     description: "There's a nut, but it's barely there, or meh.",
   },
   {
     value: 2,
-    label: "Standard orgasms",
+    label: "Standard nuts",
     description: "Normalito. A solid nut, nada legendary.",
   },
   {
@@ -147,16 +147,16 @@ assert.deepEqual(SCENE_ORGASM_QUALITY_CHOICES_CUSTOM, [
   },
   {
     value: 4,
-    label: "Outstanding orgasms",
+    label: "Outstanding nuts",
     description: "You're rewinding that nut. The pinche highlight.",
   },
 ]);
 assert.deepEqual(getSceneOrgasmQualityFilterChoicesCustom(), [
-  { value: 0, label: "Absent/bad orgasms" },
-  { value: 1, label: "Below average orgasms" },
-  { value: 2, label: "Standard orgasms" },
+  { value: 0, label: "Absent/bad nuts" },
+  { value: 1, label: "Below average nuts" },
+  { value: 2, label: "Standard nuts" },
   { value: 3, label: "Above average" },
-  { value: 4, label: "Outstanding orgasms" },
+  { value: 4, label: "Outstanding nuts" },
 ]);
 
 const choices = ratingAdvisorSixLevelChoicesCustom([
@@ -288,7 +288,7 @@ const adjustmentMetrics = [
   {
     ...toggle(-2),
     key: "noOrgasm",
-    title: "No orgasm",
+    title: "No nut",
     section: "penalty" as const,
   },
 ];
@@ -306,14 +306,14 @@ assert.deepEqual(
   [
     {
       key: "orgasm-count-bonus",
-      title: "Orgasm count",
+      title: "O count",
       section: "bonus",
       contribution: 0.3,
     },
     { key: "theme", title: "Uniform", section: "bonus", contribution: 0.5 },
     {
       key: "noOrgasm",
-      title: "No orgasm",
+      title: "No nut",
       section: "penalty",
       contribution: -2,
     },

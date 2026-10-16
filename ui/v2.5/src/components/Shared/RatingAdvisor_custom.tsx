@@ -221,7 +221,7 @@ const sceneMetrics: IAdvisorMetric[] = [
   },
   {
     key: "godTierOrgasm",
-    title: "God-tier orgasm bonus",
+    title: "God-tier nut bonus",
     max: SCENE_GOD_TIER_ORGASM_BONUS_CUSTOM,
     section: "bonus",
     hint: "For a nut or facial so wild it takes the scene up a whole level.",
@@ -233,7 +233,7 @@ const sceneMetrics: IAdvisorMetric[] = [
       },
       {
         value: SCENE_GOD_TIER_ORGASM_BONUS_CUSTOM,
-        label: "God-tier orgasms",
+        label: "God-tier nuts",
         description: "That nut or facial is straight-up legendary. No mames.",
       },
     ],
@@ -308,8 +308,8 @@ const sceneMetrics: IAdvisorMetric[] = [
   // Orgasm is always the last criterion.
   {
     key: "payoff",
-    title: "Orgasm quality",
-    shortTitle: "Orgasm",
+    title: "Nut quality",
+    shortTitle: "Nut",
     max: 4,
     weight: 0.5,
     hint: "How good the nuts and facials are.",
@@ -317,19 +317,19 @@ const sceneMetrics: IAdvisorMetric[] = [
   },
   {
     key: "noOrgasm",
-    title: "No orgasm",
+    title: "No nut",
     max: 0,
     section: "penalty",
     hint: "Flip it on if nobody nuts or the scene cuts off early.",
     choices: [
       {
         value: 0,
-        label: "Orgasm present",
+        label: "Nut present",
         description: "Somebody delivers a real nut.",
       },
       {
         value: SCENE_NO_ORGASM_PENALTY_CUSTOM,
-        label: "No orgasm penalty",
+        label: "No nut penalty",
         description: "They cut away before the nut. Qué gacho.",
       },
     ],
@@ -430,19 +430,19 @@ const soloSceneMetrics: IAdvisorMetric[] = [
   },
   {
     key: "orgasmBonus",
-    title: "Orgasm",
+    title: "Nut",
     max: 1,
     section: "bonus",
     hint: "Flip it on when his nut makes the solo better.",
     choices: [
       {
         value: 0,
-        label: "No orgasm bonus",
+        label: "No nut bonus",
         description: "No nut worth bumping the scene for.",
       },
       {
         value: 1,
-        label: "Orgasm bonus",
+        label: "Nut bonus",
         description: "He drops a hot nut that makes the solo worth it.",
         scoreValue: 1,
       },
@@ -510,7 +510,7 @@ const groupSceneMetrics: IAdvisorMetric[] = [
   {
     ...sceneMetrics.find((metric) => metric.key === "payoff")!,
     key: GROUP_SCENE_RATING_KEYS_CUSTOM.criteria.payoff,
-    title: "Orgasm Quality",
+    title: "Nut Quality",
     weight: GROUP_SCENE_WEIGHTS_CUSTOM.payoff,
   },
   {

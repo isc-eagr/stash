@@ -19,10 +19,9 @@ interface IScrapeDialogProps {
   existingLabel?: React.ReactNode;
   scrapedLabel?: React.ReactNode;
   onClose: (apply?: boolean) => void;
-  // CUSTOM: begin - optional accept label, running state, and intro content
+  // CUSTOM: begin - optional accept label and running state
   acceptText?: string;
   isRunning?: boolean;
-  header?: React.ReactNode;
   // CUSTOM: end
 }
 
@@ -83,8 +82,6 @@ export const ScrapeDialog: React.FC<
       <div className="dialog-container">
         <ScrapeDialogContext.Provider value={contextState}>
           <Form>
-            {/* CUSTOM */}
-            {props.header}
             <Row className="px-3 pt-3">
               <Col lg={{ span: 9, offset: 3 }}>
                 <Row>

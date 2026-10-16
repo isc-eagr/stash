@@ -99,6 +99,11 @@ const totals = render(
   })
 );
 assert.match(totals, /Totals trend/);
+assert.doesNotMatch(
+  totals,
+  /<details|<summary/,
+  "totals are immediately visible in their own tab"
+);
 assert.match(totals, /Remaining/);
 assert.match(totals, /Show incoming/);
 assert.doesNotMatch(totals, /task-progress-history-chart-incoming-line/);

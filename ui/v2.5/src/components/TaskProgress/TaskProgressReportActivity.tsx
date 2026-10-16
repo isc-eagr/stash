@@ -1,5 +1,4 @@
 import React from "react";
-import useResizeObserver from "@react-hook/resize-observer";
 import { formatTaskProgressDate } from "../taskProgress_custom";
 import {
   taskProgressDailyGoalState,
@@ -14,10 +13,9 @@ import type {
   ITaskProgressReportDay,
   TaskProgressReportRange,
 } from "./taskProgressReports_custom";
-import { taskProgressTrendGeometry } from "./taskProgressTrend_custom";
 
 interface IActivityProps {
-  range: TaskProgressReportRange;
+  range: Exclude<TaskProgressReportRange, "day">;
   days: readonly ITaskProgressReportDay[];
   selectedDate?: string;
   onSelectDay?: (date: string) => void;
@@ -194,137 +192,13 @@ const HeatLegend: React.FC<{ goal: boolean }> = ({ goal }) => {
 };
 
 const ActivityContents: React.FC<
-  IActivityProps & { interaction: IDayInteraction; width: number }
-> = ({ range, days, interaction, width }) => {
+  IActivityProps & { interaction: IDayInteraction }
+> = ({ range, days, interaction }) => {
   const t = useProgressText();
-  const completedLabel = t("completed");
   const max = Math.max(0, ...days.map((day) => day.completed));
   const hasGoal = days.some((day) => !day.future && day.goal > 0);
 
   if (!days.length) return null;
-
-  if (range === "day") {
-    const chart = taskProgressTrendGeometry(days, width);
-    const tickCount = Math.min(width < 480 ? 3 : 6, days.length);
-    const ticks = new Set(
-      Array.from({ length: tickCount }, (_, index) =>
-        Math.round((index * (days.length - 1)) / Math.max(1, tickCount - 1))
-      )
-    );
-    return (
-      <div className="progress-report-trend">
-        <svg
-          viewBox={`0 0 ${chart.width} ${chart.height}`}
-          role="img"
-          aria-label={t("Daily completions")}
-        >
-          {[...new Set([0, Math.round(chart.max / 2), chart.max])].map(
-            (value) => (
-              <g key={value} aria-hidden="true">
-                <line
-                  className="progress-report-trend-grid"
-                  x1={chart.left}
-                  x2={chart.right}
-                  y1={chart.y(value)}
-                  y2={chart.y(value)}
-                />
-                <text
-                  x={chart.left - 8}
-                  y={chart.y(value) + 4}
-                  textAnchor="end"
-                >
-                  {value}
-                </text>
-              </g>
-            )
-          )}
-          <path
-            className="progress-report-trend-area"
-            d={chart.area}
-            aria-hidden="true"
-          />
-          <path
-            className="progress-report-trend-line"
-            d={chart.line}
-            aria-hidden="true"
-          />
-          {hasGoal && (
-            <path
-              className="progress-report-trend-goal"
-              d={chart.goal}
-              aria-hidden="true"
-            />
-          )}
-          {chart.points.map((day, index) => (
-            <g
-              key={day.date}
-              className={`progress-report-trend-point${
-                interaction.selectedDate === day.date ? " selected" : ""
-              }`}
-              role={interaction.onSelectDay ? "button" : "img"}
-              aria-label={dayTitle(day, completedLabel)}
-              aria-pressed={
-                interaction.onSelectDay
-                  ? interaction.selectedDate === day.date
-                  : undefined
-              }
-              tabIndex={day.future ? undefined : 0}
-              onMouseEnter={(event) =>
-                interaction.onHover(day, event.currentTarget)
-              }
-              onMouseLeave={interaction.onLeave}
-              onFocus={(event) => interaction.onHover(day, event.currentTarget)}
-              onBlur={interaction.onLeave}
-              onClick={() => {
-                if (!day.future) interaction.onSelectDay?.(day.date);
-              }}
-              onKeyDown={(event) => {
-                if (
-                  !day.future &&
-                  interaction.onSelectDay &&
-                  (event.key === "Enter" || event.key === " ")
-                ) {
-                  event.preventDefault();
-                  interaction.onSelectDay(day.date);
-                }
-              }}
-            >
-              <circle
-                className="progress-report-trend-hit"
-                cx={day.x}
-                cy={day.y}
-                r="12"
-              />
-              <circle
-                className={
-                  !day.future && day.goal > 0
-                    ? `progress-report-goal-${taskProgressDailyGoalState(
-                        day.completed,
-                        day.goal
-                      )}`
-                    : "progress-report-trend-dot"
-                }
-                cx={day.x}
-                cy={day.y}
-                r={interaction.selectedDate === day.date ? 6 : 4}
-              />
-              {ticks.has(index) && (
-                <text x={day.x} y={chart.height - 10} textAnchor="middle">
-                  {formatTaskProgressDate(day.date)}
-                </text>
-              )}
-            </g>
-          ))}
-        </svg>
-        {hasGoal && (
-          <div className="progress-report-trend-goal-label">
-            {t("Goal")} — —
-          </div>
-        )}
-        <HeatLegend goal={hasGoal} />
-      </div>
-    );
-  }
 
   if (range === "week") {
     return (
@@ -373,7 +247,7 @@ const ActivityContents: React.FC<
                   >
                     <ActivityDay day={day} interaction={interaction}>
                       <small>{Number(day.date.slice(8))}</small>
-                      {day.completed > 0 && <strong>{day.completed}</strong>}
+                      {!day.future && <strong>{day.completed}</strong>}
                     </ActivityDay>
                   </span>
                 ) : (
@@ -463,13 +337,6 @@ const ActivityContents: React.FC<
 export const TaskProgressReportActivity: React.FC<IActivityProps> = (props) => {
   const t = useProgressText();
   const root = React.useRef<HTMLDivElement>(null);
-  const [width, setWidth] = React.useState(720);
-  useResizeObserver(root, (entry) =>
-    setWidth(Math.max(280, entry.contentRect.width))
-  );
-  React.useEffect(() => {
-    if (root.current) setWidth(Math.max(280, root.current.clientWidth));
-  }, []);
   const [hover, setHover] = React.useState<{
     day: ITaskProgressReportDay;
     left: number;
@@ -492,7 +359,7 @@ export const TaskProgressReportActivity: React.FC<IActivityProps> = (props) => {
   };
   return (
     <div className="progress-activity-chart" ref={root}>
-      <ActivityContents {...props} interaction={interaction} width={width} />
+      <ActivityContents {...props} interaction={interaction} />
       {hover && props.days.some((day) => day.date === hover.day.date) && (
         <div
           className="task-progress-history-chart-tooltip below"

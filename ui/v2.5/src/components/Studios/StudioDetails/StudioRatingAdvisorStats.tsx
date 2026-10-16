@@ -39,7 +39,7 @@ const sexSceneCriteria: ISectionDefinition["criteria"] = {
   },
   chemistry: { label: "Energy / sex quality", short: "Energy", max: 20 },
   standout: { label: "Usable factor", short: "Usable", max: 20 },
-  payoff: { label: "Orgasm quality", short: "Orgasm", max: 20 },
+  payoff: { label: "Nut quality", short: "Nut", max: 20 },
 };
 
 export const studioRatingAdvisorSectionDefinitions: ISectionDefinition[] = [
@@ -89,7 +89,7 @@ export const studioRatingAdvisorSectionDefinitions: ISectionDefinition[] = [
       },
       groupEnergy: { label: "Energy / coordination", short: "Energy", max: 30 },
       groupUsability: { label: "Usability", short: "Usable", max: 20 },
-      groupPayoff: { label: "Orgasm Quality", short: "Orgasm", max: 20 },
+      groupPayoff: { label: "Nut Quality", short: "Nut", max: 20 },
     },
   },
   {

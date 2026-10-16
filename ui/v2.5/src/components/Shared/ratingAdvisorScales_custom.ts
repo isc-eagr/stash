@@ -47,17 +47,17 @@ export const SCENE_ORGASM_QUALITY_CHOICES_CUSTOM: IRatingAdvisorChoiceCustom[] =
   [
     {
       value: 0,
-      label: "Absent/bad orgasms",
+      label: "Absent/bad nuts",
       description: "Qué gacho. No nut, fake nut, or they hid it from you.",
     },
     {
       value: 1,
-      label: "Below average orgasms",
+      label: "Below average nuts",
       description: "There's a nut, but it's barely there, or meh.",
     },
     {
       value: 2,
-      label: "Standard orgasms",
+      label: "Standard nuts",
       description: "Normalito. A solid nut, nada legendary.",
     },
     {
@@ -67,7 +67,7 @@ export const SCENE_ORGASM_QUALITY_CHOICES_CUSTOM: IRatingAdvisorChoiceCustom[] =
     },
     {
       value: 4,
-      label: "Outstanding orgasms",
+      label: "Outstanding nuts",
       description: "You're rewinding that nut. The pinche highlight.",
     },
   ];
@@ -127,7 +127,7 @@ const RATING_ADVISOR_ADJUSTMENT_TOOLTIP_LABELS_CUSTOM: Record<string, string> =
   {
     theme: "Uniform",
     oralOnly: "Oral-only",
-    godTierOrgasm: "GOAT Orgasm",
+    godTierOrgasm: "GOAT Nut",
     goatElement: "GOAT",
     unlikelyTop: "Unlikely top",
     orgasmBonus: "O Bonus",
@@ -137,11 +137,11 @@ const RATING_ADVISOR_ADJUSTMENT_TOOLTIP_LABELS_CUSTOM: Record<string, string> =
     consistency: "Consistency",
     dick: "Pito",
     tattoosBonus: "Tattoos",
-    noOrgasm: "No orgasm",
+    noOrgasm: "No nut",
     production: "Production",
     extremelyPolished: "Extremely polished",
     feminine: "Feminine",
-    "orgasm-count-bonus": "Orgasm count",
+    "orgasm-count-bonus": "O count",
   };
 
 export function getRatingAdvisorAdjustmentTooltipLabelCustom(

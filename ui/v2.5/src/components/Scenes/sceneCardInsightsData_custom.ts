@@ -478,7 +478,7 @@ function getOrgasmCandidates(
     candidates.push({
       key: "orgasm-simultaneous",
       label: `${simultaneousCount} vatos nut at the same time`,
-      detail: `Top vatos on one Orgasm marker, or on Orgasm markers that overlap or start within ${simultaneousOrgasmWindowSeconds}s`,
+      detail: `Top vatos on one Nut marker, or on Nut markers that overlap or start within ${simultaneousOrgasmWindowSeconds}s`,
       tone: "event",
       kind: "orgasm-event",
       score: 2_000_000 + simultaneousCount,
@@ -509,7 +509,7 @@ function getOrgasmCandidates(
     candidates.push({
       key: `orgasm-repeat-${performer.id}`,
       label: `${performer.name} ${orgasmRepeatPhrase(markers.size)}`,
-      detail: `${markers.size} orgasm markers as top, excluding 2nd camera`,
+      detail: `${markers.size} nut markers as top, excluding 2nd camera`,
       tone: "event",
       performerPreviews: [performer],
       kind: "orgasm-event",

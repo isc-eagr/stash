@@ -989,7 +989,7 @@ export const SceneMarkersChronologicalPanel: React.FC<
       {
         key: "orgasm",
         tagId: roleTagIds?.orgasmTagId,
-        fallbackLabel: "Orgasm",
+        fallbackLabel: "Nut",
         hideActivityPills: true,
       },
       {

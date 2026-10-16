@@ -23,7 +23,6 @@ import {
   taskProgressReportDays,
   taskProgressReportPeriod,
   taskProgressReportRow,
-  taskProgressReportTrendDays,
 } from "./taskProgressReports_custom";
 import type {
   ITaskProgressReportHistoryDay,
@@ -525,19 +524,12 @@ export const TaskProgressReports: React.FC<IProps> = ({
             )}
             comparison={comparison}
           />
-          <TaskProgressReportActivity
-            range={range}
-            days={
-              range === "day"
-                ? taskProgressReportTrendDays(
-                    scope.history,
-                    period.start,
-                    today
-                  )
-                : taskProgressReportDays(scope.history, period, today)
-            }
-            selectedDate={range === "day" ? period.start : undefined}
-          />
+          {range !== "day" && (
+            <TaskProgressReportActivity
+              range={range}
+              days={taskProgressReportDays(scope.history, period, today)}
+            />
+          )}
         </section>
       )}
       <ReportItemsSection

@@ -85,11 +85,11 @@ assert.deepEqual(
   ]
 );
 const orgasmQualityChoices = [
-  { value: 0, label: "Absent/bad orgasms" },
-  { value: 1, label: "Below average orgasms" },
-  { value: 2, label: "Standard orgasms" },
+  { value: 0, label: "Absent/bad nuts" },
+  { value: 1, label: "Below average nuts" },
+  { value: 2, label: "Standard nuts" },
   { value: 3, label: "Above average" },
-  { value: 4, label: "Outstanding orgasms" },
+  { value: 4, label: "Outstanding nuts" },
 ];
 assert.deepEqual(
   sceneCriteria.find((definition) => definition.key === "payoff")?.choices,

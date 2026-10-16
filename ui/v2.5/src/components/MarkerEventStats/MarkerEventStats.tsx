@@ -103,7 +103,7 @@ const NUT_STATS_PAGE: IMarkerEventStatsPage = {
   timeLabel: "Total Nut Time",
   topTab: "Top Nutters",
   tagKey: "orgasmTagId",
-  tagLabel: "Orgasm",
+  tagLabel: "Nut",
   charts: NUT_STATS_CHARTS,
   view: pageView("nut", NUT_STATS_CHARTS),
 };

@@ -508,7 +508,7 @@ export const SceneRatingCriteriaCriterionOption =
       },
       {
         key: "payoff",
-        label: "Standard Orgasm Quality",
+        label: "Standard Nut Quality",
         choices: payoffChoices,
       },
       {
@@ -528,7 +528,7 @@ export const SceneRatingCriteriaCriterionOption =
       },
       {
         key: GROUP_SCENE_RATING_KEYS_CUSTOM.criteria.payoff,
-        label: "Group Orgasm Quality",
+        label: "Group Nut Quality",
         choices: payoffChoices,
       },
       {
@@ -578,7 +578,7 @@ export const SceneRatingCriteriaCriterionOption =
       },
       {
         key: "godTierOrgasm",
-        label: "God-Tier Orgasm Bonus",
+        label: "God-Tier Nut Bonus",
         section: "bonuses",
       },
       {
@@ -593,7 +593,7 @@ export const SceneRatingCriteriaCriterionOption =
       },
       {
         key: "orgasmBonus",
-        label: "Solo Orgasm Bonus",
+        label: "Solo Nut Bonus",
         section: "bonuses",
       },
       {
@@ -605,7 +605,7 @@ export const SceneRatingCriteriaCriterionOption =
     penalties: [
       {
         key: "noOrgasm",
-        label: "No Orgasm Penalty",
+        label: "No Nut Penalty",
         section: "penalties",
       },
       {

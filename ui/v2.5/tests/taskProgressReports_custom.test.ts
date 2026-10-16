@@ -18,7 +18,6 @@ import {
   taskProgressReportMonths,
   taskProgressReportPeriod,
   taskProgressReportRow,
-  taskProgressReportTrendDays,
   taskProgressComparisonLabel,
   taskProgressReportWeeks,
 } from "../src/components/TaskProgress/taskProgressReports_custom.ts";
@@ -182,21 +181,6 @@ assert.deepEqual(
   ],
   [20, 65, 20, 1, 1],
   "Daily report totals include only the selected day"
-);
-const dailyTrend = taskProgressReportTrendDays(history, "2026-09-20", today);
-assert.equal(dailyTrend.length, 7);
-assert.equal(dailyTrend[0].date, "2026-09-14");
-assert.equal(dailyTrend[6].date, "2026-09-20");
-assert.equal(
-  dailyTrend.reduce((sum, day) => sum + day.completed, 0),
-  45,
-  "historical trends never include activity after the selected day"
-);
-assert.equal(dailyTrend[1].completed, 0, "the trend retains quiet days");
-assert.equal(
-  dailyTrend[3].goal,
-  20,
-  "the trend retains effective goal changes"
 );
 const pastWeek = taskProgressReportRow(
   history,

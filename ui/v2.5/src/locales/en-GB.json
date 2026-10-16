@@ -677,7 +677,7 @@
         "facial": "Facial marker tag",
         "really_hot": "Really Hot qualifier tag (gold facial icon when combined with facial)",
         "goat": "GOAT tag (Royal Sapphire card override)",
-        "orgasm": "Orgasm marker tag",
+        "orgasm": "Nut marker tag",
         "feet": "Feet marker tag",
         "second_camera": "2nd Camera marker tag (excluded from counts)",
         "o_stats_exclusions": "O stats tag exclusions"
@@ -686,7 +686,7 @@
         "heading": "Scene Card Insights",
         "caption_hidden_tags": {
           "heading": "Tags hidden from the thumbnail caption",
-          "description": "Thumbnail captions skip these exact tags, like everyday activity or negative orgasm tags. Their subtags still show."
+          "description": "Thumbnail captions skip these exact tags, like everyday activity or negative nut tags. Their subtags still show."
         },
         "visible_limit": {
           "heading": "Visible insight chips",
@@ -1655,7 +1655,7 @@
   "standard_facial_count": "Facial Count (Standard)",
   "really_hot_facial_count": "Facial Count (Really Hot)",
   "facial_count": "Facial Count",
-  "really_hot_orgasm_count": "Orgasm Count (Really Hot)",
+  "really_hot_orgasm_count": "Nut Count (Really Hot)",
   "royal_sapphire_scene_count": "Royal Sapphire Scene Count",
   "gold_scene_count": "Gold Scene Count",
   "goat_element_bonus": "GOAT Element Bonus",
@@ -1675,18 +1675,18 @@
   "rating_criteria_top_attractiveness": "Avg Standard Top(s) Attractiveness",
   "rating_criteria_bottom_attractiveness": "Avg Standard Bottom(s) Attractiveness",
   "rating_criteria_chemistry": "Avg Standard Energy / Quality",
-  "rating_criteria_payoff": "Avg Standard Orgasm Quality",
+  "rating_criteria_payoff": "Avg Standard Nut Quality",
   "rating_criteria_standout": "Avg Standard Usable Factor",
   "rating_criteria_group_top_attractiveness": "Avg Group Top Lineup Attractiveness",
   "rating_criteria_group_energy": "Avg Group Energy / Coordination",
-  "rating_criteria_group_payoff": "Avg Group Orgasm Quality",
+  "rating_criteria_group_payoff": "Avg Group Nut Quality",
   "rating_criteria_group_usability": "Avg Group Usability",
   "sex_top_activity_percent": "Sex Top %",
   "sex_bottom_activity_percent": "Sex Bottom %",
   "oral_top_activity_percent": "Oral Top %",
   "oral_bottom_activity_percent": "Oral Bottom %",
   "facial_scene_count": "Facial Scene Count",
-  "orgasm_count": "Orgasm Count",
+  "orgasm_count": "Nut Count",
   "feet_markers_count": "Feet Marker Count",
   "facial_given_count": "Facials Given",
   "facial_received_count": "Facials Received",

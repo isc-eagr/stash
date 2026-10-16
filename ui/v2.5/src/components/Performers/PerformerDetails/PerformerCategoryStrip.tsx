@@ -884,7 +884,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                 let orgasmUrl = NavUtils.makePerformerOrgasmMarkersUrl(
                   performer,
                   orgasmTagId,
-                  "Orgasm"
+                  "Nut"
                 );
                 if (studioContext)
                   orgasmUrl = NavUtils.withStudioScope(
@@ -909,12 +909,12 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                         sceneId
                           ? `${
                               p.name || "Performer"
-                            } had ${orgasmTopCount} orgasm${
+                            } had ${orgasmTopCount} nut${
                               orgasmTopCount !== 1 ? "s" : ""
                             } in this scene`
                           : `${
                               p.name || "Performer"
-                            } has ${orgasmTopCount} total orgasm${
+                            } has ${orgasmTopCount} total nut${
                               orgasmTopCount !== 1 ? "s" : ""
                             }`
                       }
@@ -932,7 +932,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                         >
                           <img
                             src={spermsSvg}
-                            alt="Orgasm"
+                            alt="Nut"
                             className="category-icon"
                           />
                           <span className="role-total-count">
@@ -943,7 +943,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                         <>
                           <img
                             src={spermsSvg}
-                            alt="Orgasm"
+                            alt="Nut"
                             className="category-icon"
                           />
                           <span className="role-total-count">

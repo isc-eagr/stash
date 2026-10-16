@@ -105,27 +105,29 @@ try {
   await page.clock.pauseAt(new Date("2026-09-24T18:00:00Z"));
   await page.goto("http://progress-charts.test/");
   const chart = page.locator(".task-progress-history-chart");
-  await chart.locator(".progress-report-trend").waitFor();
-  assert.equal(await chart.locator(".progress-report-trend-point").count(), 30);
-  const dailyPoint = chart.locator(
-    '.progress-report-trend-point[aria-label^="23/09/2026:"]'
+  await chart.locator(".progress-report-calendar").waitFor();
+  assert.equal(
+    await chart.getByRole("button", { name: "Daily", exact: true }).count(),
+    0
   );
-  await dailyPoint.focus();
-  assert.match(
-    await chart.getByRole("tooltip").innerText(),
-    /Completed this day\s+10/
+  assert.equal(
+    await chart.locator(".task-progress-history-chart-totals").count(),
+    0
   );
-  assert.match(
-    await chart.getByRole("tooltip").innerText(),
-    /Cumulative by this day\s+20/
+  assert.equal(
+    await chart
+      .locator('.progress-activity-day[aria-label^="22/09/2026:"] strong')
+      .innerText(),
+    "0"
   );
-  await dailyPoint.press("Enter");
-  assert.equal(await page.evaluate(() => window.selectedDay), "2026-09-23");
-  await chart.getByRole("button", { name: "7d", exact: true }).click();
-  assert.equal(await chart.locator(".progress-report-trend-point").count(), 7);
+  assert.equal(
+    await chart
+      .locator('.progress-activity-day[aria-label^="25/09/2026:"] strong')
+      .count(),
+    0
+  );
   const screenshots = resolve(ui, "../../.local/task-progress-charts");
   await mkdir(screenshots, { recursive: true });
-  await chart.screenshot({ path: resolve(screenshots, "daily.png") });
 
   for (const [mode, selector] of [
     ["Weekly", ".progress-report-bars"],
@@ -134,7 +136,10 @@ try {
   ]) {
     await chart.getByRole("button", { name: mode, exact: true }).click();
     await chart.locator(selector).first().waitFor();
-    assert.equal(await chart.locator(".progress-report-trend").count(), 0);
+    assert.equal(
+      await chart.locator(".task-progress-history-chart-totals").count(),
+      0
+    );
     assert.equal(
       await chart
         .getByRole("button", { name: "Next", exact: true })
@@ -172,7 +177,68 @@ try {
     );
     await chart.getByRole("button", { name: "Current", exact: true }).click();
   }
-  await chart.locator(".task-progress-history-chart-totals > summary").click();
+  await chart.getByRole("button", { name: "Monthly", exact: true }).click();
+  await chart.getByRole("button", { name: "Previous", exact: true }).click();
+  assert.equal(
+    await chart.getByLabel("Choose date", { exact: true }).inputValue(),
+    "08/2026"
+  );
+  await chart
+    .getByRole("button", { name: "Totals trend", exact: true })
+    .click();
+  assert.equal(await chart.locator(".progress-activity-chart").count(), 0);
+  assert.equal(
+    await chart.locator(".task-progress-history-chart-day-target").count(),
+    30
+  );
+  assert.equal(
+    await chart.getByLabel("Choose date", { exact: true }).inputValue(),
+    "24/09/2026"
+  );
+  await chart.getByRole("button", { name: "7d", exact: true }).click();
+  assert.equal(
+    await chart.locator(".task-progress-history-chart-day-target").count(),
+    7
+  );
+  await chart.getByRole("button", { name: "All", exact: true }).click();
+  assert.equal(
+    await chart.locator(".task-progress-history-chart-day-target").count(),
+    268
+  );
+  await chart.getByRole("button", { name: "7d", exact: true }).click();
+  await chart.getByRole("button", { name: "Previous", exact: true }).click();
+  assert.equal(
+    await chart.getByLabel("Choose date", { exact: true }).inputValue(),
+    "23/09/2026"
+  );
+  await chart.getByRole("button", { name: "Monthly", exact: true }).click();
+  assert.equal(
+    await chart.getByLabel("Choose date", { exact: true }).inputValue(),
+    "08/2026"
+  );
+  await chart
+    .getByRole("button", { name: "Totals trend", exact: true })
+    .click();
+  assert.equal(
+    await chart.getByLabel("Choose date", { exact: true }).inputValue(),
+    "23/09/2026"
+  );
+  await chart.getByRole("button", { name: "Current", exact: true }).click();
+  const totalPoint = chart.locator(
+    '.task-progress-history-chart-day-target[aria-label^="23/09/2026:"]'
+  );
+  await totalPoint.focus();
+  assert.match(
+    await chart.getByRole("tooltip").innerText(),
+    /Completed this day\s+10/
+  );
+  assert.match(
+    await chart.getByRole("tooltip").innerText(),
+    /Cumulative by this day\s+20/
+  );
+  await chart
+    .getByRole("button", { name: "Totals trend", exact: true })
+    .focus();
   await chart.getByLabel("Show incoming").check();
   assert.equal(
     await chart.locator(".task-progress-history-chart-incoming-line").count(),
@@ -185,10 +251,14 @@ try {
       .count(),
     1
   );
+  await chart.screenshot({ path: resolve(screenshots, "totals-trend.png") });
   await page.evaluate(() => window.setChartView("completed"));
   await page
     .locator('.task-progress-history-chart[aria-label^="completed:"]')
     .waitFor();
+  await chart
+    .getByRole("button", { name: "Totals trend", exact: true })
+    .click();
   assert.equal(
     await chart.getByRole("button", { name: "Remaining", exact: true }).count(),
     0
@@ -208,18 +278,22 @@ try {
     .locator(".nav-link")
     .filter({ hasText: /^Daily$/ })
     .click();
-  await reports.locator(".progress-report-trend").waitFor();
-  assert.equal(
-    await reports.locator(".progress-report-trend-point").count(),
-    7
-  );
+  await reports.locator(".progress-report-tiles").waitFor();
+  assert.equal(await reports.locator(".progress-activity-chart").count(), 0);
   assert.match(
     await reports.locator(".progress-report-tiles").innerText(),
     /Items completed\s+1/i
   );
   assert.match(await reports.locator("h3").innerText(), /^24\/09\/2026$/);
   assert.equal(
-    await reports.locator(".progress-report-trend-point.selected").count(),
+    await reports
+      .getByRole("region", { name: "Trackers report" })
+      .getByRole("table")
+      .count(),
+    1
+  );
+  assert.equal(
+    await reports.getByRole("region", { name: "Milestones report" }).count(),
     1
   );
   await reports.getByRole("button", { name: "Previous", exact: true }).click();
@@ -228,19 +302,14 @@ try {
     await reports.locator(".progress-report-tiles").innerText(),
     /Items completed\s+10/i
   );
-  assert.equal(
-    await reports
-      .locator('.progress-report-trend-point[aria-label^="24/09/2026:"]')
-      .count(),
-    0
-  );
+  assert.equal(await reports.locator(".progress-activity-chart").count(), 0);
   await reports.getByRole("button", { name: "Current", exact: true }).click();
   for (const mode of ["Weekly", "Monthly", "Yearly"]) {
     await reports
       .locator(".nav-link")
       .filter({ hasText: new RegExp(`^${mode}$`) })
       .click();
-    assert.equal(await reports.locator(".progress-report-trend").count(), 0);
+    assert.equal(await reports.locator(".progress-activity-chart").count(), 1);
   }
   await reports
     .locator(".nav-link")
@@ -250,19 +319,8 @@ try {
 
   await page.setViewportSize({ width: 320, height: 900 });
   await page.evaluate(() => window.setChartView("tracker"));
-  for (const mode of ["Daily", "Weekly", "Monthly", "Yearly"]) {
+  for (const mode of ["Weekly", "Monthly", "Yearly", "Totals trend"]) {
     await chart.getByRole("button", { name: mode, exact: true }).click();
-    if (mode === "Daily") {
-      assert.ok(
-        (await chart.locator(".progress-report-trend svg").boundingBox())
-          .height >= 180,
-        "Daily trend stays readable at 320px"
-      );
-      assert.equal(
-        await chart.locator(".progress-report-trend-point text").count(),
-        3
-      );
-    }
     assert.equal(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= window.innerWidth

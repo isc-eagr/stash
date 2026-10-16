@@ -34,13 +34,14 @@ interface IProps {
   completionOnly?: boolean;
 }
 
-const dailyRanges: readonly TaskProgressHistoryRange[] = [7, 30, "all"];
+const totalsRanges: readonly TaskProgressHistoryRange[] = [7, 30, "all"];
 const periods = [
-  { key: "day", label: "Daily" },
   { key: "week", label: "Weekly" },
   { key: "month", label: "Monthly" },
   { key: "year", label: "Yearly" },
+  { key: "totals", label: "Totals trend" },
 ] as const;
+type ChartMode = (typeof periods)[number]["key"];
 
 export const TaskProgressHistoryChart: React.FC<IProps> = ({
   history,
@@ -53,8 +54,14 @@ export const TaskProgressHistoryChart: React.FC<IProps> = ({
   const intl = useIntl();
   const t = useProgressText();
   const [range, setRange] = React.useState<TaskProgressHistoryRange>(30);
-  const [period, setPeriod] = React.useState<TaskProgressReportRange>("day");
-  const [selectedAnchor, setAnchor] = React.useState<string>();
+  const [mode, setMode] = React.useState<ChartMode>("month");
+  const period: TaskProgressReportRange = mode === "totals" ? "day" : mode;
+  const [anchors, setAnchors] = React.useState<
+    Partial<Record<ChartMode, string>>
+  >({});
+  const selectedAnchor = anchors[mode];
+  const setAnchor = (date: string) =>
+    setAnchors((current) => ({ ...current, [mode]: date }));
   const [selectedView, setView] =
     React.useState<TaskProgressHistoryView>("cumulative");
   const view = completionOnly ? "cumulative" : selectedView;
@@ -72,19 +79,12 @@ export const TaskProgressHistoryChart: React.FC<IProps> = ({
   );
   const days = React.useMemo(
     () =>
-      period === "day"
-        ? points.map((point) => ({
-            date: point.date,
-            completed: point.completed,
-            goal: point.goalPerDay ?? 0,
-            future: false,
-          }))
-        : taskProgressReportDays(
-            history.map((day) => ({ ...day, goal_per_day: day.goalPerDay })),
-            selected,
-            today
-          ),
-    [history, period, points, selected, today]
+      taskProgressReportDays(
+        history.map((day) => ({ ...day, goal_per_day: day.goalPerDay })),
+        selected,
+        today
+      ),
+    [history, selected, today]
   );
   const tablePoints = filterTaskProgressHistoryActivityPoints(points);
   // Scope columns only appear when the range has membership or deletion changes.
@@ -124,21 +124,21 @@ export const TaskProgressHistoryChart: React.FC<IProps> = ({
             <button
               key={key}
               type="button"
-              aria-pressed={period === key}
-              className={period === key ? "active" : undefined}
-              onClick={() => setPeriod(key)}
+              aria-pressed={mode === key}
+              className={mode === key ? "active" : undefined}
+              onClick={() => setMode(key)}
             >
               {t(label)}
             </button>
           ))}
         </div>
-        {period === "day" && (
+        {mode === "totals" && (
           <div
             className="task-progress-history-chart-toggle"
             role="group"
             aria-label={t("History range")}
           >
-            {dailyRanges.map((option) => (
+            {totalsRanges.map((option) => (
               <button
                 key={option}
                 type="button"
@@ -159,23 +159,25 @@ export const TaskProgressHistoryChart: React.FC<IProps> = ({
         today={today}
         onChange={setAnchor}
       />
-      <TaskProgressReportActivity
-        range={period}
-        days={days}
-        selectedDate={selectedDate ?? (period === "day" ? anchor : undefined)}
-        onSelectDay={onSelectDay}
-        renderDayTooltip={(date) => {
-          const point = points.find((item) => item.date === date);
-          return point ? (
-            <TaskProgressHistoryTooltip
-              point={point}
-              view={view}
-              showIncoming
-            />
-          ) : undefined;
-        }}
-      />
-      {points.length > 0 && (
+      {mode !== "totals" && (
+        <TaskProgressReportActivity
+          range={mode}
+          days={days}
+          selectedDate={selectedDate}
+          onSelectDay={onSelectDay}
+          renderDayTooltip={(date) => {
+            const point = points.find((item) => item.date === date);
+            return point ? (
+              <TaskProgressHistoryTooltip
+                point={point}
+                view={view}
+                showIncoming
+              />
+            ) : undefined;
+          }}
+        />
+      )}
+      {mode === "totals" && points.length > 0 && (
         <TaskProgressHistoryTotals
           points={points}
           title={title}

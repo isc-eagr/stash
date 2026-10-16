@@ -38,10 +38,10 @@ export const SceneCardOrgasmReport: React.FC<{
   if (groups.length === 0) {
     return (
       <span
-        aria-label="No orgasms"
+        aria-label="No nuts"
         className="scene-card-orgasm-report is-none"
         role="img"
-        title="No orgasm or facial markers"
+        title="No nut or facial markers"
       >
         <span className="scene-card-orgasm-report__group">
           <ReportIcon category="orgasm" />
@@ -72,7 +72,7 @@ export const SceneCardOrgasmReport: React.FC<{
       }`}
     >
       <span
-        aria-label={`Orgasm report: ${groups
+        aria-label={`Nut report: ${groups
           .map(sceneCardOrgasmReportGroupLabelCustom)
           .join(", ")}`}
         className="scene-card-orgasm-report"

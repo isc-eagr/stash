@@ -100,19 +100,6 @@
     stroke-width: 2;
   }
 
-  &-totals {
-    border-top: 1px solid rgba(138, 155, 168, 0.2);
-    margin-top: 0.75rem;
-    padding-top: 0.5rem;
-
-    summary {
-      cursor: pointer;
-      font-size: 0.8rem;
-      margin-bottom: 0.5rem;
-      width: fit-content;
-    }
-  }
-
   &-legend {
     display: flex;
     flex-wrap: wrap;
