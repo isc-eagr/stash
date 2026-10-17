@@ -66,6 +66,7 @@ query TaskProgressOrganizedScenes {
       removed
       baseline_count
       goal_per_day
+      completed_total
     }
   }
 }

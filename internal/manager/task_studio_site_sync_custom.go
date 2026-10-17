@@ -11,6 +11,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -31,8 +32,24 @@ const (
 	siteSyncConfigKeyCustom = "studioSiteSync"
 )
 
+// StudioSiteSyncStepsCustom picks the parts of a site sync to run.
+type StudioSiteSyncStepsCustom struct {
+	// Codes finds codes for scenes without one.
+	Codes bool
+	// Metadata fills titles, dates, details, links and covers.
+	Metadata bool
+	// Pictures downloads missing members pictures; sites without downloads
+	// ignore it.
+	Pictures bool
+	// Galleries scans picture folders and builds the galleries.
+	Galleries bool
+}
+
 // StudioSiteSyncCustom queues the site sync for a studio and returns the job ID.
-func (s *Manager) StudioSiteSyncCustom(ctx context.Context, studioID int) (int, error) {
+func (s *Manager) StudioSiteSyncCustom(ctx context.Context, studioID int, steps StudioSiteSyncStepsCustom) (int, error) {
+	if !steps.Codes && !steps.Metadata && !steps.Pictures && !steps.Galleries {
+		return 0, errors.New("pick at least one step")
+	}
 	var studio *models.Studio
 	if err := s.Repository.WithReadTxn(ctx, func(ctx context.Context) error {
 		var err error
@@ -53,37 +70,49 @@ func (s *Manager) StudioSiteSyncCustom(ctx context.Context, studioID int) (int, 
 		return 0, fmt.Errorf("set the %s pictures folder in Settings > Custom first", studio.Name)
 	}
 
+	site := sitesync.New(key, sitesync.NewClient(cfg.Username, cfg.Password, siteSyncRequestDelayCustom))
+	name := site.Name()
 	task := &studioSiteSyncTaskCustom{
 		data:     &repoSiteSyncDataCustom{repo: s.Repository},
-		site:     sitesync.New(key, sitesync.NewClient(cfg.Username, cfg.Password, siteSyncRequestDelayCustom)),
+		site:     site,
 		studioID: studioID,
 		picsPath: filepath.Clean(cfg.PicsPath),
+		steps:    steps,
+		report:   newSiteSyncReportCustom(name),
 	}
-	name := task.site.Name()
-	galleries := job.MakeJobExec(func(ctx context.Context, progress *job.Progress) error {
+	sync := job.MakeJobExec(func(ctx context.Context, progress *job.Progress) (err error) {
+		defer func() { task.report.finish(ctx, err) }()
+		scanPaths, err := task.syncScenes(ctx, progress)
+		if err != nil || job.IsCancelled(ctx) || !steps.Galleries {
+			return err
+		}
+		if len(scanPaths) > 0 {
+			// The scan runs inside this job so the report covers the galleries too.
+			logger.Infof("[site sync] %s: scanning %d picture folders before creating galleries", name, len(scanPaths))
+			input := ScanMetadataInput{Paths: scanPaths}
+			if defaults := config.GetInstance().GetDefaultScanSettings(); defaults != nil {
+				input.ScanMetadataOptions = *defaults
+			}
+			var scan *ScanJob
+			if scan, err = s.newScanJob(input); err != nil {
+				return err
+			}
+			progress.ExecuteTask(fmt.Sprintf("Scanning %d picture folders", len(scanPaths)), func() {
+				err = scan.Execute(ctx, progress)
+			})
+			if err != nil || job.IsCancelled(ctx) {
+				return err
+			}
+			task.report.update(func(r *models.StudioSiteSyncReport) { r.ScannedFolders = len(scanPaths) })
+		}
 		return task.createGalleries(ctx, progress)
 	})
-	sync := job.MakeJobExec(func(ctx context.Context, progress *job.Progress) error {
-		scanPaths, err := task.syncScenes(ctx, progress)
-		if err != nil || job.IsCancelled(ctx) {
-			return err
-		}
-		if len(scanPaths) == 0 {
-			return task.createGalleries(ctx, progress)
-		}
-		// Jobs run one at a time, so the galleries job starts after the scan.
-		logger.Infof("[site sync] %s: scanning %d picture folders before creating galleries", name, len(scanPaths))
-		input := ScanMetadataInput{Paths: scanPaths}
-		if defaults := config.GetInstance().GetDefaultScanSettings(); defaults != nil {
-			input.ScanMetadataOptions = *defaults
-		}
-		if _, err := s.Scan(ctx, input); err != nil {
-			return err
-		}
-		s.JobManager.Add(ctx, fmt.Sprintf("Creating %s galleries...", name), galleries)
-		return nil
-	})
-	return s.JobManager.Add(ctx, fmt.Sprintf("Syncing %s from its site...", name), sync), nil
+	jobID := s.JobManager.Add(ctx, fmt.Sprintf("Syncing %s from its site...", name), sync)
+	task.report.update(func(r *models.StudioSiteSyncReport) { r.JobID = jobID })
+	siteSyncReportsCustom.mu.Lock()
+	siteSyncReportsCustom.byStudio[studioID] = task.report
+	siteSyncReportsCustom.mu.Unlock()
+	return jobID, nil
 }
 
 // studioSiteSyncConfigCustom reads uiConfig.studioSiteSync.<key>.
@@ -125,6 +154,8 @@ type studioSiteSyncTaskCustom struct {
 	site     sitesync.Site
 	studioID int
 	picsPath string
+	steps    StudioSiteSyncStepsCustom
+	report   *siteSyncReportCustom
 	// Code -> hand-added pictures folders, read once per run.
 	folders map[string][]string
 }
@@ -135,8 +166,9 @@ type siteSyncWorkCustom struct {
 	newCode bool
 }
 
-// syncScenes fills codes and metadata and downloads missing pictures. It
-// returns the picture folders Stash still has to scan.
+// syncScenes saves codes, fills metadata and downloads missing pictures, as
+// far as the chosen steps go. It returns the picture folders Stash still has
+// to scan, none when galleries are not built.
 func (t *studioSiteSyncTaskCustom) syncScenes(ctx context.Context, progress siteSyncProgressCustom) ([]string, error) {
 	name := t.site.Name()
 	scenes, err := t.data.Scenes(ctx, t.studioID)
@@ -148,34 +180,40 @@ func (t *studioSiteSyncTaskCustom) syncScenes(ctx context.Context, progress site
 		return nil, err
 	}
 
-	var scrape, download []*siteSyncWorkCustom
+	var fill, download []*siteSyncWorkCustom
 	for _, w := range work {
-		if w.newCode || w.scene.Title == "" || w.scene.Date == "" {
-			scrape = append(scrape, w)
+		if w.newCode || (t.steps.Metadata && (w.scene.Title == "" || w.scene.Date == "")) {
+			fill = append(fill, w)
 		}
-		if !w.scene.HasGallery {
+		if !w.scene.HasGallery && (t.steps.Pictures || t.steps.Galleries) {
 			download = append(download, w)
 		}
 	}
-	progress.SetTotal(len(scrape) + len(download))
+	progress.SetTotal(len(fill) + len(download))
 	progress.SetProcessed(0)
 
 	updated, notOnSite, failed := 0, 0, 0
-	for _, w := range scrape {
+	for _, w := range fill {
 		if job.IsCancelled(ctx) {
 			return nil, nil
 		}
-		md, err := t.site.Scrape(ctx, w.code, siteSyncSceneCustom(w.scene))
-		switch {
-		case errors.Is(err, sitesync.ErrUnauthorized):
-			return nil, fmt.Errorf("%s: %w; check the credentials in Settings > Custom", name, err)
-		case errors.Is(err, sitesync.ErrNotFound):
-			notOnSite++
-			logger.Infof("[site sync] %s: %s (code %s) is not on the site", name, w.scene.Basename, w.code)
-		case err != nil:
-			failed++
-			logger.Warnf("[site sync] %s: reading %s (code %s): %v", name, w.scene.Basename, w.code, err)
+		var md sitesync.Metadata
+		if t.steps.Metadata {
+			md, err = t.site.Scrape(ctx, w.code, siteSyncSceneCustom(w.scene))
+			switch {
+			case errors.Is(err, sitesync.ErrUnauthorized):
+				return nil, fmt.Errorf("%s: %w; check the credentials in Settings > Custom", name, err)
+			case errors.Is(err, sitesync.ErrNotFound):
+				notOnSite++
+				logger.Infof("[site sync] %s: %s (code %s) is not on the site", name, w.scene.Basename, w.code)
+				t.report.issue(w.scene, w.code, fmt.Sprintf("Code %s is not on the site", w.code))
+			case err != nil:
+				failed++
+				logger.Warnf("[site sync] %s: reading %s (code %s): %v", name, w.scene.Basename, w.code, err)
+				t.report.issue(w.scene, w.code, fmt.Sprintf("Reading the site failed: %v", err))
+			}
 		}
+		var filled []string
 		// The site's image replaces the generated cover when the scene is
 		// filled for the first time. It goes first so the scene update below
 		// refreshes the cover's cache key.
@@ -183,13 +221,26 @@ func (t *studioSiteSyncTaskCustom) syncScenes(ctx context.Context, progress site
 			if err := t.updateCover(ctx, w.scene.ID, md.Cover); err != nil {
 				failed++
 				logger.Warnf("[site sync] %s: setting the cover of %s (code %s): %v", name, w.scene.Basename, w.code, err)
+				t.report.issue(w.scene, w.code, fmt.Sprintf("Setting the cover failed: %v", err))
+			} else {
+				filled = append(filled, "cover")
 			}
 		}
-		if partial, changed := siteSyncScenePartialCustom(w, md); changed {
+		if partial, fields := siteSyncScenePartialCustom(w, md); len(fields) > 0 {
 			if err := t.data.UpdateScene(ctx, w.scene.ID, partial); err != nil {
 				return nil, err
 			}
 			updated++
+			filled = append(fields, filled...)
+			if partial.Title.Set {
+				w.scene.Title = md.Title
+			}
+		}
+		if len(filled) > 0 {
+			t.report.note(w.scene, func(c *models.StudioSiteSyncSceneChange) {
+				c.Title, c.Code = w.scene.Title, w.code
+				c.Filled = append(c.Filled, filled...)
+			})
 		}
 		progress.Increment()
 	}
@@ -206,19 +257,28 @@ func (t *studioSiteSyncTaskCustom) syncScenes(ctx context.Context, progress site
 			return nil, err
 		}
 		created := false
-		if downloads {
+		if downloads && t.steps.Pictures {
 			created, err = sitesync.DownloadPics(ctx, picsSite, t.picsPath, w.code)
-		} else if len(dirs) == 0 {
+		} else if !downloads && len(dirs) == 0 {
 			err = sitesync.ErrNotFound
 		}
 		switch {
 		case err == nil && created:
 			downloaded++
-			scanPaths = append(scanPaths, dirs...)
-		case err == nil:
+			t.report.note(w.scene, func(c *models.StudioSiteSyncSceneChange) {
+				c.Code = w.code
+				c.Pictures = true
+			})
+			if t.steps.Galleries {
+				scanPaths = append(scanPaths, dirs...)
+			}
+		case err == nil && t.steps.Galleries:
 			// Downloaded or added before, but never scanned or scanned while
 			// still empty.
 			for _, dir := range dirs {
+				if entries, err := os.ReadDir(dir); err != nil || len(entries) == 0 {
+					continue
+				}
 				ids, err := t.data.FolderImageIDs(ctx, dir)
 				if err != nil {
 					return nil, err
@@ -231,37 +291,46 @@ func (t *studioSiteSyncTaskCustom) syncScenes(ctx context.Context, progress site
 			membersClosed++
 		case errors.Is(err, sitesync.ErrNotFound):
 			noPictures++
-		default:
+		case err != nil:
 			failed++
 			logger.Warnf("[site sync] %s: downloading pictures for code %s: %v", name, w.code, err)
+			t.report.issue(w.scene, w.code, fmt.Sprintf("Downloading pictures failed: %v", err))
 		}
 		progress.Increment()
 	}
 
 	logger.Infof("[site sync] %s: %d scenes updated, %d not on the site, %d picture folders downloaded, %d codes without pictures, %d failures",
 		name, updated, notOnSite, downloaded, noPictures, failed)
-	if downloads && t.site.Client().MembersUnavailable() {
+	t.report.update(func(r *models.StudioSiteSyncReport) { r.NoPictures = noPictures })
+	// Only the metadata and pictures steps read the members area.
+	if downloads && (t.steps.Metadata || t.steps.Pictures) && t.site.Client().MembersUnavailable() {
 		logger.Warnf("[site sync] %s: the members area refused the credentials or has none set, so members-only dates were skipped and %d codes still need pictures",
 			name, membersClosed)
+		t.report.update(func(r *models.StudioSiteSyncReport) {
+			r.Warnings = append(r.Warnings, fmt.Sprintf(
+				"The members area refused the login (or none is set), so members-only dates were skipped and %d scenes still need pictures.", membersClosed))
+		})
 	}
 	return scanPaths, nil
 }
 
-// resolveCodes picks each unpostponed scene's code: the stored one, one read
-// from the file name or URLs, or for sites that need it a match against the
-// site's own video links.
+// resolveCodes picks each unpostponed scene's code: the stored one or, when
+// codes are matched, one read from the file name or URLs, or for sites that
+// need it a match against the site's own video links.
 func (t *studioSiteSyncTaskCustom) resolveCodes(ctx context.Context, scenes []models.SiteSyncSceneCustom) ([]*siteSyncWorkCustom, error) {
 	name := t.site.Name()
-	taken := map[string]bool{}
+	holders := map[string]string{} // code -> scene holding it, for the report
 	var work []*siteSyncWorkCustom
 	var unresolved []sitesync.Scene
 	pending := map[int]models.SiteSyncSceneCustom{}
+	postponed := 0
 	for _, scene := range scenes {
 		if scene.Postponed {
+			postponed++
 			continue
 		}
 		code, newCode := scene.Code, false
-		if code == "" {
+		if code == "" && t.steps.Codes {
 			code = t.site.SceneCode(siteSyncSceneCustom(scene))
 			newCode = code != ""
 		}
@@ -270,22 +339,30 @@ func (t *studioSiteSyncTaskCustom) resolveCodes(ctx context.Context, scenes []mo
 			pending[scene.ID] = scene
 			continue
 		}
-		taken[code] = true
+		holders[code] = siteSyncSceneLabelCustom(scene)
 		work = append(work, &siteSyncWorkCustom{scene: scene, code: code, newCode: newCode})
 	}
+	t.report.update(func(r *models.StudioSiteSyncReport) {
+		r.Checked = len(scenes) - postponed
+		r.Postponed = postponed
+	})
+	resolver, ok := t.site.(sitesync.CodeResolver)
+	if !t.steps.Codes || !ok || len(unresolved) == 0 {
+		return work, nil
+	}
+
 	// Postponed scenes still hold their codes, stored or in the file name.
 	for _, scene := range scenes {
 		if !scene.Postponed {
 			continue
 		}
 		if code := cmp.Or(scene.Code, t.site.SceneCode(siteSyncSceneCustom(scene))); code != "" {
-			taken[code] = true
+			holders[code] = siteSyncSceneLabelCustom(scene) + " (postponed)"
 		}
 	}
-
-	resolver, ok := t.site.(sitesync.CodeResolver)
-	if !ok || len(unresolved) == 0 {
-		return work, nil
+	taken := make(map[string]bool, len(holders))
+	for code := range holders {
+		taken[code] = true
 	}
 	res, err := resolver.ResolveCodes(ctx, unresolved, taken)
 	if err != nil {
@@ -302,13 +379,18 @@ func (t *studioSiteSyncTaskCustom) resolveCodes(ctx context.Context, scenes []mo
 	for _, scene := range unresolved {
 		if codes, ok := res.Ambiguous[scene.ID]; ok {
 			logger.Warnf("[site sync] %s: %s could be codes %s; set its code by hand", name, scene.Basename, strings.Join(codes, ", "))
+			t.report.issue(pending[scene.ID], "", fmt.Sprintf("Could be codes %s; set the code by hand", strings.Join(codes, ", ")))
 		}
 		if codes, ok := res.Taken[scene.ID]; ok {
 			logger.Infof("[site sync] %s: %s matches code %s, which another scene already has", name, scene.Basename, strings.Join(codes, ", "))
+			for _, code := range codes {
+				t.report.issue(pending[scene.ID], "", fmt.Sprintf("Matches code %s, already on %s", code, holders[code]))
+			}
 		}
 	}
 	for _, id := range res.Unmatched {
 		logger.Debugf("[site sync] %s: %s is not in the members index", name, pending[id].Basename)
+		t.report.issue(pending[id], "", "Not in the members index or the folders after it; set the code by hand")
 	}
 	logger.Infof("[site sync] %s: matched %d scenes to codes, %d ambiguous, %d matching codes already in use, %d not in the members index",
 		name, len(res.Codes), len(res.Ambiguous), len(res.Taken), len(res.Unmatched))
@@ -318,27 +400,28 @@ func (t *studioSiteSyncTaskCustom) resolveCodes(ctx context.Context, scenes []mo
 }
 
 // siteSyncScenePartialCustom fills only empty fields, so values set by hand
-// are never replaced, and adds URLs the scene lacks.
-func siteSyncScenePartialCustom(w *siteSyncWorkCustom, md sitesync.Metadata) (models.ScenePartial, bool) {
+// are never replaced, and adds URLs the scene lacks. It returns the fields it
+// fills.
+func siteSyncScenePartialCustom(w *siteSyncWorkCustom, md sitesync.Metadata) (models.ScenePartial, []string) {
 	partial := models.NewScenePartial()
-	changed := false
+	var filled []string
 	if w.newCode {
 		partial.Code = models.NewOptionalString(w.code)
-		changed = true
+		filled = append(filled, "code")
 	}
 	if w.scene.Title == "" && md.Title != "" {
 		partial.Title = models.NewOptionalString(md.Title)
-		changed = true
+		filled = append(filled, "title")
 	}
 	if w.scene.Date == "" && md.Date != "" {
 		if d, err := models.ParseDate(md.Date); err == nil {
 			partial.Date = models.NewOptionalDate(d)
-			changed = true
+			filled = append(filled, "date")
 		}
 	}
 	if w.scene.Details == "" && md.Details != "" {
 		partial.Details = models.NewOptionalString(md.Details)
-		changed = true
+		filled = append(filled, "details")
 	}
 	var urls []string
 	for _, u := range md.URLs {
@@ -348,9 +431,9 @@ func siteSyncScenePartialCustom(w *siteSyncWorkCustom, md sitesync.Metadata) (mo
 	}
 	if len(urls) > 0 {
 		partial.URLs = &models.UpdateStrings{Values: urls, Mode: models.RelationshipUpdateModeAdd}
-		changed = true
+		filled = append(filled, "urls")
 	}
-	return partial, changed
+	return partial, filled
 }
 
 // createGalleries builds a gallery for every coded scene without one whose
@@ -403,6 +486,7 @@ func (t *studioSiteSyncTaskCustom) createGalleries(ctx context.Context, progress
 		if err := t.data.CreateGallery(ctx, &gallery, ids); err != nil {
 			return err
 		}
+		t.report.note(scene, func(c *models.StudioSiteSyncSceneChange) { c.GalleryID = &gallery.ID })
 		created++
 		progress.Increment()
 	}
@@ -458,6 +542,12 @@ func (t *studioSiteSyncTaskCustom) updateCover(ctx context.Context, sceneID int,
 		return err
 	}
 	return t.data.UpdateCover(ctx, sceneID, image)
+}
+
+// siteSyncSceneLabelCustom names a scene in the report: its title, or its
+// file name when it has none.
+func siteSyncSceneLabelCustom(s models.SiteSyncSceneCustom) string {
+	return cmp.Or(s.Title, s.Basename)
 }
 
 func siteSyncSceneCustom(s models.SiteSyncSceneCustom) sitesync.Scene {

@@ -29,6 +29,8 @@ func recordTaskProgressOverallSceneChangeCustom(ctx context.Context, change stri
 	case taskProgressOverallSceneCreatedCustom:
 		eventType = models.TaskProgressEventIncoming
 	case taskProgressOverallSceneDestroyedCustom:
+		// Keep deletion snapshots so history can credit pending work, including
+		// deletions recorded before they counted toward goals.
 		eventType = models.TaskProgressEventAdjustment
 	case taskProgressOverallSceneUpdatedCustom:
 		if beforeOrganized == afterOrganized {
@@ -123,11 +125,12 @@ WITH dates AS (
   SELECT effective_on FROM task_progress_goal_history WHERE tracker_id = 0
 ), daily AS (
   SELECT occurred_on,
-         SUM(event_type = 'COMPLETED') AS completed,
+         -- Credit deleted pending work on its original date. Organized scenes
+         -- already earned completion, so deleting them adds no second credit.
+         SUM(CASE WHEN event_type = 'COMPLETED' THEN 1
+                  WHEN event_type = 'ADJUSTMENT' THEN MAX(COALESCE(previous_remaining - remaining_count, 0), 0)
+                  ELSE 0 END) AS completed,
          SUM(event_type = 'INCOMING') AS incoming,
-         -- A deletion only removes work when the snapshot's remaining count drops,
-         -- so deleted organized scenes keep their completion and count nowhere.
-         SUM(CASE WHEN event_type = 'ADJUSTMENT' THEN MAX(previous_remaining - remaining_count, 0) END) AS removed,
          MAX(CASE WHEN event_type = 'BASELINE' THEN id END) AS baseline_id
     FROM (SELECT *, LAG(remaining_count) OVER (ORDER BY id) AS previous_remaining
             FROM task_progress_overall_events)
@@ -136,15 +139,19 @@ WITH dates AS (
 SELECT dates.occurred_on,
        COALESCE(d.completed, 0),
        COALESCE(d.incoming, 0),
-       COALESCE(d.removed, 0),
-       (SELECT remaining_count FROM task_progress_overall_events e
-         WHERE e.occurred_on <= dates.occurred_on ORDER BY e.occurred_on DESC, e.id DESC LIMIT 1),
+       latest.remaining_count,
+       latest.organized_count,
        baseline.remaining_count,
        (SELECT goal_per_day FROM task_progress_goal_history g
          WHERE g.tracker_id = 0 AND g.effective_on <= dates.occurred_on
          ORDER BY g.effective_on DESC, g.created_at DESC LIMIT 1)
   FROM dates
   LEFT JOIN daily d ON d.occurred_on = dates.occurred_on
+  -- The card counts organized scenes, so the day's closing snapshot anchors
+  -- cumulative totals, including scenes organized before tracking began.
+  LEFT JOIN task_progress_overall_events latest ON latest.id = (
+    SELECT e.id FROM task_progress_overall_events e
+     WHERE e.occurred_on <= dates.occurred_on ORDER BY e.occurred_on DESC, e.id DESC LIMIT 1)
   LEFT JOIN task_progress_overall_events baseline ON baseline.id = d.baseline_id
  ORDER BY dates.occurred_on`
 	rows, err := dbWrapper.QueryxContext(ctx, historyQuery)
@@ -154,7 +161,7 @@ SELECT dates.occurred_on,
 	defer rows.Close()
 	for rows.Next() {
 		day := &models.TaskProgressDay{}
-		if err := rows.Scan(&day.Date, &day.Completed, &day.Incoming, &day.Removed, &day.Remaining, &day.BaselineCount, &day.GoalPerDay); err != nil {
+		if err := rows.Scan(&day.Date, &day.Completed, &day.Incoming, &day.Remaining, &day.CompletedTotal, &day.BaselineCount, &day.GoalPerDay); err != nil {
 			return nil, fmt.Errorf("scanning overall task progress history: %w", err)
 		}
 		ret.CompletedCount += day.Completed

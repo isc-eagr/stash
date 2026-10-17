@@ -61,3 +61,13 @@ assert.match(
 assert.match(modalSource, /size="xl"/);
 assert.match(modalSource, /\{t\("Overall Progress"\)\}/);
 assert.match(modalSource, /currentGoalPerDay=\{goalPerDay\}/);
+
+for (const source of [overallSource, modalSource]) {
+  const summary = source.match(/<TaskProgressGoalSummary[\s\S]*?\/>/)?.[0];
+  assert.ok(summary);
+  assert.match(
+    summary,
+    /completedTotal: day\.completed_total \?\? undefined,/,
+    "Overall card and Details period percentages receive the organized-scene snapshots"
+  );
+}

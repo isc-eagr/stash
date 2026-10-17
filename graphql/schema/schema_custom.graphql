@@ -24,6 +24,12 @@ extend type Query {
 
   "Report of the latest StashDB Matches refresh; null before the first run"
   stashDBMatchesReport: StashDBMatchesReport
+
+  "Latest StashDB Changes check of scenes and performers"
+  stashDBChangesReport: StashDBChangesReport!
+
+  "Latest site sync report for a studio since the last restart; null before its first run"
+  studioSiteSyncReport(studio_id: ID!): StudioSiteSyncReport
 }
 
 type RemotePlaybackState {
@@ -164,8 +170,20 @@ extend type Mutation {
   "Refresh StashDB Matches for every scene linked to StashDB. Returns the job ID."
   refreshStashDBMatches: ID!
 
-  "Fill a studio's scenes from its site, download missing pictures and build galleries. Returns the job ID."
-  studioSiteSync(studio_id: ID!): ID!
+  "Compare StashDB-linked scenes and/or performers with StashDB. Returns the job ID."
+  checkStashDBChanges(input: StashDBChangesCheckInput!): ID!
+  """
+  Write a scene's StashDB values for the given report fields and return the
+  entry with what is left.
+  """
+  applyStashDBSceneChanges(input: StashDBChangesApplyInput!): StashDBSceneChange!
+  "Write a performer's StashDB values for the given report fields."
+  applyStashDBPerformerChanges(
+    input: StashDBChangesApplyInput!
+  ): StashDBPerformerChange!
+
+  "Run the chosen site sync steps for a studio. Returns the job ID."
+  studioSiteSync(input: StudioSiteSyncInput!): ID!
 
   "Create a new release for a scene"
   sceneReleaseCreate(input: SceneReleaseCreateInput!): SceneRelease

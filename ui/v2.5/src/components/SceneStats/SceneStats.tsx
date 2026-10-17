@@ -112,6 +112,12 @@ const SCENE_STATS_TOTALS = gql`
       date_range: $dateRange
       cohort: $cohort
     )
+    totalSoloTime(
+      studio_id: $studioId
+      depth: $depth
+      date_range: $dateRange
+      cohort: $cohort
+    )
   }
 `;
 
@@ -131,6 +137,7 @@ const SCENE_STATS_ROLE_TAGS = gql`
 type SceneStatsTotalsData = {
   totalSexTime: number;
   totalOralTime: number;
+  totalSoloTime: number;
 };
 
 type SceneStatsRoleTagsData = {
@@ -1445,6 +1452,26 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
                 Average Scenes Per Vato
               </div>
             </div>
+            {/* CUSTOM: activity-time totals share the first summary row. */}
+            {[
+              { label: "Total Fucking Time", seconds: summary.totalSexTime },
+              {
+                label: "Total Sucking Pito Time",
+                seconds: summary.totalOralTime,
+              },
+              { label: "Total Jerking Time", seconds: summary.totalSoloTime },
+            ].map(
+              ({ label, seconds }) =>
+                typeof seconds === "number" &&
+                seconds > 0 && (
+                  <div key={label} className="scenestats-summary-card">
+                    <div className="scenestats-summary-value">
+                      {formatDuration(seconds)}
+                    </div>
+                    <div className="scenestats-summary-label">{label}</div>
+                  </div>
+                )
+            )}
           </section>
           {(sexTag || oralTag || soloTag || facialTag) && (
             <section
@@ -1605,39 +1632,6 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
               <span>{vatoCountBuckets.group.toLocaleString()}</span>
             </Link>
           </section>
-
-          {(typeof summary.totalSexTime === "number" ||
-            typeof summary.totalOralTime === "number") && (
-            <>
-              <section
-                className="scenestats-summary-grid"
-                aria-label="Scene metrics"
-              >
-                {typeof summary.totalSexTime === "number" &&
-                  summary.totalSexTime > 0 && (
-                    <div className="scenestats-summary-card">
-                      <div className="scenestats-summary-value">
-                        {formatDuration(summary.totalSexTime)}
-                      </div>
-                      <div className="scenestats-summary-label">
-                        Total Fucking Time
-                      </div>
-                    </div>
-                  )}
-                {typeof summary.totalOralTime === "number" &&
-                  summary.totalOralTime > 0 && (
-                    <div className="scenestats-summary-card">
-                      <div className="scenestats-summary-value">
-                        {formatDuration(summary.totalOralTime)}
-                      </div>
-                      <div className="scenestats-summary-label">
-                        Total Sucking Pito Time
-                      </div>
-                    </div>
-                  )}
-              </section>
-            </>
-          )}
 
           {scenes.length === 0 ? (
             <Alert variant="secondary">No scenes found.</Alert>

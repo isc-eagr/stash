@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -308,4 +309,101 @@ func TestTaskProgressExistingEmptyTrackersCustom(t *testing.T) {
 	require.NoError(t, completeTaskProgressTrackersCustom(ctx, 0))
 	require.NoError(t, dbWrapper.Select(ctx, &statuses, "SELECT status FROM task_progress_trackers ORDER BY id"))
 	require.Equal(t, []string{"COMPLETED", "PAUSED"}, statuses)
+}
+
+func TestTaskProgressAllItemDeletionsCompleteTrackersCustom(t *testing.T) {
+	for _, tc := range []struct {
+		itemType string
+		table    string
+		label    string
+		destroy  func(context.Context, int) error
+	}{
+		{"scene", "scenes", "title", NewSceneStore(nil, nil).Destroy},
+		{"scene_marker", "scene_markers", "title", NewSceneMarkerStore().Destroy},
+		{"image", "images", "title", NewImageStore(nil).Destroy},
+		{"gallery", "galleries", "title", NewGalleryStore(nil, nil).Destroy},
+		{"performer", "performers", "name", NewPerformerStore(nil).Destroy},
+		{"studio", "studios", "name", NewStudioStore(nil).Destroy},
+		{"group", "groups", "name", NewGroupStore(nil).Destroy},
+	} {
+		for _, mode := range []string{"BACKLOG", "FIXED"} {
+			t.Run(tc.itemType+"/"+mode, func(t *testing.T) {
+				_, ctx := newTaskProgressTrackingTestDBCustom(t)
+				_, err := dbWrapper.Exec(ctx, `
+ALTER TABLE scenes ADD COLUMN cover_blob TEXT;
+ALTER TABLE performers ADD COLUMN image_blob TEXT;
+ALTER TABLE studios ADD COLUMN image_blob TEXT;
+ALTER TABLE groups ADD COLUMN front_image_blob TEXT;
+ALTER TABLE groups ADD COLUMN back_image_blob TEXT;`)
+				require.NoError(t, err)
+				_, err = dbWrapper.Exec(ctx, "INSERT INTO task_progress_trackers(id,tag_id,status,item_types,mode) VALUES (1,10,'ACTIVE',?,?)", tc.itemType, mode)
+				require.NoError(t, err)
+				if tc.itemType == "scene_marker" {
+					_, err = dbWrapper.Exec(ctx, "INSERT INTO scene_markers(id,title,primary_tag_id) VALUES (1,'Deleted item',10)")
+				} else {
+					_, err = dbWrapper.Exec(ctx, fmt.Sprintf("INSERT INTO %s(id,%s) VALUES (1,'Deleted item')", tc.table, tc.label))
+				}
+				require.NoError(t, err)
+				_, err = dbWrapper.Exec(ctx, fmt.Sprintf("INSERT INTO %s_tags(%s_id,tag_id) VALUES (1,10)", tc.table, tc.itemType))
+				require.NoError(t, err)
+				// Match the production foreign-key cascade in the minimal fixture.
+				_, err = dbWrapper.Exec(ctx, fmt.Sprintf(`CREATE TRIGGER deleted_item_tags AFTER DELETE ON %s BEGIN
+ DELETE FROM %s_tags WHERE %s_id=OLD.id; END;`, tc.table, tc.table, tc.itemType))
+				require.NoError(t, err)
+				tracker := &models.TaskProgressTracker{ID: 1, TagID: 10, Mode: mode, Goal: 1, ItemTypes: []string{tc.itemType}}
+				require.NoError(t, NewTaskProgressTrackerStore().CreateBaseline(ctx, tracker))
+				require.NoError(t, loadTaskProgressMetricsCustom(ctx, []*models.TaskProgressTracker{tracker}))
+				totalBeforeDeletion := tracker.CurrentCount + tracker.CompletedCount
+				require.Equal(t, 1, totalBeforeDeletion)
+				require.NoError(t, tc.destroy(ctx, 1))
+				require.NoError(t, loadTaskProgressMetricsCustom(ctx, []*models.TaskProgressTracker{tracker}))
+				require.Zero(t, tracker.CurrentCount)
+				require.Equal(t, 1, tracker.CompletedCount)
+				require.Equal(t, totalBeforeDeletion, tracker.CurrentCount+tracker.CompletedCount, "deletion moves pending work to completed without shrinking the total")
+				require.Equal(t, 1, tracker.Goal, "fixed-batch size stays unchanged")
+				require.Len(t, tracker.History, 1)
+				require.Equal(t, 1, tracker.History[0].Completed)
+				require.Equal(t, []*models.TaskProgressItemCount{{ItemType: tc.itemType, Count: 1}}, tracker.CompletedItemCounts)
+				var status string
+				require.NoError(t, dbWrapper.Get(ctx, &status, "SELECT status FROM task_progress_trackers WHERE id=1"))
+				require.Equal(t, "COMPLETED", status)
+			})
+		}
+	}
+}
+
+func TestTaskProgressReleaseDeletionCompletesOnlyDeletedMarkersCustom(t *testing.T) {
+	_, ctx := newTaskProgressTrackingTestDBCustom(t)
+	_, err := dbWrapper.Exec(ctx, `
+CREATE TABLE scene_release_activity_upgrade_guard(applied_at TEXT);
+CREATE TABLE scene_releases(id INTEGER PRIMARY KEY,cover_blob TEXT);
+ALTER TABLE scene_markers ADD COLUMN release_id INTEGER;
+CREATE TRIGGER deleted_marker_tags AFTER DELETE ON scene_markers BEGIN
+ DELETE FROM scene_markers_tags WHERE scene_marker_id=OLD.id; END;
+INSERT INTO scene_releases(id) VALUES (1),(2);
+INSERT INTO task_progress_trackers(id,tag_id,status,item_types,mode) VALUES
+ (1,10,'ACTIVE','scene_marker','BACKLOG'), (2,10,'ACTIVE','scene_marker','FIXED'),
+ (3,20,'ACTIVE','scene_marker','BACKLOG');
+INSERT INTO scene_markers(id,title,primary_tag_id,release_id) VALUES
+ (1,'Deleted marker',10,1), (2,'Transferred marker',10,2);
+INSERT INTO scene_markers_tags(scene_marker_id,tag_id) VALUES (1,10),(1,20);
+INSERT INTO task_progress_tracker_members(tracker_id,item_type,item_id,state) VALUES
+ (2,'scene_marker',1,'PENDING'), (2,'scene_marker',2,'PENDING');`)
+	require.NoError(t, err)
+	store := NewSceneReleaseStore(nil, nil)
+	require.NoError(t, store.Destroy(ctx, 1))
+	require.Equal(t, 3, taskProgressEventCountCustom(t, ctx), "primary/secondary union earns one completion in each matching tracker")
+	var state string
+	require.NoError(t, dbWrapper.Get(ctx, &state, "SELECT state FROM task_progress_tracker_members WHERE tracker_id=2 AND item_id=1"))
+	require.Equal(t, "COMPLETED", state)
+	// Release-to-scene conversion moves surviving markers before deleting the release.
+	_, err = dbWrapper.Exec(ctx, "UPDATE scene_markers SET release_id=NULL,scene_id=9 WHERE id=2")
+	require.NoError(t, err)
+	require.NoError(t, store.Destroy(ctx, 2))
+	require.Equal(t, 3, taskProgressEventCountCustom(t, ctx))
+	require.NoError(t, dbWrapper.Get(ctx, &state, "SELECT state FROM task_progress_tracker_members WHERE tracker_id=2 AND item_id=2"))
+	require.Equal(t, "PENDING", state, "transferred markers are still pending work")
+	var label string
+	require.NoError(t, dbWrapper.Get(ctx, &label, "SELECT item_label FROM task_progress_tracker_events WHERE tracker_id=1"))
+	require.Equal(t, "Deleted marker", label)
 }

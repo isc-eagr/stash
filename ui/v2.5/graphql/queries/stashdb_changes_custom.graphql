@@ -1,0 +1,70 @@
+# CUSTOM: latest StashDB Changes check of scenes and performers.
+fragment StashDBChangesRunData on StashDBChangesRun {
+  started_at
+  finished_at
+  endpoint
+  checked
+  failed
+  cancelled
+}
+
+fragment StashDBFieldChangeData on StashDBFieldChange {
+  field
+  local
+  remote
+  added
+  removed
+}
+
+# Entries are shared with the apply mutations, which return the applied entry.
+fragment StashDBSceneChangeData on StashDBSceneChange {
+  stash_id
+  status
+  merged_into_id
+  fields {
+    ...StashDBFieldChangeData
+  }
+  scene {
+    id
+    title
+    date
+    files {
+      path
+    }
+    studio {
+      id
+      name
+    }
+  }
+}
+
+fragment StashDBPerformerChangeData on StashDBPerformerChange {
+  stash_id
+  status
+  merged_into_id
+  fields {
+    ...StashDBFieldChangeData
+  }
+  performer {
+    id
+    name
+    disambiguation
+  }
+}
+
+query StashDBChangesReport {
+  stashDBChangesReport {
+    scene_run {
+      ...StashDBChangesRunData
+    }
+    scenes {
+      ...StashDBSceneChangeData
+    }
+    performer_run {
+      ...StashDBChangesRunData
+    }
+    performers {
+      ...StashDBPerformerChangeData
+    }
+  }
+}

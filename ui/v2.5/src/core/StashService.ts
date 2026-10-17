@@ -28,6 +28,7 @@ import {
   removeSceneHistoryEntriesCustom,
 } from "./sceneHistoryCache_custom";
 import { releaseMutationCacheRefreshCustom } from "./sceneReleaseCache_custom";
+import { updateStashDBChangesReportCustom } from "./stashDBChangesCache_custom";
 // CUSTOM: end
 
 const { client, wsClient, cache: clientCache } = createClient();
@@ -2454,6 +2455,33 @@ export const usePerformerUpdate = () =>
       evictQueries(cache, performerMutationImpactedQueries);
     },
   });
+
+// CUSTOM: begin - StashDB Changes apply updates like the update mutations and
+// refreshes the applied report entry.
+export const useApplyStashDBSceneChangesCustom = () =>
+  GQL.useApplyStashDbSceneChangesMutation({
+    update(cache, result) {
+      const entry = result.data?.applyStashDBSceneChanges;
+      if (!entry) return;
+
+      updateStashDBChangesReportCustom(cache, entry);
+      evictTypeFields(cache, sceneMutationImpactedTypeFields);
+      evictQueries(cache, sceneMutationImpactedQueries);
+    },
+  });
+
+export const useApplyStashDBPerformerChangesCustom = () =>
+  GQL.useApplyStashDbPerformerChangesMutation({
+    update(cache, result) {
+      const entry = result.data?.applyStashDBPerformerChanges;
+      if (!entry) return;
+
+      updateStashDBChangesReportCustom(cache, entry);
+      evictTypeFields(cache, performerMutationImpactedTypeFields);
+      evictQueries(cache, performerMutationImpactedQueries);
+    },
+  });
+// CUSTOM: end
 
 export const useBulkPerformerUpdate = (input: GQL.BulkPerformerUpdateInput) =>
   GQL.useBulkPerformerUpdateMutation({

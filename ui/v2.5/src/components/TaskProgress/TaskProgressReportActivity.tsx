@@ -1,5 +1,6 @@
 import React from "react";
 import { formatTaskProgressDate } from "../taskProgress_custom";
+import { TaskProgressChartTooltip } from "./TaskProgressChartTooltip";
 import {
   taskProgressDailyGoalState,
   useProgressText,
@@ -336,39 +337,23 @@ const ActivityContents: React.FC<
 
 export const TaskProgressReportActivity: React.FC<IActivityProps> = (props) => {
   const t = useProgressText();
-  const root = React.useRef<HTMLDivElement>(null);
   const [hover, setHover] = React.useState<{
     day: ITaskProgressReportDay;
-    left: number;
-    top: number;
+    element: Element;
   }>();
   const interaction: IDayInteraction = {
     selectedDate: props.selectedDate,
     onSelectDay: props.onSelectDay,
     onHover: (day, element) => {
-      if (day.future || !root.current) return;
-      const bounds = root.current.getBoundingClientRect();
-      const target = element.getBoundingClientRect();
-      setHover({
-        day,
-        left: target.left + target.width / 2 - bounds.left,
-        top: target.bottom - bounds.top,
-      });
+      if (!day.future) setHover({ day, element });
     },
     onLeave: () => setHover(undefined),
   };
   return (
-    <div className="progress-activity-chart" ref={root}>
+    <div className="progress-activity-chart">
       <ActivityContents {...props} interaction={interaction} />
       {hover && props.days.some((day) => day.date === hover.day.date) && (
-        <div
-          className="task-progress-history-chart-tooltip below"
-          role="tooltip"
-          style={{
-            left: `clamp(7rem, ${hover.left}px, calc(100% - 7rem))`,
-            top: hover.top,
-          }}
-        >
+        <TaskProgressChartTooltip anchor={hover.element} placement="below">
           {props.renderDayTooltip?.(hover.day.date) ?? (
             <>
               <strong className="task-progress-history-chart-tooltip-title">
@@ -386,7 +371,7 @@ export const TaskProgressReportActivity: React.FC<IActivityProps> = (props) => {
               )}
             </>
           )}
-        </div>
+        </TaskProgressChartTooltip>
       )}
     </div>
   );

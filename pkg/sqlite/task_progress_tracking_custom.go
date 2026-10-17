@@ -256,3 +256,24 @@ func taskProgressTablesMissingCustom(err error) bool {
 		strings.Contains(message, "no such table: "+taskProgressTrackerEventTableCustom) ||
 		strings.Contains(message, "no such table: task_progress_overall_events")
 }
+
+// Delete release-owned markers through the store before the release's cascade
+// removes their tags. Conversions that moved the markers to a scene leave none
+// here and must not earn completion for work that is still pending.
+func destroyTaskProgressReleaseMarkersCustom(ctx context.Context, releaseID int) error {
+	upgraded, err := releaseTransferTableExistsCustom(ctx, "scene_release_activity_upgrade_guard")
+	if err != nil || !upgraded {
+		return err
+	}
+	var ids []int
+	if err := dbWrapper.Select(ctx, &ids, "SELECT id FROM scene_markers WHERE release_id = ? ORDER BY id", releaseID); err != nil {
+		return fmt.Errorf("finding deleted release markers for task progress: %w", err)
+	}
+	store := NewSceneMarkerStore()
+	for _, id := range ids {
+		if err := store.Destroy(ctx, id); err != nil {
+			return err
+		}
+	}
+	return nil
+}

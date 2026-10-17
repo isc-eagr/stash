@@ -1,0 +1,25 @@
+# CUSTOM: latest studio site sync report.
+query StudioSiteSyncReport($studio_id: ID!) {
+  studioSiteSyncReport(studio_id: $studio_id) {
+    job_id
+    site
+    finished
+    cancelled
+    error
+    checked
+    postponed
+    no_pictures
+    scanned_folders
+    warnings
+    scenes {
+      scene_id
+      title
+      basename
+      code
+      filled
+      pictures
+      gallery_id
+      issues
+    }
+  }
+}

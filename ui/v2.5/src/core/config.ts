@@ -46,6 +46,12 @@ export interface IStudioSiteSyncConfig {
   password?: string;
   picsPath?: string;
 }
+
+// Field keys match StashDBFieldChange.field.
+export interface IStashDBChangesConfig {
+  excludedSceneFields?: string[];
+  excludedPerformerFields?: string[];
+}
 // CUSTOM: end
 
 export interface IUIConfig {
@@ -170,6 +176,8 @@ export interface IUIConfig {
   // CUSTOM: end
   // CUSTOM: studio site sync logins and pictures folders, keyed by site
   studioSiteSync?: Record<string, IStudioSiteSyncConfig | undefined>;
+  // CUSTOM: fields hidden from the StashDB Changes report
+  stashdbChanges?: IStashDBChangesConfig;
   simpleMarkerPreviewExcludedTagIds?: string[]; // Extra primary-only marker tags that skip video/webp preview generation
 
   // Tag IDs used for scene marker role categorization

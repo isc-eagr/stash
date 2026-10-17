@@ -182,10 +182,6 @@
     width: 100%;
   }
 
-  &-plot {
-    position: relative;
-  }
-
   &-grid {
     stroke: rgba(138, 155, 168, 0.22);
     stroke-width: 1;
@@ -280,16 +276,15 @@
     border-radius: 0.35rem;
     box-shadow: 0 0.45rem 1.25rem rgba(0, 0, 0, 0.42);
     color: var(--black-steel-text, #f5f8fa);
+    left: 0;
     padding: 0.6rem 0.7rem;
     pointer-events: none;
-    position: absolute;
-    transform: translate(-50%, calc(-100% - 0.55rem));
-    width: min(13rem, calc(100% - 1rem));
-    z-index: 4;
-
-    &.below {
-      transform: translate(-50%, 0.55rem);
-    }
+    position: fixed;
+    top: 0;
+    visibility: hidden;
+    width: min(13rem, calc(100vw - 1rem));
+    // Portaled to the body; sit above Bootstrap modals (1050).
+    z-index: 1080;
 
     &-title {
       display: block;

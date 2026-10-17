@@ -2,6 +2,7 @@ package manager
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stashapp/stash/pkg/job"
 	"github.com/stashapp/stash/pkg/models"
 	"github.com/stashapp/stash/pkg/sitesync"
 	"github.com/stretchr/testify/assert"
@@ -43,6 +45,7 @@ func (f *fakeSiteSyncDataCustom) FolderImageIDs(ctx context.Context, dir string)
 }
 
 func (f *fakeSiteSyncDataCustom) CreateGallery(ctx context.Context, gallery *models.Gallery, imageIDs []int) error {
+	gallery.ID = 100 + len(f.galleries)
 	f.images[len(f.galleries)] = imageIDs
 	f.galleries = append(f.galleries, *gallery)
 	return nil
@@ -123,7 +126,23 @@ func newSiteSyncTaskCustom(t *testing.T, data *fakeSiteSyncDataCustom, site site
 	if data.folders == nil {
 		data.folders = map[string][]int{}
 	}
-	return &studioSiteSyncTaskCustom{data: data, site: site, studioID: 18, picsPath: t.TempDir()}
+	return &studioSiteSyncTaskCustom{
+		data:     data,
+		site:     site,
+		studioID: 18,
+		picsPath: t.TempDir(),
+		steps:    StudioSiteSyncStepsCustom{Codes: true, Metadata: true, Pictures: true, Galleries: true},
+		report:   newSiteSyncReportCustom(site.Name()),
+	}
+}
+
+// reportScenesCustom maps scene IDs to their report entries.
+func reportScenesCustom(task *studioSiteSyncTaskCustom) map[int]*models.StudioSiteSyncSceneChange {
+	ret := map[int]*models.StudioSiteSyncSceneChange{}
+	for _, c := range task.report.snapshot().Scenes {
+		ret[c.SceneID] = c
+	}
+	return ret
 }
 
 func TestStudioSiteSyncFillsScenesCustom(t *testing.T) {
@@ -186,6 +205,139 @@ func TestStudioSiteSyncFillsScenesCustom(t *testing.T) {
 
 	assert.Equal(t, []string{filepath.Join(task.picsPath, "pics1836"), filepath.Join(task.picsPath, "pics1837")}, scanPaths)
 	assert.Equal(t, progress.total, progress.processed)
+
+	report := task.report.snapshot()
+	assert.Equal(t, 5, report.Checked)
+	assert.Equal(t, 2, report.Postponed)
+	reported := reportScenesCustom(task)
+	assert.Len(t, reported, 4, "untouched scenes are left out")
+	assert.Equal(t, &models.StudioSiteSyncSceneChange{
+		SceneID: 1, Title: "Cut & Gaze", Basename: "1836-high.mp4", Code: "1836",
+		Filled: []string{"code", "title", "date", "urls"},
+	}, reported[1])
+	assert.Equal(t, "Typed by hand", reported[2].Title)
+	assert.Equal(t, []string{"code", "details", "urls"}, reported[2].Filled)
+	assert.Equal(t, []string{"code"}, reported[5].Filled)
+	assert.Equal(t, []string{"Code 980 is not on the site"}, reported[5].Issues)
+	assert.Equal(t, []string{"Could be codes 960, 961; set the code by hand"}, reported[6].Issues)
+	assert.Empty(t, reported[6].Code)
+}
+
+// Taken and unmatched scenes say which scene holds the code, and gallery
+// creation lands in the same report.
+func TestStudioSiteSyncReportsIssuesAndGalleriesCustom(t *testing.T) {
+	data := &fakeSiteSyncDataCustom{scenes: []models.SiteSyncSceneCustom{
+		{ID: 1, Basename: "drogo-gus.mp4", Code: "994", Title: "Drogo & Gus", Date: "2026-09-01", HasGallery: true},
+		{ID: 2, Basename: "drogo-gus (2).mp4"},
+		{ID: 3, Basename: "river-lucas.mp4"},
+		{ID: 4, Basename: "parked.mp4", Code: "990", Postponed: true},
+		{ID: 5, Basename: "parked copy.mp4"},
+		{ID: 6, Basename: "pics.mp4", Code: "980", Title: "Pics", Date: "2026-01-01"},
+	}}
+	site := &fakeSiteCustom{resolved: sitesync.Resolution{
+		Taken:     map[int][]string{2: {"994"}, 5: {"990"}},
+		Unmatched: []int{3},
+	}}
+	task := newSiteSyncTaskCustom(t, data, site)
+	data.folders[filepath.Join(task.picsPath, "pics980")] = []int{7}
+
+	_, err := task.syncScenes(context.Background(), &fakeSiteSyncProgressCustom{})
+	require.NoError(t, err)
+	require.NoError(t, task.createGalleries(context.Background(), &fakeSiteSyncProgressCustom{}))
+
+	reported := reportScenesCustom(task)
+	assert.Equal(t, []string{"Matches code 994, already on Drogo & Gus"}, reported[2].Issues)
+	assert.Equal(t, []string{"Matches code 990, already on parked.mp4 (postponed)"}, reported[5].Issues)
+	assert.Equal(t, []string{"Not in the members index or the folders after it; set the code by hand"}, reported[3].Issues)
+	require.NotNil(t, reported[6].GalleryID)
+	assert.Equal(t, 100, *reported[6].GalleryID)
+	assert.Equal(t, "980", reported[6].Code)
+}
+
+func TestStudioSiteSyncStepsCustom(t *testing.T) {
+	scenes := func() []models.SiteSyncSceneCustom {
+		return []models.SiteSyncSceneCustom{
+			{ID: 1, Basename: "1836-high.mp4"},
+			{ID: 2, Basename: "old.mp4", Code: "10"},
+			{ID: 3, Basename: "nofolder.mp4", Code: "11", Title: "No folder", Date: "2020-01-01"},
+		}
+	}
+	pages := map[string]sitesync.Metadata{
+		"1836": {Title: "Cut & Gaze"},
+		"10":   {Title: "Old", Date: "2019-05-01"},
+	}
+	unscanned := func(task *studioSiteSyncTaskCustom) string {
+		dir := filepath.Join(task.picsPath, "pics10")
+		require.NoError(t, os.Mkdir(dir, 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "a.jpg"), []byte("jpeg"), 0o644))
+		return dir
+	}
+
+	t.Run("without codes only coded scenes are touched", func(t *testing.T) {
+		data := &fakeSiteSyncDataCustom{scenes: scenes()}
+		site := &fakeSiteCustom{pages: pages, picsErr: sitesync.ErrNotFound}
+		task := newSiteSyncTaskCustom(t, data, site)
+		task.steps.Codes = false
+		_, err := task.syncScenes(context.Background(), &fakeSiteSyncProgressCustom{})
+		require.NoError(t, err)
+		assert.Equal(t, []string{"10"}, site.scraped)
+		assert.Nil(t, site.taken, "the resolver is not asked")
+		assert.NotContains(t, data.updates, 1)
+		assert.Equal(t, 2, task.report.snapshot().NoPictures)
+	})
+
+	t.Run("without metadata new codes are still saved", func(t *testing.T) {
+		data := &fakeSiteSyncDataCustom{scenes: scenes()}
+		site := &fakeSiteCustom{pages: pages, picsErr: sitesync.ErrNotFound}
+		task := newSiteSyncTaskCustom(t, data, site)
+		task.steps.Metadata = false
+		_, err := task.syncScenes(context.Background(), &fakeSiteSyncProgressCustom{})
+		require.NoError(t, err)
+		assert.Empty(t, site.scraped)
+		assert.Equal(t, models.NewOptionalString("1836"), data.updates[1].Code)
+		assert.False(t, data.updates[1].Title.Set)
+		assert.NotContains(t, data.updates, 2)
+	})
+
+	t.Run("without pictures existing folders are still scanned", func(t *testing.T) {
+		data := &fakeSiteSyncDataCustom{scenes: scenes()}
+		site := &fakeSiteCustom{pages: pages, picsErr: errors.New("no downloads in this run")}
+		task := newSiteSyncTaskCustom(t, data, site)
+		task.steps.Pictures = false
+		dir := unscanned(task)
+		scanPaths, err := task.syncScenes(context.Background(), &fakeSiteSyncProgressCustom{})
+		require.NoError(t, err)
+		assert.Equal(t, []string{dir}, scanPaths, "missing folders are not scanned")
+		for _, c := range reportScenesCustom(task) {
+			assert.Empty(t, c.Issues)
+		}
+	})
+
+	t.Run("a members login is only missed by steps that use it", func(t *testing.T) {
+		data := &fakeSiteSyncDataCustom{scenes: scenes()}
+		site := &fakeSiteCustom{pages: pages, picsErr: sitesync.ErrNotFound}
+		task := newSiteSyncTaskCustom(t, data, site)
+		_, err := task.syncScenes(context.Background(), &fakeSiteSyncProgressCustom{})
+		require.NoError(t, err)
+		assert.Len(t, task.report.snapshot().Warnings, 1, "the fake site has no credentials")
+
+		task = newSiteSyncTaskCustom(t, data, site)
+		task.steps.Metadata, task.steps.Pictures = false, false
+		_, err = task.syncScenes(context.Background(), &fakeSiteSyncProgressCustom{})
+		require.NoError(t, err)
+		assert.Empty(t, task.report.snapshot().Warnings)
+	})
+
+	t.Run("without galleries nothing is scanned", func(t *testing.T) {
+		data := &fakeSiteSyncDataCustom{scenes: scenes()}
+		site := &fakeSiteCustom{pages: pages, picsErr: sitesync.ErrNotFound}
+		task := newSiteSyncTaskCustom(t, data, site)
+		task.steps.Galleries = false
+		unscanned(task)
+		scanPaths, err := task.syncScenes(context.Background(), &fakeSiteSyncProgressCustom{})
+		require.NoError(t, err)
+		assert.Empty(t, scanPaths)
+	})
 }
 
 func TestStudioSiteSyncFailsOnRefusedCredentialsCustom(t *testing.T) {
@@ -254,6 +406,7 @@ func TestStudioSiteSyncHandAddedFoldersCustom(t *testing.T) {
 	dir := func(name string) string { return filepath.Join(task.picsPath, name) }
 	for _, name := range []string{"brian-2224", "gato-2196", "gato-copy-2196", "jako"} {
 		require.NoError(t, os.Mkdir(dir(name), 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(dir(name), "a.jpg"), []byte("jpeg"), 0o644))
 	}
 	data.folders[dir("gato-2196")] = []int{5, 6}
 	data.folders[dir("gato-copy-2196")] = []int{6, 7}
@@ -283,4 +436,32 @@ func TestStudioSiteSyncConfigCustom(t *testing.T) {
 	assert.Equal(t, sitesync.Config{Username: "user", Password: "pass", PicsPath: `D:\Pics`}, studioSiteSyncConfigCustom(ui, "nakedpapis"))
 	assert.Equal(t, sitesync.Config{}, studioSiteSyncConfigCustom(ui, "bilatinmen"))
 	assert.Equal(t, sitesync.Config{}, studioSiteSyncConfigCustom(nil, "nakedpapis"))
+}
+
+func TestStudioSiteSyncReportCustom(t *testing.T) {
+	s := &Manager{JobManager: job.NewManager()}
+	assert.Nil(t, s.StudioSiteSyncReportCustom(99), "no report before the first run")
+
+	queued := newSiteSyncReportCustom("NakedPapis")
+	queued.update(func(r *models.StudioSiteSyncReport) { r.JobID = 42 })
+	siteSyncReportsCustom.mu.Lock()
+	siteSyncReportsCustom.byStudio[99] = queued
+	siteSyncReportsCustom.mu.Unlock()
+	t.Cleanup(func() {
+		siteSyncReportsCustom.mu.Lock()
+		delete(siteSyncReportsCustom.byStudio, 99)
+		siteSyncReportsCustom.mu.Unlock()
+	})
+
+	got := s.StudioSiteSyncReportCustom(99)
+	assert.True(t, got.Finished)
+	assert.True(t, got.Cancelled, "a job cancelled before it ran counts as cancelled")
+
+	queued.finish(context.Background(), errors.New("refused"))
+	got = s.StudioSiteSyncReportCustom(99)
+	assert.True(t, got.Finished)
+	assert.False(t, got.Cancelled)
+	require.NotNil(t, got.Error)
+	assert.Equal(t, "refused", *got.Error)
+	assert.Equal(t, "NakedPapis", got.Site)
 }

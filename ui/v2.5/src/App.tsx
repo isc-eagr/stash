@@ -102,6 +102,9 @@ const TaskProgress = lazyComponent(() => import("./components/TaskProgress")); /
 const StashDBMatchesReport = lazyComponent(
   () => import("./components/StashDBMatches/StashDBMatchesReport")
 ); // CUSTOM
+const StashDBChangesReport = lazyComponent(
+  () => import("./components/StashDBChanges/StashDBChangesReport")
+); // CUSTOM
 const Studios = lazyComponent(() => import("./components/Studios/Studios"));
 const Galleries = lazyComponent(
   () => import("./components/Galleries/Galleries")
@@ -319,6 +322,8 @@ export const App: React.FC = () => {
               path="/stashdb-matches/report"
               component={StashDBMatchesReport}
             />
+            {/* CUSTOM */}
+            <Route path="/stashdb-changes" component={StashDBChangesReport} />
             <Route exact path="/ostats/timeline" component={OStats} />{" "}
             {/* CUSTOM */}
             <Route path="/ostats/vato/:performerId" component={OStats} />{" "}

@@ -107,3 +107,9 @@ func (r *queryResolver) TotalSexTime(ctx context.Context, studioID *string, dept
 func (r *queryResolver) TotalOralTime(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput, cohort *StatsCohortInput) (float64, error) {
 	return r.totalActivityTimeCustom(ctx, "oralTagId", studioID, depth, dateRange, cohort)
 }
+
+// TotalSoloTime returns the overlap-merged duration of completed solo activity
+// markers. Activity markers match the configured solo tag as their primary tag.
+func (r *queryResolver) TotalSoloTime(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput, cohort *StatsCohortInput) (float64, error) {
+	return r.totalActivityTimeCustom(ctx, "soloTagId", studioID, depth, dateRange, cohort)
+}

@@ -205,6 +205,9 @@ func TestNakedPapisSceneCode(t *testing.T) {
 	site := New(NakedPapisKey, NewClient("", "", 0))
 	assert.Equal(t, "128", site.SceneCode(Scene{Basename: "panchillo-papi128.mp4"}))
 	assert.Equal(t, "5", site.SceneCode(Scene{Basename: "Wmvpapi5 512K-45.mp4"}))
+	assert.Equal(t, "995", site.SceneCode(Scene{Basename: "995-high.mp4"}), "videos saved from the scene page")
+	assert.Equal(t, "976", site.SceneCode(Scene{Basename: "976-Medium (2).mp4"}))
+	assert.Equal(t, "", site.SceneCode(Scene{Basename: "rapper2-high.mp4"}))
 	assert.Equal(t, "9", site.SceneCode(Scene{Basename: "x.mp4", URLs: []string{"https://nakedpapis.com/nude-latin-men/latino_men_9.html"}}))
 	assert.Equal(t, "241", site.SceneCode(Scene{Basename: "x.mp4", URLs: []string{"https://nakedpapis.com/members/sexvideos/videofiles1/papi241/papi241part1-high.html"}}))
 	assert.Equal(t, "", site.SceneCode(Scene{Basename: "compa.mp4"}))
@@ -303,6 +306,54 @@ func TestNakedPapisResolveCodes(t *testing.T) {
 	assert.Equal(t, "sex", np.kinds["976"])
 	assert.Equal(t, "solo", np.kinds["980"])
 	assert.Contains(t, fake.requests, "HEAD "+soloBase+"papi960/mystery.mp4")
+}
+
+// New scenes get their members folder before the index links them.
+func TestNakedPapisResolveCodesNewerFolders(t *testing.T) {
+	const sexBase = "https://nakedpapis.com/members/sexvideos/videofiles1/"
+	const soloBase = "https://nakedpapis.com/members/solovideos/videofiles1/"
+	listing := func(dir string, names ...string) string {
+		var b strings.Builder
+		b.WriteString(`<html><body><h1>Index of /members/` + dir + `</h1><a href="?C=N;O=D">Name</a>`)
+		for _, name := range names {
+			b.WriteString(`<a href="` + name + `">` + name + `</a> 2026-10-14 10:00 `)
+		}
+		b.WriteString(`</body></html>`)
+		return b.String()
+	}
+	fake := &fakeSite{pages: map[string]string{
+		"https://nakedpapis.com/members/sexvideos/videos.html":  "np_index_sex.html",
+		"https://nakedpapis.com/members/solovideos/videos.html": "np_index_solo.html",
+		// The index's highest code is 980; 982 is skipped.
+		sexBase + "papi981/?C=M;O=A":  listing("sexvideos/videofiles1/papi981", "981-high.mp4", "981-high.html", "river-lucas.mp4"),
+		soloBase + "papi983/?C=M;O=A": listing("solovideos/videofiles1/papi983", "amigos.mp4"),
+	}}
+	site := New(NakedPapisKey, newFakeClient(fake, "user", "pass"))
+
+	scenes := []Scene{
+		{ID: 1, Basename: "river-lucas.mp4"},
+		{ID: 2, Basename: "amigos.mp4"},
+		{ID: 3, Basename: "varela.mp4"},
+		{ID: 4, Basename: "nobody.mp4"},
+	}
+	res, err := site.(CodeResolver).ResolveCodes(context.Background(), scenes, map[string]bool{})
+	require.NoError(t, err)
+	assert.Equal(t, map[int]string{1: "981", 2: "983", 3: "976"}, res.Codes)
+	assert.Equal(t, []int{4}, res.Unmatched)
+	np := site.(*nakedPapis)
+	assert.Equal(t, "sex", np.kinds["981"])
+	assert.Equal(t, "solo", np.kinds["983"])
+	assert.Contains(t, fake.requests, "GET "+soloBase+"papi985/?C=M;O=A")
+	assert.NotContains(t, fake.requests, "GET "+sexBase+"papi986/?C=M;O=A", "two missing folders in a row end the search")
+
+	// Nothing is probed when the index has every scene.
+	fake.requests = nil
+	site = New(NakedPapisKey, newFakeClient(fake, "user", "pass"))
+	_, err = site.(CodeResolver).ResolveCodes(context.Background(), scenes[2:3], map[string]bool{})
+	require.NoError(t, err)
+	for _, r := range fake.requests {
+		assert.NotContains(t, r, "papi981")
+	}
 }
 
 func TestLatinboyzSceneCode(t *testing.T) {

@@ -58,6 +58,8 @@ type TaskProgressDay {
   baseline_count: Int
   "Daily goal that applied on this calendar date"
   goal_per_day: Int
+  "Finished items at the end of this day when snapshotted, including work done before tracking began"
+  completed_total: Int
 }
 
 type TaskProgressEvent {

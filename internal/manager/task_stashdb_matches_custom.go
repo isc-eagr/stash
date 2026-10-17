@@ -4,7 +4,6 @@ package manager
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/stashapp/stash/pkg/job"
@@ -26,15 +25,9 @@ type stashDBMatchesProgressCustom interface {
 }
 
 func (s *Manager) RefreshStashDBMatchesCustom(ctx context.Context) (int, error) {
-	var box *models.StashBox
-	for _, b := range s.Config.GetStashBoxes() {
-		if stashbox.IsStashDBEndpointCustom(b.Endpoint) {
-			box = b
-			break
-		}
-	}
-	if box == nil {
-		return 0, errors.New("no stashdb.org stash-box endpoint is configured")
+	box, err := stashDBBoxCustom(s.Config.GetStashBoxes())
+	if err != nil {
+		return 0, err
 	}
 
 	client := stashbox.NewClient(*box)

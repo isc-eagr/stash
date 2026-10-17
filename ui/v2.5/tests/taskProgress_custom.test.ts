@@ -434,3 +434,117 @@ assert.equal(
   0,
   "scope changes are not reported as completion progress"
 );
+
+const snapshotHistory = buildTaskProgressHistorySeries(
+  [
+    {
+      date: "2026-10-15",
+      completed: 0,
+      incoming: 0,
+      remaining: 90,
+      completedTotal: 10,
+    },
+    // Two pending deletions earn completion without becoming organized.
+    {
+      date: "2026-10-16",
+      completed: 5,
+      incoming: 0,
+      remaining: 85,
+      completedTotal: 13,
+    },
+  ],
+  "all",
+  "2026-10-17"
+);
+assert.deepEqual(
+  snapshotHistory.map((point) => point.cumulativeCompleted),
+  [10, 13, 13],
+  "snapshots include work finished before tracking and carry forward"
+);
+const snapshotPercentages = taskProgressHistoryPercentages(snapshotHistory[1]);
+assert.ok(
+  Math.abs(snapshotPercentages.completedPercentage - (13 / 98) * 100) <
+    0.000001,
+  "cumulative percentage matches finished over finished plus remaining"
+);
+assert.ok(
+  Math.abs(
+    snapshotPercentages.periodProgressPercentage - (13 / 98 - 0.1) * 100
+  ) < 0.000001,
+  "period progress compares with the prior day's recorded close"
+);
+assert.equal(
+  taskProgressHistoryPercentages(snapshotHistory[2]).periodProgressPercentage,
+  0,
+  "quiet days keep the prior close"
+);
+const snapshotWeek = aggregateTaskProgressHistorySeries(
+  snapshotHistory,
+  "week"
+);
+assert.ok(
+  Math.abs(
+    taskProgressHistoryPercentages(snapshotWeek[0]).periodProgressPercentage -
+      (13 / 98 - 0.1) * 100
+  ) < 0.000001,
+  "weekly progress starts from the first day's opening close"
+);
+
+const overallPeriodHistory = [
+  {
+    date: "2026-09-30",
+    completed: 0,
+    incoming: 0,
+    remaining: 60,
+    completedTotal: 40,
+  },
+  {
+    date: "2026-10-11",
+    completed: 5,
+    incoming: 0,
+    remaining: 55,
+    completedTotal: 45,
+  },
+  {
+    date: "2026-10-12",
+    completed: 4, // Two organized scenes and two pending deletions.
+    incoming: 0,
+    remaining: 51,
+    completedTotal: 47,
+  },
+  {
+    date: "2026-10-17",
+    completed: 3, // One organized scene and two pending deletions.
+    incoming: 0,
+    remaining: 48,
+    completedTotal: 48,
+  },
+];
+const overallChanges = taskProgressCurrentPercentageChanges(
+  overallPeriodHistory,
+  "2026-10-17"
+);
+for (const [period, opening] of [
+  ["day", 47 / 98],
+  ["week", 45 / 100],
+  ["month", 40 / 100],
+] as const) {
+  assert.ok(
+    Math.abs(overallChanges[period] - (48 / 96 - opening) * 100) < 0.000001,
+    `${period} percentage follows organized scenes over the actual library total, without treating deletions as organized scenes`
+  );
+}
+const overallGoals = taskProgressCurrentGoalPeriods(
+  overallPeriodHistory,
+  null,
+  "2026-10-17"
+);
+assert.deepEqual(
+  [
+    overallGoals.day.completed,
+    overallGoals.week.completed,
+    overallGoals.month.completed,
+  ],
+  [3, 7, 12],
+  "deletions still earn goal completion credit independently of organized percentages"
+);

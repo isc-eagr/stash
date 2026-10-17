@@ -494,4 +494,11 @@ extend type Query {
     date_range: StatsDateRangeInput
     cohort: StatsCohortInput
   ): Float!
+  "Get total time (in seconds) of completed solo activity markers."
+  totalSoloTime(
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+    cohort: StatsCohortInput
+  ): Float!
 }

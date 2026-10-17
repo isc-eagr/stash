@@ -9,6 +9,8 @@ export interface ITaskProgressHistoryEntry {
   removed?: number;
   baselineCount?: number;
   goalPerDay?: number | null;
+  /** Finished items at the end of the day, including work done before tracking. */
+  completedTotal?: number;
 }
 
 export interface ITaskProgressHistoryPoint extends ITaskProgressHistoryEntry {
@@ -16,6 +18,9 @@ export interface ITaskProgressHistoryPoint extends ITaskProgressHistoryEntry {
   removed: number;
   completedAverage: number;
   cumulativeCompleted: number;
+  /** Closing totals of the prior day when history carries snapshots. */
+  previousCompleted?: number;
+  previousRemaining?: number;
 }
 
 export interface ITaskProgressHistoryPercentages {
@@ -79,18 +84,25 @@ function taskProgressCompletionPercentage(
 export function taskProgressHistoryPercentages(
   point: Pick<
     ITaskProgressHistoryPoint,
-    "completed" | "incoming" | "remaining" | "cumulativeCompleted"
+    | "completed"
+    | "incoming"
+    | "remaining"
+    | "cumulativeCompleted"
+    | "previousCompleted"
+    | "previousRemaining"
   >
 ): ITaskProgressHistoryPercentages {
   const completed = safeTaskProgressHistoryCount(point.cumulativeCompleted);
   const remaining = safeTaskProgressHistoryCount(point.remaining);
   const periodCompleted = safeTaskProgressHistoryCount(point.completed);
   const periodIncoming = safeTaskProgressHistoryCount(point.incoming);
-  const previousCompleted = Math.max(0, completed - periodCompleted);
-  const previousRemaining = Math.max(
-    0,
-    remaining + periodCompleted - periodIncoming
-  );
+  // Snapshots can diverge from completed counts, such as credited deletions
+  // that never became organized, so prefer the recorded prior close.
+  const previousCompleted =
+    point.previousCompleted ?? Math.max(0, completed - periodCompleted);
+  const previousRemaining =
+    point.previousRemaining ??
+    Math.max(0, remaining + periodCompleted - periodIncoming);
   const completedPercentage = taskProgressCompletionPercentage(
     completed,
     remaining
@@ -150,6 +162,10 @@ export function buildTaskProgressHistorySeries(
           : entry.goalPerDay && entry.goalPerDay > 0
           ? entry.goalPerDay
           : null,
+      completedTotal:
+        entry.completedTotal === undefined
+          ? existing?.completedTotal
+          : safeTaskProgressHistoryCount(entry.completedTotal),
     });
   });
 
@@ -162,6 +178,9 @@ export function buildTaskProgressHistorySeries(
   let { remaining } = firstEntry;
   let { goalPerDay } = firstEntry;
   let cumulativeCompleted = 0;
+  const snapshotted = sortedEntries.some(
+    (entry) => entry.completedTotal !== undefined
+  );
   const points: ITaskProgressHistoryPoint[] = [];
   for (
     let { date } = firstEntry;
@@ -176,7 +195,9 @@ export function buildTaskProgressHistorySeries(
 
     const completed = entry?.completed ?? 0;
     const incoming = entry?.incoming ?? 0;
-    cumulativeCompleted += completed;
+    const previous = points[points.length - 1];
+    cumulativeCompleted =
+      entry?.completedTotal ?? cumulativeCompleted + completed;
     const rollingStart = Math.max(points.length - 6, 0);
     const recentCompleted = points
       .slice(rollingStart)
@@ -195,6 +216,16 @@ export function buildTaskProgressHistorySeries(
       ...(goalPerDay !== undefined ? { goalPerDay } : {}),
       completedAverage,
       cumulativeCompleted,
+      ...(snapshotted
+        ? {
+            previousCompleted:
+              previous?.cumulativeCompleted ??
+              Math.max(0, cumulativeCompleted - completed),
+            previousRemaining:
+              previous?.remaining ??
+              Math.max(0, remaining + completed - incoming),
+          }
+        : {}),
     });
   }
 
@@ -234,6 +265,7 @@ export function aggregateTaskProgressHistorySeries(
 
   const result: ITaskProgressHistoryPoint[] = [];
   grouped.forEach((periodPoints, date) => {
+    const [first] = periodPoints;
     const last = periodPoints[periodPoints.length - 1];
     const completed = periodPoints.reduce(
       (total, point) => total + point.completed,
@@ -271,6 +303,12 @@ export function aggregateTaskProgressHistorySeries(
       goalPerDay: goal > 0 ? goal : null,
       completedAverage: rollingCompleted / (result.length - rollingStart + 1),
       cumulativeCompleted: last.cumulativeCompleted,
+      ...(first.previousCompleted !== undefined
+        ? {
+            previousCompleted: first.previousCompleted,
+            previousRemaining: first.previousRemaining,
+          }
+        : {}),
     });
   });
   return result;

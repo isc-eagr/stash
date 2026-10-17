@@ -539,6 +539,7 @@
         "warning_blobs": "Blob files will not be included in the backup. This means that to succesfully restore from the backup, the blob files must be present in the blob storage location.",
         "zip": "SQLite database file and blob files will be zipped into a single file, with the filename {filename_format}"
       },
+      "check_stashdb_changes_desc": "Compare StashDB-linked scenes and vatos with StashDB and list what changed. Nothing is saved to them.",
       "cleanup_desc": "Check for missing files and remove them from the database. This is a destructive action.",
       "clean_ignore_zip_contents": "Ignore zip file contents",
       "clean_ignore_zip_contents_desc": "Faster but will miss files removed inside zip files. Safe to enable if you don't delete files within zips.",
@@ -1829,6 +1830,7 @@
   "stash_id_count": "Stash ID Count",
   "stash_id_endpoint": "Stash ID Endpoint URL",
   "stash_ids": "Stash IDs",
+  "stashdb_changes": "StashDB Changes",
   "stashdb_matches": "StashDB Matches",
   "stashbox_search": {
     "header": "Search {entityType} from StashBox",

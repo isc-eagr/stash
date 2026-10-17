@@ -261,6 +261,9 @@ func (qb *SceneReleaseStore) Destroy(ctx context.Context, id int) error {
 	if err := qb.UpdateCover(ctx, id, nil); err != nil {
 		return err
 	}
+	if err := destroyTaskProgressReleaseMarkersCustom(ctx, id); err != nil {
+		return err
+	}
 	return qb.tableMgr.destroyExisting(ctx, []int{id})
 }
 

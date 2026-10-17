@@ -2,6 +2,7 @@ import React from "react";
 import { useIntl } from "react-intl";
 import { formatTaskProgressDate } from "../taskProgress_custom";
 import type { ITaskProgressHistoryPoint } from "../taskProgress_custom";
+import { TaskProgressChartTooltip } from "./TaskProgressChartTooltip";
 import { TaskProgressHistoryTooltip } from "./TaskProgressHistoryTooltip";
 import type { TaskProgressHistoryView } from "./TaskProgressHistoryTooltip";
 import { useProgressText } from "./progressView_custom";
@@ -17,6 +18,7 @@ export const TaskProgressHistoryTotals: React.FC<{
   const t = useProgressText();
   const [showIncoming, setShowIncoming] = React.useState(false);
   const [hoverDate, setHoverDate] = React.useState<string>();
+  const svg = React.useRef<SVGSVGElement>(null);
   const width = 720;
   const height = 240;
   const left = 48;
@@ -95,6 +97,7 @@ export const TaskProgressHistoryTotals: React.FC<{
       </div>
       <div className="task-progress-history-chart-plot">
         <svg
+          ref={svg}
           className="task-progress-history-chart-svg"
           viewBox={`0 0 ${width} ${height}`}
           role="img"
@@ -225,17 +228,12 @@ export const TaskProgressHistoryTotals: React.FC<{
             />
           ))}
         </svg>
-        {hovered && (
-          <div
-            className={`task-progress-history-chart-tooltip${
-              y(metric(hovered)) < top + 82 ? " below" : ""
-            }`}
-            role="tooltip"
-            style={{
-              left: `clamp(7rem, ${
-                (x(points.indexOf(hovered)) / width) * 100
-              }%, calc(100% - 7rem))`,
-              top: `${(y(metric(hovered)) / height) * 100}%`,
+        {hovered && svg.current && (
+          <TaskProgressChartTooltip
+            anchor={svg.current}
+            at={{
+              x: x(points.indexOf(hovered)) / width,
+              y: y(metric(hovered)) / height,
             }}
           >
             <TaskProgressHistoryTooltip
@@ -243,7 +241,7 @@ export const TaskProgressHistoryTotals: React.FC<{
               view={view}
               showIncoming={showIncoming}
             />
-          </div>
+          </TaskProgressChartTooltip>
         )}
       </div>
     </section>

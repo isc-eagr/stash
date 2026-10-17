@@ -100,6 +100,9 @@ func (db *Anonymiser) deleteBlobs() error {
 func (db *Anonymiser) deleteStashIDs() error {
 	return utils.Do([]func() error{
 		db.deleteSceneStashIDsAndMatchesCustom, // CUSTOM
+		// CUSTOM: the StashDB Changes report holds stash IDs and real metadata.
+		func() error { return db.truncateTable("stashdb_changes_entries") },
+		func() error { return db.truncateTable("stashdb_changes_runs") },
 		func() error { return db.truncateTable("studio_stash_ids") },
 		func() error { return db.truncateTable("performer_stash_ids") },
 		func() error { return db.truncateTable("tag_stash_ids") },

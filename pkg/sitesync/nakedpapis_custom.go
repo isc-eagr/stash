@@ -12,7 +12,9 @@ import (
 	"net/url"
 	"path"
 	"regexp"
+	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	"golang.org/x/net/html"
@@ -22,6 +24,11 @@ const (
 	npIndexURL    = "https://nakedpapis.com/members/%svideos/videos.html"
 	npVideoDirURL = "https://nakedpapis.com/members/%svideos/videofiles1/papi%s/"
 	npPicsURL     = "https://nakedpapis.com/members/%spics/pictures01/papi%s/"
+	// New scenes get their members folder before the index links them, so
+	// files the index lacks are looked for in the folders after its highest
+	// code, up to npNewerMax folders or npNewerMisses missing ones in a row.
+	npNewerMax    = 10
+	npNewerMisses = 2
 )
 
 // Public scene pages; older scenes live directly in nude-latin-men.
@@ -36,7 +43,11 @@ var npKinds = []string{"sex", "solo"}
 var (
 	npCodeRE       = regexp.MustCompile(`(?i)papi(\d+)`)
 	npPublicCodeRE = regexp.MustCompile(`(?i)latino_men_(\d+)`)
+	// Videos saved from a scene page ("995-high.html") are named
+	// "<code>-<quality>.mp4"; the members index never links them.
+	npStreamCodeRE = regexp.MustCompile(`^(\d+)-(?:high|medium|low)$`)
 	npVideoLinkRE  = regexp.MustCompile(`(?i)/members/(sex|solo)videos/videofiles1/papi(\d+)/([^/]+\.(?:mp4|m4v|mov|wmv|avi|mkv))$`)
+	npVideoFileRE  = regexp.MustCompile(`(?i)\.(?:mp4|m4v|mov|wmv|avi|mkv)$`)
 	npFolderCodeRE = regexp.MustCompile(`(?i)(?:^|/)videofiles1/papi(\d+)/`)
 	copySuffixRE   = regexp.MustCompile(`\s*\(\d+\)$`)
 	// Multi-part file names: "<name>1-high", "<name>part2", "<name>-part1".
@@ -58,6 +69,9 @@ func (s *nakedPapis) Client() *Client { return s.client }
 
 func (s *nakedPapis) SceneCode(scene Scene) string {
 	if m := npCodeRE.FindStringSubmatch(scene.Basename); m != nil {
+		return m[1]
+	}
+	if m := npStreamCodeRE.FindStringSubmatch(fileStem(scene.Basename)); m != nil {
 		return m[1]
 	}
 	for _, u := range scene.URLs {
@@ -169,15 +183,28 @@ type npVideoLink struct {
 	url  string
 }
 
-// ResolveCodes matches scenes to the members index by file name. Older scenes
-// are split into numbered part files, so a name with no exact match may match
-// the parts of a multi-part scene with the part numbers removed. A name the
-// site uses for several codes is settled by an exact file size match; codes
-// in taken already belong to other scenes and are never offered again.
+// ResolveCodes matches scenes to the members index by file name, and names
+// the index lacks to the folders after its highest code. Older scenes are
+// split into numbered part files, so a name with no exact match may match the
+// parts of a multi-part scene with the part numbers removed. A name the site
+// uses for several codes is settled by an exact file size match; codes in
+// taken already belong to other scenes and are never offered again.
 func (s *nakedPapis) ResolveCodes(ctx context.Context, scenes []Scene, taken map[string]bool) (Resolution, error) {
 	byStem := map[string][]npVideoLink{}
 	byJoined := map[string][]npVideoLink{}
 	parts := map[string]map[string]bool{} // code -> distinct part file names
+	add := func(link npVideoLink) {
+		stem := fileStem(path.Base(link.url))
+		byStem[stem] = append(byStem[stem], link)
+		if joined, part, ok := joinedStem(stem); ok {
+			byJoined[joined] = append(byJoined[joined], link)
+			if parts[link.code] == nil {
+				parts[link.code] = map[string]bool{}
+			}
+			parts[link.code][part] = true
+		}
+	}
+	highest := 0
 	for _, kind := range npKinds {
 		indexURL := fmt.Sprintf(npIndexURL, kind)
 		doc, err := s.client.Page(ctx, indexURL, true)
@@ -185,15 +212,23 @@ func (s *nakedPapis) ResolveCodes(ctx context.Context, scenes []Scene, taken map
 			return Resolution{}, fmt.Errorf("reading the %s videos index: %w", kind, err)
 		}
 		for _, link := range npVideoLinks(doc, indexURL) {
-			stem := fileStem(path.Base(link.url))
-			byStem[stem] = append(byStem[stem], link)
-			if joined, part, ok := joinedStem(stem); ok {
-				byJoined[joined] = append(byJoined[joined], link)
-				if parts[link.code] == nil {
-					parts[link.code] = map[string]bool{}
-				}
-				parts[link.code][part] = true
+			add(link)
+			if code, _ := strconv.Atoi(link.code); code > highest {
+				highest = code
 			}
+		}
+	}
+	unindexed := slices.ContainsFunc(scenes, func(scene Scene) bool {
+		stem := fileStem(scene.Basename)
+		return len(byStem[stem]) == 0 && len(byJoined[stem]) == 0
+	})
+	if unindexed && highest > 0 {
+		links, err := s.newerLinks(ctx, highest)
+		if err != nil {
+			return Resolution{}, err
+		}
+		for _, link := range links {
+			add(link)
 		}
 	}
 
@@ -253,6 +288,52 @@ func (s *nakedPapis) ResolveCodes(ctx context.Context, scenes []Scene, taken map
 	}
 	sort.Ints(ret.Unmatched)
 	return ret, nil
+}
+
+// newerLinks lists the videos in the members folders after code highest.
+func (s *nakedPapis) newerLinks(ctx context.Context, highest int) ([]npVideoLink, error) {
+	var ret []npVideoLink
+	misses := 0
+	for code := highest + 1; code <= highest+npNewerMax && misses < npNewerMisses; code++ {
+		links, found, err := s.folderLinks(ctx, strconv.Itoa(code))
+		if err != nil {
+			return nil, err
+		}
+		if !found {
+			misses++
+			continue
+		}
+		misses = 0
+		ret = append(ret, links...)
+	}
+	return ret, nil
+}
+
+// folderLinks lists the videos in code's members folder; found is false when
+// neither members area has it.
+func (s *nakedPapis) folderLinks(ctx context.Context, code string) (links []npVideoLink, found bool, err error) {
+	for _, kind := range npKinds {
+		dirURL := fmt.Sprintf(npVideoDirURL, kind, code)
+		// The same listing URL as Scrape, so a match is not read twice.
+		doc, err := s.client.Page(ctx, dirURL+"?C=M;O=A", true)
+		if errors.Is(err, ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			return nil, false, err
+		}
+		entries, ok := ParseIndex(doc)
+		if !ok {
+			continue
+		}
+		for _, e := range entries {
+			if npVideoFileRE.MatchString(e.Name) {
+				links = append(links, npVideoLink{kind: kind, code: code, url: dirURL + url.PathEscape(e.Name)})
+			}
+		}
+		return links, true, nil
+	}
+	return nil, false, nil
 }
 
 func (s *nakedPapis) assign(ret *Resolution, sceneID int, link npVideoLink) {

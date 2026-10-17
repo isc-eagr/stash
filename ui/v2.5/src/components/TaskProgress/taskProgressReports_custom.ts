@@ -18,6 +18,7 @@ export interface ITaskProgressReportHistoryDay {
   remaining: number;
   baseline_count?: number | null;
   goal_per_day?: number | null;
+  completed_total?: number | null;
 }
 
 export interface ITaskProgressReportRow {
@@ -184,6 +185,7 @@ export function taskProgressReportRow(
     ...day,
     baselineCount: day.baseline_count ?? undefined,
     goalPerDay: day.goal_per_day,
+    completedTotal: day.completed_total ?? undefined,
   }));
   const points = buildTaskProgressHistorySeries(entries, "all", today);
   const selected = points.filter(
@@ -212,6 +214,8 @@ export function taskProgressReportRow(
         incoming,
         remaining: last.remaining,
         cumulativeCompleted: totalCompleted,
+        previousCompleted: selected[0].previousCompleted,
+        previousRemaining: selected[0].previousRemaining,
       }).periodProgressPercentage
     : 0;
   return {

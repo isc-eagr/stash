@@ -42,6 +42,9 @@ type TaskProgressDay struct {
 	Removed       int    `json:"removed"`
 	BaselineCount *int   `json:"baseline_count,omitempty"`
 	GoalPerDay    *int   `json:"goal_per_day,omitempty"`
+	// CompletedTotal is the finished-item snapshot at the end of the day when
+	// the source records one, so totals include work finished before tracking.
+	CompletedTotal *int `json:"completed_total,omitempty"`
 }
 
 type TaskProgressEvent struct {

@@ -118,8 +118,19 @@ type ScanMetaDataFilterInput struct {
 }
 
 func (s *Manager) Scan(ctx context.Context, input ScanMetadataInput) (int, error) {
-	if err := s.validateFFmpeg(); err != nil {
+	// CUSTOM: built by newScanJob so the studio site sync can run a scan
+	// inside its own job.
+	scanJob, err := s.newScanJob(input)
+	if err != nil {
 		return 0, err
+	}
+	return s.JobManager.Add(ctx, "Scanning...", scanJob), nil
+}
+
+// CUSTOM: split out of Scan.
+func (s *Manager) newScanJob(input ScanMetadataInput) (*ScanJob, error) {
+	if err := s.validateFFmpeg(); err != nil {
+		return nil, err
 	}
 
 	cfg := config.GetInstance()
@@ -149,13 +160,11 @@ func (s *Manager) Scan(ctx context.Context, input ScanMetadataInput) (int, error
 		Rescan:    input.Rescan,
 	}
 
-	scanJob := ScanJob{
+	return &ScanJob{
 		scanner:       scanner,
 		input:         input,
 		subscriptions: s.scanSubs,
-	}
-
-	return s.JobManager.Add(ctx, "Scanning...", &scanJob), nil
+	}, nil
 }
 
 func (s *Manager) Import(ctx context.Context) (int, error) {

@@ -1,4 +1,4 @@
 # CUSTOM: queue the studio site sync task.
-mutation StudioSiteSync($studio_id: ID!) {
-  studioSiteSync(studio_id: $studio_id)
+mutation StudioSiteSync($input: StudioSiteSyncInput!) {
+  studioSiteSync(input: $input)
 }

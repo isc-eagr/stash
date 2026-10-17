@@ -984,16 +984,6 @@ const OStatsContent: React.FC<{
         </div>
       </header>
 
-      {/* CUSTOM: Latest appears above totals and ranked cards. */}
-      {!isDetailPage && (
-        <OStatsLatest
-          studioId={studioScope?.id}
-          depth={studioScope?.depth}
-          dateRange={dateRangeVariable}
-          withScope={withScope}
-        />
-      )}
-
       {showOverview && (
         <div className="ostats-summary" aria-label="O totals and records">
           <div className="ostats-summary-item">
@@ -1032,6 +1022,16 @@ const OStatsContent: React.FC<{
             </div>
           )}
         </div>
+      )}
+
+      {/* CUSTOM: Latest appears below totals and above ranked cards. */}
+      {!isDetailPage && (
+        <OStatsLatest
+          studioId={studioScope?.id}
+          depth={studioScope?.depth}
+          dateRange={dateRangeVariable}
+          withScope={withScope}
+        />
       )}
 
       {error && <ErrorMessage error={error.message} />}

@@ -66,6 +66,7 @@ export const TaskProgressOverallModal: React.FC<IProps> = ({
             ...day,
             baselineCount: day.baseline_count ?? undefined,
             goalPerDay: day.goal_per_day,
+            completedTotal: day.completed_total ?? undefined,
           }))}
         />
         <Form.Group
@@ -109,6 +110,7 @@ export const TaskProgressOverallModal: React.FC<IProps> = ({
               ...day,
               baselineCount: day.baseline_count ?? undefined,
               goalPerDay: day.goal_per_day,
+              completedTotal: day.completed_total ?? undefined,
             }))}
             title={t("Overall Progress")}
             today={progressToday()}

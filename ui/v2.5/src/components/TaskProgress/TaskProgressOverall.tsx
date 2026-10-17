@@ -91,6 +91,7 @@ export const TaskProgressOverall: React.FC = () => {
                         ...day,
                         baselineCount: day.baseline_count ?? undefined,
                         goalPerDay: day.goal_per_day,
+                        completedTotal: day.completed_total ?? undefined,
                       }))}
                     />
                   )}

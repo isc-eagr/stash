@@ -65,7 +65,7 @@ test("O timeline pages preserve studio and Dates scope and recover invalid page 
   );
 });
 
-test("Latest precedes summary cards and View All reaches the explicit full timeline route", () => {
+test("Summary cards precede Latest and View All reaches the explicit full timeline route", () => {
   const overview = readFileSync(
     new URL("../src/components/OStats/OStats.tsx", import.meta.url),
     "utf8"
@@ -79,8 +79,8 @@ test("Latest precedes summary cards and View All reaches the explicit full timel
   );
   const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
   assert.ok(
-    overview.indexOf("<OStatsLatest") <
-      overview.indexOf('className="ostats-summary"')
+    overview.indexOf('className="ostats-summary"') <
+      overview.indexOf("<OStatsLatest")
   );
   assert.match(timeline, /perPage: O_STATS_LATEST_COUNT_CUSTOM/);
   assert.match(

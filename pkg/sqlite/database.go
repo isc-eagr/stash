@@ -286,6 +286,7 @@ func (db *Database) initialise() error {
 	for _, ensure := range []func(context.Context) error{
 		db.ensureTaskProgressSchemaCustom,
 		db.ensureSceneStashDBMatchesSchemaCustom,
+		db.ensureStashDBChangesSchemaCustom,
 		db.detectReleaseOEventsCustom,
 		db.clearReleaseRatingsCustom,
 	} {
