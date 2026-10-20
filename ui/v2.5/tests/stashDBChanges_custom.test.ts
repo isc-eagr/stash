@@ -6,11 +6,14 @@ import { IntlProvider } from "react-intl";
 import { MemoryRouter } from "react-router-dom";
 import { InMemoryCache } from "@apollo/client";
 import {
+  STASHDB_CHANGES_JOB_DESCRIPTION_CUSTOM,
   STASHDB_PERFORMER_FIELDS_CUSTOM,
+  activeStashDBChangesJobCustom,
   STASHDB_SCENE_FIELDS_CUSTOM,
   stashDBApplicableCustom,
   stashDBEntryURLCustom,
   stashDBFieldCountsCustom,
+  stashDBShortURLCustom,
   stashDBSkippedCustom,
   toggleStashDBFieldCustom,
   visibleStashDBChangesCustom,
@@ -175,10 +178,23 @@ test("an entry shows scalar and list changes side by side", () => {
   assert.match(markup, /href="https:\/\/stashdb.org\/scenes\/old"/);
   assert.match(
     markup,
-    /<th scope="row">Title<\/th><td[^>]*><span class="text-muted">—<\/span><\/td><td[^>]*>New<\/td>/
+    /Title<\/div><div[^>]*><span class="stashdb-changes-empty">empty<\/span><\/div><div[^>]*>→<\/div><div[^>]*><span class="stashdb-changes-scalar stashdb-changes-new">New<\/span>/
   );
-  assert.match(markup, /class="text-danger">− Dropped</);
-  assert.match(markup, /class="text-success">\+ Rimming</);
+  assert.match(markup, /stashdb-changes-pill-removed"[^>]*>− Dropped</);
+  assert.match(markup, /stashdb-changes-pill-added"[^>]*>\+ Rimming</);
+  assert.match(
+    markup,
+    /stashdb-changes-entry-gone/,
+    "merged entries get the gone edge"
+  );
+});
+
+test("URLs show without scheme, www, or a trailing slash", () => {
+  assert.equal(
+    stashDBShortURLCustom("https://www.iafd.com/person.rme/id=1/"),
+    "iafd.com/person.rme/id=1"
+  );
+  assert.equal(stashDBShortURLCustom("http://x.com/a"), "x.com/a");
 });
 
 test("groups render their rows only once opened", () => {
@@ -399,4 +415,29 @@ test("entries offer Use StashDB per applicable field and Use all for several", (
     React.createElement(StashDBChangesEntry, { ...entryProps, fields })
   );
   assert.doesNotMatch(readOnly, /Use StashDB|Use all/);
+});
+
+test("the report follows a check queued elsewhere until it ends", () => {
+  const job = (id: string, status: string, description: string) => ({
+    id,
+    status,
+    description,
+  });
+  const check = STASHDB_CHANGES_JOB_DESCRIPTION_CUSTOM;
+  assert.equal(
+    activeStashDBChangesJobCustom([
+      job("1", "RUNNING", "Scanning..."),
+      job("2", "FINISHED", check),
+      job("3", "READY", check),
+    ]),
+    "3"
+  );
+  assert.equal(
+    activeStashDBChangesJobCustom([job("4", "RUNNING", check)]),
+    "4"
+  );
+  assert.equal(
+    activeStashDBChangesJobCustom([job("5", "CANCELLED", check)]),
+    undefined
+  );
 });

@@ -5,7 +5,6 @@
   max-width: 1500px;
   padding: 0 clamp(0.75rem, 2vw, 2rem) 2rem;
 
-  .progress-tracker-heading,
   .progress-page-heading {
     align-items: flex-start;
     display: flex;
@@ -39,9 +38,13 @@
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem 1rem;
-    justify-content: space-between;
+    justify-content: flex-start;
     margin-bottom: 1rem;
     padding: 0.6rem 0.75rem;
+
+    > small {
+      margin-left: auto;
+    }
 
     .form-group {
       align-items: center;
@@ -64,6 +67,12 @@
     }
   }
 
+  .progress-tracker-list {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .progress-tracker-card {
     background: linear-gradient(
       135deg,
@@ -74,8 +83,6 @@
     border-radius: 0.45rem;
     height: auto;
     margin: 0;
-    // CUSTOM: Summary and footer supply the card's aligned inner spacing.
-    padding: 0;
     position: relative;
     transition: border-color 150ms ease, box-shadow 150ms ease,
       transform 150ms ease;
@@ -90,77 +97,6 @@
     .card-body {
       border-top: 1px solid rgba(128, 128, 128, 0.25);
       padding: 0.85rem;
-    }
-  }
-
-  .progress-tracker-summary {
-    background: transparent;
-    border: 0;
-    border-radius: inherit;
-    color: inherit;
-    padding: 1.05rem 1.35rem 0.95rem;
-    text-align: left;
-    width: 100%;
-  }
-
-  /* CUSTOM: Keep actions and the compact finish estimate aligned in the footer. */
-  .progress-tracker-footer {
-    align-items: flex-start;
-    border-top: 1px solid rgba(138, 155, 168, 0.2);
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem 1rem;
-    justify-content: space-between;
-    margin: 0 1.2rem;
-  }
-
-  .progress-tracker-card-actions {
-    display: flex;
-    gap: 0.4rem;
-    padding: 0.65rem 0 0.75rem;
-  }
-
-  .progress-tracker-plan {
-    align-items: center;
-    display: flex;
-    justify-content: flex-end;
-    margin: 0 0 0 auto;
-    padding: 0.55rem 0 0.7rem;
-
-    .form-label {
-      color: var(--black-steel-text-muted, #bfccd6);
-      font-size: 0.85rem;
-      margin: 0;
-    }
-
-    .progress-tracker-plan-title {
-      color: var(--black-steel-text-muted, #bfccd6);
-      font-weight: 600;
-    }
-
-    .progress-tracker-plan-label {
-      align-items: center;
-      display: inline-flex;
-      flex-wrap: wrap;
-      gap: 0.35rem;
-      justify-content: flex-end;
-
-      span,
-      strong {
-        white-space: nowrap;
-      }
-    }
-
-    .form-control {
-      font-size: 0.9rem;
-      height: calc(1.5em + 0.35rem + 2px);
-      max-width: 4rem;
-      padding: 0.15rem 0.35rem;
-    }
-
-    .progress-tracker-plan-date {
-      color: var(--black-steel-text, #f5f8fa);
-      font-size: 0.9rem;
     }
   }
 
@@ -187,194 +123,6 @@
   .progress-tracker-title {
     font-size: 1.35rem;
     overflow-wrap: anywhere;
-  }
-
-  .progress-tracker-title-row {
-    align-items: center;
-    display: flex;
-    gap: 0.8rem;
-    min-width: 0;
-    width: 100%;
-  }
-
-  .progress-tracker-heading {
-    display: grid;
-    gap: 0.45rem;
-    justify-content: initial;
-    justify-items: start;
-    padding-right: 0;
-  }
-
-  .progress-tracker-status {
-    align-items: center;
-    display: flex;
-    flex-shrink: 0;
-    gap: 0.35rem;
-  }
-
-  .progress-tracker-counts {
-    display: grid;
-    gap: 0.6rem;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-
-    > span {
-      border-left: 1px solid rgba(138, 155, 168, 0.3);
-      display: grid;
-      gap: 0.2rem;
-      min-width: 0;
-      padding-left: 0.75rem;
-
-      &:first-child {
-        border-left: 0;
-        padding-left: 0;
-      }
-    }
-
-    strong,
-    small {
-      display: block;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    strong {
-      color: var(--black-steel-text, #f5f8fa);
-      font-size: clamp(1.2rem, 1.85vw, 1.7rem);
-      font-weight: 700;
-      line-height: 1;
-    }
-
-    small {
-      color: var(--black-steel-text-muted, #bfccd6);
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-transform: uppercase;
-    }
-  }
-
-  .progress-tracker-overview {
-    display: grid;
-    gap: 0.9rem;
-    min-width: 0;
-  }
-
-  .progress-card-visuals {
-    align-items: start;
-    display: grid;
-    gap: clamp(0.75rem, 2vw, 1.5rem);
-    grid-template-columns: minmax(0, 1fr) 14rem;
-    min-width: 0;
-
-    .progress-goal-summary {
-      gap: 0.4rem;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      margin-top: 0;
-      max-width: 40rem;
-    }
-
-    .progress-goal-period {
-      padding: 0.5rem 0.55rem;
-    }
-
-    .progress-ring {
-      align-self: start;
-      justify-self: end;
-    }
-  }
-
-  .progress-overall-card .progress-card-visuals {
-    align-items: stretch;
-    grid-template-areas: "overview ring" "bottom ring";
-    grid-template-columns: minmax(0, 72rem) minmax(
-        clamp(19rem, 22vw, 22rem),
-        1fr
-      );
-    margin-top: 0;
-
-    .progress-overall-overview {
-      grid-area: overview;
-    }
-
-    .progress-overall-footer,
-    .milestone-metrics {
-      grid-area: bottom;
-      margin-top: 0;
-    }
-
-    .progress-ring {
-      align-self: center;
-      grid-area: ring;
-      width: min(100%, clamp(19rem, 22vw, 22rem));
-    }
-  }
-
-  .progress-overall-overview {
-    display: grid;
-    gap: 1.25rem;
-    min-width: 0;
-  }
-
-  .progress-card-visuals .progress-overall-summary {
-    max-width: none;
-  }
-
-  .progress-overall-card .progress-card-visuals .progress-goal-summary {
-    max-width: none;
-  }
-
-  .progress-ring {
-    aspect-ratio: 1;
-    display: grid;
-    place-items: center;
-    position: relative;
-    width: min(100%, 14rem);
-
-    svg {
-      height: 100%;
-      inset: 0;
-      position: absolute;
-      transform: rotate(-90deg);
-      width: 100%;
-    }
-
-    circle {
-      fill: none;
-      stroke-width: 8;
-    }
-
-    .progress-ring-track {
-      stroke: rgba(138, 155, 168, 0.24);
-    }
-
-    .progress-ring-value {
-      stroke: rgba(235, 241, 244, 0.88);
-      stroke-linecap: round;
-      transition: stroke-dashoffset 200ms ease;
-    }
-  }
-
-  .progress-ring-text {
-    align-items: center;
-    display: grid;
-    gap: 0.15rem;
-    justify-items: center;
-    position: relative;
-    text-align: center;
-
-    strong {
-      color: var(--black-steel-text, #f5f8fa);
-      font-size: clamp(1.1rem, 2vw, 1.8rem);
-      line-height: 1;
-    }
-
-    small {
-      color: var(--black-steel-text-muted, #bfccd6);
-      font-size: 0.58rem;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
   }
 
   /* CUSTOM: Daily goals roll up into current calendar-week and calendar-month progress. */
@@ -467,38 +215,38 @@
   }
 
   .progress-goal-period-red {
-    --progress-goal-bar-end: #f97878;
-    --progress-goal-bar-start: #c83c3c;
+    --progress-goal-bar-end: #eca2a8;
+    --progress-goal-bar-start: #eca2a8;
     box-shadow: inset 0 0 0 1px rgba(245, 86, 86, 0.18);
-    color: #f55656;
+    color: #eca2a8;
   }
 
   .progress-goal-period-orange {
-    --progress-goal-bar-end: #ffad5b;
-    --progress-goal-bar-start: #ce6622;
+    --progress-goal-bar-end: #edbd87;
+    --progress-goal-bar-start: #edbd87;
     box-shadow: inset 0 0 0 1px rgba(240, 140, 58, 0.18);
-    color: #f08c3a;
+    color: #edbd87;
   }
 
   .progress-goal-period-yellow {
-    --progress-goal-bar-end: #f8dc6a;
-    --progress-goal-bar-start: #cb9f27;
+    --progress-goal-bar-end: #e6d58c;
+    --progress-goal-bar-start: #e6d58c;
     box-shadow: inset 0 0 0 1px rgba(242, 201, 76, 0.18);
-    color: #f2c94c;
+    color: #e6d58c;
   }
 
   .progress-goal-period-green {
-    --progress-goal-bar-end: #68dc91;
-    --progress-goal-bar-start: #239b50;
+    --progress-goal-bar-end: #91d3b0;
+    --progress-goal-bar-start: #91d3b0;
     box-shadow: inset 0 0 0 1px rgba(53, 196, 106, 0.18);
-    color: #35c46a;
+    color: #91d3b0;
   }
 
   .progress-goal-period-sapphire {
-    --progress-goal-bar-end: #78c9ff;
-    --progress-goal-bar-start: #287eb6;
+    --progress-goal-bar-end: #94c3df;
+    --progress-goal-bar-start: #94c3df;
     box-shadow: inset 0 0 0 1px rgba(77, 184, 255, 0.18);
-    color: #4db8ff;
+    color: #94c3df;
   }
 
   .progress-tracker-modal-items {
@@ -522,106 +270,8 @@
     margin: 0 0 1rem;
     overflow: hidden;
 
-    &:not(.milestone-summary) {
-      margin-bottom: 3rem;
-    }
-
     .card-body {
       padding: 1.35rem;
-    }
-  }
-
-  .progress-overall-heading {
-    h3,
-    p {
-      margin: 0;
-    }
-
-    h3 {
-      font-size: 1.35rem;
-      font-weight: 700;
-    }
-
-    p {
-      color: var(--black-steel-text-muted, #bfccd6);
-      font-size: 0.8rem;
-      margin-top: 0.25rem;
-      text-transform: uppercase;
-    }
-  }
-
-  .progress-overall-summary {
-    display: grid;
-    gap: 0.6rem;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-
-    > span {
-      border-left: 1px solid rgba(138, 155, 168, 0.3);
-      display: grid;
-      gap: 0.2rem;
-      min-width: 0;
-      padding-left: 0.75rem;
-
-      &:first-child {
-        border-left: 0;
-        padding-left: 0;
-      }
-    }
-
-    strong,
-    small {
-      display: block;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    strong {
-      color: var(--black-steel-text, #f5f8fa);
-      font-size: clamp(1.7rem, 3.2vw, 2.75rem);
-      font-weight: 700;
-      line-height: 1;
-    }
-
-    small {
-      color: var(--black-steel-text-muted, #bfccd6);
-      font-size: 0.78rem;
-      font-weight: 600;
-      text-transform: uppercase;
-    }
-  }
-
-  .progress-overall-footer {
-    align-items: end;
-    border-top: 1px solid rgba(138, 155, 168, 0.22);
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem 1.25rem;
-    justify-content: space-between;
-    margin-top: 1rem;
-    padding-top: 0.8rem;
-  }
-
-  .progress-overall-card-actions {
-    display: flex;
-    margin-left: 0;
-  }
-
-  .progress-overall-plan {
-    display: grid;
-    gap: 0.1rem;
-    margin: 0;
-    text-align: right;
-
-    span {
-      color: var(--black-steel-text-muted, #bfccd6);
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-transform: uppercase;
-    }
-
-    strong {
-      font-size: 0.95rem;
     }
   }
 
@@ -645,11 +295,11 @@
 }
 
 .progress-delta-up {
-  color: #35c46a;
+  color: #91d3b0;
 }
 
 .progress-delta-down {
-  color: #f55656;
+  color: #eca2a8;
 }
 
 .progress-delta-flat {
@@ -663,394 +313,17 @@
   text-overflow: ellipsis;
 }
 
-/* CUSTOM: Keep calendar reports compact and readable at narrow widths. */
-.progress-reports {
-  .nav-pills {
-    gap: 0.25rem;
-    margin-bottom: 1rem;
-  }
-
-  .progress-report-selectors {
-    align-items: flex-end;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    margin-bottom: 1rem;
-
-    .form-group {
-      margin: 0;
-    }
-
-    .form-label {
-      color: var(--black-steel-text-muted, #bfccd6);
-      display: block;
-      font-size: 0.8rem;
-      font-weight: 600;
-      margin-bottom: 0.3rem;
-    }
-
-    .form-control,
-    .react-datepicker-wrapper {
-      min-width: 10rem;
-      width: auto;
-    }
-  }
-
-  .progress-report-period {
-    align-items: center;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem 1rem;
-    justify-content: space-between;
-    margin-bottom: 1.5rem;
-
-    h3 {
-      font-size: 1.2rem;
-      margin: 0;
-    }
-
-    small {
-      color: var(--black-steel-text-muted, #bfccd6);
-    }
-  }
-
-  .progress-report-period-actions {
-    display: flex;
-    gap: 0.4rem;
-  }
-
-  section {
-    margin-bottom: 1.5rem;
-  }
-
-  h4 {
-    border-bottom: 1px solid rgba(138, 155, 168, 0.32);
-    color: var(--black-steel-text, #f5f8fa);
-    font-size: 1.4rem;
-    font-weight: 700;
-    letter-spacing: 0.015em;
-    margin-bottom: 0.8rem;
-    padding-bottom: 0.45rem;
-  }
-
-  .table {
-    margin-bottom: 0;
-    min-width: 0;
-    width: auto;
-
-    th,
-    td {
-      padding: 0.45rem 0.65rem;
-      vertical-align: middle;
-    }
-
-    thead th {
-      white-space: nowrap;
-    }
-  }
-
-  .progress-report-overview-heading {
-    align-items: flex-end;
-    border-bottom: 1px solid rgba(138, 155, 168, 0.32);
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem 1rem;
-    justify-content: space-between;
-    margin-bottom: 0.8rem;
-    padding-bottom: 0.45rem;
-
-    h4 {
-      border: 0;
-      margin: 0;
-      padding: 0;
-    }
-
-    .form-group {
-      margin: 0;
-    }
-
-    .form-control {
-      min-width: 14rem;
-    }
-  }
-
-  .progress-report-tiles {
-    display: grid;
-    gap: 0.65rem;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
-    margin-bottom: 1.25rem;
-  }
-
-  .progress-report-tile {
-    background: linear-gradient(
-      135deg,
-      rgba(22, 34, 41, 0.86),
-      rgba(13, 23, 29, 0.86)
-    );
-    border: 1px solid rgba(138, 155, 168, 0.25);
-    border-radius: 0.4rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-    padding: 0.75rem 0.9rem;
-
-    > span {
-      color: var(--black-steel-text-muted, #bfccd6);
-      font-size: 0.68rem;
-      font-weight: 700;
-      text-transform: uppercase;
-    }
-
-    > strong {
-      color: var(--black-steel-text, #f5f8fa);
-      font-size: 1.6rem;
-      line-height: 1.15;
-    }
-  }
-
-  .progress-report-meter {
-    background: rgba(138, 155, 168, 0.2);
-    border-radius: 999px;
-    display: block;
-    height: 0.4rem;
-    min-width: 5rem;
-    overflow: hidden;
-
-    > span {
-      background: var(--progress-report-goal-color, #4db8ff);
-      border-radius: inherit;
-      display: block;
-      height: 100%;
-    }
-  }
-
-  .progress-report-goal-cell {
-    min-width: 9rem;
-
-    > span:first-child {
-      display: block;
-      margin-bottom: 0.25rem;
-    }
-  }
-
-  .progress-report-share {
-    min-width: 8rem;
-    white-space: nowrap;
-
-    .progress-report-meter {
-      display: inline-block;
-      margin-right: 0.4rem;
-      vertical-align: middle;
-      width: 5rem;
-    }
-  }
-
-  .progress-report-idle {
-    color: var(--black-steel-text-muted, #bfccd6);
-    margin-top: 0.5rem;
-
-    summary {
-      cursor: pointer;
-    }
-
-    p {
-      margin: 0.35rem 0 0;
-    }
-  }
-}
-
-/* CUSTOM: Milestone dashboard and compact contribution list. */
 .progress-page-tabs {
   margin-bottom: 1.25rem;
 }
 
-.milestone-toolbar,
-.milestone-toolbar-actions,
-.milestone-item-counts > div {
+.milestone-toolbar {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem 1.25rem;
-}
-
-.milestone-toolbar {
-  justify-content: space-between;
+  justify-content: flex-end;
   margin-bottom: 1.25rem;
-
-  .form-group {
-    min-width: min(100%, 18rem);
-  }
-}
-
-.milestone-dashboard > section,
-.milestone-dashboard > .card {
-  margin-bottom: 1.25rem;
-}
-
-.task-progress-page .milestone-summary .progress-overall-summary {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.milestone-history .task-progress-history-chart {
-  max-width: none;
-  width: 100%;
-}
-
-.milestone-history .task-progress-history-chart-plot {
-  overflow-x: auto;
-}
-
-.milestone-history .task-progress-history-chart-svg {
-  min-width: 720px;
-}
-
-.milestone-metrics {
-  display: grid;
-  gap: 0.65rem;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
-  margin-top: 1rem;
-}
-
-.milestone-metric {
-  background: linear-gradient(
-    135deg,
-    rgba(22, 34, 41, 0.86),
-    rgba(13, 23, 29, 0.86)
-  );
-  border: 1px solid rgba(138, 155, 168, 0.25);
-  border-radius: 0.4rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  min-width: 0;
-  padding: 0.7rem 0.8rem;
-
-  > span,
-  .form-label {
-    color: var(--black-steel-text-muted, #bfccd6);
-    font-size: 0.68rem;
-    font-weight: 700;
-    margin: 0;
-    text-transform: uppercase;
-  }
-
-  > strong {
-    color: var(--black-steel-text, #f5f8fa);
-    font-size: clamp(1.05rem, 1.5vw, 1.35rem);
-    line-height: 1.2;
-    overflow-wrap: anywhere;
-  }
-
-  > small {
-    color: var(--black-steel-text-muted, #bfccd6);
-    font-size: 0.78rem;
-    line-height: 1.25;
-  }
-}
-
-.milestone-rate .form-control {
-  margin: 0.1rem 0 0.2rem;
-  max-width: 8rem;
-  width: 100%;
-}
-
-.milestone-rate > .milestone-rate-finish {
-  font-size: 1rem;
-}
-
-.milestone-history,
-.milestone-item-counts,
-.milestone-contributions {
-  h3 {
-    font-size: 1.2rem;
-    margin-bottom: 0.75rem;
-  }
-}
-
-.milestone-item-counts > div > span {
-  border: 1px solid var(--secondary);
-  border-radius: 0.35rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  min-width: 10rem;
-  padding: 0.45rem 0.75rem;
-}
-
-.milestone-bar {
-  background: rgba(138, 155, 168, 0.2);
-  border-radius: 999px;
-  display: block;
-  height: 0.4rem;
-  overflow: hidden;
-
-  > span {
-    background: linear-gradient(90deg, #239b50, #68dc91);
-    border-radius: inherit;
-    display: block;
-    height: 100%;
-  }
-}
-
-.milestone-contributions-period {
-  margin-bottom: 0.75rem;
-}
-
-.milestone-contributions-table {
-  overflow-x: auto;
-  width: 100%;
-}
-
-.milestone-mobile-sort {
-  display: none;
-}
-
-.milestone-contributions-head,
-.milestone-contributions-row {
-  align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-  display: grid;
-  gap: 0.5rem;
-  grid-template-columns: minmax(12rem, 2fr) repeat(5, minmax(5rem, 1fr));
-  min-width: 42rem;
-  padding: 0.45rem 0.65rem;
-}
-
-.milestone-contributions-head {
-  font-weight: 600;
-}
-
-.milestone-contributions-head .milestone-sort-button {
-  font-weight: inherit;
-  padding: 0;
-  text-decoration: none;
-}
-
-.milestone-contributions-row .btn-link {
-  padding: 0;
-  text-align: left;
-}
-
-.milestone-contributions-row .badge {
-  margin-left: 0.4rem;
-}
-
-.milestone-contributions-top {
-  background: rgba(53, 196, 106, 0.08);
-}
-
-.milestone-contributions-idle {
-  opacity: 0.5;
-}
-
-.milestone-percent {
-  align-items: center;
-  display: inline-flex;
-  gap: 0.4rem;
-
-  .milestone-bar {
-    flex: 0 0 3rem;
-  }
 }
 
 .milestone-form-optional {
@@ -1084,39 +357,6 @@
 }
 
 @media (max-width: 640px) {
-  .task-progress-page .milestone-summary .progress-overall-summary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .milestone-contributions-head {
-    display: none;
-  }
-
-  .milestone-mobile-sort {
-    align-items: end;
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 0.5rem;
-  }
-
-  .milestone-mobile-sort .form-control {
-    max-width: 13rem;
-  }
-
-  .milestone-contributions-row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    min-width: 0;
-  }
-
-  .milestone-contributions-row [role="cell"]::before {
-    content: attr(data-label) ": ";
-    opacity: 0.7;
-  }
-
-  .milestone-contributions-row [role="cell"]:first-child {
-    grid-column: 1 / -1;
-  }
-
   .milestone-form-optional {
     grid-template-columns: 1fr;
   }
@@ -1128,23 +368,6 @@
   gap: 0.5rem;
   justify-content: space-between;
   min-width: 0;
-}
-
-.progress-goal-period-change {
-  color: var(--black-steel-text-muted, #bfccd6);
-  font-size: 0.7rem;
-  font-weight: 600;
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.task-progress-page {
-  .progress-card-visuals {
-    .progress-goal-period-change {
-      font-size: clamp(0.78rem, 1vw, 0.95rem);
-      font-weight: 700;
-    }
-  }
 }
 
 /* CUSTOM: Goal summary cards also render inside the Bootstrap Details modal portal. */
@@ -1211,93 +434,44 @@
   }
 
   .progress-goal-period-red {
-    --progress-goal-bar-end: #f97878;
-    --progress-goal-bar-start: #c83c3c;
+    --progress-goal-bar-end: #eca2a8;
+    --progress-goal-bar-start: #eca2a8;
     box-shadow: inset 0 0 0 1px rgba(245, 86, 86, 0.18);
-    color: #f55656;
+    color: #eca2a8;
   }
 
   .progress-goal-period-orange {
-    --progress-goal-bar-end: #ffad5b;
-    --progress-goal-bar-start: #ce6622;
+    --progress-goal-bar-end: #edbd87;
+    --progress-goal-bar-start: #edbd87;
     box-shadow: inset 0 0 0 1px rgba(240, 140, 58, 0.18);
-    color: #f08c3a;
+    color: #edbd87;
   }
 
   .progress-goal-period-yellow {
-    --progress-goal-bar-end: #f8dc6a;
-    --progress-goal-bar-start: #cb9f27;
+    --progress-goal-bar-end: #e6d58c;
+    --progress-goal-bar-start: #e6d58c;
     box-shadow: inset 0 0 0 1px rgba(242, 201, 76, 0.18);
-    color: #f2c94c;
+    color: #e6d58c;
   }
 
   .progress-goal-period-green {
-    --progress-goal-bar-end: #68dc91;
-    --progress-goal-bar-start: #239b50;
+    --progress-goal-bar-end: #91d3b0;
+    --progress-goal-bar-start: #91d3b0;
     box-shadow: inset 0 0 0 1px rgba(53, 196, 106, 0.18);
-    color: #35c46a;
+    color: #91d3b0;
   }
 
   .progress-goal-period-sapphire {
-    --progress-goal-bar-end: #78c9ff;
-    --progress-goal-bar-start: #287eb6;
+    --progress-goal-bar-end: #94c3df;
+    --progress-goal-bar-start: #94c3df;
     box-shadow: inset 0 0 0 1px rgba(77, 184, 255, 0.18);
-    color: #4db8ff;
+    color: #94c3df;
   }
 }
 
-@media (min-width: 768px) and (max-width: 1199.98px) {
-  .task-progress-page .progress-tracker-summary.progress-card-visuals {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .task-progress-page .progress-tracker-summary .progress-ring {
-    justify-self: center;
-  }
-
-  .task-progress-page .progress-tracker-summary .progress-goal-period {
-    padding-inline: 0.4rem;
-  }
-
-  .task-progress-page .progress-tracker-summary .progress-goal-period-values {
-    gap: 0.2rem;
-  }
-}
-@media (max-width: 767.98px) {
-  .task-progress-page .progress-overall-card .progress-card-visuals {
-    grid-template-areas: "overview" "ring" "bottom";
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .task-progress-page
-    .progress-overall-card
-    .progress-card-visuals
-    .progress-ring {
-    justify-self: center;
-    width: min(100%, clamp(19rem, 22vw, 22rem));
-  }
-}
 @media (max-width: 575.98px) {
   .task-progress-page {
     margin-top: 1.5rem;
-
-    .progress-card-visuals {
-      grid-template-columns: minmax(0, 1fr);
-    }
-
-    .progress-overall-card .progress-card-visuals {
-      grid-template-areas: "overview" "ring" "bottom";
-      grid-template-columns: minmax(0, 1fr);
-    }
-
-    .progress-card-visuals .progress-ring {
-      justify-self: center;
-      width: min(100%, 14rem);
-    }
-
-    .progress-overall-card .progress-card-visuals .progress-ring {
-      width: min(100%, clamp(19rem, 22vw, 22rem));
-    }
 
     .progress-page-heading {
       align-items: stretch;
@@ -1324,15 +498,6 @@
       }
     }
 
-    .progress-tracker-counts,
-    .progress-overall-summary {
-      gap: 0.4rem;
-
-      > span {
-        padding-left: 0.45rem;
-      }
-    }
-
     .progress-goal-summary {
       gap: 0.45rem;
     }
@@ -1356,29 +521,6 @@
     .progress-goal-meter {
       height: 0.4rem;
       margin-top: 0.45rem;
-    }
-
-    .progress-overall-footer {
-      align-items: stretch;
-    }
-
-    .progress-overall-card-actions {
-      margin-left: 0;
-    }
-
-    .progress-overall-plan {
-      text-align: left;
-    }
-  }
-}
-@media (max-width: 399.98px) {
-  .task-progress-page {
-    .progress-tracker-heading {
-      padding-right: 3.5rem;
-    }
-
-    .progress-card-visuals .progress-goal-summary {
-      grid-template-columns: minmax(0, 1fr);
     }
   }
 }
@@ -1630,40 +772,6 @@
       gap: 0.45rem;
     }
   }
-
-  .progress-tracker-modal-forecast {
-    display: grid;
-    gap: 0.75rem;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    margin: 1rem 0;
-
-    > div {
-      background: linear-gradient(
-        135deg,
-        rgba(27, 42, 51, 0.7),
-        rgba(15, 24, 31, 0.7)
-      );
-      border: 1px solid rgba(138, 155, 168, 0.35);
-      border-radius: 0.45rem;
-      display: grid;
-      gap: 0.25rem;
-      min-width: 0;
-      padding: 0.8rem 0.9rem;
-    }
-
-    span {
-      color: var(--black-steel-text-muted, #bfccd6);
-      font-size: 0.72rem;
-      font-weight: 600;
-      text-transform: uppercase;
-    }
-
-    strong {
-      color: var(--black-steel-text, #f5f8fa);
-      font-size: 1.1rem;
-      line-height: 1.15;
-    }
-  }
 }
 
 @media (max-width: 575.98px) {
@@ -1727,19 +835,6 @@
     .progress-tracker-modal-history {
       padding: 0.75rem;
     }
-
-    .progress-tracker-modal-forecast {
-      gap: 0.45rem;
-
-      > div {
-        padding: 0.7rem;
-      }
-    }
-  }
-}
-@media (max-width: 399.98px) {
-  .task-progress-tracker-modal .progress-tracker-modal-forecast {
-    grid-template-columns: 1fr;
   }
 }
 
@@ -1815,27 +910,27 @@
 
 .task-progress-timer-green {
   background: rgba(53, 196, 106, 0.13);
-  color: #35c46a;
+  color: #91d3b0;
 }
 
 .task-progress-timer-light-green {
   background: rgba(104, 220, 145, 0.13);
-  color: #68dc91;
+  color: #91d3b0;
 }
 
 .task-progress-timer-yellow {
   background: rgba(242, 201, 76, 0.13);
-  color: #f2c94c;
+  color: #e6d58c;
 }
 
 .task-progress-timer-orange {
   background: rgba(240, 140, 58, 0.13);
-  color: #f08c3a;
+  color: #edbd87;
 }
 
 .task-progress-timer-red {
   background: rgba(245, 86, 86, 0.13);
-  color: #f55656;
+  color: #eca2a8;
 }
 
 .task-progress-timer-status {
@@ -1890,29 +985,22 @@
   }
 }
 
-/* CUSTOM: Completed trackers use the Alpha Sapphire checkpoint palette. */
-.task-progress-page .progress-ring-completed {
-  .progress-ring-value {
-    filter: drop-shadow(0 0 3px rgba(56, 189, 248, 0.65));
-    stroke: #38bdf8;
-  }
-
-  .progress-ring-text strong {
-    animation: progress-completed-shimmer 3s ease-in-out infinite;
-    background: linear-gradient(
-      110deg,
-      #38bdf8 15%,
-      #b9e6ff 35%,
-      #38bdf8 55%,
-      #123f9f 75%,
-      #38bdf8
-    );
-    background-clip: text;
-    background-size: 250% 100%;
-    color: #38bdf8;
-    filter: drop-shadow(0 0 4px rgba(56, 189, 248, 0.55));
-    -webkit-text-fill-color: transparent;
-  }
+/* CUSTOM: Completed tracker percentages glow and shimmer in Alpha Sapphire. */
+.task-progress-page .progress-score-percent-complete {
+  animation: progress-completed-shimmer 3s ease-in-out infinite;
+  background: linear-gradient(
+    110deg,
+    #94c3df 15%,
+    #b9e6ff 35%,
+    #94c3df 55%,
+    #123f9f 75%,
+    #94c3df
+  );
+  background-clip: text;
+  background-size: 250% 100%;
+  color: #94c3df;
+  filter: drop-shadow(0 0 4px rgba(56, 189, 248, 0.55));
+  -webkit-text-fill-color: transparent;
 }
 
 .task-progress-tracker-modal .progress-tracker-at-a-glance-completed {
@@ -1931,7 +1019,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .task-progress-page .progress-ring-completed .progress-ring-text strong {
+  .task-progress-page .progress-score-percent-complete {
     animation: none;
   }
 }

@@ -6,7 +6,6 @@ import {
   milestoneSearch,
   milestoneTargetProgress,
   milestoneTrackerIdle,
-  resolveMilestoneSelection,
 } from "../src/components/TaskProgress/milestoneView_custom.ts";
 import { taskProgressCheckpoints } from "../src/components/TaskProgress/taskProgressCheckpoints_custom.ts";
 
@@ -19,18 +18,6 @@ assert.equal(
   milestoneSearch("?view=milestones&milestone=12", undefined, "trackers"),
   ""
 );
-assert.equal(
-  milestoneSearch("?view=milestones&milestone=12", undefined, "reports"),
-  "?view=reports",
-  "the Reports tab keeps its own URL and clears milestone selection"
-);
-assert.equal(
-  resolveMilestoneSelection(["1", "2"], "missing", "2"),
-  "missing",
-  "invalid direct links remain explicit"
-);
-assert.equal(resolveMilestoneSelection(["1", "2"], undefined, "2"), "2");
-assert.equal(resolveMilestoneSelection(["1", "2"], undefined, "deleted"), "1");
 
 const milestone = {
   target_date: "2026-09-26",

@@ -33,3 +33,4 @@ Go monolith serving a GraphQL API and the built React UI. Entry point `cmd/stash
 ## Workflow notes
 
 - Keep changes small per step, but finish both backend and frontend of a feature so nothing is left half-wired.
+- Responses: be as concise as possible every time. Treat each request as urgent and blocking. Final reply follows the "Responses and reporting" section in `Agents.md` (Done, Affected, Pending, Decisions needed, Future ideas), described in UI terms (screens and paths), not classes or backend. Commits are the developer's alone; never list them under Pending, Decisions needed, or Future ideas.

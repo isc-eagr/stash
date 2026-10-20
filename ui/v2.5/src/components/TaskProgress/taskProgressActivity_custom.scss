@@ -38,38 +38,38 @@ button.progress-activity-day {
 }
 
 .progress-report-goal-red {
-  --progress-report-goal-color: #f55656;
+  --progress-report-goal-color: #eca2a8;
 
-  background: #f55656;
-  fill: #f55656;
+  background: #eca2a8;
+  fill: #eca2a8;
 }
 
 .progress-report-goal-orange {
-  --progress-report-goal-color: #f08c3a;
+  --progress-report-goal-color: #edbd87;
 
-  background: #f08c3a;
-  fill: #f08c3a;
+  background: #edbd87;
+  fill: #edbd87;
 }
 
 .progress-report-goal-yellow {
-  --progress-report-goal-color: #f2c94c;
+  --progress-report-goal-color: #e6d58c;
 
-  background: #f2c94c;
-  fill: #f2c94c;
+  background: #e6d58c;
+  fill: #e6d58c;
 }
 
 .progress-report-goal-green {
-  --progress-report-goal-color: #35c46a;
+  --progress-report-goal-color: #91d3b0;
 
-  background: #35c46a;
-  fill: #35c46a;
+  background: #91d3b0;
+  fill: #91d3b0;
 }
 
 .progress-report-goal-sapphire {
-  --progress-report-goal-color: #4db8ff;
+  --progress-report-goal-color: #94c3df;
 
-  background: #4db8ff;
-  fill: #4db8ff;
+  background: #94c3df;
+  fill: #94c3df;
 }
 
 .progress-report-bars {
@@ -104,7 +104,7 @@ button.progress-activity-day {
   overflow: hidden;
 
   > span {
-    background: var(--progress-report-goal-color, #35c46a);
+    background: var(--progress-report-goal-color, #91d3b0);
     border-radius: 0.3rem 0.3rem 0 0;
     display: block;
     min-height: 2px;
@@ -128,19 +128,19 @@ button.progress-activity-day {
 }
 
 .progress-report-heat-1 {
-  background: rgba(53, 196, 106, 0.28);
+  background: rgba(145, 211, 176, 0.28);
 }
 
 .progress-report-heat-2 {
-  background: rgba(53, 196, 106, 0.48);
+  background: rgba(145, 211, 176, 0.48);
 }
 
 .progress-report-heat-3 {
-  background: rgba(53, 196, 106, 0.7);
+  background: rgba(145, 211, 176, 0.7);
 }
 
 .progress-report-heat-4 {
-  background: #35c46a;
+  background: #91d3b0;
 }
 
 .progress-report-calendar-grid {

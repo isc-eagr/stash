@@ -290,6 +290,15 @@ a.scene-performer-overview-rating--o-count {
 }
 
 .scene-performer-overview-role-strip {
+  /* Photo-width column: icons alone identify each scene type. */
+  .performer-scene-types-bar {
+    margin-top: 0;
+
+    .scene-activity-metric__swatch {
+      display: none;
+    }
+  }
+
   .performer-category-strip.performer-role-badges {
     gap: 0.25rem;
     grid-auto-columns: max-content;
@@ -311,6 +320,22 @@ a.scene-performer-overview-rating--o-count {
 
     .role-badge-item .role-total-count {
       font-size: 0.85rem;
+    }
+
+    /* Six tiles share the photo width, so each stacks icon over count. */
+    &.performer-category-strip--tiles {
+      gap: 0.15rem;
+      grid-auto-columns: minmax(0, 1fr);
+
+      .category-icon-container,
+      .role-badge-link {
+        flex-direction: column;
+        gap: 0;
+      }
+
+      .category-icon-container {
+        padding: 0.15rem 0;
+      }
     }
   }
 }

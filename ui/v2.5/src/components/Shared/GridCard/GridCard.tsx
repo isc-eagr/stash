@@ -37,6 +37,7 @@ interface ICardProps {
   duration?: number;
   interactiveHeatmap?: string;
   onPrimaryClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void; // CUSTOM
+  titleAside?: JSX.Element; // CUSTOM: content to the right of the title
 
   // move logic - both of the following are required to enable move dragging
   objectId?: string; // required for move dragging
@@ -261,6 +262,17 @@ export const GridCard: React.FC<ICardProps> = PatchComponent(
       }
     }
 
+    // CUSTOM: begin - the title can share its row with an aside
+    const titleLink = (
+      <Link to={props.url} onClick={handlePrimaryClick}>
+        <h5 className="card-section-title flex-aligned">
+          {props.pretitleIcon}
+          <TruncatedText text={props.title} lineCount={2} />
+        </h5>
+      </Link>
+    );
+    // CUSTOM: end
+
     return (
       <Card
         className={cx(props.className, "grid-card")}
@@ -302,12 +314,14 @@ export const GridCard: React.FC<ICardProps> = PatchComponent(
         {maybeRenderInteractiveHeatmap()}
         <div className="card-section">
           {/* CUSTOM: allow callers to replace the primary title navigation. */}
-          <Link to={props.url} onClick={handlePrimaryClick}>
-            <h5 className="card-section-title flex-aligned">
-              {props.pretitleIcon}
-              <TruncatedText text={props.title} lineCount={2} />
-            </h5>
-          </Link>
+          {props.titleAside ? (
+            <div className="card-section-title-row">
+              {titleLink}
+              {props.titleAside}
+            </div>
+          ) : (
+            titleLink
+          )}
           {props.details}
         </div>
 

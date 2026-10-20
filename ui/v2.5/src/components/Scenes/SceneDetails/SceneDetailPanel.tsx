@@ -7,7 +7,6 @@ import { sortPerformers } from "src/core/performers";
 import { DirectorLink } from "src/components/Shared/Link";
 import { CustomFields } from "src/components/Shared/CustomFields";
 import { useScenePerformerOverview } from "./ScenePerformerOverviewPanel_custom"; // CUSTOM
-import { SceneCardInsights } from "../SceneCardInsights_custom"; // CUSTOM
 import { usePerformerCardRoleStatsState } from "../../Performers/performerRoleStats_custom"; // CUSTOM
 import { useConfigurationContext } from "src/hooks/Config"; // CUSTOM
 import {
@@ -22,8 +21,9 @@ interface ISceneDetailProps {
 export const SceneDetailPanel: React.FC<ISceneDetailProps> = (props) => {
   // CUSTOM: Details contains descriptive content; maintenance dates and code live in Edit.
   const performerOverview = useScenePerformerOverview(); // CUSTOM
-  const { roleStatsByPerformer, loading: roleStatsPending } =
-    usePerformerCardRoleStatsState(props.scene.performers); // CUSTOM
+  const { roleStatsByPerformer } = usePerformerCardRoleStatsState(
+    props.scene.performers
+  ); // CUSTOM
   // CUSTOM: vato card sex/oral strips use Versatility by Time
   const { configuration } = useConfigurationContext();
   const roleSecondsByPerformer = useMemo(
@@ -108,13 +108,6 @@ export const SceneDetailPanel: React.FC<ISceneDetailProps> = (props) => {
       <div className="row">
         {/* CUSTOM: descriptive information uses the full row. */}
         <div className="col-12 scene-details">
-          {/* CUSTOM: descriptive scene insights lead Details */}
-          <SceneCardInsights
-            scene={props.scene}
-            roleStatsByPerformer={roleStatsByPerformer}
-            roleStatsPending={roleStatsPending}
-            detailPage
-          />
           {props.scene.director && (
             <h6>
               <FormattedMessage id="director" />:{" "}

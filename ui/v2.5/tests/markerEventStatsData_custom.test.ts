@@ -250,7 +250,6 @@ test("marker rankings keep one card per marker and break ties", () => {
       o_count: 1,
       quality: "REALLY_HOT",
       scene_rating100: 90,
-      scene_date: "2024-05-01",
     }),
   ];
   const order = (sort: Parameters<typeof rankMarkerEventMarkers>[1]) =>
@@ -259,15 +258,13 @@ test("marker rankings keep one card per marker and break ties", () => {
   // O Count ties go to the most recent O, like Scene Stats.
   assert.deepEqual(order("o_count"), ["2", "1", "4", "3"]);
   assert.deepEqual(order("latest_o"), ["2", "1", "4", "3"]);
-  assert.deepEqual(order("hotness"), ["3", "4", "2", "1"]);
   assert.deepEqual(order("scene_rating"), ["4", "2", "1", "3"]);
   assert.deepEqual(order("duration"), ["3", "2", "1", "4"]);
-  assert.deepEqual(order("release_date"), ["4", "2", "1", "3"]);
 
-  assert.deepEqual(markerEventSortMetric(ranked[3], "hotness"), {
-    messageID: "hotness",
-    format: "text",
-    value: "GOAT",
+  assert.deepEqual(markerEventSortMetric(ranked[3], "duration"), {
+    messageID: "duration",
+    format: "duration",
+    value: 45,
   });
   assert.equal(markerEventSortMetric(ranked[3], "latest_o").value, null);
 });

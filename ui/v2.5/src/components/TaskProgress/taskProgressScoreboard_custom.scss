@@ -1,0 +1,913 @@
+/* CUSTOM: Scoreboard trackers and the Milestones ledger, in the app theme.
+   Details modals render outside the page, so they get the same tokens. */
+.task-progress-page,
+.task-progress-tracker-modal {
+  --score-surface: var(--black-steel-surface-raised, #1b2128);
+  --score-track: var(--black-steel-action, #2b3239);
+  --score-border: var(--black-steel-border, #30353a);
+  --score-text: var(--black-steel-text, #eceeed);
+  --score-muted: var(--black-steel-text-muted, #a5aaad);
+  --score-accent: var(--black-steel-accent, #aa6337);
+  --score-accent-bright: var(--black-steel-accent-bright, #ca8757);
+  --score-accent-dark: var(--black-steel-accent-dark, #704025);
+  --score-gain: #e9b98f;
+  --score-up: #91d3b0;
+  --score-down: #eca2a8;
+
+  font-variant-numeric: tabular-nums;
+
+  .progress-page-tabs {
+    border-bottom: 1px solid var(--score-border);
+  }
+
+  .progress-tracker-toolbar {
+    background: none;
+    border: 0;
+    padding: 0;
+  }
+}
+
+/* Segmented buttons: status pills and period switches. */
+.progress-status-pills,
+.progress-segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+
+  button {
+    align-items: center;
+    background: transparent;
+    border: 1px solid var(--score-border);
+    border-radius: 2px;
+    color: var(--score-muted);
+    display: inline-flex;
+    font-size: 0.85rem;
+    font-weight: 600;
+    gap: 0.45rem;
+    min-height: 2.25rem;
+    padding: 0 0.8rem;
+
+    &:hover {
+      border-color: var(--black-steel-border-strong, #464d53);
+      color: var(--score-text);
+    }
+
+    &.active {
+      background: var(--score-track);
+      border-color: var(--score-accent);
+      box-shadow: inset 0 -2px 0 var(--score-accent);
+      color: var(--score-text);
+    }
+
+    > span {
+      color: var(--score-muted);
+      font-weight: 500;
+    }
+  }
+}
+
+/* Medal bar: earned fill, this week's gain, and the four medals on top. */
+.progress-medal-bar {
+  display: grid;
+  flex: 1;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.progress-medal-track {
+  --coin: 1.5rem;
+  background: var(--score-track);
+  border-radius: 999px;
+  height: 0.875rem;
+  margin: 0.4rem calc(var(--coin) / 2);
+  position: relative;
+}
+
+/* Earned progress as one rounded bar: earlier completions, then the period's gain. */
+.progress-medal-fills {
+  border-radius: 999px;
+  bottom: 0;
+  display: flex;
+  left: 0;
+  overflow: hidden;
+  position: absolute;
+  top: 0;
+}
+
+.progress-medal-fill {
+  background: linear-gradient(
+    90deg,
+    var(--score-accent-dark),
+    var(--score-accent)
+  );
+}
+
+.progress-medal-gain {
+  background: var(--score-up);
+}
+
+.progress-medal-bar-complete {
+  .progress-medal-fill {
+    background: linear-gradient(90deg, #123f9f, #60c9ff);
+  }
+
+  .progress-medal-gain {
+    display: none;
+  }
+}
+
+.progress-medal-coin {
+  background: var(--score-track);
+  border: 2px solid var(--black-steel-surface, #111315);
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px var(--black-steel-border-strong, #464d53);
+  height: var(--coin);
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: var(--coin);
+}
+
+.progress-medal-coin-reached {
+  background: radial-gradient(
+    circle at 35% 30%,
+    var(--checkpoint-highlight) 0%,
+    var(--checkpoint-metal) 48%,
+    var(--checkpoint-shadow) 100%
+  );
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+
+.progress-medal-coin-next {
+  box-shadow: inset 0 0 0 2px var(--checkpoint-metal);
+}
+
+.progress-medal-caption {
+  color: var(--score-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.78rem;
+  gap: 0.25rem 1rem;
+  justify-content: space-between;
+}
+
+.progress-medal-next {
+  color: var(--score-accent-bright);
+  font-weight: 600;
+}
+
+.progress-medal-next-close {
+  color: #f4d47c;
+}
+
+.progress-medal-bar-large {
+  .progress-medal-track {
+    --coin: 2rem;
+    height: 1.1rem;
+  }
+
+  .progress-medal-caption {
+    font-size: 0.85rem;
+  }
+}
+
+/* Period tiles: Today, This week, This month, This year. */
+.progress-period-tiles {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.progress-period-tile {
+  background: var(--score-surface);
+  border: 1px solid var(--score-border);
+  border-radius: 2px;
+  color: var(--score-text);
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+  padding: 0.5rem 0.6rem;
+}
+
+.progress-period-tile-heading {
+  align-items: center;
+  color: var(--score-muted);
+  display: flex;
+  font-size: 0.68rem;
+  font-weight: 700;
+  gap: 0.35rem;
+  justify-content: space-between;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.progress-period-tile-value {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  min-width: 0;
+
+  strong {
+    color: var(--progress-goal-bar-start, var(--score-text));
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  small:not(.progress-delta) {
+    color: var(--score-muted);
+    font-size: 0.75rem;
+  }
+}
+
+.progress-period-tile-value .progress-delta {
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+
+.progress-period-tile-previous {
+  color: var(--score-muted);
+  font-size: 0.7rem;
+}
+
+.progress-goal-period-neutral .progress-period-tile-value strong {
+  color: var(--score-muted);
+}
+
+.progress-period-meter {
+  background: var(--score-track);
+  border-radius: 999px;
+  display: block;
+  height: 0.3rem;
+  overflow: hidden;
+
+  > span {
+    background: var(--progress-goal-bar-start, var(--score-accent));
+    display: block;
+    height: 100%;
+  }
+}
+
+.progress-period-tile .progress-delta {
+  font-size: 0.72rem;
+  overflow-wrap: anywhere;
+}
+
+.progress-period-goal-met {
+  background: #91d3b0;
+  border-radius: 2px;
+  color: #172b22;
+  font-size: 0.62rem;
+  padding: 0.1rem 0.35rem;
+}
+
+.progress-period-tiles-hero {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+
+  .progress-period-tile {
+    gap: 0.5rem;
+    padding: 0.85rem 1rem;
+  }
+
+  .progress-period-tile-heading {
+    font-size: 0.75rem;
+  }
+
+  .progress-period-tile-value strong {
+    font-size: 1.6rem;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+
+  .progress-period-meter {
+    height: 0.4rem;
+  }
+}
+
+/* Goal colors reuse the shared goal-state palette. */
+@each $state,
+  $color
+    in (
+      ("red", #eca2a8),
+      ("orange", #edbd87),
+      ("yellow", #e6d58c),
+      ("green", #91d3b0),
+      ("sapphire", #94c3df)
+    )
+{
+  .progress-period-tile.progress-goal-period-#{$state} {
+    --progress-goal-bar-start: #{$color};
+  }
+}
+
+/* Overall Progress hero. */
+.task-progress-page .progress-score-hero {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 1.5rem 2rem;
+  margin: 0 0 1.5rem;
+  padding: 1.5rem;
+}
+
+.progress-score-hero-main {
+  display: grid;
+  flex: 3 1 32rem;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.progress-period-tiles-hero {
+  align-content: start;
+  flex: 2 1 22rem;
+}
+
+.progress-score-hero-heading {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: space-between;
+
+  h3 {
+    color: var(--score-muted);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    margin: 0;
+    text-transform: uppercase;
+  }
+
+  p {
+    color: var(--score-muted);
+    font-size: 0.85rem;
+    margin: 0;
+  }
+}
+
+.progress-score-hero-chips {
+  align-items: center;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.progress-score-streak {
+  align-items: center;
+  background: rgba(170, 99, 55, 0.16);
+  border: 1px solid var(--score-accent-dark);
+  border-radius: 2px;
+  color: var(--score-gain);
+  display: inline-flex;
+  font-size: 0.8rem;
+  font-weight: 700;
+  gap: 0.4rem;
+  min-height: 1.95rem;
+  padding: 0 0.6rem;
+}
+
+.progress-score-hero-figure {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.75rem;
+
+  > strong {
+    font-size: clamp(2.5rem, 5vw, 3.75rem);
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 1;
+  }
+}
+
+/* Done/left counts: the second thing the eye lands on after the percentage. */
+.progress-score-counts {
+  align-items: baseline;
+  color: var(--score-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  gap: 0.2rem 1rem;
+
+  strong {
+    color: var(--score-text);
+    font-size: 1.3rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  .progress-score-done strong {
+    color: var(--score-gain);
+  }
+}
+
+.progress-score-counts-large {
+  font-size: 1rem;
+  gap: 0.25rem 1.5rem;
+
+  strong {
+    font-size: clamp(1.6rem, 3vw, 2.25rem);
+  }
+}
+
+.progress-score-gain {
+  color: var(--score-up);
+}
+
+.progress-score-loss {
+  color: var(--score-down);
+}
+
+/* Tracker rows. */
+.task-progress-page .progress-tracker-list {
+  gap: 0.6rem;
+}
+
+.task-progress-page .progress-tracker-card.progress-score-row {
+  align-items: center;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0.85rem 1.5rem;
+  padding: 0.9rem 1.15rem;
+
+  .progress-tracker-reorder {
+    position: static;
+  }
+}
+
+.progress-score-identity {
+  display: grid;
+  flex: 1 1 13rem;
+  gap: 0.2rem;
+  min-width: 0;
+
+  > small {
+    color: var(--score-muted);
+  }
+
+  .progress-tracker-title {
+    font-size: 1.05rem;
+  }
+}
+
+.progress-score-title-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.progress-score-progress {
+  align-items: center;
+  display: flex;
+  flex: 3 1 22rem;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.progress-score-percent {
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  min-width: 5.25rem;
+}
+
+/* Previous close → current completion for the selected period. */
+.progress-score-percent-change {
+  align-items: baseline;
+  display: flex;
+  gap: 0.35rem;
+  white-space: nowrap;
+
+  > span {
+    color: var(--score-muted);
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+}
+
+.progress-score-percent-complete {
+  color: #94c3df;
+}
+
+.progress-period-tiles-row {
+  flex: 0 1 24rem;
+}
+
+.progress-score-actions {
+  align-items: center;
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+/* Milestones: growth chart. */
+.milestone-growth {
+  background: var(--score-surface);
+  border: 1px solid var(--score-border);
+  border-radius: 2px;
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  padding: 1rem 1.25rem;
+}
+
+.milestone-growth-heading {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+  justify-content: space-between;
+
+  h3 {
+    font-size: 1rem;
+    margin: 0;
+  }
+
+  small {
+    color: var(--score-muted);
+  }
+}
+
+.milestone-growth-legend {
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.82rem;
+  gap: 0.35rem 1rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  li {
+    align-items: center;
+    display: flex;
+    gap: 0.4rem;
+  }
+
+  strong {
+    color: var(--score-muted);
+  }
+}
+
+.milestone-growth-swatch {
+  border-radius: 2px;
+  display: inline-block;
+  flex: none;
+  height: 0.6rem;
+  width: 0.6rem;
+}
+
+.milestone-growth-chart {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.milestone-growth-axis {
+  color: var(--score-muted);
+  flex: none;
+  font-size: 0.7rem;
+  height: 12rem;
+  position: relative;
+  width: 2.25rem;
+
+  span {
+    position: absolute;
+    right: 0;
+    transform: translateY(-50%);
+  }
+}
+
+.milestone-growth-plot {
+  border-bottom: 1px solid var(--score-border);
+  border-top: 1px solid var(--score-border);
+  flex: 1;
+  height: 12rem;
+  position: relative;
+
+  svg {
+    height: 100%;
+    inset: 0;
+    overflow: visible;
+    position: absolute;
+    width: 100%;
+  }
+
+  polyline {
+    fill: none;
+    stroke-linejoin: round;
+    stroke-width: 2px;
+    vector-effect: non-scaling-stroke;
+  }
+}
+
+.milestone-growth-grid {
+  stroke: var(--score-border);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+
+.milestone-growth-tier {
+  stroke: var(--checkpoint-metal);
+  stroke-dasharray: 3 5;
+  stroke-opacity: 0.4;
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+
+.milestone-growth-point,
+.milestone-growth-medal {
+  border: 2px solid var(--score-surface);
+  border-radius: 50%;
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+
+.milestone-growth-point {
+  height: 0.6rem;
+  width: 0.6rem;
+}
+
+.milestone-growth-medal {
+  background: radial-gradient(
+    circle at 35% 30%,
+    var(--checkpoint-highlight) 0%,
+    var(--checkpoint-metal) 48%,
+    var(--checkpoint-shadow) 100%
+  );
+  height: 1rem;
+  width: 1rem;
+  z-index: 1;
+}
+
+.milestone-growth-months {
+  color: var(--score-muted);
+  font-size: 0.72rem;
+  height: 1rem;
+  margin-left: 2.85rem;
+  position: relative;
+
+  span {
+    position: absolute;
+    transform: translateX(-50%);
+    white-space: nowrap;
+
+    &:first-child {
+      transform: none;
+    }
+
+    &:last-child {
+      transform: translateX(-100%);
+    }
+  }
+}
+
+.milestone-growth-note {
+  color: var(--score-muted);
+}
+
+/* Milestones: ledger rows share the tracker scoreboard row. */
+.milestone-ledger-toolbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.milestone-period-nav {
+  align-items: center;
+  display: flex;
+  gap: 0.5rem;
+
+  strong {
+    min-width: 9rem;
+    text-align: center;
+  }
+}
+
+.milestone-ledger-toggle.btn {
+  color: var(--score-muted);
+  padding: 0.25rem;
+}
+
+.milestone-ledger-title.btn {
+  color: var(--score-text);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  padding: 0;
+  text-align: left;
+
+  &:hover {
+    color: var(--score-accent-bright);
+  }
+}
+
+.progress-period-tile-selected {
+  border-color: var(--score-accent);
+  box-shadow: inset 0 -2px 0 var(--score-accent);
+}
+
+.milestone-target-ahead,
+.milestone-target-on-track,
+.milestone-target-complete {
+  color: #91d3b0;
+}
+
+.milestone-target-behind,
+.milestone-target-overdue {
+  color: #edbd87;
+}
+
+.milestone-target-unavailable {
+  color: var(--score-muted);
+}
+
+.milestone-ledger-contributions {
+  border-top: 1px solid var(--score-border);
+  flex-basis: 100%;
+  padding-top: 0.75rem;
+}
+
+/* Tracker rows nested under a milestone: indented on a copper rail, no card. */
+.milestone-subrows {
+  border-left: 2px solid var(--score-accent-dark);
+  display: grid;
+  gap: 0.35rem;
+  margin-left: 0.85rem;
+  padding-left: 1rem;
+}
+
+.progress-score-row.milestone-subrow {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.025);
+  border-radius: 2px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.5rem;
+  padding: 0.6rem 0.85rem;
+
+  .progress-tracker-title {
+    font-size: 0.95rem;
+  }
+
+  .progress-score-counts strong {
+    font-size: 1.1rem;
+  }
+}
+
+.milestone-subrow-period {
+  display: grid;
+  flex: 0 1 11rem;
+  text-align: right;
+
+  strong {
+    font-size: 1.1rem;
+  }
+
+  small {
+    color: var(--score-muted);
+    white-space: nowrap;
+  }
+
+  .progress-delta {
+    display: inline;
+  }
+}
+
+.milestone-subrows-empty,
+.milestone-subrows-idle > summary {
+  color: var(--score-muted);
+  font-size: 0.85rem;
+  margin: 0.25rem 0;
+}
+
+.milestone-subrows-idle {
+  display: grid;
+  gap: 0.35rem;
+
+  > summary {
+    cursor: pointer;
+  }
+}
+
+.milestone-ledger-empty {
+  color: var(--score-muted);
+}
+
+@media (max-width: 575px) {
+  .milestone-growth-months span:nth-child(even):not(:last-child) {
+    display: none;
+  }
+
+  .progress-period-tiles-row {
+    flex-basis: 100%;
+  }
+
+  .progress-score-progress {
+    flex-basis: 100%;
+  }
+}
+
+/* Finish planner in Details, and the read-only finish date elsewhere. */
+.progress-finish-planner {
+  align-items: center;
+  background: var(--score-surface);
+  border: 1px solid var(--score-border);
+  border-radius: 2px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 2rem;
+  margin: 1rem 0;
+  padding: 1rem 1.25rem;
+}
+
+.progress-finish-summary {
+  display: grid;
+  flex: 1 1 14rem;
+  gap: 0.15rem;
+}
+
+.progress-finish-eyebrow {
+  color: var(--score-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.progress-finish-date {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.progress-finish-relative,
+.progress-finish-basis,
+.progress-finish-note {
+  color: var(--score-muted);
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.progress-finish-controls {
+  display: grid;
+  flex: 1 1 18rem;
+  gap: 0.6rem;
+  justify-items: start;
+}
+
+.progress-finish-rate {
+  margin: 0;
+
+  .form-label {
+    color: var(--score-muted);
+    font-size: 0.75rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .form-control {
+    width: 6.5rem;
+  }
+}
+
+.progress-finish-label {
+  align-items: baseline;
+  color: var(--score-muted);
+  display: inline-flex;
+  font-size: 0.85rem;
+  gap: 0.35rem;
+  white-space: nowrap;
+
+  svg {
+    align-self: center;
+    color: var(--score-accent-bright);
+  }
+
+  strong {
+    color: var(--score-text);
+    font-size: 0.95rem;
+    font-weight: 700;
+  }
+}
+
+.progress-finish-label-empty {
+  svg,
+  strong {
+    color: var(--score-muted);
+  }
+}
+
+.progress-score-hero-chips .progress-finish-label {
+  align-items: center;
+  background: rgba(170, 99, 55, 0.12);
+  border: 1px solid var(--score-accent-dark);
+  border-radius: 2px;
+  font-size: 0.85rem;
+  min-height: 2.1rem;
+  padding: 0 0.75rem;
+
+  strong {
+    font-size: 1.05rem;
+  }
+}

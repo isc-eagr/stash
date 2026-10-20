@@ -43,8 +43,6 @@ type MarkerEventStatsEvent {
   scene_id: ID!
   scene_title: String
   scene_rating100: Int
-  "The scene's effective date (YYYY-MM-DD)"
-  scene_date: String
   "Marker length in seconds; 20 when the marker has no end"
   duration: Float!
   "The top who came; null when the marker has no top"

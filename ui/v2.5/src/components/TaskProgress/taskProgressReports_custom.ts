@@ -39,14 +39,6 @@ export interface ITaskProgressReportDay {
   future: boolean;
 }
 
-export function activeTaskProgressReportItems<
-  T extends { completed: number; name: string }
->(items: readonly T[]): T[] {
-  return items
-    .filter((item) => item.completed > 0)
-    .sort((a, b) => b.completed - a.completed || a.name.localeCompare(b.name));
-}
-
 export function firstTaskProgressReportActivity(
   histories: readonly (readonly ITaskProgressReportHistoryDay[])[]
 ): string | undefined {
@@ -230,7 +222,7 @@ export function taskProgressReportRow(
   };
 }
 
-export type TaskProgressComparisonPeriod = "day" | "week" | "month";
+export type TaskProgressComparisonPeriod = "day" | "week" | "month" | "year";
 
 export interface ITaskProgressPeriodComparison {
   current: ITaskProgressReportRow;
@@ -239,16 +231,19 @@ export interface ITaskProgressPeriodComparison {
 }
 
 /**
- * Today, this week, and this month next to yesterday and the previous
- * week/month. Running periods compare against the same elapsed days.
+ * The day, week, month, and year containing `anchor` (today by default) next
+ * to the period before each. Running periods compare against the same
+ * elapsed days.
  */
 export function taskProgressPeriodComparisons(
   history: readonly ITaskProgressReportHistoryDay[],
-  today: string
+  today: string,
+  anchor = today
 ): Record<TaskProgressComparisonPeriod, ITaskProgressPeriodComparison> {
-  const yesterday = addDays(today, -1);
-  const period = (range: "week" | "month"): ITaskProgressPeriodComparison => {
-    const current = taskProgressReportPeriod(range, today, today);
+  const period = (
+    range: TaskProgressComparisonPeriod
+  ): ITaskProgressPeriodComparison => {
+    const current = taskProgressReportPeriod(range, anchor, today);
     return {
       current: taskProgressReportRow(history, current, today),
       previous: taskProgressReportRow(
@@ -256,25 +251,17 @@ export function taskProgressPeriodComparisons(
         previousTaskProgressReportPeriod(range, current, today),
         today
       ),
-      label: taskProgressComparisonLabel(range, current),
+      label:
+        range === "day" && anchor !== today
+          ? "vs previous day"
+          : taskProgressComparisonLabel(range, current),
     };
   };
   return {
-    day: {
-      current: taskProgressReportRow(
-        history,
-        { start: today, end: today, through: today },
-        today
-      ),
-      previous: taskProgressReportRow(
-        history,
-        { start: yesterday, end: yesterday, through: yesterday },
-        today
-      ),
-      label: "vs yesterday",
-    },
+    day: period("day"),
     week: period("week"),
     month: period("month"),
+    year: period("year"),
   };
 }
 

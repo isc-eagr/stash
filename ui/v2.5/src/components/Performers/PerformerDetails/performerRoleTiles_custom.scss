@@ -1,0 +1,144 @@
+/* Boxed role count tiles: full on Performer Detail, compact on cards and overviews. */
+.performer-role-badges.performer-category-strip--tiles {
+  overflow: visible;
+
+  .role-badge-item {
+    padding: 0;
+
+    .category-icon-container {
+      background-color: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 6px;
+      position: relative;
+      transition: background-color 0.15s ease, border-color 0.15s ease;
+
+      .category-icon-fa {
+        margin: 0;
+      }
+
+      &:has(.role-badge-link):hover {
+        background-color: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.28);
+      }
+
+      &.catalog-sort-highlight {
+        background-color: rgba(var(--catalog-sort-metric-accent-rgb), 0.12);
+        border-color: rgba(var(--catalog-sort-metric-accent-rgb), 0.58);
+      }
+    }
+
+    /* Stretched link: the whole tile is clickable. */
+    .role-badge-link {
+      position: static;
+
+      &::after {
+        content: "";
+        inset: 0;
+        position: absolute;
+      }
+    }
+  }
+
+  .role-badge-item--zero .category-icon-container {
+    opacity: 0.38;
+  }
+}
+
+.performer-role-badges.performer-category-strip--tiles-full {
+  gap: 0.35rem;
+  grid-auto-columns: minmax(0, 1fr);
+
+  .role-badge-item {
+    grid-template-rows: auto;
+
+    .category-icon-container,
+    .role-badge-link {
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+
+    .category-icon-container {
+      padding: 0.45rem 0.2rem 0.35rem;
+
+      .category-icon {
+        height: 1.45rem;
+        width: 1.45rem;
+      }
+
+      .category-icon-fa {
+        font-size: 1.35rem;
+      }
+    }
+
+    .role-total-count {
+      font-size: 1.05rem;
+      font-weight: 800;
+      height: auto;
+      line-height: 1.1;
+    }
+  }
+
+  .role-tile-label {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+}
+
+.performer-role-badges.performer-category-strip--tiles-compact {
+  .role-badge-item .category-icon-container {
+    padding: 0.12rem 0.1rem;
+
+    &,
+    .role-badge-link {
+      gap: 0.1rem;
+    }
+
+    .category-icon {
+      height: 1.05rem;
+      width: 1.05rem;
+    }
+
+    .category-icon-fa {
+      font-size: 0.9rem;
+    }
+  }
+}
+
+/* Scene Types bar above the tiles on performer totals. */
+.scene-types-bar.performer-scene-types-bar {
+  margin-top: 0.5rem;
+  width: 100%;
+
+  .scene-activity-metrics__row {
+    flex-wrap: nowrap;
+    justify-content: space-between;
+  }
+
+  .scene-activity-metric--zero {
+    opacity: 0.38;
+  }
+}
+
+.performer-scene-types-bar--full {
+  margin-top: 0.75rem;
+
+  .scene-activity-metrics__group {
+    background: rgba(0, 0, 0, 0.35);
+  }
+}
+
+.performer-scene-types-bar--compact {
+  .scene-activity-metrics__group {
+    gap: 0.25rem;
+    padding: 0.3rem 0.4rem;
+  }
+
+  /* Cards are too narrow for percents; the bar and tooltips carry them. */
+  .scene-activity-metric__copy small {
+    display: none;
+  }
+}

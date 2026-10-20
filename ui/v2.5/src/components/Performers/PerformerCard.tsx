@@ -336,9 +336,31 @@ const PerformerCardPopovers: React.FC<IPerformerCardProps> = PatchComponent(
   }
 );
 
+// CUSTOM: begin - catalog cards show the flag beside the name, off the photo
+const isCatalogCardCustom = (props: IPerformerCardProps) => !props.sceneId;
+
+const PerformerCardFlag: React.FC<{ performer: PerformerListData }> = ({
+  performer,
+}) => {
+  if (!performer.country) return null;
+  return (
+    <Link to={NavUtils.makePerformersCountryUrl(performer)}>
+      <CountryFlag
+        className="performer-card__country-flag"
+        country={performer.country}
+        includeOverlay
+      />
+      <span className="performer-card__country-string">
+        {performer.country}
+      </span>
+    </Link>
+  );
+};
+// CUSTOM: end
+
 const PerformerCardOverlays: React.FC<IPerformerCardProps> = PatchComponent(
   "PerformerCard.Overlays",
-  ({ performer, activeSortBy }) => {
+  ({ performer, activeSortBy, sceneId }) => {
     const { configuration } = useConfigurationContext();
     const uiConfig = configuration?.ui;
     const [updatePerformer] = usePerformerUpdate();
@@ -374,20 +396,9 @@ const PerformerCardOverlays: React.FC<IPerformerCardProps> = PatchComponent(
     }
 
     function maybeRenderFlag() {
-      if (performer.country) {
-        return (
-          <Link to={NavUtils.makePerformersCountryUrl(performer)}>
-            <CountryFlag
-              className="performer-card__country-flag"
-              country={performer.country}
-              includeOverlay
-            />
-            <span className="performer-card__country-string">
-              {performer.country}
-            </span>
-          </Link>
-        );
-      }
+      // CUSTOM: catalog cards show the flag beside the name
+      if (isCatalogCardCustom({ performer, sceneId })) return;
+      return <PerformerCardFlag performer={performer} />;
     }
 
     function maybeRenderLinks() {
@@ -607,6 +618,8 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
           activeSortBy={activeSortBy}
           // Cards show versatility strips instead of role columns; scene cards count scene partners.
           versatilityCard
+          tiles="compact"
+          tilesInSceneTypesHeader
         />
         {/* CUSTOM: end */}
       </>
@@ -702,10 +715,13 @@ export const PerformerCard: React.FC<IPerformerCardProps> = PatchComponent(
       });
     };
     // CUSTOM: end
+    const catalogCard = isCatalogCardCustom(props); // CUSTOM
 
     return (
       <GridCard
-        className={`performer-card zoom-${zoomIndex} ${getRatingClass()}`} // CUSTOM: added getRatingClass()
+        className={cx(`performer-card zoom-${zoomIndex} ${getRatingClass()}`, {
+          "performer-card--catalog": catalogCard,
+        })} // CUSTOM: added getRatingClass() and catalog class
         url={`/performers/${performer.id}`}
         onPrimaryClick={
           onOpenSceneOverview
@@ -724,6 +740,9 @@ export const PerformerCard: React.FC<IPerformerCardProps> = PatchComponent(
           <GenderIcon className="gender-icon" gender={performer.gender} />
         }
         title={<PerformerCardTitle {...props} />}
+        titleAside={
+          catalogCard ? <PerformerCardFlag performer={performer} /> : undefined
+        } // CUSTOM: flag beside the name, off the photo
         image={<PerformerCardImage {...props} />}
         overlays={<PerformerCardOverlays {...props} />}
         details={<PerformerCardDetails {...props} studioStats={studioStats} />}

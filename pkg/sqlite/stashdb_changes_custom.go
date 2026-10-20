@@ -46,9 +46,11 @@ func (db *Database) ensureStashDBChangesSchemaCustom(ctx context.Context) error 
 
 type StashDBChangesStoreCustom struct{}
 
+// DISTINCT: the stash ID tables allow the same link twice, and the report
+// keeps one entry per link.
 var stashDBChangesTargetQueriesCustom = map[models.StashDBChangesKindCustom]string{
-	models.StashDBChangesKindSceneCustom:     `SELECT scene_id AS id, stash_id FROM scene_stash_ids WHERE endpoint = ? ORDER BY scene_id, stash_id`,
-	models.StashDBChangesKindPerformerCustom: `SELECT performer_id AS id, stash_id FROM performer_stash_ids WHERE endpoint = ? ORDER BY performer_id, stash_id`,
+	models.StashDBChangesKindSceneCustom:     `SELECT DISTINCT scene_id AS id, stash_id FROM scene_stash_ids WHERE endpoint = ? ORDER BY scene_id, stash_id`,
+	models.StashDBChangesKindPerformerCustom: `SELECT DISTINCT performer_id AS id, stash_id FROM performer_stash_ids WHERE endpoint = ? ORDER BY performer_id, stash_id`,
 }
 
 var stashDBChangesEntityTablesCustom = map[models.StashDBChangesKindCustom]string{

@@ -9,10 +9,10 @@ import { TaskProgressProject } from "./TaskProgressProject";
 import { TaskProgressAtAGlance } from "./TaskProgressAtAGlance";
 import { taskProgressLastDataDate } from "./taskProgressCompletion_custom";
 import { TaskProgressGoalSummary } from "./TaskProgressGoalSummary";
+import { TaskProgressForecast } from "./TaskProgressForecast";
 import type { IDetailSelection } from "./TaskProgressDetails";
 import {
   itemLabels,
-  progressForecast,
   progressToday,
   taskProgressHistoryEntries,
   remainingTagURL,
@@ -34,7 +34,6 @@ export const TaskProgressTrackerModal: React.FC<IProps> = ({
   onDetails,
 }) => {
   const t = useProgressText();
-  const forecast = progressForecast(tracker);
   const completed = tracker.status === "COMPLETED";
   const nonZeroItems = visibleTaskProgressItemCounts(tracker.item_counts);
 
@@ -68,27 +67,15 @@ export const TaskProgressTrackerModal: React.FC<IProps> = ({
         </Modal.Header>
         <Modal.Body>
           <TaskProgressAtAGlance tracker={tracker} />
-          {!completed && forecast.days >= 3 && (
-            <section className="progress-tracker-modal-forecast">
-              <div>
-                <span>{t("Estimated pace")}</span>
-                <strong>
-                  <FormattedNumber
-                    value={forecast.completedRate}
-                    maximumFractionDigits={1}
-                  />{" "}
-                  {t("completed")} / {t("day")}
-                </strong>
-              </div>
-              <div>
-                <span>{t("Estimated finish")}</span>
-                <strong>
-                  {forecast.observed
-                    ? formatTaskProgressDate(forecast.observed)
-                    : "—"}
-                </strong>
-              </div>
-            </section>
+          {/* CUSTOM: The finish planner moved here from the tracker row. */}
+          {!completed && (
+            <TaskProgressForecast
+              storageKey={`task-progress-tracker-plan-${tracker.id}`}
+              history={tracker.history}
+              remaining={tracker.current_count}
+              status={tracker.status}
+              startedOn={tracker.started_on}
+            />
           )}
           <TaskProgressGoalSummary
             status={tracker.status}

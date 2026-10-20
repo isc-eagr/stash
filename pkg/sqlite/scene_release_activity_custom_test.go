@@ -123,3 +123,29 @@ INSERT INTO scene_releases VALUES (4,1);`); err != nil {
 		t.Fatalf("release activity reset = %+v, %v", metadata, err)
 	}
 }
+
+func TestReleaseOVideoTimestampsAllowNullCustom(t *testing.T) {
+	db, err := sqlx.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	db.SetMaxOpenConns(1)
+	if _, err := db.Exec(`CREATE TABLE scene_release_o_dates(release_id INTEGER, o_date DATETIME, video_timestamp REAL);
+INSERT INTO scene_release_o_dates VALUES (4,'2026-01-01',NULL), (4,'2026-01-02',7.25), (4,NULL,NULL);`); err != nil {
+		t.Fatal(err)
+	}
+	tx, err := db.BeginTxx(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	ctx := context.WithValue(context.Background(), txnKey, tx)
+	timestamps, err := (&SceneReleaseStore{}).GetOVideoTimestampsCustom(ctx, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(timestamps) != 2 || timestamps[0] == nil || *timestamps[0] != 7.25 || timestamps[1] != nil {
+		t.Fatalf("release O timestamps = %v", timestamps)
+	}
+}

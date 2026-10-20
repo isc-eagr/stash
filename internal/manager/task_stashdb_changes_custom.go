@@ -63,6 +63,8 @@ func (s *Manager) CheckStashDBChangesCustom(ctx context.Context, kinds []models.
 		}
 		return err
 	})
+	// The report finds a running check by this description
+	// (STASHDB_CHANGES_JOB_DESCRIPTION_CUSTOM in the UI).
 	return s.JobManager.Add(ctx, "Checking StashDB Changes...", j), nil
 }
 

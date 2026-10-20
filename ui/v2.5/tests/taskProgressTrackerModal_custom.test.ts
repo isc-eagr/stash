@@ -59,11 +59,15 @@ assert.match(
   modalSource,
   /<strong>\{formatTaskProgressDate\(tracker\.started_on\)\}<\/strong>/
 );
-assert.match(modalSource, /\{t\("Estimated pace"\)\}/);
-assert.match(modalSource, /\{t\("Estimated finish"\)\}/);
 assert.match(
   modalSource,
-  /<TaskProgressAtAGlance tracker=\{tracker\} \/>\s*\{!completed && forecast\.days >= 3/
+  /<TaskProgressForecast\s+storageKey=\{`task-progress-tracker-plan-\$\{tracker\.id\}`\}/,
+  "the finish planner lives in Details and keeps each tracker's saved pace"
+);
+assert.match(
+  modalSource,
+  /\{!completed && \(\s*<TaskProgressForecast/,
+  "completed trackers omit finish planning"
 );
 assert.match(modalSource, /progress-tracker-modal-history/);
 assert.match(modalSource, /\{t\("Activity progression"\)\}/);

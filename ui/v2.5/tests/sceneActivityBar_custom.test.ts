@@ -5,6 +5,7 @@ import type { SceneActivityMetricRows } from "../src/components/Scenes/sceneActi
 import {
   getSceneActivityBarCustom,
   sceneActivityBarShowsSortCustom,
+  sceneActivityBatteryTitleCustom,
 } from "../src/components/Scenes/sceneActivityBarData_custom.ts";
 
 const rows = (
@@ -150,6 +151,36 @@ assert.match(
   sceneCardSource,
   /<SceneActivityBar[\s\S]*?outstandingBatteries\s*\/>/,
   "only scene cards show the Outstanding batteries"
+);
+
+const batteryBar = getSceneActivityBarCustom(withNegative);
+assert.equal(
+  sceneActivityBatteryTitleCustom(batteryBar!.left!),
+  "Outstanding: 0% · Negative: 25%",
+  "the battery tooltip keeps the Outstanding and negative shares"
+);
+assert.equal(
+  sceneActivityBatteryTitleCustom(outstandingBar!.left!),
+  "Outstanding: 45%",
+  "the battery tooltip omits negative time when there is none"
+);
+
+const activityBarSource = readFileSync(
+  new URL(
+    "../src/components/Scenes/SceneActivityBar_custom.tsx",
+    import.meta.url
+  ),
+  "utf8"
+);
+assert.doesNotMatch(
+  activityBarSource,
+  /scene-activity-bar__battery"\s+title=/,
+  "batteries show only the custom tooltip, not a native title"
+);
+assert.match(
+  activityBarSource,
+  /<OverlayTrigger overlay=\{activityTooltip\} placement="bottom">\s*<span className="scene-activity-bar__track">/,
+  "hovering the track shows the activity breakdown"
 );
 
 console.log("Scene card activity bar tests passed.");

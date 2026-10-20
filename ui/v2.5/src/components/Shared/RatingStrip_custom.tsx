@@ -26,15 +26,44 @@ export interface IRatingStripAdjustment {
   detail: string;
 }
 
+// Content shown beside one criterion's label, such as a count.
+export interface IRatingStripCriterionAddon {
+  key: string;
+  node: React.ReactNode;
+}
+
 export const RatingStrip: React.FC<{
   idPrefix: string;
   criteria: IRatingStripCriterion[];
   adjustments: IRatingStripAdjustment[];
   trailing?: React.ReactNode;
+  criterionAddon?: IRatingStripCriterionAddon;
   className?: string;
   header?: React.ReactNode;
-}> = ({ idPrefix, criteria, adjustments, trailing, className, header }) => {
+}> = ({
+  idPrefix,
+  criteria,
+  adjustments,
+  trailing: trailingProp,
+  criterionAddon,
+  className,
+  header,
+}) => {
   const hasCriteria = criteria.some((criterion) => criterion.rated);
+  const addonInline =
+    hasCriteria &&
+    !!criterionAddon &&
+    criteria.some((criterion) => criterion.key === criterionAddon.key);
+  // Without its criterion on show, the addon joins the trailing slot.
+  const trailing =
+    criterionAddon && !addonInline ? (
+      <>
+        {trailingProp}
+        {criterionAddon.node}
+      </>
+    ) : (
+      trailingProp
+    );
   if (!hasCriteria && adjustments.length === 0 && !trailing) return null;
 
   return (
@@ -46,37 +75,80 @@ export const RatingStrip: React.FC<{
           className="rating-criteria-strip__criteria"
           role="list"
           style={{
-            gridTemplateColumns: `repeat(${criteria.length}, minmax(0, 1fr))`,
+            // The addon's column grows to fit it; the rest share the width.
+            gridTemplateColumns: criteria
+              .map((criterion) =>
+                addonInline && criterion.key === criterionAddon?.key
+                  ? "minmax(min-content, 1fr)"
+                  : "minmax(0, 1fr)"
+              )
+              .join(" "),
           }}
         >
-          {criteria.map((criterion) => (
-            <OverlayTrigger
-              key={criterion.key}
-              overlay={
-                <Tooltip id={`${idPrefix}-${criterion.key}`}>
-                  {criterion.detail}
-                </Tooltip>
-              }
-              placement="bottom"
-            >
+          {criteria.map((criterion) => {
+            const tooltip = (
+              <Tooltip id={`${idPrefix}-${criterion.key}`}>
+                {criterion.detail}
+              </Tooltip>
+            );
+            const label = (
+              <span className="rating-criterion__label">{criterion.label}</span>
+            );
+            const meter = (
+              <RatingCriterionMeter
+                heatLevel={criterion.heatLevel}
+                steps={criterion.steps}
+                value={criterion.value}
+              />
+            );
+            const criterionClassName = cx("rating-criterion", {
+              "is-unrated": !criterion.rated,
+            });
+
+            if (!addonInline || criterion.key !== criterionAddon?.key) {
+              return (
+                <OverlayTrigger
+                  key={criterion.key}
+                  overlay={tooltip}
+                  placement="bottom"
+                >
+                  <div
+                    aria-label={criterion.detail}
+                    className={criterionClassName}
+                    role="listitem"
+                  >
+                    {label}
+                    {meter}
+                  </div>
+                </OverlayTrigger>
+              );
+            }
+
+            // The addon keeps its own hover, so only the label and meter
+            // show the criterion tooltip.
+            return (
               <div
-                aria-label={criterion.detail}
-                className={cx("rating-criterion", {
-                  "is-unrated": !criterion.rated,
-                })}
+                className={cx(criterionClassName, "has-addon")}
+                key={criterion.key}
                 role="listitem"
               >
-                <span className="rating-criterion__label">
-                  {criterion.label}
+                <span className="rating-criterion__head">
+                  <OverlayTrigger overlay={tooltip} placement="bottom">
+                    <span
+                      aria-label={criterion.detail}
+                      className="rating-criterion__label"
+                    >
+                      {criterion.label}
+                    </span>
+                  </OverlayTrigger>
+                  {criterionAddon?.node}
                 </span>
-                <RatingCriterionMeter
-                  heatLevel={criterion.heatLevel}
-                  steps={criterion.steps}
-                  value={criterion.value}
-                />
+                <OverlayTrigger overlay={tooltip} placement="bottom">
+                  <div>{meter}</div>
+                </OverlayTrigger>
               </div>
-            </OverlayTrigger>
-          ))}
+            );
+          })}
         </div>
       )}
       {(adjustments.length > 0 || trailing) && (

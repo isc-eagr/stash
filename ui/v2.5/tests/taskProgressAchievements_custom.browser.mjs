@@ -32,7 +32,6 @@ const bundle = await esbuild.build({
       import { MemoryRouter, Route, Switch, useHistory } from "react-router-dom";
       import { ApolloClient, ApolloProvider, ApolloLink, InMemoryCache, Observable, gql } from "@apollo/client";
       import { TaskProgressAchievementMonitor } from "./src/components/TaskProgress/TaskProgressAchievementMonitor";
-      import { TaskProgressCheckpoints } from "./src/components/TaskProgress/TaskProgressCheckpoints";
       import { createTaskProgressMutationLink } from "./src/core/taskProgressMutationLink_custom";
       import { ToastProvider, useToast } from "./src/hooks/Toast";
       let completed = 20;
@@ -83,7 +82,7 @@ const bundle = await esbuild.build({
           <Route path="/scenes"><h1>Scenes</h1></Route>
           <Route path="/performers"><h1>Performers</h1></Route>
           <Route path="/galleries"><h1>Galleries</h1></Route>
-        </Switch><TaskProgressCheckpoints history={[]} percentage={100} compact /></>;
+        </Switch></>;
       };
       render(<ApolloProvider client={client}><IntlProvider locale="en" messages={{}}>
         <ToastProvider><MemoryRouter initialEntries={["/scenes"]}><Catalogs /></MemoryRouter></ToastProvider>
@@ -131,11 +130,6 @@ try {
     0,
     "initial load does not replay old achievements"
   );
-  assert.equal(
-    await page.locator(".progress-checkpoints-compact li").count(),
-    4
-  );
-  assert.equal(await page.locator('[title="Alpha Sapphire"]').count(), 1);
   const toast = page.locator(".toast-container:not(.hidden) .toast");
   async function assertToastEntrance(side) {
     await page.waitForFunction(

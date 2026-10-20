@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Badge, Button, Table } from "react-bootstrap";
+import { Badge, Button } from "react-bootstrap";
 import { useIntl } from "react-intl";
 import { Link } from "react-router-dom";
 import { getCountryByISO } from "src/utils/country";
@@ -9,6 +9,7 @@ import {
   StashDBChangesKindCustom,
   stashDBApplicableCustom,
   stashDBEntryURLCustom,
+  stashDBShortURLCustom,
 } from "./stashDBChanges_custom";
 
 interface IFieldChange {
@@ -36,21 +37,26 @@ export interface IStashDBChangesEntryProps {
 }
 
 function ListValue({ values, sign }: { values: string[]; sign: "+" | "−" }) {
+  const tone = sign === "+" ? "added" : "removed";
   return (
-    <ul className="stashdb-changes-list">
+    <>
       {values.map((v) => (
-        <li key={v} className={sign === "+" ? "text-success" : "text-danger"}>
+        <span
+          key={`${sign}${v}`}
+          className={`stashdb-changes-pill stashdb-changes-pill-${tone}`}
+          title={v}
+        >
           {sign}{" "}
           {/^https?:\/\//i.test(v) ? (
             <a href={v} target="_blank" rel="noopener noreferrer">
-              {v}
+              {stashDBShortURLCustom(v)}
             </a>
           ) : (
             v
           )}
-        </li>
+        </span>
       ))}
-    </ul>
+    </>
   );
 }
 
@@ -73,54 +79,77 @@ export const StashDBChangesEntry: React.FC<IStashDBChangesEntryProps> = ({
   const applicable = onApply
     ? fields.filter(stashDBApplicableCustom).map((f) => f.field)
     : [];
+  const gone = status !== "CHANGED";
 
-  function format(field: string, value?: string | null) {
-    if (!value) return <span className="text-muted">—</span>;
+  function format(field: string, value: string) {
     if (field === "gender") return genderToString(value) ?? value;
     if (field === "country")
       return getCountryByISO(value, intl.locale) ?? value;
     return value;
   }
 
+  function renderScalar(
+    field: string,
+    value: string | null | undefined,
+    tone: string
+  ) {
+    if (!value) return <span className="stashdb-changes-empty">empty</span>;
+    return (
+      <span className={`stashdb-changes-scalar stashdb-changes-${tone}`}>
+        {format(field, value)}
+      </span>
+    );
+  }
+
   function renderField(f: IFieldChange) {
     const isList = f.added.length > 0 || f.removed.length > 0;
     return (
-      <tr key={f.field}>
-        <th scope="row">{labels.get(f.field) ?? f.field}</th>
-        <td className="stashdb-changes-value">
-          {isList ? (
-            <ListValue values={f.removed} sign="−" />
-          ) : (
-            format(f.field, f.local)
-          )}
-        </td>
-        <td className="stashdb-changes-value">
-          {isList ? (
+      <div key={f.field} className="stashdb-changes-row">
+        <div className="stashdb-changes-label">
+          {labels.get(f.field) ?? f.field}
+        </div>
+        {isList ? (
+          <div className="stashdb-changes-value stashdb-changes-pills">
             <ListValue values={f.added} sign="+" />
-          ) : (
-            format(f.field, f.remote)
-          )}
-        </td>
-        <td className="stashdb-changes-apply">
+            <ListValue values={f.removed} sign="−" />
+          </div>
+        ) : (
+          <>
+            <div className="stashdb-changes-value">
+              {renderScalar(f.field, f.local, "old")}
+            </div>
+            <div className="stashdb-changes-arrow" aria-hidden>
+              →
+            </div>
+            <div className="stashdb-changes-value">
+              {renderScalar(f.field, f.remote, "new")}
+            </div>
+          </>
+        )}
+        <div className="stashdb-changes-apply">
           {applicable.includes(f.field) && (
             <Button
               size="sm"
-              variant="secondary"
+              variant="outline-success"
               disabled={applying}
               onClick={() => onApply?.([f.field])}
             >
               Use StashDB
             </Button>
           )}
-        </td>
-      </tr>
+        </div>
+      </div>
     );
   }
 
   return (
-    <div className="stashdb-changes-entry">
+    <div
+      className={`stashdb-changes-entry ${
+        gone ? "stashdb-changes-entry-gone" : ""
+      }`}
+    >
       <div className="stashdb-changes-entry-header">
-        <div>
+        <div className="stashdb-changes-entry-title">
           <Link to={url}>{name}</Link>
           {subtitle && (
             <span className="text-muted small ml-2">{subtitle}</span>
@@ -129,6 +158,11 @@ export const StashDBChangesEntry: React.FC<IStashDBChangesEntryProps> = ({
             <Badge variant="warning" className="ml-2">
               {STASHDB_STATUS_LABELS_CUSTOM[status]}
             </Badge>
+          )}
+          {fields.length > 0 && (
+            <span className="text-muted small ml-2">
+              {fields.length} {fields.length === 1 ? "change" : "changes"}
+            </span>
           )}
           {mergedIntoID && (
             <span className="small ml-2">
@@ -147,7 +181,7 @@ export const StashDBChangesEntry: React.FC<IStashDBChangesEntryProps> = ({
           {applicable.length > 1 && (
             <Button
               size="sm"
-              variant="primary"
+              variant="success"
               disabled={applying}
               title="Hidden fields stay as they are"
               onClick={() => onApply?.(applicable)}
@@ -159,24 +193,23 @@ export const StashDBChangesEntry: React.FC<IStashDBChangesEntryProps> = ({
             href={stashDBEntryURLCustom(endpoint, kind, stashID)}
             target="_blank"
             rel="noopener noreferrer"
-            className="small"
+            className="btn btn-sm btn-secondary"
           >
             StashDB
           </a>
         </div>
       </div>
       {fields.length > 0 && (
-        <Table size="sm" className="stashdb-changes-fields-table">
-          <thead>
-            <tr>
-              <th />
-              <th>Yours</th>
-              <th>StashDB</th>
-              <th className="stashdb-changes-apply" />
-            </tr>
-          </thead>
-          <tbody>{fields.map(renderField)}</tbody>
-        </Table>
+        <div className="stashdb-changes-rows">
+          <div className="stashdb-changes-row stashdb-changes-row-head">
+            <div />
+            <div>Yours</div>
+            <div />
+            <div>StashDB</div>
+            <div />
+          </div>
+          {fields.map(renderField)}
+        </div>
       )}
     </div>
   );

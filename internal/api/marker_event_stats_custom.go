@@ -45,7 +45,6 @@ type markerEventStatsMarkerCustom struct {
 	sceneID     int
 	sceneTitle  *string
 	sceneRating *int
-	sceneDate   *string
 	latestODate *string
 	duration    float64
 	tops        []*MarkerEventStatsVato
@@ -136,7 +135,7 @@ event_markers(id, scene_id, seconds, end_seconds) AS (
 
 func markerEventStatsMarkersSQLCustom() string {
 	return `
-SELECT em.id, em.scene_id, em.end_seconds - em.seconds, s.title, s.rating, date(` + sceneOStatsEffectiveDateExpr("s") + `)
+SELECT em.id, em.scene_id, em.end_seconds - em.seconds, s.title, s.rating
 FROM event_markers em
 JOIN scenes s ON s.id = em.scene_id
 ORDER BY em.scene_id, em.seconds, em.id`
@@ -268,7 +267,7 @@ func loadMarkerEventStatsCustom(run markerEventStatsRunnerCustom, sceneScope str
 	markers := make([]*markerEventStatsMarkerCustom, 0, len(rows))
 	byID := make(map[int]*markerEventStatsMarkerCustom, len(rows))
 	for _, row := range rows {
-		if len(row) < 6 {
+		if len(row) < 5 {
 			continue
 		}
 		marker := &markerEventStatsMarkerCustom{
@@ -276,7 +275,6 @@ func loadMarkerEventStatsCustom(run markerEventStatsRunnerCustom, sceneScope str
 			sceneID:     customStatsIntValue(row[1]),
 			sceneTitle:  vatoStatsStringPtrValue(row[3]),
 			sceneRating: vatoStatsIntPtrValue(row[4]),
-			sceneDate:   vatoStatsStringPtrValue(row[5]),
 			duration:    customStatsFloatValue(row[2]),
 			quality:     MarkerEventQualityRegular,
 		}
@@ -400,7 +398,6 @@ func loadMarkerEventStatsCustom(run markerEventStatsRunnerCustom, sceneScope str
 				SceneID:        strconv.Itoa(marker.sceneID),
 				SceneTitle:     marker.sceneTitle,
 				SceneRating100: marker.sceneRating,
-				SceneDate:      marker.sceneDate,
 				Duration:       marker.duration,
 				Giver:          giver,
 				Receivers:      receivers,

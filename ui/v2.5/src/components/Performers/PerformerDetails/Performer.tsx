@@ -412,6 +412,7 @@ const PerformerHeaderImage: React.FC<IPerformerHeaderImageProps> =
             <PerformerCategoryStrip
               performer={performer}
               globalStatsOverride={roleStats}
+              tiles="full" // CUSTOM
             />
           </div>
         </HeaderImage>

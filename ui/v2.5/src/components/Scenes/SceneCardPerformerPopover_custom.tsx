@@ -110,6 +110,7 @@ export const SceneCardPerformerPopover: React.FC<IProps> = ({
                   versatilityCard
                   // Sex/oral strips use Versatility by Time like the scene Stats
                   roleSeconds={performer.roleSeconds}
+                  tiles="compact"
                 />
               </div>
             </ActivityTypePerformerTile>

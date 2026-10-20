@@ -24,6 +24,16 @@ export type SceneActivityBarCustom = {
   rightShare: number;
 };
 
+// Tooltip for an end's battery: its Outstanding share, plus its negative share when there is one.
+export function sceneActivityBatteryTitleCustom(
+  end: SceneActivityBarEndCustom
+) {
+  return (
+    `Outstanding: ${end.outstandingPercent}%` +
+    (end.negativePercent > 0 ? ` · Negative: ${end.negativePercent}%` : "")
+  );
+}
+
 const activityOrder: readonly SceneActivityCategory[] = ["sex", "oral", "solo"];
 
 // Solo sits left of Sex or Oral; Sex sits left of Oral.

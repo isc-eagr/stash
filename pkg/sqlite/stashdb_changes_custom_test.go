@@ -27,8 +27,9 @@ INSERT INTO scene_stash_ids VALUES
   (2, 'https://stashdb.org/graphql', 'b', NULL),
   (1, 'https://stashdb.org/graphql', 'a2', NULL),
   (1, 'https://stashdb.org/graphql', 'a1', NULL),
+  (1, 'https://stashdb.org/graphql', 'a1', NULL),
   (3, 'https://fansdb.cc/graphql', 'c', NULL);
-INSERT INTO performer_stash_ids VALUES (7, 'https://stashdb.org/graphql', 'p7', NULL);`)
+INSERT INTO performer_stash_ids VALUES (7, 'https://stashdb.org/graphql', 'p7', NULL), (7, 'https://stashdb.org/graphql', 'p7', NULL);`)
 	require.NoError(t, err)
 
 	database := &Database{writeDB: db}
@@ -50,10 +51,10 @@ func TestStashDBChangesStoreCustom(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []models.StashDBChangesTargetCustom{
 		{ID: 1, StashID: "a1"}, {ID: 1, StashID: "a2"}, {ID: 2, StashID: "b"},
-	}, targets, "only this endpoint's links, ordered")
+	}, targets, "only this endpoint's links, ordered, each once")
 	targets, err = store.Targets(ctx, models.StashDBChangesKindPerformerCustom, endpoint)
 	require.NoError(t, err)
-	require.Equal(t, []models.StashDBChangesTargetCustom{{ID: 7, StashID: "p7"}}, targets)
+	require.Equal(t, []models.StashDBChangesTargetCustom{{ID: 7, StashID: "p7"}}, targets, "a link saved twice is checked once")
 	_, err = store.Targets(ctx, "studio", endpoint)
 	require.Error(t, err)
 

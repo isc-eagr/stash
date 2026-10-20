@@ -96,7 +96,7 @@
   &-incoming-line {
     fill: none;
     pointer-events: none;
-    stroke: #a77cc7;
+    stroke: #c7aedb;
     stroke-width: 2;
   }
 
@@ -117,15 +117,15 @@
     }
 
     .incoming {
-      color: #a77cc7;
+      color: #c7aedb;
     }
 
     .remaining {
-      color: #9acd32;
+      color: #91d3b0;
     }
 
     .cumulative {
-      color: #9acd32;
+      color: #91d3b0;
     }
 
     .baseline {
@@ -137,7 +137,7 @@
     }
 
     .removed {
-      color: #f29d49;
+      color: #edbd87;
     }
   }
 
@@ -205,11 +205,11 @@
     stroke-width: 2.5;
 
     &.remaining {
-      stroke: #9acd32;
+      stroke: #91d3b0;
     }
 
     &.cumulative {
-      stroke: #9acd32;
+      stroke: #91d3b0;
     }
   }
 
@@ -218,11 +218,11 @@
     stroke-width: 1;
 
     &.remaining {
-      fill: #9acd32;
+      fill: #91d3b0;
     }
 
     &.cumulative {
-      fill: #9acd32;
+      fill: #91d3b0;
     }
   }
 
@@ -242,7 +242,7 @@
     }
 
     &.removed {
-      fill: #f29d49;
+      fill: #edbd87;
     }
   }
 
@@ -294,7 +294,7 @@
 
     &-metric {
       align-items: center;
-      border-left: 3px solid #9acd32;
+      border-left: 3px solid #91d3b0;
       display: flex;
       justify-content: space-between;
       margin-bottom: 0.45rem;

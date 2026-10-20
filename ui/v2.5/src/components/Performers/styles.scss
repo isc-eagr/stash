@@ -912,3 +912,54 @@
 }
 
 /* CUSTOM: end */
+
+/* CUSTOM: begin - catalog cards: flag beside the name, unboxed criteria,
+   Facial/Nut/Feet beside the Scene Types label. Nothing covers the photo. */
+.performer-card--catalog {
+  .card-section-title-row {
+    align-items: flex-start;
+    display: flex;
+    gap: 0.5rem;
+    justify-content: space-between;
+
+    > a:first-child {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .fi {
+      flex-shrink: 0;
+      height: 1.3rem;
+      margin-top: 0.15rem;
+      position: static;
+      width: 1.95rem;
+    }
+  }
+
+  .rating-criteria-strip--performer-card {
+    background: none;
+    border: 0;
+    margin-top: 0.45rem;
+    padding: 0;
+  }
+
+  .scene-types-bar__head {
+    align-items: center;
+    display: flex;
+    gap: 0.5rem;
+    justify-content: space-between;
+
+    .scene-activity-metrics__group-label {
+      white-space: nowrap;
+    }
+
+    .performer-role-badges {
+      display: flex !important; /* stylelint-disable-line declaration-no-important -- base strip forces grid */
+      gap: 0.25rem;
+      margin: 0;
+      width: auto;
+    }
+  }
+}
+
+/* CUSTOM: end */

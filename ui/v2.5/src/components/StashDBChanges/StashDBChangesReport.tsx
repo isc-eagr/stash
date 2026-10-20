@@ -1,8 +1,9 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Button, Form, ProgressBar, Tab, Tabs } from "react-bootstrap";
 import { useIntl } from "react-intl";
 import { Helmet } from "react-helmet";
 import {
+  JobStatusUpdateType,
   StashDbChangesReportQuery,
   useCheckStashDbChangesMutation,
   useStashDbChangesReportQuery,
@@ -11,6 +12,8 @@ import {
   useApplyStashDBPerformerChangesCustom,
   useApplyStashDBSceneChangesCustom,
   useConfigureUISetting,
+  useJobQueue,
+  useJobsSubscribe,
 } from "src/core/StashService";
 import { useConfigurationContext } from "src/hooks/Config";
 import { useToast } from "src/hooks/Toast";
@@ -27,7 +30,9 @@ import {
 } from "./StashDBChangesEntry";
 import {
   IStashDBFieldChangeCustom,
+  STASHDB_CHANGES_JOB_DESCRIPTION_CUSTOM,
   StashDBChangesKindCustom,
+  activeStashDBChangesJobCustom,
   stashDBFieldCountsCustom,
   stashDBFieldsCustom,
   stashDBSkippedCustom,
@@ -183,7 +188,9 @@ const StashDBChangesPanel: React.FC<IPanelProps> = ({
     if (!run) {
       return (
         <p className="text-muted">
-          No check yet. Hit Check to compare your {plural} with StashDB.
+          {checking
+            ? `Checking your ${plural}… this fills in when the check ends.`
+            : `No check yet. Hit Check to compare your ${plural} with StashDB.`}
         </p>
       );
     }
@@ -279,6 +286,24 @@ const StashDBChangesReport: React.FC = () => {
     refetch();
   }, [refetch]);
   const { job } = useMonitorJob(jobID, onJobDone);
+
+  // Follow a check queued elsewhere (Settings > Tasks or another tab) so both
+  // tabs fill in when it ends instead of looking like they never ran.
+  const { data: queueData } = useJobQueue();
+  const { data: jobEvent } = useJobsSubscribe();
+  useEffect(() => {
+    const queued = activeStashDBChangesJobCustom(queueData?.jobQueue ?? []);
+    if (queued) setJobID((id) => id ?? queued);
+  }, [queueData]);
+  useEffect(() => {
+    const event = jobEvent?.jobsSubscribe;
+    if (
+      event?.type === JobStatusUpdateType.Add &&
+      event.job.description === STASHDB_CHANGES_JOB_DESCRIPTION_CUSTOM
+    ) {
+      setJobID((id) => id ?? event.job.id);
+    }
+  }, [jobEvent]);
 
   const config = configuration?.ui.stashdbChanges;
   const title = intl.formatMessage({ id: "stashdb_changes" });

@@ -1,6 +1,21 @@
 # Stash coding instructions
 
-Work in small, complete changes. After each task, prioritize removing dead or unused code introduced or uncovered by the work, while preserving behavior and avoiding unrelated cleanup. Keep responses concise and conversational, mostly English with natural Mexican Spanish (mijo, ese, wey); avoid "holmes" and "carnal". Mention a clear follow-up improvement in a separate final section only when one is evident.
+Work in small, complete changes. After each task, prioritize removing dead or unused code introduced or uncovered by the work, while preserving behavior and avoiding unrelated cleanup. Language: mostly English with natural Mexican Spanish (mijo, ese, wey); avoid "holmes" and "carnal".
+
+## Responses and reporting
+
+- Treat every request as a blocking issue: act immediately, skip preamble, and do not restate the request or list options you will not pursue.
+- Keep every response as short as possible, every time. Extra words cost the developer reading time.
+- Write for a user, not a coder: describe changes by what moves on screen (screen, page, button, or app path such as Scenes > Scene Detail). Do not name classes, functions, or backend internals unless the developer must open a file. Use file links only when they help.
+- Final response uses these sections, in this order. Omit a section only if it is truly empty, and write "None" when nothing is pending or needs a decision:
+  1. **Done:** what changed and where it shows in the app.
+  2. **Affected:** screens and paths in the app.
+  3. **Pending:** unfinished work, if any.
+  4. **Decisions needed:** choices only the developer can make, if any.
+  5. **Future ideas:** clear improvements only, one line each.
+
+## Commits
+The developer always handles git commits manually. Never commit, push, or create branches, and don't ask whether to commit. Never list commits under Pending, Decisions, or Future ideas/Suggestions.
 
 ## Code and documentation
 

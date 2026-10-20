@@ -1,16 +1,20 @@
 import React, { useState } from "react";
 import { Alert, Button, Card } from "react-bootstrap";
 import { FormattedNumber } from "react-intl";
+import { faFire } from "@fortawesome/free-solid-svg-icons";
 import { useTaskProgressOrganizedScenesQuery } from "src/core/generated-graphql";
+import { Icon } from "../Shared/Icon";
+import { useProgressText, progressToday } from "./progressView_custom";
+import { TaskProgressFinishLabel } from "./TaskProgressForecast";
+import { TaskProgressMedalBar } from "./TaskProgressMedalBar";
+import { TaskProgressPeriodTiles } from "./TaskProgressPeriodTiles";
+import { progressLedgerSnapshot } from "./progressLedger_custom";
 import {
-  overallProgressPercentage,
-  useProgressText,
-  progressToday,
-} from "./progressView_custom";
-import { formatTaskProgressDate } from "../taskProgress_custom";
+  taskProgressReportPeriod,
+  taskProgressPeriodComparisons,
+} from "./taskProgressReports_custom";
+import { taskProgressGoalStreak } from "./taskProgressScoreboard_custom";
 import { TaskProgressOverallModal } from "./TaskProgressOverallModal";
-import { TaskProgressGoalSummary } from "./TaskProgressGoalSummary";
-import { TaskProgressRing } from "./TaskProgressRing";
 
 export const TaskProgressOverall: React.FC = () => {
   const t = useProgressText();
@@ -20,112 +24,141 @@ export const TaskProgressOverall: React.FC = () => {
   });
   const [showDetails, setShowDetails] = useState(false);
   const overall = query.data?.taskProgressOverall;
-  const rate = overall?.goal_per_day ?? 0;
   const total = overall?.total_count;
   const done = overall?.organized_count;
   const remaining =
     total !== undefined && done !== undefined
       ? Math.max(0, total - done)
       : undefined;
-  const percentage =
-    total !== undefined && done !== undefined
-      ? overallProgressPercentage(total, done)
-      : 0;
-  const due =
-    rate > 0 && remaining
-      ? new Date(
-          Date.parse(`${progressToday()}T00:00:00Z`) +
-            Math.ceil(remaining / rate) * 86400000
+  const today = progressToday();
+  const history = overall?.history.map((day) => ({
+    ...day,
+    baselineCount: day.baseline_count ?? undefined,
+    goalPerDay: day.goal_per_day,
+    completedTotal: day.completed_total ?? undefined,
+  }));
+  const snapshot =
+    overall && done !== undefined
+      ? progressLedgerSnapshot(
+          overall.history,
+          taskProgressReportPeriod("week", today, today),
+          today,
+          { completed: done, remaining: remaining ?? 0 }
         )
-          .toISOString()
-          .slice(0, 10)
       : undefined;
+  const streak = history ? taskProgressGoalStreak(history, today) : 0;
+  const weekGain =
+    snapshot?.previousPercent !== undefined
+      ? snapshot.percent - snapshot.previousPercent
+      : undefined;
+
   return (
     <>
-      <Card className="progress-overall-card">
-        <Card.Body>
-          <div className="progress-card-visuals progress-overall-visuals">
-            <div className="progress-overall-overview">
-              <div className="progress-overall-heading">
-                <div>
-                  <h3>{t("Overall Progress")}</h3>
-                  <p>{t("Organized scenes")}</p>
-                </div>
-              </div>
-              {query.error && (
-                <Alert variant="warning">
-                  {t("Could not refresh organized scenes.")}{" "}
-                  <Button size="sm" onClick={() => void query.refetch()}>
-                    {t("Retry")}
-                  </Button>
-                </Alert>
-              )}
-              {total === undefined || done === undefined ? (
-                <p role="status">{t("Loading…")}</p>
-              ) : (
-                <>
-                  <div className="progress-overall-summary">
-                    <span>
-                      <strong>
-                        <FormattedNumber value={done} />
-                      </strong>
-                      <small>{t("organized")}</small>
-                    </span>
-                    <span>
-                      <strong>
-                        <FormattedNumber value={remaining ?? 0} />
-                      </strong>
-                      <small>{t("remaining")}</small>
-                    </span>
-                    <span>
-                      <strong>
-                        <FormattedNumber value={total} />
-                      </strong>
-                      <small>{t("total")}</small>
-                    </span>
-                  </div>
-                  {overall && (
-                    <TaskProgressGoalSummary
-                      currentGoalPerDay={overall.goal_per_day}
-                      history={overall.history.map((day) => ({
-                        ...day,
-                        baselineCount: day.baseline_count ?? undefined,
-                        goalPerDay: day.goal_per_day,
-                        completedTotal: day.completed_total ?? undefined,
-                      }))}
-                    />
-                  )}
-                </>
-              )}
+      <Card className="progress-overall-card progress-score-hero">
+        <div className="progress-score-hero-main">
+          <div className="progress-score-hero-heading">
+            <div>
+              <h3>{t("Overall Progress")}</h3>
+              <p>{t("Organized scenes")}</p>
             </div>
-            {total !== undefined && done !== undefined && (
-              <TaskProgressRing percentage={percentage} label={t("Complete")} />
-            )}
-            <div className="progress-overall-footer">
-              <div className="progress-overall-card-actions">
-                <Button
-                  size="sm"
-                  variant="primary"
-                  disabled={!overall}
-                  onClick={() => setShowDetails(true)}
-                >
-                  {t("Details")}
-                </Button>
-              </div>
-              {due && (
-                <p className="progress-overall-plan">
-                  <span>{t("Estimated finish")}</span>
-                  <strong>{formatTaskProgressDate(due)}</strong>
-                </p>
+            <div className="progress-score-hero-chips">
+              {overall && (
+                <TaskProgressFinishLabel
+                  storageKey="task-progress-overall-plan"
+                  history={overall.history}
+                  remaining={remaining ?? 0}
+                  defaultRate={overall.goal_per_day || 10}
+                />
               )}
+              {streak >= 2 && (
+                <span
+                  className="progress-score-streak"
+                  title={t("Consecutive days that met the daily goal")}
+                >
+                  <Icon icon={faFire} /> {streak}-{t("day streak")}
+                </span>
+              )}
+              <Button
+                size="sm"
+                variant="primary"
+                disabled={!overall}
+                onClick={() => setShowDetails(true)}
+              >
+                {t("Details")}
+              </Button>
             </div>
           </div>
-        </Card.Body>
+          {query.error && (
+            <Alert variant="warning">
+              {t("Could not refresh organized scenes.")}{" "}
+              <Button size="sm" onClick={() => void query.refetch()}>
+                {t("Retry")}
+              </Button>
+            </Alert>
+          )}
+          {total === undefined || done === undefined || !snapshot ? (
+            <p role="status">{t("Loading…")}</p>
+          ) : (
+            <>
+              <div className="progress-score-hero-figure">
+                <strong>{snapshot.percent.toFixed(2)}%</strong>
+                <div className="progress-score-counts progress-score-counts-large">
+                  <span className="progress-score-done">
+                    <strong>
+                      <FormattedNumber value={done} />
+                    </strong>{" "}
+                    {t("organized")}
+                  </span>
+                  <span>
+                    <strong>
+                      <FormattedNumber value={remaining ?? 0} />
+                    </strong>{" "}
+                    {t("to go")}
+                  </span>
+                </div>
+              </div>
+              <TaskProgressMedalBar
+                large
+                completed={done}
+                total={total}
+                percent={snapshot.percent}
+                gain={snapshot.netCompletedGain}
+                history={history ?? []}
+                caption={
+                  weekGain !== undefined && (
+                    <>
+                      <strong
+                        className={
+                          weekGain >= 0
+                            ? "progress-score-gain"
+                            : "progress-score-loss"
+                        }
+                      >
+                        {weekGain >= 0 ? "+" : ""}
+                        {weekGain.toFixed(2)}%
+                      </strong>{" "}
+                      {t("this week")}
+                    </>
+                  )
+                }
+              />
+            </>
+          )}
+        </div>
+        {overall && history && (
+          <TaskProgressPeriodTiles
+            variant="hero"
+            comparisons={taskProgressPeriodComparisons(overall.history, today)}
+            currentGoalPerDay={overall.goal_per_day}
+            history={history}
+          />
+        )}
       </Card>
       {showDetails && overall && (
         <TaskProgressOverallModal
           history={overall.history}
           goalPerDay={overall.goal_per_day}
+          remaining={remaining ?? 0}
           onGoalSaved={() => query.refetch()}
           onClose={() => setShowDetails(false)}
         />

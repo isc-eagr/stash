@@ -409,12 +409,6 @@ const SceneCardPopovers = PatchComponent(
               )}
             />
           )}
-          {/* CUSTOM: scene insights precede the compact card controls. */}
-          <SceneCardInsights
-            scene={props.scene}
-            roleStatsByPerformer={props.roleStatsByPerformer}
-            roleStatsPending={props.roleStatsPending}
-          />
           {shouldRenderPopoverGroup && (
             <>
               <ButtonGroup className="card-popovers">
@@ -529,19 +523,26 @@ const SceneCardDetails = PatchComponent(
           metric={embeddedSortMetric ? undefined : sortMetric}
           sortDirection={sortDirection}
         />
-        <span
-          className={cx(
-            "scene-card__date",
-            hasCatalogCardSortValueCustom(props.scene.effective_date) &&
-              catalogCardSortHighlightClassCustom(
-                props.activeSortBy,
-                "effective_date"
-              )
-          )}
-        >
-          {props.scene.effective_date ?? props.scene.date}
-        </span>{" "}
-        {/* CUSTOM: effective_date */}
+        {/* CUSTOM: effective_date; date and insights share a line */}
+        <div className="scene-meta-line">
+          <span
+            className={cx(
+              "scene-card__date",
+              hasCatalogCardSortValueCustom(props.scene.effective_date) &&
+                catalogCardSortHighlightClassCustom(
+                  props.activeSortBy,
+                  "effective_date"
+                )
+            )}
+          >
+            {props.scene.effective_date ?? props.scene.date}
+          </span>
+          <SceneCardInsights
+            scene={props.scene}
+            roleStatsByPerformer={props.roleStatsByPerformer}
+            roleStatsPending={props.roleStatsPending}
+          />
+        </div>
         {/* CUSTOM: activity bar and rating strip replace the activity boxes */}
         <SceneActivityBar
           sceneId={props.scene.id}
@@ -550,7 +551,7 @@ const SceneCardDetails = PatchComponent(
           activeSortBy={props.activeSortBy}
           outstandingBatteries
         />
-        <SceneRatingStrip scene={props.scene} />
+        <SceneRatingStrip scene={props.scene} nutReportInline />
         <span className="file-path extra-scene-info">
           {objectPath(props.scene)}
         </span>

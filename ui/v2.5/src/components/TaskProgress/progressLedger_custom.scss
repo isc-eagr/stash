@@ -1,0 +1,31 @@
+.progress-ledger-types {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  margin-top: 1.5rem;
+
+  > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: space-between;
+  }
+
+  .progress-report-meter {
+    width: 100%;
+  }
+}
+
+.progress-report-meter {
+  background: rgba(138, 155, 168, 0.16);
+  border-radius: 3px;
+  display: block;
+  height: 6px;
+  overflow: hidden;
+
+  > span {
+    background: var(--progress-report-goal-color, #91d3b0);
+    display: block;
+    height: 100%;
+  }
+}

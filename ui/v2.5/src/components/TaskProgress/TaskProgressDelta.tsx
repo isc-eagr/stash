@@ -58,23 +58,3 @@ export const TaskProgressItemsDelta: React.FC<ICompareProps> = ({
     />
   );
 };
-
-/** Percentage values change by the difference between them, shown as %. */
-export const TaskProgressPercentDelta: React.FC<ICompareProps> = ({
-  current,
-  previous,
-  ...props
-}) => {
-  const intl = useIntl();
-  const delta = current - previous;
-  return (
-    <TaskProgressDelta
-      delta={delta}
-      text={`${intl.formatNumber(Math.abs(delta), {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}%`}
-      {...props}
-    />
-  );
-};

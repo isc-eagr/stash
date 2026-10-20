@@ -16,7 +16,6 @@ query MarkerEventStats(
       scene_id
       scene_title
       scene_rating100
-      scene_date
       duration
       giver {
         performer_id

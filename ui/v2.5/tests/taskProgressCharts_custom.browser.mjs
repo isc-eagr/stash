@@ -36,7 +36,6 @@ const bundle = await esbuild.build({
       import { IntlProvider } from "react-intl";
       import { ApolloClient, ApolloProvider, ApolloLink, InMemoryCache, Observable } from "@apollo/client";
       import { TaskProgressHistoryChart } from "./src/components/TaskProgressHistoryChart";
-      import { TaskProgressReports } from "./src/components/TaskProgress/TaskProgressReports";
       const history = [
         {date:"2025-12-31",completed:2,incoming:0,remaining:98,baselineCount:100,goalPerDay:2},
         {date:"2026-01-01",completed:3,incoming:0,remaining:95,goalPerDay:3},
@@ -55,7 +54,7 @@ const bundle = await esbuild.build({
         const [view,setView] = React.useState("tracker");
         window.setChartView = setView;
         return <ApolloProvider client={client}><IntlProvider locale="en" messages={{}}><main className="task-progress-page" style={{maxWidth:1000,margin:"0 auto",padding:12}}>
-          {view === "reports" ? <TaskProgressReports trackers={[tracker]} trackersLoading={false} /> : <TaskProgressHistoryChart key={view} title={view} history={history} today="2026-09-24" completionOnly={view === "completed"} onSelectDay={view === "overall" ? undefined : date => {window.selectedDay = date;}} />}
+          <TaskProgressHistoryChart key={view} title={view} history={history} today="2026-09-24" completionOnly={view === "completed"} onSelectDay={view === "overall" ? undefined : date => {window.selectedDay = date;}} />
         </main></IntlProvider></ApolloProvider>;
       }
       render(<App />,document.querySelector("#root"));
@@ -106,6 +105,13 @@ try {
   await page.goto("http://progress-charts.test/");
   const chart = page.locator(".task-progress-history-chart");
   await chart.locator(".progress-report-calendar").waitFor();
+  assert.deepEqual(
+    await chart
+      .getByRole("group", { name: "Progress period", exact: true })
+      .getByRole("button")
+      .allTextContents(),
+    ["Monthly", "Yearly", "Totals trend"]
+  );
   assert.equal(
     await chart.getByRole("button", { name: "Daily", exact: true }).count(),
     0
@@ -130,7 +136,6 @@ try {
   await mkdir(screenshots, { recursive: true });
 
   for (const [mode, selector] of [
-    ["Weekly", ".progress-report-bars"],
     ["Monthly", ".progress-report-calendar"],
     ["Yearly", ".progress-report-heatmap"],
   ]) {
@@ -152,7 +157,7 @@ try {
       );
       await cell.focus();
       assert.match(
-        await chart.getByRole("tooltip").innerText(),
+        await page.getByRole("tooltip").innerText(),
         /Completed this day\s+10/
       );
       await cell.press("Space");
@@ -229,11 +234,11 @@ try {
   );
   await totalPoint.focus();
   assert.match(
-    await chart.getByRole("tooltip").innerText(),
+    await page.getByRole("tooltip").innerText(),
     /Completed this day\s+10/
   );
   assert.match(
-    await chart.getByRole("tooltip").innerText(),
+    await page.getByRole("tooltip").innerText(),
     /Cumulative by this day\s+20/
   );
   await chart
@@ -268,58 +273,17 @@ try {
     await page
       .locator(`.task-progress-history-chart[aria-label^="${view}:"]`)
       .waitFor();
+    assert.equal(
+      await chart.getByRole("button", { name: "Weekly", exact: true }).count(),
+      0
+    );
     await chart.getByRole("button", { name: "Yearly", exact: true }).click();
     await chart.locator(".progress-report-heatmap").waitFor();
   }
 
-  await page.evaluate(() => window.setChartView("reports"));
-  const reports = page.locator(".progress-reports");
-  await reports
-    .locator(".nav-link")
-    .filter({ hasText: /^Daily$/ })
-    .click();
-  await reports.locator(".progress-report-tiles").waitFor();
-  assert.equal(await reports.locator(".progress-activity-chart").count(), 0);
-  assert.match(
-    await reports.locator(".progress-report-tiles").innerText(),
-    /Items completed\s+1/i
-  );
-  assert.match(await reports.locator("h3").innerText(), /^24\/09\/2026$/);
-  assert.equal(
-    await reports
-      .getByRole("region", { name: "Trackers report" })
-      .getByRole("table")
-      .count(),
-    1
-  );
-  assert.equal(
-    await reports.getByRole("region", { name: "Milestones report" }).count(),
-    1
-  );
-  await reports.getByRole("button", { name: "Previous", exact: true }).click();
-  assert.match(await reports.locator("h3").innerText(), /^23\/09\/2026$/);
-  assert.match(
-    await reports.locator(".progress-report-tiles").innerText(),
-    /Items completed\s+10/i
-  );
-  assert.equal(await reports.locator(".progress-activity-chart").count(), 0);
-  await reports.getByRole("button", { name: "Current", exact: true }).click();
-  for (const mode of ["Weekly", "Monthly", "Yearly"]) {
-    await reports
-      .locator(".nav-link")
-      .filter({ hasText: new RegExp(`^${mode}$`) })
-      .click();
-    assert.equal(await reports.locator(".progress-activity-chart").count(), 1);
-  }
-  await reports
-    .locator(".nav-link")
-    .filter({ hasText: /^Daily$/ })
-    .click();
-  await reports.screenshot({ path: resolve(screenshots, "reports-daily.png") });
-
   await page.setViewportSize({ width: 320, height: 900 });
   await page.evaluate(() => window.setChartView("tracker"));
-  for (const mode of ["Weekly", "Monthly", "Yearly", "Totals trend"]) {
+  for (const mode of ["Monthly", "Yearly", "Totals trend"]) {
     await chart.getByRole("button", { name: mode, exact: true }).click();
     assert.equal(
       await page.evaluate(
@@ -332,24 +296,9 @@ try {
       path: resolve(screenshots, `${mode.toLowerCase()}-mobile.png`),
     });
   }
-  await page.evaluate(() => window.setChartView("reports"));
-  await reports
-    .locator(".nav-link")
-    .filter({ hasText: /^Daily$/ })
-    .click();
-  assert.equal(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= window.innerWidth
-    ),
-    true,
-    "Daily Reports fits 320px without page overflow"
-  );
-  await reports.screenshot({
-    path: resolve(screenshots, "reports-daily-mobile.png"),
-  });
   assert.deepEqual(errors, []);
   console.log(
-    "Passed progress chart modes, daily reports, tooltips, drill-downs, calendar navigation, totals, completed trackers, and 320px layout."
+    "Passed progress chart modes, tooltips, drill-downs, calendar navigation, totals, completed trackers, and 320px layout."
   );
 } finally {
   await browser.close();

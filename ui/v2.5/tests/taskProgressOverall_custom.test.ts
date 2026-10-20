@@ -42,11 +42,20 @@ assert.doesNotMatch(
   /localStorage/,
   "the Overall goal is no longer browser-local"
 );
-assert.match(overallSource, /<TaskProgressGoalSummary/);
 assert.match(
   overallSource,
-  /<TaskProgressRing/,
-  "the Overall Progress card uses the shared circular progress indicator"
+  /<TaskProgressPeriodTiles\s+variant="hero"\s+comparisons=/,
+  "the Overall hero shows Today, This week, This month, and This year against the previous period"
+);
+assert.match(
+  overallSource,
+  /<TaskProgressMedalBar\s+large/,
+  "the Overall hero puts the medals on its progress bar"
+);
+assert.match(
+  overallSource,
+  /taskProgressGoalStreak\(history, today\)/,
+  "the Overall hero shows the daily-goal streak"
 );
 assert.doesNotMatch(
   overallSource,
@@ -62,12 +71,13 @@ assert.match(modalSource, /size="xl"/);
 assert.match(modalSource, /\{t\("Overall Progress"\)\}/);
 assert.match(modalSource, /currentGoalPerDay=\{goalPerDay\}/);
 
-for (const source of [overallSource, modalSource]) {
-  const summary = source.match(/<TaskProgressGoalSummary[\s\S]*?\/>/)?.[0];
-  assert.ok(summary);
-  assert.match(
-    summary,
-    /completedTotal: day\.completed_total \?\? undefined,/,
-    "Overall card and Details period percentages receive the organized-scene snapshots"
-  );
-}
+assert.match(
+  overallSource,
+  /completedTotal: day\.completed_total \?\? undefined,/,
+  "Overall period tiles receive the organized-scene snapshots"
+);
+assert.match(
+  modalSource,
+  /<TaskProgressGoalSummary[\s\S]*?completedTotal: day\.completed_total \?\? undefined,/,
+  "Overall Details period percentages receive the organized-scene snapshots"
+);

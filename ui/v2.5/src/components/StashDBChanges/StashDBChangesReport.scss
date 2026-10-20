@@ -74,59 +74,154 @@
     padding: 0 0.75rem 0.25rem;
   }
 
+  // Entries are cards: blue edge for changed, orange for gone. Your value
+  // reads red, StashDB's green.
   .stashdb-changes-entry {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 0.5rem 0;
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-left: 3px solid #48aff0;
+    border-radius: 0.25rem;
+    margin: 0.5rem 0;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .stashdb-changes-entry-gone {
+    border-left-color: #d9822b;
   }
 
   .stashdb-changes-entry-header {
-    align-items: baseline;
+    align-items: center;
     display: flex;
     gap: 0.5rem;
     justify-content: space-between;
   }
 
-  .stashdb-changes-entry-actions {
-    align-items: baseline;
-    display: flex;
-    flex-shrink: 0;
-    gap: 0.75rem;
+  .stashdb-changes-entry-title > a {
+    font-size: 1.05rem;
+    font-weight: 600;
   }
 
-  .stashdb-changes-fields-table {
-    margin: 0.25rem 0 0;
-    table-layout: fixed;
+  .stashdb-changes-entry-actions {
+    align-items: center;
+    display: flex;
+    flex-shrink: 0;
+    gap: 0.5rem;
+  }
 
-    th:first-child {
-      width: 9rem;
-    }
+  .stashdb-changes-rows {
+    margin-top: 0.5rem;
+  }
 
-    .stashdb-changes-apply {
-      text-align: right;
-      white-space: nowrap;
-      width: 7.5rem;
-    }
+  .stashdb-changes-row {
+    align-items: start;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    display: grid;
+    gap: 0.25rem 0.75rem;
+    grid-template-columns: 8rem minmax(0, 1fr) 1rem minmax(0, 1fr) 7rem;
+    padding: 0.35rem 0;
+  }
 
-    thead th {
-      border-top: 0;
-      font-weight: 400;
-      opacity: 0.75;
-    }
+  .stashdb-changes-row-head {
+    border-top: 0;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    opacity: 0.6;
+    padding-bottom: 0;
+    text-transform: uppercase;
+  }
+
+  .stashdb-changes-label {
+    font-weight: 600;
   }
 
   .stashdb-changes-value {
     overflow-wrap: anywhere;
     white-space: pre-wrap;
+  }
 
-    > span:only-child,
-    > .stashdb-changes-list {
-      white-space: normal;
+  // List changes span both value columns.
+  .stashdb-changes-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    grid-column: 2 / 5;
+    white-space: normal;
+  }
+
+  .stashdb-changes-arrow {
+    opacity: 0.4;
+    text-align: center;
+  }
+
+  .stashdb-changes-scalar {
+    border-radius: 0.2rem;
+    display: inline-block;
+    padding: 0.05rem 0.4rem;
+  }
+
+  .stashdb-changes-old {
+    background-color: rgba(219, 55, 55, 0.15);
+    color: #ff7373;
+  }
+
+  .stashdb-changes-new {
+    background-color: rgba(15, 153, 96, 0.18);
+    color: #3dcc91;
+  }
+
+  .stashdb-changes-empty {
+    font-style: italic;
+    opacity: 0.45;
+  }
+
+  .stashdb-changes-pill {
+    border: 1px solid;
+    border-radius: 1rem;
+    font-size: 0.875rem;
+    max-width: 100%;
+    overflow: hidden;
+    padding: 0.05rem 0.55rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    a {
+      color: inherit;
     }
   }
 
-  .stashdb-changes-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
+  .stashdb-changes-pill-added {
+    background-color: rgba(15, 153, 96, 0.15);
+    border-color: rgba(61, 204, 145, 0.4);
+    color: #3dcc91;
+  }
+
+  .stashdb-changes-pill-removed {
+    background-color: rgba(219, 55, 55, 0.15);
+    border-color: rgba(255, 115, 115, 0.4);
+    color: #ff7373;
+  }
+
+  .stashdb-changes-apply {
+    text-align: right;
+  }
+
+  @media (max-width: 575px) {
+    .stashdb-changes-row {
+      grid-template-columns: minmax(0, 1fr) 1rem minmax(0, 1fr);
+    }
+
+    .stashdb-changes-row-head {
+      display: none;
+    }
+
+    .stashdb-changes-label,
+    .stashdb-changes-pills,
+    .stashdb-changes-apply {
+      grid-column: 1 / -1;
+    }
+
+    .stashdb-changes-apply {
+      text-align: left;
+    }
   }
 }

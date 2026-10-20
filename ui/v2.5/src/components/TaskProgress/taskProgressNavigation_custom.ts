@@ -1,3 +1,8 @@
+import {
+  taskProgressSortOptions,
+  TaskProgressSort,
+} from "./taskProgressSort_custom";
+
 export const taskProgressFilterValues = [
   "CURRENT",
   "ACTIVE",
@@ -36,6 +41,31 @@ export function taskProgressSearchForFilter(
     parameters.set("status", filter);
   }
 
+  const value = parameters.toString();
+  return value ? `?${value}` : "";
+}
+
+export function taskProgressSortFromSearch(search: string): TaskProgressSort {
+  const value = new URLSearchParams(search).get("sort");
+  return (
+    taskProgressSortOptions.find((option) => option.value === value)?.value ??
+    "manual"
+  );
+}
+
+export function taskProgressSearchForSort(
+  search: string,
+  sort: string
+): string {
+  const parameters = new URLSearchParams(search);
+  if (
+    sort === "manual" ||
+    !taskProgressSortOptions.some((option) => option.value === sort)
+  ) {
+    parameters.delete("sort");
+  } else {
+    parameters.set("sort", sort);
+  }
   const value = parameters.toString();
   return value ? `?${value}` : "";
 }

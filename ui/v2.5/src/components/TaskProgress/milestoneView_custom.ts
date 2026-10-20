@@ -9,21 +9,10 @@ export function milestoneFromSearch(search: string): string | undefined {
   return new URLSearchParams(search).get("milestone") ?? undefined;
 }
 
-export function resolveMilestoneSelection(
-  availableIDs: readonly string[],
-  explicitID?: string,
-  rememberedID?: string
-): string | undefined {
-  if (explicitID !== undefined) return explicitID;
-  return rememberedID && availableIDs.includes(rememberedID)
-    ? rememberedID
-    : availableIDs[0];
-}
-
 export function milestoneSearch(
   search: string,
   milestoneID?: string,
-  view: "trackers" | "milestones" | "reports" = "milestones"
+  view: "trackers" | "milestones" = "milestones"
 ): string {
   const params = new URLSearchParams(search);
   if (view === "milestones") {
@@ -31,8 +20,7 @@ export function milestoneSearch(
     if (milestoneID) params.set("milestone", milestoneID);
     else params.delete("milestone");
   } else {
-    if (view === "reports") params.set("view", "reports");
-    else params.delete("view");
+    params.delete("view");
     params.delete("milestone");
   }
   const value = params.toString();

@@ -260,8 +260,18 @@ func (qb *SceneReleaseStore) GetOVideoTimestampsCustom(ctx context.Context, rele
 	if err != nil || !exists {
 		return nil, err
 	}
-	var timestamps []*float64
-	err = dbWrapper.Select(ctx, &timestamps,
-		`SELECT video_timestamp FROM scene_release_o_dates WHERE release_id = ? AND o_date IS NOT NULL ORDER BY o_date DESC,rowid DESC`, releaseID)
-	return timestamps, err
+	// sqlx scans []*float64 elements through the base type, so NULL needs NullFloat64.
+	var rows []sql.NullFloat64
+	if err := dbWrapper.Select(ctx, &rows,
+		`SELECT video_timestamp FROM scene_release_o_dates WHERE release_id = ? AND o_date IS NOT NULL ORDER BY o_date DESC,rowid DESC`, releaseID); err != nil {
+		return nil, err
+	}
+	timestamps := make([]*float64, len(rows))
+	for i, row := range rows {
+		if row.Valid {
+			value := row.Float64
+			timestamps[i] = &value
+		}
+	}
+	return timestamps, nil
 }

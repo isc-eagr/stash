@@ -109,12 +109,39 @@ export function toggleStashDBFieldCustom(
     : [...excluded, field];
 }
 
+// Matches the job description set by the backend check.
+export const STASHDB_CHANGES_JOB_DESCRIPTION_CUSTOM =
+  "Checking StashDB Changes...";
+
+const STASHDB_CHANGES_ACTIVE_JOB_STATUSES_CUSTOM = [
+  "READY",
+  "RUNNING",
+  "STOPPING",
+];
+
+// A check queued anywhere (Settings > Tasks or another tab) that is still
+// going, so the report can follow it.
+export function activeStashDBChangesJobCustom(
+  jobs: readonly { id: string; status: string; description: string }[]
+) {
+  return jobs.find(
+    (j) =>
+      j.description === STASHDB_CHANGES_JOB_DESCRIPTION_CUSTOM &&
+      STASHDB_CHANGES_ACTIVE_JOB_STATUSES_CUSTOM.includes(j.status)
+  )?.id;
+}
+
 export function stashDBEntryURLCustom(
   endpoint: string,
   kind: StashDBChangesKindCustom,
   stashID: string
 ) {
   return `${new URL(endpoint).origin}/${kind}s/${encodeURIComponent(stashID)}`;
+}
+
+// URLs read shorter without the scheme, "www.", and a trailing slash.
+export function stashDBShortURLCustom(url: string) {
+  return url.replace(/^https?:\/\/(www\.)?/i, "").replace(/\/$/, "");
 }
 
 export const STASHDB_STATUS_LABELS_CUSTOM: Record<string, string> = {

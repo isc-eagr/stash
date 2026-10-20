@@ -130,7 +130,6 @@ func TestMarkerEventStatsNutEventsCustom(t *testing.T) {
 	require.Equal(t, "1", m1.MarkerID)
 	require.Equal(t, "Pool Party", *m1.SceneTitle)
 	require.Equal(t, 80, *m1.SceneRating100)
-	require.Equal(t, "2020-01-01", *m1.SceneDate)
 	require.Equal(t, "2026-01-01T12:00:00Z", *m1.LatestODate)
 	require.Equal(t, 20.0, m1.Duration)
 	require.Equal(t, "101", m1.Giver.PerformerID)

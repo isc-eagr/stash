@@ -295,6 +295,7 @@ const ScenePerformerOverviewPanel: React.FC<{
                       globalStatsOverride={roleStats}
                       linkTarget={SCENE_PERFORMER_OVERVIEW_LINK_PROPS.target}
                       flushMargins
+                      tiles="compact"
                     />
                   </div>
                 </div>

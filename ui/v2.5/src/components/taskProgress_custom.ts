@@ -325,7 +325,7 @@ export function taskProgressCurrentGoalPeriods(
   entries: readonly ITaskProgressHistoryEntry[],
   currentGoalPerDay: number | null | undefined,
   today: string = currentTaskProgressCalendarDate()
-): Record<"day" | "week" | "month", ITaskProgressGoalPeriod> {
+): Record<"day" | "week" | "month" | "year", ITaskProgressGoalPeriod> {
   const points = buildTaskProgressHistorySeries(entries, "all", today);
   const byDate = new Map(points.map((point) => [point.date, point]));
   const completedFor = (start: string, end: string) =>
@@ -347,8 +347,13 @@ export function taskProgressCurrentGoalPeriods(
     }
     return goal;
   };
-  const period = (granularity: "week" | "month"): ITaskProgressGoalPeriod => {
-    const start = taskProgressPeriodStart(today, granularity);
+  const period = (
+    granularity: "week" | "month" | "year"
+  ): ITaskProgressGoalPeriod => {
+    const start =
+      granularity === "year"
+        ? `${today.slice(0, 4)}-01-01`
+        : taskProgressPeriodStart(today, granularity);
     return {
       completed: completedFor(start, today),
       goal: goalFor(start, today),
@@ -366,6 +371,7 @@ export function taskProgressCurrentGoalPeriods(
     },
     week: period("week"),
     month: period("month"),
+    year: period("year"),
   };
 }
 

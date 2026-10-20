@@ -8,7 +8,10 @@ import {
   type RatingAdvisorEntityCustom,
 } from "./ratingAdvisorScales_custom";
 import type { SceneRatingModeCustom } from "./groupSceneRating_custom";
-import { RatingStrip } from "./RatingStrip_custom";
+import {
+  RatingStrip,
+  type IRatingStripCriterionAddon,
+} from "./RatingStrip_custom";
 
 // CUSTOM: one scene's or vato's stored Rating Advisor scores as an inline
 // strip. Replaces the rating star's hover summary.
@@ -23,6 +26,7 @@ interface IRatingCriteriaStripProps {
   oCount?: number | null;
   sceneRatingMode?: SceneRatingModeCustom;
   trailing?: React.ReactNode;
+  criterionAddon?: IRatingStripCriterionAddon;
   className?: string;
   header?: React.ReactNode;
 }
@@ -34,6 +38,7 @@ export const RatingCriteriaStrip: React.FC<IRatingCriteriaStripProps> = ({
   oCount,
   sceneRatingMode,
   trailing,
+  criterionAddon,
   className,
   header,
 }) => {
@@ -86,6 +91,7 @@ export const RatingCriteriaStrip: React.FC<IRatingCriteriaStripProps> = ({
       adjustments={adjustments}
       className={className}
       criteria={criteria}
+      criterionAddon={criterionAddon}
       header={header}
       idPrefix={`rating-criteria-${entityType}-${entityId}`}
       trailing={trailing}

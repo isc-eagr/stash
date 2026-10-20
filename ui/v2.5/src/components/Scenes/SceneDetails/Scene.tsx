@@ -91,6 +91,7 @@ import {
 } from "src/components/ScenePlayer/useMultiSegmentLoopPresets_custom";
 import { SceneDetailActivityBar } from "../SceneActivityBar_custom"; // CUSTOM
 import { SceneRatingStrip } from "../SceneRatingStrip_custom"; // CUSTOM
+import { SceneDetailInsights } from "../SceneCardInsights_custom"; // CUSTOM
 import {
   completeSceneMarkerFocusRequest,
   type ISceneMarkerFocusRequest,
@@ -1088,33 +1089,38 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
             </h3>
           </div>
 
-          {/* CUSTOM: activity bar and rating criteria strip; the Quality boxes
-          live in the Stats tab */}
-          <SceneDetailActivityBar scene={scene} />
-          <SceneRatingStrip
-            className="rating-criteria-strip--scene-detail"
-            scene={scene}
-            sceneRatingMode={sceneRatingMode}
-          />
-
           <div className="scene-subheader">
-            <span
-              className="date"
-              data-value={scene.effective_date ?? scene.date ?? undefined}
-            >
-              {" "}
-              {/* CUSTOM: effective_date */}
-              {(scene.effective_date ?? scene.date) && (
-                <FormattedDate value={(scene.effective_date ?? scene.date)!} />
-              )}{" "}
-              {/* CUSTOM: effective_date */}
-            </span>
+            {/* CUSTOM: date and insights share a line, as on scene cards */}
+            <div className="scene-meta-line">
+              <span
+                className="date"
+                data-value={scene.effective_date ?? scene.date ?? undefined}
+              >
+                {/* CUSTOM: effective_date */}
+                {(scene.effective_date ?? scene.date) && (
+                  <FormattedDate
+                    value={(scene.effective_date ?? scene.date)!}
+                  />
+                )}
+              </span>
+              <SceneDetailInsights scene={scene} />
+            </div>
             <VideoFrameRateResolution
               width={file?.width}
               height={file?.height}
               frameRate={file?.frame_rate}
             />
           </div>
+
+          {/* CUSTOM: activity bar and rating criteria strip in the scene card
+          layout; the Quality boxes live in the Stats tab */}
+          <SceneDetailActivityBar scene={scene} />
+          <SceneRatingStrip
+            className="rating-criteria-strip--scene-detail"
+            nutReportInline
+            scene={scene}
+            sceneRatingMode={sceneRatingMode}
+          />
 
           <div className="scene-toolbar">
             <span className="scene-toolbar-group">

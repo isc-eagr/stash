@@ -114,6 +114,9 @@
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
+
+  /* Labels and meters stay level when an addon makes one column taller. */
+  justify-content: flex-end;
   min-width: 0;
 
   &.is-unrated {
@@ -131,6 +134,34 @@
   text-overflow: ellipsis;
   text-transform: uppercase;
   white-space: nowrap;
+}
+
+/* A criterion's addon sits beside its label, or wraps above it when the
+   column is narrow. */
+.rating-criterion__head {
+  /* Bottom-aligned: wrap-reverse flips the cross axis. */
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap-reverse;
+  gap: 0.25rem 0.35rem;
+  justify-content: space-between;
+
+  > :last-child {
+    margin-left: auto;
+  }
+}
+
+/* An unrated criterion keeps its addon at full strength. */
+.rating-criterion.has-addon.is-unrated {
+  opacity: 1;
+
+  .rating-criterion__label {
+    opacity: 0.31;
+  }
+
+  .rating-criterion-meter {
+    opacity: 0.4;
+  }
 }
 
 /* The right-hand icons drop to their own line when both do not fit. */

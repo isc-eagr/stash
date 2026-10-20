@@ -36,7 +36,6 @@ interface IProps {
 
 const totalsRanges: readonly TaskProgressHistoryRange[] = [7, 30, "all"];
 const periods = [
-  { key: "week", label: "Weekly" },
   { key: "month", label: "Monthly" },
   { key: "year", label: "Yearly" },
   { key: "totals", label: "Totals trend" },

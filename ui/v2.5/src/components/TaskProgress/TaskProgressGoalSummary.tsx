@@ -1,10 +1,6 @@
 import React from "react";
-import { FormattedNumber } from "react-intl";
 import type { ITaskProgressHistoryEntry } from "../taskProgress_custom";
-import {
-  taskProgressCurrentGoalPeriods,
-  taskProgressCurrentPercentageChanges,
-} from "../taskProgress_custom";
+import { taskProgressCurrentGoalPeriods } from "../taskProgress_custom";
 import {
   showTaskProgressCurrentPeriods,
   useTaskProgressReportingDate,
@@ -45,7 +41,6 @@ export const TaskProgressGoalSummary: React.FC<IProps> = ({
     currentGoalPerDay,
     today
   );
-  const changes = taskProgressCurrentPercentageChanges(history, today);
   const periods = [
     { key: "day", label: t("Today") },
     { key: "week", label: t("This week") },
@@ -77,15 +72,6 @@ export const TaskProgressGoalSummary: React.FC<IProps> = ({
         const values = (
           <span className="progress-goal-period-values">
             {compact ? <small>{progress}</small> : <strong>{progress}</strong>}
-            <small className="progress-goal-period-change">
-              <FormattedNumber
-                maximumFractionDigits={2}
-                minimumFractionDigits={2}
-                signDisplay="always"
-                style="percent"
-                value={changes[key] / 100}
-              />
-            </small>
           </span>
         );
         return (

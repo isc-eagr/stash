@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import {
   plannedTaskProgressFinishDate,
   overallProgressPercentage,
-  progressRingStrokeOffset,
   progressForecast,
   progressPercentage,
   progressToday,
@@ -58,21 +57,6 @@ assert.equal(
   overallProgressPercentage(10, 14),
   100,
   "overall progress never exceeds a complete percentage"
-);
-assert.equal(
-  progressRingStrokeOffset(25, 100),
-  75,
-  "progress rings leave the uncompleted portion of the stroke visible"
-);
-assert.equal(
-  progressRingStrokeOffset(150, 100),
-  0,
-  "progress rings cap over-complete progress at a full circle"
-);
-assert.equal(
-  progressRingStrokeOffset(-10, 100),
-  100,
-  "progress rings do not render negative progress"
 );
 const tracker = {
   started_on: "2026-09-07",

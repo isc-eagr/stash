@@ -14,7 +14,6 @@ export interface IMarkerEvent {
   scene_id: string;
   scene_title?: string | null;
   scene_rating100?: number | null;
-  scene_date?: string | null;
   duration: number;
   giver?: IMarkerEventVato | null;
   receivers: IMarkerEventVato[];
@@ -399,10 +398,8 @@ export function markerEventStatsSummary(events: readonly IMarkerEvent[]) {
 export type MarkerEventSort =
   | "o_count"
   | "latest_o"
-  | "hotness"
   | "scene_rating"
-  | "duration"
-  | "release_date";
+  | "duration";
 
 export const MARKER_EVENT_SORTS: Array<
   Omit<ISortMetricBadgeCustom, "value"> & {
@@ -417,7 +414,6 @@ export const MARKER_EVENT_SORTS: Array<
     messageID: "last_o_at",
     format: "datetime",
   },
-  { key: "hotness", label: "Hotness", messageID: "hotness", format: "text" },
   {
     key: "scene_rating",
     label: "Scene Rating",
@@ -430,19 +426,7 @@ export const MARKER_EVENT_SORTS: Array<
     messageID: "duration",
     format: "duration",
   },
-  {
-    key: "release_date",
-    label: "Release Date",
-    messageID: "date",
-    format: "date",
-  },
 ];
-
-const QUALITY_RANK: Record<string, number> = {
-  REGULAR: 0,
-  REALLY_HOT: 1,
-  GOAT: 2,
-};
 
 function timestamp(value?: string | null) {
   const parsed = Date.parse(value ?? "");
@@ -455,14 +439,10 @@ function markerEventSortValue(event: IMarkerEvent, sort: MarkerEventSort) {
       return event.o_count;
     case "latest_o":
       return timestamp(event.latest_o_date);
-    case "hotness":
-      return QUALITY_RANK[event.quality] ?? 0;
     case "scene_rating":
       return event.scene_rating100 ?? -1;
     case "duration":
       return event.duration;
-    case "release_date":
-      return timestamp(event.scene_date);
   }
 }
 
@@ -501,10 +481,8 @@ export function markerEventSortMetric(
   const values: Record<MarkerEventSort, ISortMetricBadgeCustom["value"]> = {
     o_count: event.o_count,
     latest_o: event.latest_o_date ?? null,
-    hotness: QUALITY_LABELS[event.quality] ?? event.quality,
     scene_rating: event.scene_rating100 ?? null,
     duration: event.duration,
-    release_date: event.scene_date ?? null,
   };
   return {
     messageID: definition.messageID,

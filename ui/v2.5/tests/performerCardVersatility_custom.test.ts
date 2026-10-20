@@ -68,8 +68,8 @@ assert.match(
 );
 assert.match(
   stripSource,
-  /const stripRoles =\s*versatilityCard && sceneId\s*\? safeRolesToShow\.filter\(\(role\) => role\.category === "solo"\)\s*: safeRolesToShow;/,
-  "scene cards keep only solo, orgasm, and feet in the strip below the rows; other cards keep every role icon"
+  /const stripRoles =\s*versatilityCard && sceneId\s*\? safeRolesToShow\.filter\(\(role\) => role\.category === "solo"\)\s*: showZeroTiles\s*\? safeRolesToShow\.filter\(\(role\) => role\.category === "facial"\)\s*: safeRolesToShow;/,
+  "scene cards keep only solo, orgasm, and feet in the strip below the rows; totals keep facial beside the Scene Types bar"
 );
 assert.match(
   cardSource,

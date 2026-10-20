@@ -6,11 +6,13 @@ import {
 } from "src/core/generated-graphql";
 import { TaskProgressHistoryChart } from "../TaskProgressHistoryChart";
 import { TaskProgressGoalSummary } from "./TaskProgressGoalSummary";
+import { TaskProgressForecast } from "./TaskProgressForecast";
 import { progressToday, useProgressText } from "./progressView_custom";
 
 interface IProps {
   history: TaskProgressOrganizedScenesQuery["taskProgressOverall"]["history"];
   goalPerDay?: number | null;
+  remaining: number;
   onGoalSaved: () => Promise<unknown>;
   onClose: () => void;
 }
@@ -18,6 +20,7 @@ interface IProps {
 export const TaskProgressOverallModal: React.FC<IProps> = ({
   history,
   goalPerDay,
+  remaining,
   onGoalSaved,
   onClose,
 }) => {
@@ -68,6 +71,12 @@ export const TaskProgressOverallModal: React.FC<IProps> = ({
             goalPerDay: day.goal_per_day,
             completedTotal: day.completed_total ?? undefined,
           }))}
+        />
+        <TaskProgressForecast
+          storageKey="task-progress-overall-plan"
+          history={history}
+          remaining={remaining}
+          defaultRate={goalPerDay || 10}
         />
         <Form.Group
           controlId="overall-progress-rate"

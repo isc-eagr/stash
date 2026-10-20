@@ -17,6 +17,7 @@ import {
 } from "./sceneActivityMetricsData_custom";
 import {
   getSceneActivityBarCustom,
+  sceneActivityBatteryTitleCustom,
   type SceneActivityBarCustom,
   type SceneActivityBarEndCustom,
 } from "./sceneActivityBarData_custom";
@@ -56,12 +57,41 @@ export const SceneActivityBar: React.FC<ISceneActivityBarProps> = ({
 }) => {
   if (!bar) return null;
 
+  // The track and ends without a battery show the activity breakdown; a
+  // battery's end shows its Outstanding and negative shares instead.
+  const activityTooltip = (
+    <Tooltip id={`scene-activity-bar-tooltip-${sceneId}`}>
+      {activity.map((metric) => (
+        <div key={metric.key}>
+          {metric.label}: {metric.percent}% (
+          {TextUtils.secondsToTimestamp(metric.duration ?? 0)})
+          {metric.outstandingPercent !== undefined && (
+            <>
+              {" · "}
+              <Icon icon={faStar} /> {metric.outstandingPercent}%
+            </>
+          )}
+          {(metric.negativePercent ?? 0) > 0 && (
+            <>
+              {" · "}
+              <Icon icon={faBan} /> {metric.negativePercent}%
+            </>
+          )}
+        </div>
+      ))}
+    </Tooltip>
+  );
+
   const renderEnd = (
     end: SceneActivityBarEndCustom | undefined,
     side: "left" | "right"
   ) => {
     if (!end) {
-      return <span className={`scene-activity-bar__end is-${side}`} />;
+      return (
+        <OverlayTrigger overlay={activityTooltip} placement="bottom">
+          <span className={`scene-activity-bar__end is-${side}`} />
+        </OverlayTrigger>
+      );
     }
 
     const icon = (
@@ -69,10 +99,8 @@ export const SceneActivityBar: React.FC<ISceneActivityBarProps> = ({
         <ActivityIcon category={end.key} />
       </span>
     );
-    const batteryTitle =
-      `Outstanding: ${end.outstandingPercent}%` +
-      (end.negativePercent > 0 ? ` · Negative: ${end.negativePercent}%` : "");
-    return (
+    const hasBattery = outstandingBatteries && end.duration > 0;
+    const endEl = (
       <span
         className={cx(
           "scene-activity-bar__end",
@@ -90,8 +118,8 @@ export const SceneActivityBar: React.FC<ISceneActivityBarProps> = ({
           <strong>{end.percent}%</strong>
           {side === "right" && icon}
         </span>
-        {outstandingBatteries && end.duration > 0 && (
-          <span className="scene-activity-bar__battery" title={batteryTitle}>
+        {hasBattery && (
+          <span className="scene-activity-bar__battery">
             <span
               className="scene-activity-bar__battery-fill"
               style={{ width: `${end.outstandingPercent}%` }}
@@ -106,6 +134,23 @@ export const SceneActivityBar: React.FC<ISceneActivityBarProps> = ({
         )}
       </span>
     );
+    if (!hasBattery) {
+      return (
+        <OverlayTrigger overlay={activityTooltip} placement="bottom">
+          {endEl}
+        </OverlayTrigger>
+      );
+    }
+    const batteryTooltip = (
+      <Tooltip id={`scene-activity-battery-tooltip-${sceneId}-${side}`}>
+        {sceneActivityBatteryTitleCustom(end)}
+      </Tooltip>
+    );
+    return (
+      <OverlayTrigger overlay={batteryTooltip} placement="bottom">
+        {endEl}
+      </OverlayTrigger>
+    );
   };
 
   const summary = [bar.left, bar.right]
@@ -115,46 +160,22 @@ export const SceneActivityBar: React.FC<ISceneActivityBarProps> = ({
     .join(", ");
 
   return (
-    <OverlayTrigger
-      overlay={
-        <Tooltip id={`scene-activity-bar-tooltip-${sceneId}`}>
-          {activity.map((metric) => (
-            <div key={metric.key}>
-              {metric.label}: {metric.percent}% (
-              {TextUtils.secondsToTimestamp(metric.duration ?? 0)})
-              {metric.outstandingPercent !== undefined && (
-                <>
-                  {" · "}
-                  <Icon icon={faStar} /> {metric.outstandingPercent}%
-                </>
-              )}
-              {(metric.negativePercent ?? 0) > 0 && (
-                <>
-                  {" · "}
-                  <Icon icon={faBan} /> {metric.negativePercent}%
-                </>
-              )}
-            </div>
-          ))}
-        </Tooltip>
-      }
-      placement="bottom"
+    <div
+      aria-label={`Activity: ${summary}`}
+      className={cx("scene-activity-bar", className)}
+      role="img"
     >
-      <div
-        aria-label={`Activity: ${summary}`}
-        className={cx("scene-activity-bar", className)}
-        role="img"
-      >
-        {renderEnd(bar.left, "left")}
+      {renderEnd(bar.left, "left")}
+      <OverlayTrigger overlay={activityTooltip} placement="bottom">
         <span className="scene-activity-bar__track">
           <span
             className="scene-activity-bar__dial"
             style={{ left: `${bar.rightShare * 100}%` }}
           />
         </span>
-        {renderEnd(bar.right, "right")}
-      </div>
-    </OverlayTrigger>
+      </OverlayTrigger>
+      {renderEnd(bar.right, "right")}
+    </div>
   );
 };
 

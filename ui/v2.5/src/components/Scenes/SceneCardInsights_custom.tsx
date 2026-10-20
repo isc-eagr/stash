@@ -10,6 +10,7 @@ import {
 } from "./sceneCardInsightsData_custom";
 import type { SceneCardInsightEvent } from "./sceneCardInsightTypes_custom";
 import { ActivityTypePerformerTile } from "./SceneDetails/sceneMarkerHoverPopover_custom";
+import { usePerformerCardRoleStatsState } from "../Performers/performerRoleStats_custom";
 
 const insightPopoverHeightAllowance = 180;
 
@@ -274,5 +275,23 @@ export const SceneCardInsights: React.FC<ISceneCardInsightsProps> = ({
         </Popover>
       </Overlay>
     </>
+  );
+};
+
+// CUSTOM: the scene details header's insights, beside the date as on cards.
+export const SceneDetailInsights: React.FC<{
+  scene: SceneCardInsightScene;
+}> = ({ scene }) => {
+  const { roleStatsByPerformer, loading } = usePerformerCardRoleStatsState(
+    scene.performers
+  );
+
+  return (
+    <SceneCardInsights
+      scene={scene}
+      roleStatsByPerformer={roleStatsByPerformer}
+      roleStatsPending={loading}
+      detailPage
+    />
   );
 };

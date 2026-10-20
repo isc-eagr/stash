@@ -22,6 +22,13 @@ import {
   isCatalogCardSortHighlightedCustom,
 } from "src/components/Shared/catalogCardSortHighlight_custom"; // CUSTOM
 import cx from "classnames"; // CUSTOM
+import {
+  isZeroRoleTile,
+  showsZeroRoleTiles,
+  type PerformerRoleTileSize,
+} from "./performerRoleTiles_custom"; // CUSTOM
+import "./performerRoleTiles_custom.scss"; // CUSTOM
+import { SceneTypesBar } from "src/components/Shared/SceneTypesBar_custom"; // CUSTOM
 
 type PerformerCategoryStripData = Pick<PerformerListData, "id" | "name"> &
   Partial<PerformerListData>; // CUSTOM: scene-card hovers only load compact performer data
@@ -76,6 +83,10 @@ interface IPerformerCategoryStripProps {
   versatilityCard?: boolean; // CUSTOM
   /** Scene-card hovers: sex/oral rows show top vs bottom time instead of partners. */
   roleSeconds?: IScenePerformerRoleSeconds; // CUSTOM
+  /** Boxed count tiles; outside scenes every configured role shows, zeros dimmed. */
+  tiles?: PerformerRoleTileSize; // CUSTOM
+  /** Performer cards: the count tiles sit beside the Scene Types label. */
+  tilesInSceneTypesHeader?: boolean; // CUSTOM
 }
 
 /**
@@ -108,8 +119,11 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
   flushMargins = false, // CUSTOM
   versatilityCard = false, // CUSTOM
   roleSeconds, // CUSTOM
+  tiles, // CUSTOM
+  tilesInSceneTypesHeader = false, // CUSTOM
 }) => {
   const { configuration } = useConfigurationContext();
+  const showZeroTiles = showsZeroRoleTiles(tiles, sceneId); // CUSTOM
 
   // Extra safety: ensure markerRoles is always an array
   const markerRoles = markerRolesProp ?? [];
@@ -353,7 +367,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
     const facialBottomPids = parsePIDs("facial_bottom_pids:");
     // CUSTOM: end
 
-    // Fixed order: Sex, Oral, Facial, Solo
+    // Fixed order: Sex, Oral, Solo, Facial (CUSTOM: Solo before Facial)
     if (sexRoles.length > 0 && sexTagId) {
       rolesToShow.push({
         category: "sex",
@@ -376,6 +390,12 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
         bottomPids: oralBottomPids, // CUSTOM
       });
     }
+    if (soloRoles.length > 0 && soloTagId) {
+      rolesToShow.push({
+        category: "solo",
+        tagId: soloTagId,
+      });
+    }
     // Facial now shows counts in scene context
     if (
       (facialTopRoles.length > 0 || facialBottomRoles.length > 0) &&
@@ -389,12 +409,6 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
         tagId: facialTagId,
         topPids: facialTopPids, // CUSTOM
         bottomPids: facialBottomPids, // CUSTOM
-      });
-    }
-    if (soloRoles.length > 0 && soloTagId) {
-      rolesToShow.push({
-        category: "solo",
-        tagId: soloTagId,
       });
     }
   } else {
@@ -444,7 +458,8 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
       (sexCount > 0 ||
         sexWithTopCount > 0 ||
         sexWithBottomCount > 0 ||
-        shouldRenderRoleForActiveSort("sex")) &&
+        shouldRenderRoleForActiveSort("sex") ||
+        showZeroTiles) && // CUSTOM: zero tiles
       sexTagId
     ) {
       rolesToShow.push({
@@ -459,7 +474,8 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
       (oralCount > 0 ||
         oralWithTopCount > 0 ||
         oralWithBottomCount > 0 ||
-        shouldRenderRoleForActiveSort("oral")) &&
+        shouldRenderRoleForActiveSort("oral") ||
+        showZeroTiles) && // CUSTOM: zero tiles
       oralTagId
     ) {
       rolesToShow.push({
@@ -471,10 +487,23 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
       });
     }
     if (
+      (soloCount > 0 ||
+        shouldRenderRoleForActiveSort("solo") ||
+        showZeroTiles) && // CUSTOM: zero tiles
+      soloTagId
+    ) {
+      rolesToShow.push({
+        category: "solo",
+        count: soloCount,
+        tagId: soloTagId,
+      });
+    }
+    if (
       (facialCount > 0 ||
         facialWithTopCount > 0 ||
         facialWithBottomCount > 0 ||
-        shouldRenderRoleForActiveSort("facial")) &&
+        shouldRenderRoleForActiveSort("facial") ||
+        showZeroTiles) && // CUSTOM: zero tiles
       facialTagId
     ) {
       rolesToShow.push({
@@ -484,13 +513,6 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
         partnerTopCount: facialWithTopCount, // CUSTOM
         partnerBottomCount: facialWithBottomCount, // CUSTOM
         tagId: facialTagId,
-      });
-    }
-    if ((soloCount > 0 || shouldRenderRoleForActiveSort("solo")) && soloTagId) {
-      rolesToShow.push({
-        category: "solo",
-        count: soloCount,
-        tagId: soloTagId,
       });
     }
   }
@@ -508,7 +530,8 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
     (!!feetTagId && isRoleSortHighlighted("feet_markers_count")); // CUSTOM
   if (
     !hasAnyRoleTag ||
-    (rolesToShow.length === 0 &&
+    (!showZeroTiles && // CUSTOM
+      rolesToShow.length === 0 &&
       orgasmTopCount === 0 &&
       feetTopCount === 0 &&
       !hasActiveStandaloneRoleSort)
@@ -568,25 +591,64 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
     top: roleSeconds?.[`${category}TopSeconds`] ?? 0,
     bottom: roleSeconds?.[`${category}BottomSeconds`] ?? 0,
   });
-  // Scene cards skip rows without scene partners, e.g. a self-facial.
+  // Scene cards skip rows without scene partners, e.g. a self-facial;
+  // catalog cards skip roles only shown as zero tiles.
   const versatilityRoles = versatilityCard
     ? safeRolesToShow.filter(
         (role) =>
           role.category !== "solo" &&
-          (!sceneId ||
-            (roleSeconds && role.category !== "facial"
+          (sceneId
+            ? roleSeconds && role.category !== "facial"
               ? roleTimeSeconds(role.category).top +
                   roleTimeSeconds(role.category).bottom >
                 0
-              : (role.partnerTopCount ?? 0) + (role.partnerBottomCount ?? 0) >
-                0))
+              : (role.partnerTopCount ?? 0) + (role.partnerBottomCount ?? 0) > 0
+            : !!role.count ||
+              !!role.partnerTopCount ||
+              !!role.partnerBottomCount ||
+              shouldRenderRoleForActiveSort(role.category))
       )
     : [];
-  // Scene cards already show sex/oral/facial in the versatility rows
+  const scopeToStudio = (url: string) =>
+    studioContext
+      ? NavUtils.withStudioScope(
+          url,
+          studioContext.id,
+          studioContext.label,
+          studioContext.depth
+        )
+      : url;
+  // Scene cards already show sex/oral/facial in the versatility rows;
+  // totals move sex/oral/solo scene counts into the Scene Types bar.
   const stripRoles =
     versatilityCard && sceneId
       ? safeRolesToShow.filter((role) => role.category === "solo")
+      : showZeroTiles
+      ? safeRolesToShow.filter((role) => role.category === "facial")
       : safeRolesToShow;
+  const sceneTypeCounts = {
+    sex_scene_count:
+      globalStatsOverride?.sex_scene_count ?? p.sex_scene_count ?? 0,
+    oral_scene_count:
+      globalStatsOverride?.oral_scene_count ?? p.oral_scene_count ?? 0,
+    solo_scene_count:
+      globalStatsOverride?.solo_scene_count ?? p.solo_scene_count ?? 0,
+  };
+  const sceneTypeUrl = (category: "sex" | "oral" | "solo", label: string) => {
+    const tagId = { sex: sexTagId, oral: oralTagId, solo: soloTagId }[category];
+    return tagId
+      ? scopeToStudio(
+          NavUtils.makePerformerMarkerScenesWithRoleUrl(
+            performer,
+            tagId,
+            label,
+            undefined,
+            getExcludeTagsForCategory(category),
+            category === "oral" ? -1 : 0
+          )
+        )
+      : undefined;
+  };
   const scenePartnerRows = (pids: string[] | undefined) => {
     if (scenePerformerCount <= 2) return undefined;
     const partners = (pids ?? [])
@@ -595,10 +657,14 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
     return partners.length > 0 ? renderMiniPartnerRows(partners) : undefined;
   };
   const showOrgasmIcon =
-    (orgasmTopCount > 0 || isRoleSortHighlighted("orgasm_count")) &&
+    (orgasmTopCount > 0 ||
+      isRoleSortHighlighted("orgasm_count") ||
+      showZeroTiles) &&
     !!orgasmTagId;
   const showFeetIcon =
-    (feetTopCount > 0 || isRoleSortHighlighted("feet_markers_count")) &&
+    (feetTopCount > 0 ||
+      isRoleSortHighlighted("feet_markers_count") ||
+      showZeroTiles) &&
     !!feetTagId;
   const showStrip = stripRoles.length > 0 || showOrgasmIcon || showFeetIcon;
   // Facial strips count unique partners like sex/oral, not facial markers.
@@ -611,6 +677,59 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
       globalStatsOverride?.facial_with_bottom_count ??
       p.facial_with_bottom_count ??
       0,
+  };
+  // Icon + count badge; tiles box it and dim zeros without a link.
+  const renderCountBadge = (badge: {
+    key: React.Key;
+    className?: string;
+    sortKey: string;
+    title?: string;
+    url?: string;
+    icon: React.ReactNode;
+    count?: number;
+    label: string;
+  }) => {
+    const isZero = isZeroRoleTile(showZeroTiles, badge.count);
+    const content = (
+      <>
+        {badge.icon}
+        {badge.count !== undefined && (
+          <span className="role-total-count">{badge.count}</span>
+        )}
+        {tiles === "full" && (
+          <span className="role-tile-label">{badge.label}</span>
+        )}
+      </>
+    );
+    return (
+      <div
+        key={badge.key}
+        className={cx("role-badge-item", badge.className, {
+          "role-badge-item--zero": isZero,
+        })}
+      >
+        <div
+          className={cx(
+            "category-icon-container",
+            catalogCardSortHighlightClassCustom(activeSortBy, badge.sortKey)
+          )}
+          title={badge.title}
+        >
+          {badge.url && !sceneId && !isZero ? (
+            <Link
+              to={badge.url}
+              className="role-badge-link"
+              target={linkTarget}
+              rel={linkTarget === "_blank" ? "noopener noreferrer" : undefined}
+            >
+              {content}
+            </Link>
+          ) : (
+            content
+          )}
+        </div>
+      </div>
+    );
   };
   // CUSTOM: end
 
@@ -740,27 +859,10 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
       }
     }
 
-    // CUSTOM: begin - scope all badge URLs to studio when studioContext is set
-    if (studioContext) {
-      const sc = studioContext;
-      if (categoryUrl)
-        categoryUrl = NavUtils.withStudioScope(
-          categoryUrl,
-          sc.id,
-          sc.label,
-          sc.depth
-        );
-      if (topUrl)
-        topUrl = NavUtils.withStudioScope(topUrl, sc.id, sc.label, sc.depth);
-      if (bottomUrl)
-        bottomUrl = NavUtils.withStudioScope(
-          bottomUrl,
-          sc.id,
-          sc.label,
-          sc.depth
-        );
-    }
-    // CUSTOM: end
+    // CUSTOM: scope all badge URLs to studio when studioContext is set
+    categoryUrl = categoryUrl && scopeToStudio(categoryUrl);
+    topUrl = topUrl && scopeToStudio(topUrl);
+    bottomUrl = bottomUrl && scopeToStudio(bottomUrl);
 
     const categoryIconElement = categoryIcon ? (
       <img src={categoryIcon} alt={role.category} className="category-icon" />
@@ -812,47 +914,82 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
     }
     // CUSTOM: end
 
-    return (
-      <div key={idx} className="role-badge-item">
-        {/* Category icon on top - clickable */}
-        <div
-          className={cx(
-            "category-icon-container",
-            catalogCardSortHighlightClassCustom(
-              activeSortBy,
-              role.category === "solo"
-                ? "solo_scenes_count"
-                : roleTotalSortKey(role.category)
-            )
-          )}
-          title={
-            role.count ? getTooltipText(role.category, role.count) : undefined
-          }
-        >
-          {categoryUrl && !sceneId ? (
-            <Link
-              to={categoryUrl}
-              className="role-badge-link"
-              target={linkTarget} // CUSTOM
-              rel={linkTarget === "_blank" ? "noopener noreferrer" : undefined} // CUSTOM
-            >
-              {categoryIconElement}
-              <span className="role-total-count">
-                {role.category === "solo" ? role.count ?? 1 : role.count}
-              </span>
-            </Link>
-          ) : (
-            <>
-              {categoryIconElement}
-              {role.category !== "solo" && (
-                <span className="role-total-count">{role.count}</span>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-    );
+    // CUSTOM: shared badge; scene solo badges carry no count
+    return renderCountBadge({
+      key: idx,
+      sortKey:
+        role.category === "solo"
+          ? "solo_scenes_count"
+          : roleTotalSortKey(role.category),
+      title: role.count ? getTooltipText(role.category, role.count) : undefined,
+      url: categoryUrl,
+      icon: categoryIconElement,
+      count: role.category === "solo" && sceneId ? undefined : role.count,
+      label: tagLabel,
+    });
   };
+
+  // CUSTOM: performer cards fold the count tiles into the Scene Types header
+  const strip = showStrip ? (
+    <div
+      className={cx("performer-category-strip performer-role-badges", {
+        "my-3": !flushMargins && !versatilityCard,
+        "performer-category-strip--card-icons": versatilityCard,
+        [`performer-category-strip--tiles performer-category-strip--tiles-${tiles}`]:
+          !!tiles,
+      })} // CUSTOM
+    >
+      {stripRoles.map((role, idx) => renderRole(role, idx, true))}
+
+      {/* CUSTOM: begin - Nut and Feet badges, studio-scoped links */}
+      {showOrgasmIcon &&
+        orgasmTagId &&
+        renderCountBadge({
+          key: "orgasm",
+          className: "orgasm-badge",
+          sortKey: "orgasm_count",
+          title: sceneId
+            ? `${p.name || "Performer"} had ${orgasmTopCount} nut${
+                orgasmTopCount !== 1 ? "s" : ""
+              } in this scene`
+            : `${p.name || "Performer"} has ${orgasmTopCount} total nut${
+                orgasmTopCount !== 1 ? "s" : ""
+              }`,
+          url: scopeToStudio(
+            NavUtils.makePerformerOrgasmMarkersUrl(
+              performer,
+              orgasmTagId,
+              "Nut"
+            )
+          ),
+          icon: <img src={spermsSvg} alt="Nut" className="category-icon" />,
+          count: orgasmTopCount,
+          label: "Nut",
+        })}
+      {showFeetIcon &&
+        feetTagId &&
+        renderCountBadge({
+          key: "feet",
+          className: "feet-badge",
+          sortKey: "feet_markers_count",
+          title: sceneId
+            ? `${p.name || "Performer"} has ${feetTopCount} feet marker${
+                feetTopCount !== 1 ? "s" : ""
+              } in this scene`
+            : `${p.name || "Performer"} has ${feetTopCount} total feet marker${
+                feetTopCount !== 1 ? "s" : ""
+              }`,
+          url: scopeToStudio(
+            NavUtils.makePerformerFeetMarkersUrl(performer, feetTagId, "Feet")
+          ),
+          icon: <img src={feetSvg} alt="Feet" className="category-icon" />,
+          count: feetTopCount,
+          label: "Feet",
+        })}
+      {/* CUSTOM: end */}
+    </div>
+  ) : null;
+  const stripInHeader = tilesInSceneTypesHeader && showZeroTiles;
 
   return (
     <>
@@ -866,182 +1003,18 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
           {versatilityRoles.map((role, idx) => renderRole(role, idx))}
         </div>
       )}
-      {showStrip && (
-        <div
-          className={cx("performer-category-strip performer-role-badges", {
-            "my-3": !flushMargins && !versatilityCard,
-            "performer-category-strip--card-icons": versatilityCard,
-          })} // CUSTOM
-        >
-          {stripRoles.map((role, idx) => renderRole(role, idx, true))}
-
-          {/* Orgasm icon at the end */}
-          {
-            (orgasmTopCount > 0 || isRoleSortHighlighted("orgasm_count")) &&
-              orgasmTagId &&
-              // CUSTOM: begin - scoped orgasm URL
-              (() => {
-                let orgasmUrl = NavUtils.makePerformerOrgasmMarkersUrl(
-                  performer,
-                  orgasmTagId,
-                  "Nut"
-                );
-                if (studioContext)
-                  orgasmUrl = NavUtils.withStudioScope(
-                    orgasmUrl,
-                    studioContext.id,
-                    studioContext.label,
-                    studioContext.depth
-                  );
-                return (
-                  <div
-                    className={cx(
-                      "role-badge-item orgasm-badge",
-                      catalogCardSortHighlightClassCustom(
-                        activeSortBy,
-                        "orgasm_count"
-                      )
-                    )}
-                  >
-                    <div
-                      className="category-icon-container"
-                      title={
-                        sceneId
-                          ? `${
-                              p.name || "Performer"
-                            } had ${orgasmTopCount} nut${
-                              orgasmTopCount !== 1 ? "s" : ""
-                            } in this scene`
-                          : `${
-                              p.name || "Performer"
-                            } has ${orgasmTopCount} total nut${
-                              orgasmTopCount !== 1 ? "s" : ""
-                            }`
-                      }
-                    >
-                      {!sceneId ? (
-                        <Link
-                          to={orgasmUrl}
-                          className="role-badge-link"
-                          target={linkTarget} // CUSTOM
-                          rel={
-                            linkTarget === "_blank"
-                              ? "noopener noreferrer"
-                              : undefined
-                          } // CUSTOM
-                        >
-                          <img
-                            src={spermsSvg}
-                            alt="Nut"
-                            className="category-icon"
-                          />
-                          <span className="role-total-count">
-                            {orgasmTopCount}
-                          </span>
-                        </Link>
-                      ) : (
-                        <>
-                          <img
-                            src={spermsSvg}
-                            alt="Nut"
-                            className="category-icon"
-                          />
-                          <span className="role-total-count">
-                            {orgasmTopCount}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()
-            // CUSTOM: end
-          }
-
-          {/* Feet icon */}
-          {
-            (feetTopCount > 0 || isRoleSortHighlighted("feet_markers_count")) &&
-              feetTagId &&
-              // CUSTOM: begin - scoped feet URL
-              (() => {
-                let feetUrl = NavUtils.makePerformerFeetMarkersUrl(
-                  performer,
-                  feetTagId,
-                  "Feet"
-                );
-                if (studioContext)
-                  feetUrl = NavUtils.withStudioScope(
-                    feetUrl,
-                    studioContext.id,
-                    studioContext.label,
-                    studioContext.depth
-                  );
-                return (
-                  <div
-                    className={cx(
-                      "role-badge-item feet-badge",
-                      catalogCardSortHighlightClassCustom(
-                        activeSortBy,
-                        "feet_markers_count"
-                      )
-                    )}
-                  >
-                    <div
-                      className="category-icon-container"
-                      title={
-                        sceneId
-                          ? `${
-                              p.name || "Performer"
-                            } has ${feetTopCount} feet marker${
-                              feetTopCount !== 1 ? "s" : ""
-                            } in this scene`
-                          : `${
-                              p.name || "Performer"
-                            } has ${feetTopCount} total feet marker${
-                              feetTopCount !== 1 ? "s" : ""
-                            }`
-                      }
-                    >
-                      {!sceneId ? (
-                        <Link
-                          to={feetUrl}
-                          className="role-badge-link"
-                          target={linkTarget} // CUSTOM
-                          rel={
-                            linkTarget === "_blank"
-                              ? "noopener noreferrer"
-                              : undefined
-                          } // CUSTOM
-                        >
-                          <img
-                            src={feetSvg}
-                            alt="Feet"
-                            className="category-icon"
-                          />
-                          <span className="role-total-count">
-                            {feetTopCount}
-                          </span>
-                        </Link>
-                      ) : (
-                        <>
-                          <img
-                            src={feetSvg}
-                            alt="Feet"
-                            className="category-icon"
-                          />
-                          <span className="role-total-count">
-                            {feetTopCount}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()
-            // CUSTOM: end
-          }
-        </div>
+      {showZeroTiles && (
+        <SceneTypesBar
+          activeSortBy={activeSortBy}
+          className={`performer-scene-types-bar performer-scene-types-bar--${tiles}`}
+          counts={sceneTypeCounts}
+          getUrl={sceneTypeUrl}
+          linkTarget={linkTarget}
+          showEmpty
+          headerAside={stripInHeader ? strip : undefined}
+        />
       )}
+      {!stripInHeader && strip}
       {/* CUSTOM: end */}
     </>
   );

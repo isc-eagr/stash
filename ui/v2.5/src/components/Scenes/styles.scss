@@ -312,10 +312,6 @@
   width: 100%;
 }
 
-.scene-activity-bar--detail {
-  margin: 0.35rem 0 0.6rem;
-}
-
 .scene-activity-bar__end {
   border: 1px solid transparent;
   border-radius: 999px;
@@ -414,10 +410,10 @@
   border: 1px solid rgba(255, 211, 77, 0.7);
   border-radius: 2px;
   display: flex;
-  height: 0.45rem;
+  height: 0.6rem;
 
-  /* Leave room for the terminal. */
-  margin-right: 3px;
+  /* Inset so the bottom corners stay inside the pill's rounded ends. */
+  margin: 0 0.5rem;
   padding: 1px;
   position: relative;
 
@@ -557,7 +553,7 @@
 }
 
 .rating-criteria-strip.rating-criteria-strip--scene-detail {
-  margin: 0 0 0.7rem;
+  margin: 0.85rem 0 0.7rem;
 }
 
 /* Smallest card zoom: tighter activity bar ends. */
@@ -572,16 +568,8 @@
     gap: 0.2rem;
   }
 
-  .scene-activity-bar__end {
-    padding: 0.1rem 0.4rem 0.1rem 0.15rem;
-
-    &.is-right {
-      padding: 0.1rem 0.15rem 0.1rem 0.4rem;
-    }
-
-    strong {
-      font-size: 0.88rem;
-    }
+  .scene-activity-bar__end strong {
+    font-size: 0.88rem;
   }
 
   .scene-activity-bar__icon,
@@ -602,10 +590,6 @@
 
 /* The two smallest card zooms: tighter labels so five criteria still fit. */
 :is(.scene-card.zoom-0, .scene-card.zoom-1) {
-  .rating-criteria-strip {
-    padding: 0.4rem 0.45rem 0.45rem;
-  }
-
   .rating-criteria-strip__criteria {
     gap: 0.35rem;
   }
@@ -613,6 +597,132 @@
   .rating-criterion__label {
     font-size: 0.56rem;
     letter-spacing: 0.02em;
+  }
+}
+
+/* Scene cards and the scene details header: open layout. Activity bar ends
+   drop their pill and carry the battery inline; the rating strip drops its
+   box. */
+:is(.scene-card, .scene-overview) {
+  .scene-activity-bar {
+    margin: 0.8rem 0 0;
+  }
+
+  .scene-activity-bar__end,
+  .scene-activity-bar__end.is-right {
+    align-items: center;
+    flex-direction: row;
+    gap: 0.35rem;
+    padding: 0;
+  }
+
+  .scene-activity-bar__end.is-dominant {
+    background: none;
+    border-color: transparent;
+    box-shadow: none;
+  }
+
+  .scene-activity-bar__battery {
+    flex: 0 0 1.5rem;
+    margin: 0 3px 0 0;
+  }
+
+  .scene-activity-bar__end.is-right .scene-activity-bar__battery {
+    order: -1;
+  }
+
+  .rating-criteria-strip {
+    background: none;
+    border: 0;
+    border-radius: 0;
+    margin-top: 0.85rem;
+    padding: 0;
+  }
+}
+
+.scene-card {
+  .card-popovers {
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    justify-content: space-evenly;
+    margin: 0.8rem 1rem 0;
+    padding: 0.3rem 0 0.4rem;
+  }
+}
+
+/* The orgasm report beside the Nut label. Large cards widen the Nut column
+   to keep it on the label's line; smaller cards wrap it above the label. */
+:is(.scene-card.zoom-2, .scene-card.zoom-3, .scene-overview)
+  .rating-criterion__head {
+  align-items: flex-end;
+  flex-wrap: nowrap;
+
+  .scene-card-orgasm-report {
+    flex-wrap: nowrap;
+  }
+}
+
+.rating-criterion__head .scene-card-orgasm-report {
+  flex-wrap: wrap;
+  gap: 0.2rem 0.4rem;
+  justify-content: flex-end;
+
+  .scene-card-orgasm-report__group {
+    font-size: 0.78rem;
+    gap: 0.12rem;
+  }
+
+  strong {
+    font-size: 0.66rem;
+  }
+}
+
+/* Date and scene insights share the line under the title on scene cards and
+   scene details; insights wrap below the date when they do not fit. */
+.scene-meta-line {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.8rem;
+  min-width: 0;
+
+  :is(.scene-card__date, .date) {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .scene-card-insights {
+    gap: 0.2rem 0.75rem;
+    justify-content: flex-start;
+    margin: 0;
+    min-width: 0;
+    padding: 0;
+  }
+
+  /* Insights read as glowing dotted notes in their tone's color. */
+  .scene-card-insight {
+    background: none;
+    border: 0;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0;
+    text-shadow: 0 0 0.5rem rgba(var(--scene-insight-rgb), 0.35);
+
+    &::before {
+      background: rgb(var(--scene-insight-rgb));
+      border-radius: 50%;
+      box-shadow: 0 0 0.35rem rgba(var(--scene-insight-rgb), 0.8);
+      content: "";
+      display: inline-block;
+      height: 0.42rem;
+      margin-right: 0.38rem;
+      vertical-align: 0.1em;
+      width: 0.42rem;
+    }
+  }
+
+  .scene-card-insights-more {
+    font-size: 0.85rem;
+    height: 1.2rem;
+    width: 1.2rem;
   }
 }
 
@@ -715,18 +825,22 @@
   min-width: 0;
 }
 
-/* CUSTOM: orgasm chips are white, history-backed vato chips pink. */
+/* CUSTOM: orgasm chips are white, history-backed vato chips teal. */
 
 .scene-card-insight-event {
+  --scene-insight-rgb: 241, 245, 249;
+
   background: rgba(241, 245, 249, 0.1);
   border-color: rgba(241, 245, 249, 0.62);
   color: #f8fafc;
 }
 
 .scene-card-insight-rare {
-  background: rgba(236, 72, 153, 0.13);
-  border-color: rgba(244, 114, 182, 0.68);
-  color: #fbcfe8;
+  --scene-insight-rgb: 45, 212, 191;
+
+  background: rgba(20, 184, 166, 0.13);
+  border-color: rgba(45, 212, 191, 0.68);
+  color: #99f6e4;
 }
 
 /* CUSTOM: end */
@@ -820,9 +934,18 @@
 }
 
 .scene-subheader {
+  /* CUSTOM: the date line wraps beside the resolution */
+  align-items: baseline;
   display: flex;
+  gap: 0.75rem;
   justify-content: space-between;
   margin-top: 0.5rem;
+
+  /* CUSTOM: frame rate and resolution stay on one line */
+  > span {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
 
   .date {
     color: $text-muted;
