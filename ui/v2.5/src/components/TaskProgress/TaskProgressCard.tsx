@@ -1,3 +1,4 @@
+import { formatAppDecimalCustom } from "src/utils/appLocale_custom"; // CUSTOM
 import React from "react";
 import { Badge, Button, Card } from "react-bootstrap";
 import { FormattedNumber } from "react-intl";
@@ -156,7 +157,7 @@ export const TaskProgressCard: React.FC<IProps> = ({
             completed ? " progress-score-percent-complete" : ""
           }`}
         >
-          {percentage.toFixed(2)}%
+          {formatAppDecimalCustom(percentage, 2)}%
         </strong>
         <TaskProgressMedalBar
           completed={completedCount}

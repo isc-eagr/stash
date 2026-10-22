@@ -389,7 +389,7 @@ export const SceneReleaseMarkersCustom: React.FC<IProps> = ({
             {["top", "bottom"].map((role) => (
               <Form.Group key={role}>
                 <Form.Label>
-                  {role === "top" ? "Top performers" : "Bottom performers"}
+                  {role === "top" ? "Top vatos" : "Bottom vatos"}
                 </Form.Label>
                 {[...performerOptions].map(([id, name]) => {
                   const ids = role === "top" ? draft.topIDs : draft.bottomIDs;

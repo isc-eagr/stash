@@ -513,6 +513,7 @@ const ActivityTypeGroupCard: React.FC<IActivityTypeGroupCard> = ({
     !!hideActivityPills &&
     group.markers.some((marker) => marker.id === focusedMarkerId);
 
+  // CUSTOM: begin - consistent entity vocabulary.
   return (
     <div
       data-scene-marker-ids={group.markers.map((marker) => marker.id).join(",")}
@@ -529,12 +530,12 @@ const ActivityTypeGroupCard: React.FC<IActivityTypeGroupCard> = ({
           </span>
           {groupMarkerIds.length > 1 && (
             <MarkerScopeCheckbox
-              ariaLabel="Select all markers in this performer configuration"
+              ariaLabel="Select all markers in this vato configuration"
               className="scene-marker-activity-config-checkbox"
               markerIds={groupMarkerIds}
               onSelectMarkers={onSelectMarkers}
               selectedMarkerIds={selectedMarkerIds}
-              title="Select Activity and Highlight markers in this performer configuration"
+              title="Select Activity and Highlight markers in this vato configuration"
             />
           )}
         </div>
@@ -575,12 +576,12 @@ const ActivityTypeGroupCard: React.FC<IActivityTypeGroupCard> = ({
               </span>
               {activityMarkerIds.length > 1 && (
                 <MarkerScopeCheckbox
-                  ariaLabel="Select Activity ranges in this performer configuration"
+                  ariaLabel="Select Activity ranges in this vato configuration"
                   className="scene-marker-marker-lane-checkbox"
                   markerIds={activityMarkerIds}
                   onSelectMarkers={onSelectMarkers}
                   selectedMarkerIds={selectedMarkerIds}
-                  title="Select Activity ranges in this performer configuration"
+                  title="Select Activity ranges in this vato configuration"
                 />
               )}
             </div>
@@ -619,6 +620,7 @@ const ActivityTypeGroupCard: React.FC<IActivityTypeGroupCard> = ({
       )}
     </div>
   );
+  // CUSTOM: end
 };
 
 const HighlightSegmentBox: React.FC<{
@@ -840,6 +842,7 @@ function ActivityGroupHighlights({
     return null;
   }
 
+  // CUSTOM: begin - consistent entity vocabulary.
   return (
     <div className="scene-marker-marker-lane scene-marker-highlight-lane">
       <div className="scene-marker-marker-lane-header">
@@ -849,12 +852,12 @@ function ActivityGroupHighlights({
         </span>
         {highlightMarkerIds.length > 1 && (
           <MarkerScopeCheckbox
-            ariaLabel="Select Highlights in this performer configuration"
+            ariaLabel="Select Highlights in this vato configuration"
             className="scene-marker-marker-lane-checkbox"
             markerIds={highlightMarkerIds}
             onSelectMarkers={onSelectMarkers}
             selectedMarkerIds={selectedMarkerIds}
-            title="Select Highlights in this performer configuration"
+            title="Select Highlights in this vato configuration"
           />
         )}
       </div>
@@ -872,6 +875,7 @@ function ActivityGroupHighlights({
       />
     </div>
   );
+  // CUSTOM: end
 }
 
 export const SceneMarkersChronologicalPanel: React.FC<
@@ -1330,6 +1334,7 @@ export const SceneMarkersChronologicalPanel: React.FC<
     onSearchChange({ ...search, bottomPerformers: performers });
   };
 
+  // CUSTOM: begin - consistent entity vocabulary.
   const renderSearch = () => (
     <div className="scene-marker-chronology-search">
       <div className="scene-marker-chronology-search-tags">
@@ -1352,7 +1357,7 @@ export const SceneMarkersChronologicalPanel: React.FC<
             values={search.topPerformers}
             onSelect={onSetTopPerformers}
             placeholder="Top"
-            noOptionsMessage="No matching performers"
+            noOptionsMessage="No matching vatos"
           />
         </div>
         <div className="scene-marker-chronology-search-performer">
@@ -1361,12 +1366,13 @@ export const SceneMarkersChronologicalPanel: React.FC<
             values={search.bottomPerformers}
             onSelect={onSetBottomPerformers}
             placeholder="Bottom"
-            noOptionsMessage="No matching performers"
+            noOptionsMessage="No matching vatos"
           />
         </div>
       </div>
     </div>
   );
+  // CUSTOM: end
 
   return (
     <div className="scene-marker-chronology">

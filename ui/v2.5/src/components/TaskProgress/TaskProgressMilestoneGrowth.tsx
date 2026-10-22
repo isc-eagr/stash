@@ -1,3 +1,4 @@
+import { formatAppDecimalCustom } from "src/utils/appLocale_custom"; // CUSTOM
 import React from "react";
 import { useIntl } from "react-intl";
 import type { TaskProgressMilestoneDataFragment as Milestone } from "src/core/generated-graphql";
@@ -133,7 +134,8 @@ export const TaskProgressMilestoneGrowth: React.FC<{
                 className="milestone-growth-swatch"
                 style={{ background: item.color }}
               />
-              {item.name} <strong>{item.percent.toFixed(1)}%</strong>
+              {item.name}{" "}
+              <strong>{formatAppDecimalCustom(item.percent, 1)}%</strong>
             </li>
           ))}
         </ul>
@@ -150,7 +152,10 @@ export const TaskProgressMilestoneGrowth: React.FC<{
           className="milestone-growth-plot"
           role="img"
           aria-label={series
-            .map((item) => `${item.name} ${item.percent.toFixed(1)}%`)
+            .map(
+              (item) =>
+                `${item.name} ${formatAppDecimalCustom(item.percent, 1)}%`
+            )
             .join(", ")}
         >
           <svg
@@ -203,7 +208,7 @@ export const TaskProgressMilestoneGrowth: React.FC<{
                 }}
                 title={`${item.name} · ${formatTaskProgressDate(
                   point.date
-                )} · ${point.percent.toFixed(2)}%`}
+                )} · ${formatAppDecimalCustom(point.percent, 2)}%`}
               />
             ))
           )}

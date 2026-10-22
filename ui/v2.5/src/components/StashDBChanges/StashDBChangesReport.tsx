@@ -116,7 +116,7 @@ const StashDBChangesPanel: React.FC<IPanelProps> = ({
           content: `No local match, skipped: ${skipped.join(", ")}`,
         });
       } else {
-        Toast.success("Listo, updated from StashDB.");
+        Toast.success("Updated from StashDB.");
       }
     } catch (e) {
       Toast.error(e);
@@ -161,7 +161,7 @@ const StashDBChangesPanel: React.FC<IPanelProps> = ({
 
   function renderChanged(endpoint: string) {
     if (changed.length === 0) {
-      return <p className="text-muted">Todo igualito. Nothing changed.</p>;
+      return <p className="text-muted">Nothing changed.</p>;
     }
     if (kind === "performer") {
       return (

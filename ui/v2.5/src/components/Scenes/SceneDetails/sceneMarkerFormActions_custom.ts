@@ -34,7 +34,7 @@ export const INSERT_MARKER_SOURCE_END_REQUIRED =
 export const INSERT_MARKER_START_OUT_OF_BOUNDS =
   "Start time must be at least 1 millisecond inside the original marker's bounds.";
 export const INSERT_MARKER_END_REQUIRED =
-  "Need an end time to drop a marker in between, wey.";
+  "Set an end time to add a marker in between.";
 export const INSERT_MARKER_END_OUT_OF_BOUNDS =
   "End time must be at least 1 millisecond inside the original marker's bounds.";
 

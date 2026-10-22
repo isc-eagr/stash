@@ -562,7 +562,9 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
     category: "sex" | "oral" | "solo" | "facial",
     count: number
   ) => {
-    const name = p.name || "Performer";
+    // CUSTOM: begin - consistent entity vocabulary.
+    const name = p.name || "Vato";
+    // CUSTOM: end
     if (category === "solo") {
       return sceneId
         ? `${name} has solo markers in this scene`
@@ -930,6 +932,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
   };
 
   // CUSTOM: performer cards fold the count tiles into the Scene Types header
+  // CUSTOM: begin - consistent entity vocabulary.
   const strip = showStrip ? (
     <div
       className={cx("performer-category-strip performer-role-badges", {
@@ -949,10 +952,10 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
           className: "orgasm-badge",
           sortKey: "orgasm_count",
           title: sceneId
-            ? `${p.name || "Performer"} had ${orgasmTopCount} nut${
+            ? `${p.name || "Vato"} had ${orgasmTopCount} nut${
                 orgasmTopCount !== 1 ? "s" : ""
               } in this scene`
-            : `${p.name || "Performer"} has ${orgasmTopCount} total nut${
+            : `${p.name || "Vato"} has ${orgasmTopCount} total nut${
                 orgasmTopCount !== 1 ? "s" : ""
               }`,
           url: scopeToStudio(
@@ -973,10 +976,10 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
           className: "feet-badge",
           sortKey: "feet_markers_count",
           title: sceneId
-            ? `${p.name || "Performer"} has ${feetTopCount} feet marker${
+            ? `${p.name || "Vato"} has ${feetTopCount} feet marker${
                 feetTopCount !== 1 ? "s" : ""
               } in this scene`
-            : `${p.name || "Performer"} has ${feetTopCount} total feet marker${
+            : `${p.name || "Vato"} has ${feetTopCount} total feet marker${
                 feetTopCount !== 1 ? "s" : ""
               }`,
           url: scopeToStudio(
@@ -989,6 +992,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
       {/* CUSTOM: end */}
     </div>
   ) : null;
+  // CUSTOM: end
   const stripInHeader = tilesInSceneTypesHeader && showZeroTiles;
 
   return (

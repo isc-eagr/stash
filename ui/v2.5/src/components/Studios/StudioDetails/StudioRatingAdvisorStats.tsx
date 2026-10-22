@@ -1,5 +1,7 @@
-import React from "react";
+import { formatAppDecimalCustom } from "src/utils/appLocale_custom"; // CUSTOM
+import React, { useState } from "react";
 import cx from "classnames";
+import { StatsRankByChips } from "src/components/StatsCharts_custom"; // CUSTOM
 import { getRatingAdvisorAdjustmentTooltipLabelCustom } from "src/components/Shared/ratingAdvisorScales_custom";
 import { RatingStrip } from "src/components/Shared/RatingStrip_custom";
 import * as GQL from "src/core/generated-graphql";
@@ -42,6 +44,7 @@ const sexSceneCriteria: ISectionDefinition["criteria"] = {
   payoff: { label: "Nut quality", short: "Nut", max: 20 },
 };
 
+// CUSTOM: begin - consistent entity vocabulary.
 export const studioRatingAdvisorSectionDefinitions: ISectionDefinition[] = [
   {
     key: "solo_scenes",
@@ -94,10 +97,10 @@ export const studioRatingAdvisorSectionDefinitions: ISectionDefinition[] = [
   },
   {
     key: "performers",
-    title: "Performers",
-    singular: "performer",
-    plural: "performers",
-    ratingLabel: "Average performer rating",
+    title: "Vatos",
+    singular: "vato",
+    plural: "vatos",
+    ratingLabel: "Average vato rating",
     criteria: {
       face: { label: "Face", short: "Face", max: 30 },
       body: { label: "Body", short: "Body", max: 30 },
@@ -107,9 +110,12 @@ export const studioRatingAdvisorSectionDefinitions: ISectionDefinition[] = [
     },
   },
 ];
+// CUSTOM: end
 
 function formatRatingValue(value: number) {
-  return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1);
+  return Number.isInteger(value)
+    ? formatAppDecimalCustom(value, 0)
+    : formatAppDecimalCustom(value, 1);
 }
 
 function formatAverageContribution(value: number, max: number) {
@@ -285,6 +291,134 @@ export const RatingAdvisorStatsContent: React.FC<
           />
         ))}
       </div>
+    </section>
+  );
+};
+
+// CUSTOM: stats-page criteria as meters, one rubric at a time: each criterion
+// shows its average points against its max, picked with set chips.
+export const RatingAdvisorCriteriaMeters: React.FC<
+  Pick<
+    IRatingAdvisorStatsContentProps,
+    "stats" | "sectionKeys" | "title" | "description"
+  >
+> = ({
+  stats,
+  sectionKeys = studioRatingAdvisorSectionDefinitions.map(
+    (definition) => definition.key
+  ),
+  title = "Rating Criteria",
+  description,
+}) => {
+  const definitions = studioRatingAdvisorSectionDefinitions.filter(
+    (definition) =>
+      sectionKeys.includes(definition.key) && !!stats[definition.key]
+  );
+  const firstRated =
+    definitions.find(
+      (definition) => (stats[definition.key]?.entity_count ?? 0) > 0
+    ) ?? definitions[0];
+  const [selectedKey, setSelectedKey] = useState(firstRated?.key);
+  const definition =
+    definitions.find((item) => item.key === selectedKey) ?? firstRated;
+  const section = definition ? stats[definition.key] : undefined;
+  if (!definition || !section) return null;
+
+  const criterionOrder = Object.keys(definition.criteria);
+  const orderIndex = (key: string) => {
+    const index = criterionOrder.indexOf(key);
+    return index < 0 ? criterionOrder.length : index;
+  };
+  const criteria = [...section.criteria].sort(
+    (a, b) => orderIndex(a.key) - orderIndex(b.key)
+  );
+
+  return (
+    <section className="stats-bar-chart stats-criteria">
+      <div className="stats-bar-chart-heading">
+        <div className="stats-bar-chart-title">
+          <h3>{title}</h3>
+          <span className="stats-bar-chart-total">
+            {formatEntityCount(
+              section.entity_count,
+              definition.singular,
+              definition.plural
+            )}
+            {section.average_rating100 !== null &&
+            section.average_rating100 !== undefined
+              ? ` · avg ${formatRatingValue(section.average_rating100)}/100`
+              : ""}
+          </span>
+        </div>
+        {definitions.length > 1 && (
+          <StatsRankByChips
+            label="Criteria set"
+            options={definitions.map((item) => ({
+              key: item.key,
+              label: item.title.replace(/ Criteria$/, ""),
+            }))}
+            value={definition.key}
+            onChange={setSelectedKey}
+          />
+        )}
+      </div>
+      {description && <p className="stats-criteria-note">{description}</p>}
+      {section.entity_count === 0 ? (
+        <div className="stats-bar-chart-empty">No advisor criteria yet.</div>
+      ) : (
+        <ul className="stats-criteria-rows">
+          {criteria.map((criterion) => {
+            const criterionDefinition = definition.criteria[criterion.key];
+            const label = criterionDefinition?.label ?? criterion.key;
+            const value = formatAverageContribution(
+              criterion.average_weighted_value,
+              criterionDefinition?.max ?? 0
+            );
+            return (
+              <li
+                key={criterion.key}
+                title={`${label}: ${value}, averaged from ${formatEntityCount(
+                  criterion.entity_count,
+                  definition.singular,
+                  definition.plural
+                )}`}
+              >
+                <span className="stats-criteria-label">{label}</span>
+                <span className="stats-criteria-track">
+                  <span
+                    className="stats-criteria-fill"
+                    style={{
+                      width: `${Math.max(
+                        0,
+                        Math.min(100, criterion.average_fill_percent)
+                      )}%`,
+                    }}
+                  />
+                </span>
+                <span className="stats-criteria-value">{value}</span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {section.adjustments.length > 0 && (
+        <div className="stats-criteria-adjustments">
+          {section.adjustments.map((adjustment) => (
+            <span
+              className={cx("stats-criteria-adjustment", {
+                penalty: adjustment.section === "penalty",
+              })}
+              key={adjustment.key}
+            >
+              {getRatingAdvisorAdjustmentTooltipLabelCustom(
+                adjustment.key,
+                adjustment.key
+              )}{" "}
+              ×{adjustment.entity_count}
+            </span>
+          ))}
+        </div>
+      )}
     </section>
   );
 };

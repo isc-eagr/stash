@@ -1,3 +1,4 @@
+import { getAppLocaleCustom } from "src/utils/appLocale_custom"; // CUSTOM
 import videojs, { VideoJsPlayer } from "video.js";
 import CryptoJS from "crypto-js";
 import { ACTIVITY_PIE_COLORS } from "src/components/Shared/activityColors_custom"; // CUSTOM
@@ -536,7 +537,9 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
       if (performers.length === 0) return;
 
       const list = document.createElement("div");
-      list.className = `vjs-marker-tooltip-performers vjs-marker-tooltip-performers-${role}`;
+      // CUSTOM: begin - consistent entity vocabulary.
+      list.className = `vjs-marker-tooltip-vatos vjs-marker-tooltip-vatos-${role}`;
+      // CUSTOM: end
 
       performers.forEach((performer) => {
         const item = document.createElement("span");
@@ -587,8 +590,10 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
         bottomTags: Array<{ id?: string; name: string }>
       ) => {
         const item = document.createElement("div");
+        // CUSTOM: begin - consistent entity vocabulary.
         item.className =
-          "scene-marker-activity-performer scene-marker-highlight-performer";
+          "scene-marker-activity-vato scene-marker-highlight-vato";
+        // CUSTOM: end
         item.title = performer.name;
 
         const imageWrapper = document.createElement("div");
@@ -643,7 +648,9 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
       if (!performersWrapper.childElementCount) {
         const empty = document.createElement("div");
         empty.className = "scene-marker-activity-config-empty";
-        empty.textContent = "No performers";
+        // CUSTOM: begin - consistent entity vocabulary.
+        empty.textContent = "No vatos";
+        // CUSTOM: end
         performersWrapper.appendChild(empty);
       }
 
@@ -1264,7 +1271,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
       dot.style.left = `calc(${(ts / duration) * 100}% - 3px)`;
       // CUSTOM: tooltip shows the date the O was recorded
       const label = date
-        ? new Date(date).toLocaleString(undefined, {
+        ? new Date(date).toLocaleString(getAppLocaleCustom(), {
             year: "numeric",
             month: "short",
             day: "numeric",
@@ -1327,11 +1334,11 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
         normalized
       )
     ) {
-      return "#14b8d4cc";
+      return ACTIVITY_PIE_COLORS.oral; // CUSTOM
     }
 
     if (/\b(fuck\w*|sex|anal|penetrat\w*|intercourse)\b/.test(normalized)) {
-      return "#ff7a00cc";
+      return ACTIVITY_PIE_COLORS.sex; // CUSTOM
     }
   }
   // CUSTOM: end

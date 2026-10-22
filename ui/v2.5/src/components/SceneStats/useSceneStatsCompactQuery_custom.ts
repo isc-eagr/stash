@@ -26,12 +26,16 @@ const SCENE_STATS_COMPACT_QUERY = `
         b: performer_ids
         j: performer_ethnicities
         k: performer_countries
+        p: performer_ratings
         m: marker_tag_groups { g: tag_ids }
         g: tag_ids
         x: primary_width
         y: primary_height
         q: most_recent_o_date
         h: has_royal_sapphire_bonus
+        w: organized
+        n: stashdb_matches
+        c: studio_id
       }
     }
   }

@@ -349,6 +349,10 @@ export const SceneListTable: React.FC<ISceneListTableProps> = (
     metricColumn("unclassified_activity_percent"),
     metricColumn("unusable_activity_percent"),
     metricColumn("orgasm_count"),
+    metricColumn("regular_orgasm_count"), // CUSTOM
+    metricColumn("goat_orgasm_count"), // CUSTOM
+    metricColumn("regular_facial_count"), // CUSTOM
+    metricColumn("goat_facial_count"), // CUSTOM
     metricColumn("really_hot_orgasm_count"),
     metricColumn("facial_count"),
     metricColumn("really_hot_facial_count"),

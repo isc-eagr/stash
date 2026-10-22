@@ -1,3 +1,5 @@
+import { getAppLocaleCustom } from "src/utils/appLocale_custom"; // CUSTOM
+import { cleanStatsValueCustom } from "src/utils/statsValues_custom"; // CUSTOM
 import React, { useMemo } from "react";
 // CUSTOM: preview, paged history, and drilldowns share the event rows.
 import {
@@ -62,6 +64,12 @@ import {
 } from "./oStatsSceneBuckets_custom"; // CUSTOM
 import { OStatsCalendarHeatmap } from "./OStatsCalendarHeatmap_custom"; // CUSTOM
 import { StatsTopCards } from "src/components/StatsTopCards_custom"; // CUSTOM
+import {
+  StatsChartGroup,
+  StatsCountryFlag,
+  StatsKpiRow,
+} from "src/components/StatsCharts_custom"; // CUSTOM
+import { statsMetallicColor } from "src/utils/statsChartColors_custom";
 import { formatStatsBarPercent } from "src/utils/statsBarChart_custom"; // CUSTOM
 
 import "./OStats.scss";
@@ -418,11 +426,13 @@ function asPositiveInt(value: string | undefined) {
 }
 
 function oCountLabel(count: number) {
-  return `${count.toLocaleString()} ${count === 1 ? "O" : "O's"}`;
+  return `${count.toLocaleString(getAppLocaleCustom())} ${
+    count === 1 ? "O" : "O's"
+  }`;
 }
 
 function isUnknownLabel(value: string) {
-  return value.trim().toLowerCase() === "unknown";
+  return cleanStatsValueCustom(value) === undefined;
 }
 
 function makeDate(
@@ -445,18 +455,24 @@ function makeDate(
 }
 
 function monthName(month: number, format: "short" | "long" = "short") {
-  return new Date(Date.UTC(2024, month - 1, 1)).toLocaleString(undefined, {
-    month: format,
-    timeZone: "UTC",
-  });
+  return new Date(Date.UTC(2024, month - 1, 1)).toLocaleString(
+    getAppLocaleCustom(),
+    {
+      month: format,
+      timeZone: "UTC",
+    }
+  );
 }
 
 function dayLabel(year: number, month: number, day: number) {
-  return new Date(Date.UTC(year, month - 1, day)).toLocaleString(undefined, {
-    weekday: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  });
+  return new Date(Date.UTC(year, month - 1, day)).toLocaleString(
+    getAppLocaleCustom(),
+    {
+      weekday: "short",
+      day: "numeric",
+      timeZone: "UTC",
+    }
+  );
 }
 
 function tierLabel(tier: string) {
@@ -601,6 +617,8 @@ const OStatsContent: React.FC<{
   });
 
   const overview = overviewQuery.data;
+  // CUSTOM: studio pages embed O Stats without the By Studio chart.
+  const studioCounts = embedded ? undefined : overview?.byStudio;
   const sceneCounts = useMemo(
     () => sceneCountsQuery.data?.sceneOCountsByScene ?? [],
     [sceneCountsQuery.data?.sceneOCountsByScene]
@@ -741,11 +759,13 @@ const OStatsContent: React.FC<{
       };
     }
     if (selectedPerformerAge) {
+      // CUSTOM: begin - consistent entity vocabulary.
       return {
         query: EVENT_QUERIES.age,
         variables: { age: selectedPerformerAge, ...scopeVariables },
-        emptyLabel: "No O events found for this performer age.",
+        emptyLabel: "No O events found for this vato age.",
       };
+      // CUSTOM: end
     }
     if (selectedReleaseYear) {
       return {
@@ -851,7 +871,9 @@ const OStatsContent: React.FC<{
       return "O's from scenes with an unknown studio";
     }
     if (selectedUnknownCategory === "performer-age") {
-      return "O's with an unknown performer age";
+      // CUSTOM: begin - consistent entity vocabulary.
+      return "O's with an unknown vato age";
+      // CUSTOM: end
     }
     if (selectedUnknownCategory === "release-year") {
       return "O's with an unknown scene release year";
@@ -877,7 +899,9 @@ const OStatsContent: React.FC<{
       return "By Studio";
     }
     if (selectedPerformerAge || selectedUnknownCategory === "performer-age") {
-      return "By Performer Age";
+      // CUSTOM: begin - consistent entity vocabulary.
+      return "By Vato Age";
+      // CUSTOM: end
     }
     if (selectedReleaseYear || selectedUnknownCategory === "release-year") {
       return "By Scene Release Year";
@@ -957,6 +981,7 @@ const OStatsContent: React.FC<{
     </Button>
   );
 
+  // CUSTOM: begin - consistent entity vocabulary.
   return (
     <StatsPage className="ostats-page" showNavigation={!embedded}>
       <Helmet {...titleProps} />
@@ -985,43 +1010,41 @@ const OStatsContent: React.FC<{
       </header>
 
       {showOverview && (
-        <div className="ostats-summary" aria-label="O totals and records">
-          <div className="ostats-summary-item">
-            <div className="ostats-summary-value">
-              {totalOs.toLocaleString()}
-            </div>
-            <div className="ostats-summary-label">Total O&apos;s</div>
-            <div className="ostats-summary-detail">
-              {sceneCounts.length.toLocaleString()}{" "}
-              {sceneCounts.length === 1 ? "scene" : "scenes"}
-            </div>
-          </div>
-          {overview?.mostOsInDay && (
-            <div className="ostats-summary-item">
-              <div className="ostats-summary-value">
-                {overview.mostOsInDay.count}
-              </div>
-              <div className="ostats-summary-label">Most O&apos;s in a day</div>
-              <div className="ostats-summary-detail">
-                {overview.mostOsInDay.date}
-              </div>
-            </div>
-          )}
-          {overview?.longestPeriodWithoutO && (
-            <div className="ostats-summary-item">
-              <div className="ostats-summary-value">
-                {overview.longestPeriodWithoutO.days} days
-              </div>
-              <div className="ostats-summary-label">
-                Longest period without an O
-              </div>
-              <div className="ostats-summary-detail">
-                {overview.longestPeriodWithoutO.start_date} -{" "}
-                {overview.longestPeriodWithoutO.end_date}
-              </div>
-            </div>
-          )}
-        </div>
+        <StatsKpiRow
+          label="O totals and records"
+          items={[
+            {
+              key: "total",
+              label: "Total O's",
+              value: totalOs.toLocaleString(getAppLocaleCustom()),
+              detail: `${sceneCounts.length.toLocaleString(
+                getAppLocaleCustom()
+              )} ${sceneCounts.length === 1 ? "scene" : "scenes"}`,
+            },
+            ...(overview?.mostOsInDay
+              ? [
+                  {
+                    key: "day",
+                    label: "Most O's in a day",
+                    value: overview.mostOsInDay.count.toLocaleString(
+                      getAppLocaleCustom()
+                    ),
+                    detail: overview.mostOsInDay.date,
+                  },
+                ]
+              : []),
+            ...(overview?.longestPeriodWithoutO
+              ? [
+                  {
+                    key: "dry",
+                    label: "Longest period without an O",
+                    value: `${overview.longestPeriodWithoutO.days} days`,
+                    detail: `${overview.longestPeriodWithoutO.start_date} - ${overview.longestPeriodWithoutO.end_date}`,
+                  },
+                ]
+              : []),
+          ]}
+        />
       )}
 
       {/* CUSTOM: Latest appears below totals and above ranked cards. */}
@@ -1133,8 +1156,31 @@ const OStatsContent: React.FC<{
             studioScope={studioScope}
             years={overview.calendarYears.map((item) => item.year)}
           />
-          <div className="stats-chart-grid stats-chart-grid--compact">
+          {/* CUSTOM: charts grouped by topic; each group fills whole rows. */}
+          <StatsChartGroup className="stats-group--panel" title="The Scene">
             <StatsBarChart
+              className="stats-wide"
+              title="By Scene Release Year"
+              data={eventBars(
+                oStatsYears(overview.byReleaseYear.counts),
+                (item) => ({
+                  key: String(item.value),
+                  label: String(item.value),
+                  count: item.count,
+                  path: `/ostats/release-year/${item.value}`,
+                })
+              )}
+              unit={O_UNIT}
+              total={totalOs}
+              sortable
+              emptyLabel="No O scene release-year counts found."
+              unknown={{
+                count: overview.byReleaseYear.unknown_count,
+                to: withScope("/ostats/unknown/release-year"),
+              }}
+            />
+            <StatsBarChart
+              className="stats-wide"
               title="By Scene Rating"
               data={eventBars(ratingCounts.data, (bucket) => ({
                 ...bucket,
@@ -1149,10 +1195,14 @@ const OStatsContent: React.FC<{
               }}
             />
             <StatsBarChart
+              className={studioCounts ? undefined : "stats-wide"}
               title="By Metallic Tier"
               data={eventBars(tierCounts.data, (bucket) => ({
                 ...bucket,
                 path: `/ostats/tier/${bucket.key}`,
+              })).map((bar) => ({
+                ...bar,
+                color: statsMetallicColor(bar.key),
               }))}
               unit={O_UNIT}
               total={totalOs}
@@ -1161,149 +1211,147 @@ const OStatsContent: React.FC<{
                 to: withScope(`/ostats/tier/${O_STATS_UNKNOWN_BUCKET}`),
               }}
             />
-          </div>
-          <StatsBarChart
-            title="By Activity Type"
-            data={eventBars(activityTypeCounts, (item) => ({
-              key: item.tag_id,
-              label: item.tag_name,
-              count: item.count,
-              path: `/ostats/tag/${item.tag_id}`,
-            }))}
-            unit={O_UNIT}
-            emptyLabel="No activity-type counts found."
-          />
-          <StatsBarChart
-            title="By Marker Tag"
-            data={eventBars(markerTagCounts, (item) => ({
-              key: item.tag_id,
-              label: item.tag_name,
-              count: item.count,
-              path: `/ostats/tag/${item.tag_id}`,
-            }))}
-            unit={O_UNIT}
-            totalNote="An O counts once for each marker tag covering it, so bars can overlap."
-            emptyLabel="No timestamped O marker-tag counts found."
-            unknown={{
-              count: overview.withoutMarkerTags,
-              to: withScope("/ostats/unknown/marker-tag"),
-            }}
-          />
-          <StatsBarChart
-            title="By Ethnicity"
-            data={eventBars(
-              overview.byEthnicity.filter(
-                (item) => !isUnknownLabel(item.ethnicity)
-              ),
-              (item) => ({
-                key: item.ethnicity,
-                label: item.ethnicity,
-                count: item.count,
-                path: `/ostats/ethnicity/${encodeURIComponent(item.ethnicity)}`,
-              })
+            {studioCounts && (
+              <StatsBarChart
+                variant="ranked"
+                title="By Studio"
+                data={eventBars(studioCounts.counts, (item) => ({
+                  key: item.studio_id,
+                  label: item.studio_name,
+                  count: item.count,
+                  path: `/ostats/studio/${item.studio_id}`,
+                }))}
+                unit={O_UNIT}
+                total={totalOs}
+                emptyLabel="No O studio counts found."
+                unknown={{
+                  count: studioCounts.unknown_count,
+                  to: withScope("/ostats/unknown/studio"),
+                }}
+              />
             )}
-            unit={O_UNIT}
-            total={totalOs}
-            totalNote="An O counts once for each vato ethnicity in its scene, so bars can overlap."
-            emptyLabel="No O ethnicity counts found."
-            unknown={{
-              count:
-                overview.byEthnicity.find((item) =>
-                  isUnknownLabel(item.ethnicity)
-                )?.count ?? 0,
-              to: withScope("/ostats/ethnicity/Unknown"),
-            }}
-          />
-          <StatsBarChart
-            title="By Country"
-            data={eventBars(
-              overview.byCountry
-                .filter((item) => !isUnknownLabel(item.country))
-                .map((item) => ({
-                  ...item,
-                  label: statsCountryName(item.country),
-                }))
-                .sort(
-                  (a, b) => b.count - a.count || a.label.localeCompare(b.label)
-                ),
-              (item) => ({
-                key: item.country,
-                label: item.label,
-                count: item.count,
-                path: `/ostats/country/${encodeURIComponent(item.country)}`,
-              })
-            )}
-            unit={O_UNIT}
-            total={totalOs}
-            totalNote="An O counts once for each vato country in its scene, so bars can overlap."
-            emptyLabel="No O country counts found."
-            unknown={{
-              count:
-                overview.byCountry.find((item) => isUnknownLabel(item.country))
-                  ?.count ?? 0,
-              to: withScope("/ostats/country/Unknown"),
-            }}
-          />
-          {!embedded && overview.byStudio && (
+          </StatsChartGroup>
+          <StatsChartGroup className="stats-group--panel" title="The Vatos">
             <StatsBarChart
-              title="By Studio"
-              data={eventBars(overview.byStudio.counts, (item) => ({
-                key: item.studio_id,
-                label: item.studio_name,
+              className="stats-wide"
+              title="By Vato Age"
+              data={eventBars(overview.byAge.counts, (item) => ({
+                key: String(item.age),
+                label: String(item.age),
                 count: item.count,
-                path: `/ostats/studio/${item.studio_id}`,
+                path: `/ostats/age/${item.age}`,
               }))}
               unit={O_UNIT}
               total={totalOs}
-              emptyLabel="No O studio counts found."
+              totalNote="An O counts once for each vato age in its scene, so bars can overlap."
+              sortable
+              emptyLabel="No O performer-age counts found."
               unknown={{
-                count: overview.byStudio.unknown_count,
-                to: withScope("/ostats/unknown/studio"),
+                count: overview.byAge.unknown_count,
+                to: withScope("/ostats/unknown/performer-age"),
               }}
             />
-          )}
-          <StatsBarChart
-            title="By Performer Age"
-            data={eventBars(overview.byAge.counts, (item) => ({
-              key: String(item.age),
-              label: String(item.age),
-              count: item.count,
-              path: `/ostats/age/${item.age}`,
-            }))}
-            unit={O_UNIT}
-            total={totalOs}
-            totalNote="An O counts once for each vato age in its scene, so bars can overlap."
-            sortable
-            emptyLabel="No O performer-age counts found."
-            unknown={{
-              count: overview.byAge.unknown_count,
-              to: withScope("/ostats/unknown/performer-age"),
-            }}
-          />
-          <StatsBarChart
-            title="By Scene Release Year"
-            data={eventBars(
-              oStatsYears(overview.byReleaseYear.counts),
-              (item) => ({
-                key: String(item.value),
-                label: String(item.value),
+            <StatsBarChart
+              variant="ranked"
+              title="By Ethnicity"
+              data={eventBars(
+                overview.byEthnicity.filter(
+                  (item) => !isUnknownLabel(item.ethnicity)
+                ),
+                (item) => ({
+                  key: item.ethnicity,
+                  label: item.ethnicity,
+                  count: item.count,
+                  path: `/ostats/ethnicity/${encodeURIComponent(
+                    item.ethnicity
+                  )}`,
+                })
+              )}
+              unit={O_UNIT}
+              total={totalOs}
+              totalNote="An O counts once for each vato ethnicity in its scene, so bars can overlap."
+              emptyLabel="No O ethnicity counts found."
+              unknown={{
+                count:
+                  overview.byEthnicity.find((item) =>
+                    isUnknownLabel(item.ethnicity)
+                  )?.count ?? 0,
+                to: withScope("/ostats/ethnicity/Unknown"),
+              }}
+            />
+            <StatsBarChart
+              variant="ranked"
+              title="By Country"
+              data={eventBars(
+                overview.byCountry
+                  .filter((item) => !isUnknownLabel(item.country))
+                  .map((item) => ({
+                    ...item,
+                    label: statsCountryName(item.country),
+                  }))
+                  .sort(
+                    (a, b) =>
+                      b.count - a.count || a.label.localeCompare(b.label)
+                  ),
+                (item) => ({
+                  key: item.country,
+                  label: item.label,
+                  count: item.count,
+                  path: `/ostats/country/${encodeURIComponent(item.country)}`,
+                })
+              ).map((bar) => ({
+                ...bar,
+                icon: <StatsCountryFlag country={bar.key} />,
+              }))}
+              unit={O_UNIT}
+              total={totalOs}
+              totalNote="An O counts once for each vato country in its scene, so bars can overlap."
+              emptyLabel="No O country counts found."
+              unknown={{
+                count:
+                  overview.byCountry.find((item) =>
+                    isUnknownLabel(item.country)
+                  )?.count ?? 0,
+                to: withScope("/ostats/country/Unknown"),
+              }}
+            />
+          </StatsChartGroup>
+          <StatsChartGroup className="stats-group--panel" title="The Action">
+            <StatsBarChart
+              variant="ranked"
+              title="By Activity Type"
+              data={eventBars(activityTypeCounts, (item) => ({
+                key: item.tag_id,
+                label: item.tag_name,
                 count: item.count,
-                path: `/ostats/release-year/${item.value}`,
-              })
-            )}
-            unit={O_UNIT}
-            total={totalOs}
-            sortable
-            emptyLabel="No O scene release-year counts found."
-            unknown={{
-              count: overview.byReleaseYear.unknown_count,
-              to: withScope("/ostats/unknown/release-year"),
-            }}
-          />
+                path: `/ostats/tag/${item.tag_id}`,
+              }))}
+              unit={O_UNIT}
+              emptyLabel="No activity-type counts found."
+            />
+            <StatsBarChart
+              variant="ranked"
+              title="By Marker Tag"
+              data={eventBars(markerTagCounts, (item) => ({
+                key: item.tag_id,
+                label: item.tag_name,
+                count: item.count,
+                path: `/ostats/tag/${item.tag_id}`,
+              }))}
+              unit={O_UNIT}
+              totalNote="An O counts once for each marker tag covering it, so bars can overlap."
+              emptyLabel="No timestamped O marker-tag counts found."
+              unknown={{
+                count: overview.withoutMarkerTags,
+                to: withScope("/ostats/unknown/marker-tag"),
+              }}
+            />
+          </StatsChartGroup>
         </>
       )}
     </StatsPage>
   );
+  // CUSTOM: end
 };
 
 const OStats: React.FC<RouteComponentProps<IRouteParams>> = ({

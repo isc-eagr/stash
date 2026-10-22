@@ -319,11 +319,13 @@ const _PerformerSelect: React.FC<
     const result = await createPerformer({
       variables: { input: { name } },
     });
+    // CUSTOM: begin - consistent entity vocabulary.
     return {
       value: result.data!.performerCreate!.id,
       item: result.data!.performerCreate!,
-      message: "Created performer",
+      message: "Created vato",
     };
+    // CUSTOM: end
   };
 
   const getNamedObject = (id: string, name: string) => {

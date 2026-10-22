@@ -1,3 +1,4 @@
+import { getAppLocaleCustom } from "src/utils/appLocale_custom"; // CUSTOM
 export type PerformerVersatility = {
   // 1 = only topped, 0 = only bottomed, by unique partners or by role time.
   topShare: number;
@@ -73,7 +74,9 @@ export function performerVersatility(
 export type VersatilityCategory = "sex" | "oral" | "facial";
 
 function plural(count: number, singular: string, pluralForm: string) {
-  return `${count.toLocaleString()} ${count === 1 ? singular : pluralForm}`;
+  return `${count.toLocaleString(getAppLocaleCustom())} ${
+    count === 1 ? singular : pluralForm
+  }`;
 }
 
 // Spicy role copy, matching the Activity Time and partner-role wording.

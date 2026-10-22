@@ -1,3 +1,4 @@
+import { getSceneOrgasmFacialEvents } from "src/components/Scenes/sceneCardInsightsData_custom"; // CUSTOM
 import React, {
   KeyboardEvent,
   useCallback,
@@ -107,16 +108,6 @@ import { PerformerImageOverlay } from "./PerformerImageOverlay";
 import { getSceneMarkerTimelineHoverPerformers } from "./sceneMarkerTimelineHover_custom";
 import { isSceneMarkerTimelineRoyalSapphire } from "./sceneMarkerTimelineStyle_custom";
 // CUSTOM: end
-
-type ScenePlayerTagTree = {
-  id: string;
-  parents?: ScenePlayerTagTree[];
-};
-
-type ScenePlayerMarkerWithTags = {
-  primary_tag?: ScenePlayerTagTree | null;
-  tags?: ScenePlayerTagTree[] | null;
-};
 
 // register videojs plugins
 airplay(videojs);
@@ -866,10 +857,14 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         // Update toggle button appearance based on visibility state
         if (overlaysVisible) {
           toggleBtn.classList.remove("hidden-state");
-          toggleBtn.setAttribute("title", "Hide Performer Images");
+          // CUSTOM: begin - consistent entity vocabulary.
+          toggleBtn.setAttribute("title", "Hide Vato Images");
+          // CUSTOM: end
         } else {
           toggleBtn.classList.add("hidden-state");
-          toggleBtn.setAttribute("title", "Show Performer Images");
+          // CUSTOM: begin - consistent entity vocabulary.
+          toggleBtn.setAttribute("title", "Show Vato Images");
+          // CUSTOM: end
         }
       }
 
@@ -1735,57 +1730,17 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
     const isPortrait =
       file && file.height && file.width && file.height > file.width;
 
-    // CUSTOM: begin - determine if scene has markers with facial / really hot facial tag
-    // Helper to check if a tag matches (including recursive parent/child relationships)
-    const tagMatchesScenePlayer = (
-      tag: ScenePlayerTagTree | null | undefined,
-      targetId: string,
-      visited: Set<string> = new Set()
-    ): boolean => {
-      if (!tag) return false;
-      if (tag.id === targetId) return true;
-      if (visited.has(tag.id)) return false;
-      visited.add(tag.id);
-      const parents = tag.parents ?? [];
-      return parents.some((p) => tagMatchesScenePlayer(p, targetId, visited));
-    };
-
-    const markerHasTagScenePlayer = (
-      marker: ScenePlayerMarkerWithTags,
-      tagId: string
-    ): boolean => {
-      if (tagMatchesScenePlayer(marker?.primary_tag, tagId)) return true;
-      return (marker?.tags ?? []).some((t) => tagMatchesScenePlayer(t, tagId));
-    };
-
-    const roleTagIds =
-      (
-        configuration?.ui as unknown as {
-          roleTagIds?: { facialTagId?: string; reallyHotTagId?: string };
-        }
-      )?.roleTagIds ?? {};
-
-    // Determine if the scene has any markers with the configured facial tag or any of its subtags
-    const hasFacial = useMemo(() => {
-      const { facialTagId } = roleTagIds;
-      if (!facialTagId) return false;
-      const markers = scene.scene_markers ?? [];
-      return markers.some((marker) =>
-        markerHasTagScenePlayer(marker, facialTagId)
-      );
-    }, [scene.scene_markers, configuration?.ui]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    // Gold goatee: scene has a marker with BOTH facial tag AND really hot tag
-    const hasReallyHotFacial = useMemo(() => {
-      const { facialTagId, reallyHotTagId } = roleTagIds;
-      if (!facialTagId || !reallyHotTagId) return false;
-      const markers = scene.scene_markers ?? [];
-      return markers.some(
-        (marker) =>
-          markerHasTagScenePlayer(marker, facialTagId) &&
-          markerHasTagScenePlayer(marker, reallyHotTagId)
-      );
-    }, [scene.scene_markers, configuration?.ui]); // eslint-disable-line react-hooks/exhaustive-deps
+    // CUSTOM: Match the card/event quality hierarchy, including tag descendants.
+    const facialQuality = useMemo(() => {
+      const events = getSceneOrgasmFacialEvents(
+        scene,
+        configuration?.ui?.roleTagIds
+      ).filter((event) => event.category === "facial");
+      if (events.some((event) => event.quality === "GOAT")) return "GOAT";
+      if (events.some((event) => event.quality === "Really Hot"))
+        return "Really Hot";
+      return events.length > 0 ? "Regular" : undefined;
+    }, [scene, configuration?.ui?.roleTagIds]);
     // CUSTOM: end
 
     return (
@@ -1831,21 +1786,20 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
               </div>,
               _player.el()!
             )}
-          {/* CUSTOM: begin - facial goatee overlay (white) or gold (really hot facial) */}
-          {hasReallyHotFacial && (
-            <img
-              className="scene-facial-overlay scene-facial-overlay--gold"
-              src={facialPng}
-              alt="Facial (Really Hot)"
-              title="Really hot facial marker present"
-            />
-          )}
-          {!hasReallyHotFacial && hasFacial && (
-            <img
-              className="scene-facial-overlay"
-              src={facialPng}
-              alt="Facial"
-              title="Facial tags present"
+          {/* CUSTOM: one shared-quality icon; static glow avoids animation work. */}
+          {facialQuality && (
+            <span
+              className={cx("scene-facial-overlay", {
+                "scene-facial-overlay--gold": facialQuality === "Really Hot",
+                "scene-facial-overlay--sapphire": facialQuality === "GOAT",
+              })}
+              role="img"
+              aria-label={`Facial (${facialQuality})`}
+              title={`${facialQuality} facial marker present`}
+              style={{
+                maskImage: `url("${facialPng}")`,
+                WebkitMaskImage: `url("${facialPng}")`,
+              }}
             />
           )}
           {/* CUSTOM: end */}

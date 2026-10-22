@@ -5,6 +5,7 @@ import { IntlProvider } from "react-intl";
 import { TaskProgressMilestoneGrowth } from "../src/components/TaskProgress/TaskProgressMilestoneGrowth.tsx";
 import { TaskProgressMilestoneLedger } from "../src/components/TaskProgress/TaskProgressMilestoneLedger.tsx";
 import { TaskProgressContributions } from "../src/components/TaskProgress/TaskProgressContributions.tsx";
+import { TaskProgressPeriodProgress } from "../src/components/TaskProgress/TaskProgressPeriodProgress.tsx";
 import { progressToday } from "../src/components/TaskProgress/progressMath_custom.ts";
 
 const history = [
@@ -123,6 +124,25 @@ assert.match(
   /progress-score-percent-change"[^>]*><span>0\.00%<\/span><span aria-hidden="true">→<\/span><strong>40\.00%<\/strong>/,
   "without earlier history the period opens at the first recorded day"
 );
+const roundedNegativeZero = render(
+  React.createElement(TaskProgressPeriodProgress, {
+    snapshot: {
+      completed: 100,
+      total: 10000,
+      percent: 1,
+      previousPercent: 1.004,
+      netCompletedGain: 0,
+    },
+    history: [],
+    periodLabel: "this week",
+  })
+);
+assert.match(
+  roundedNegativeZero,
+  /progress-score-gain">0\.00%<\/strong> this week/,
+  "period progress does not show a negative zero percentage"
+);
+assert.doesNotMatch(roundedNegativeZero, /progress-score-loss|-0\.00%/);
 
 const empty = ledger([
   {

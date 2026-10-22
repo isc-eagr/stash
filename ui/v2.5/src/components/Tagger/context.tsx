@@ -691,7 +691,9 @@ export const TaggerContext: React.FC = ({ children }) => {
 
         setSearchResults(newSearchResults);
 
-        Toast.success(<span>Added stash-id to performer</span>);
+        // CUSTOM: begin - consistent entity vocabulary.
+        Toast.success(<span>Added stash-id to vato</span>);
+        // CUSTOM: end
       }
     } catch (e) {
       Toast.error(e);

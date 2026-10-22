@@ -220,7 +220,9 @@ const PerformerModal: React.FC<IPerformerModalProps> = ({
 
   function onSaveClicked() {
     if (!performer.name) {
-      throw new Error("performer name must set");
+      // CUSTOM: begin - consistent entity vocabulary.
+      throw new Error("vato name must set");
+      // CUSTOM: end
     }
 
     const performerData: GQL.PerformerCreateInput & {

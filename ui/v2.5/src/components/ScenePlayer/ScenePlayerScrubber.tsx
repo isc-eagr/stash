@@ -366,6 +366,7 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
         ...marker.bottom_performers,
       ].filter((performer) => !!performer.image_path);
 
+      // CUSTOM: begin - consistent entity vocabulary.
       return (
         <React.Fragment key={marker.id}>
           {/* CUSTOM: begin - stable exact-time picker for marker timestamp copying */}
@@ -414,7 +415,7 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
           >
             <div
               className={cx(
-                "scrubber-tag scrubber-tag-with-performers",
+                "scrubber-tag scrubber-tag-with-vatos",
                 timestampCopyActive && "scrubber-tag-timestamp-copy"
               )}
               data-scene-marker-id={marker.id} // CUSTOM
@@ -441,6 +442,7 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
           {/* CUSTOM: end */}
         </React.Fragment>
       );
+      // CUSTOM: end
     });
   }
 

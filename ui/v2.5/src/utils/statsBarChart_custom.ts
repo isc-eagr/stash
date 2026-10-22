@@ -1,10 +1,11 @@
+import { getAppLocaleCustom } from "src/utils/appLocale_custom"; // CUSTOM
 export type StatsBarSort = "natural" | "count";
 
 export function formatStatsBarPercent(count: number, total: number) {
   if (total <= 0 || count <= 0) return "0%";
   const percent = (count / total) * 100;
   if (percent < 1) return "<1%";
-  return `${percent.toLocaleString(undefined, {
+  return `${percent.toLocaleString(getAppLocaleCustom(), {
     maximumFractionDigits: percent < 10 ? 1 : 0,
   })}%`;
 }
@@ -28,4 +29,10 @@ export function statsRange(start: number, end: number) {
 
 export function daysInMonth(year: number, month: number) {
   return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+export function statsUnitLabel(count: number, unit: [string, string]) {
+  return `${count.toLocaleString(getAppLocaleCustom())} ${
+    count === 1 ? unit[0] : unit[1]
+  }`;
 }

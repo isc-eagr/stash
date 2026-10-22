@@ -1,3 +1,4 @@
+import { getAppLocaleCustom } from "src/utils/appLocale_custom"; // CUSTOM
 import React, { useEffect, useState } from "react";
 import { useApolloClient } from "@apollo/client";
 import { Alert, Button, Modal, Table } from "react-bootstrap";
@@ -120,9 +121,12 @@ export const TaskProgressDetails: React.FC<{
                     : t("Remaining")}
                   {e.occurred_at && (
                     <small className="d-block text-muted">
-                      {new Date(e.occurred_at).toLocaleTimeString(undefined, {
-                        timeZone: "America/Mexico_City",
-                      })}
+                      {new Date(e.occurred_at).toLocaleTimeString(
+                        getAppLocaleCustom(),
+                        {
+                          timeZone: "America/Mexico_City",
+                        }
+                      )}
                     </small>
                   )}
                 </td>

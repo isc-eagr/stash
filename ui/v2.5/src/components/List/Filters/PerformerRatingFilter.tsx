@@ -9,6 +9,7 @@ export const PerformerRatingFilter: React.FC<{
   onValueChanged: (value: INumberValue) => void;
   onMatchAllChanged: (value: boolean) => void;
 }> = ({ criterion, onValueChanged, onMatchAllChanged }) => {
+  // CUSTOM: begin - consistent entity vocabulary.
   return (
     <div className="performer-rating-filter">
       <RatingFilter criterion={criterion} onValueChanged={onValueChanged} />
@@ -16,10 +17,11 @@ export const PerformerRatingFilter: React.FC<{
         type="checkbox"
         id="performer-rating-match-all"
         className="mt-2"
-        label="All performers must match"
+        label="All vatos must match"
         checked={criterion.matchAll}
         onChange={(e) => onMatchAllChanged(e.currentTarget.checked)}
       />
     </div>
   );
+  // CUSTOM: end
 };

@@ -1,0 +1,81 @@
+/* CUSTOM: Canonical semantic palette. See docs/UI_PALETTE_CUSTOM.md. */
+@use "sass:math";
+
+$semantic-colors-custom: (
+  "top": #17a2b8,
+  "bottom": #28a745,
+  "sex": #d9822b,
+  "oral": #00b3a4,
+  "solo": #a855f7,
+  "regular": #8a9ba8,
+  "really-hot": #ffd700,
+  "goat": #5b8def,
+  "outstanding": #ffd700,
+  "standard": #28a745,
+  "unclassified": #8a9ba8,
+  "unusable": #dc3545,
+  "royal-sapphire": #5b8def,
+  "gold": #d4a93a,
+  "silver": #b9c2cc,
+  "bronze": #b07a4f,
+  "no-tier": #464d53,
+  "goal-red": #eca2a8,
+  "goal-orange": #edbd87,
+  "goal-yellow": #e6d58c,
+  "goal-green": #91d3b0,
+  "goal-sapphire": #94c3df,
+);
+
+/* stylelint-disable number-max-precision -- Preserve the sRGB luminance constants. */
+@function semantic-channel-custom($channel) {
+  $value: math.div($channel, 255);
+
+  @return if(
+    $value <= 0.04045,
+    math.div($value, 12.92),
+    math.pow(math.div($value + 0.055, 1.055), 2.4)
+  );
+}
+
+:root {
+  @each $name, $color in $semantic-colors-custom {
+    $luminance: 0.2126 *
+      semantic-channel-custom(red($color)) +
+      0.7152 *
+      semantic-channel-custom(green($color)) +
+      0.0722 *
+      semantic-channel-custom(blue($color));
+    --semantic-#{$name}: #{$color};
+    --semantic-#{$name}-rgb: #{red($color)}, #{green($color)}, #{blue($color)};
+    --semantic-#{$name}-ink: #{if($luminance > 0.179, #000, #fff)};
+  }
+}
+
+/* stylelint-enable number-max-precision */
+
+/* Role colors are independent of generic success/info variants. */
+@each $role in (top, bottom) {
+  .text-role-#{$role} {
+    /* stylelint-disable-next-line declaration-no-important -- Match Bootstrap text utility specificity. */
+    color: var(--semantic-#{$role}) !important;
+  }
+
+  .badge-role-#{$role},
+  .btn-role-#{$role} {
+    background-color: var(--semantic-#{$role});
+    border-color: var(--semantic-#{$role});
+    color: var(--semantic-#{$role}-ink);
+  }
+
+  .btn-outline-role-#{$role} {
+    background-color: transparent;
+    border-color: var(--semantic-#{$role});
+    color: var(--semantic-#{$role});
+
+    &:hover,
+    &.active {
+      background-color: var(--semantic-#{$role});
+      color: var(--semantic-#{$role}-ink);
+    }
+  }
+}

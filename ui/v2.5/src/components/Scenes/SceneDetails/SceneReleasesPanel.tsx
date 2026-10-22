@@ -1,3 +1,4 @@
+import { formatAppDecimalCustom } from "src/utils/appLocale_custom"; // CUSTOM
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   Button,
@@ -1600,7 +1601,10 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
                       )}
                       {file.size && (
                         <span className="badge badge-info">
-                          {TextUtils.fileSize(file.size).size.toFixed(1)}{" "}
+                          {formatAppDecimalCustom(
+                            TextUtils.fileSize(file.size).size,
+                            1
+                          )}{" "}
                           {TextUtils.formatFileSizeUnit(
                             TextUtils.fileSize(file.size).unit
                           )}

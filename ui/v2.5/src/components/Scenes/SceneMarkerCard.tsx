@@ -170,7 +170,7 @@ const SceneMarkerCardDetails = PatchComponent(
 
     const renderPerformerChip = (
       performer: (typeof props.marker.top_performers)[0],
-      variant: "success" | "info",
+      variant: "role-top" | "role-bottom", // CUSTOM
       showArrow: boolean,
       arrowIcon: typeof faArrowUp
     ) => (

@@ -17,6 +17,12 @@ export type SiteSyncReportCustom = NonNullable<
 export type SiteSyncSceneChangeCustom = SiteSyncReportCustom["scenes"][number];
 export type SiteSyncSiteCustom = Pick<StudioSiteSync, "name" | "pictures">;
 
+export function siteSyncTooltipCustom(site: SiteSyncSiteCustom) {
+  return site.name === "LatinBoyz"
+    ? "No subscription needed. Matches filenames or Code. If unmatched, add the public Latinboyz scene URL in Scenes > Edit > URLs. Galleries need extracted photos and a pictures folder in Settings > Custom; enter Code if neither filename nor page contains it."
+    : undefined;
+}
+
 interface ISiteSyncStepCustom {
   key: SiteSyncStepCustom;
   label: string;
@@ -53,7 +59,16 @@ const STEPS: ISiteSyncStepCustom[] = [
 export function siteSyncStepsCustom(
   site: SiteSyncSiteCustom
 ): ISiteSyncStepCustom[] {
-  return STEPS.filter((step) => step.key !== "pictures" || site.pictures);
+  return STEPS.filter((step) => step.key !== "pictures" || site.pictures).map(
+    (step) =>
+      site.name === "LatinBoyz" && step.key === "codes"
+        ? {
+            ...step,
+            description:
+              "Find codes in filenames or public scene pages. A public scene URL can fill metadata without a code.",
+          }
+        : step
+  );
 }
 
 export const SITE_SYNC_ALL_STEPS_CUSTOM: SiteSyncSelectionCustom = {

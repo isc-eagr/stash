@@ -74,6 +74,8 @@ import {
   type ISceneMarkerSequentialDraft,
   type SceneMarkerSequentialRecordKind,
 } from "./sceneMarkerSequentialActions_custom";
+import { sceneMarkerLoopSegmentCustom } from "src/components/ScenePlayer/sceneMarkerLoopSegment_custom";
+import { useMultiSegmentLoopSnapshot } from "src/components/ScenePlayer/useMultiSegmentLoop_custom";
 import type {
   ISceneMarkerTimestampCopyRequest,
   ISceneMarkerTimestampCopySelection,
@@ -81,6 +83,9 @@ import type {
   SceneMarkerTimestampField,
 } from "src/components/ScenePlayer/sceneMarkerTimestampCopy_custom";
 // CUSTOM: end
+
+// CUSTOM: the unsaved form range repeats under this id, apart from saved markers.
+const MARKER_FORM_REPEAT_ID = "scene-marker-form-draft";
 
 interface IPerformer {
   id: string;
@@ -397,6 +402,41 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
   useEffect(
     () => () => onMarkerTimestampCopyRequest(undefined, "scene-marker-form"),
     [onMarkerTimestampCopyRequest]
+  );
+  // CUSTOM: end
+  // CUSTOM: begin - repeat the range currently typed in Time / End Time
+  const loopPlugin = getPlayer()?.multiSegmentLoop();
+  const repeating =
+    useMultiSegmentLoopSnapshot(loopPlugin).markerRepeatId ===
+    MARKER_FORM_REPEAT_ID;
+  const draftRepeatSegment = sceneMarkerLoopSegmentCustom(
+    { seconds: formik.values.seconds, end_seconds: formik.values.end_seconds },
+    formik.values.title
+  );
+  const { start: repeatStart, end: repeatEnd } = draftRepeatSegment;
+  const repeatTitle = formik.values.title;
+
+  useEffect(() => {
+    if (!repeating) return;
+    loopPlugin?.retargetMarkerRepeat(MARKER_FORM_REPEAT_ID, {
+      start: repeatStart,
+      end: repeatEnd,
+      title: repeatTitle,
+    });
+  }, [repeating, loopPlugin, repeatStart, repeatEnd, repeatTitle]);
+
+  // Stop the draft repeat when the form closes.
+  useEffect(
+    () => () => {
+      const plugin = getPlayer()?.multiSegmentLoop();
+      if (plugin?.getSnapshot().markerRepeatId === MARKER_FORM_REPEAT_ID) {
+        plugin.toggleMarkerRepeat(MARKER_FORM_REPEAT_ID, {
+          start: 0,
+          end: 1,
+        });
+      }
+    },
+    []
   );
   // CUSTOM: end
   // CUSTOM: fetch negative titles only while that insert mode is visible.
@@ -1009,6 +1049,39 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
   }
   // CUSTOM: end
 
+  // CUSTOM: begin - same repeat action as the player's marker hover button
+  function renderRepeatButton() {
+    const { seconds, end_seconds } = formik.values;
+    const invalidRange = end_seconds !== null && end_seconds <= seconds;
+
+    return (
+      <div className="d-flex justify-content-center mb-2">
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          className="scene-marker-form-repeat"
+          disabled={!loopPlugin || (!repeating && invalidRange)}
+          aria-pressed={repeating}
+          title={
+            repeating
+              ? "Stop repeating this range"
+              : "Repeat the video between Time and End Time"
+          }
+          onClick={() =>
+            loopPlugin?.toggleMarkerRepeat(
+              MARKER_FORM_REPEAT_ID,
+              draftRepeatSegment
+            )
+          }
+        >
+          {repeating ? "Stop Repeating" : "Repeat Marker"}
+        </Button>
+      </div>
+    );
+  }
+  // CUSTOM: end
+
   // CUSTOM: begin - timestamp copy guidance shown while the player timeline is
   // waiting for an existing marker boundary in the create/edit form.
   function renderTimestampCopyNotice() {
@@ -1402,7 +1475,11 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
 
     const topControl = (
       <div className="d-flex align-items-center">
-        <Icon icon={faArrowUp} className="text-info mr-2" title="Top" />
+        <Icon
+          icon={faArrowUp}
+          className="text-role-top mr-2"
+          title="Top" // CUSTOM
+        />
         <div className="flex-grow-1">
           {/* CUSTOM: use a content-sized menu within the visible viewport. */}
           <Select<IPerformerSelectOption, true>
@@ -1450,7 +1527,11 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
 
     const bottomControl = (
       <div className="d-flex align-items-center">
-        <Icon icon={faArrowDown} className="text-success mr-2" title="Bottom" />
+        <Icon
+          icon={faArrowDown}
+          className="text-role-bottom mr-2"
+          title="Bottom" // CUSTOM
+        />
         <div className="flex-grow-1">
           {/* CUSTOM: use a content-sized menu within the visible viewport. */}
           <Select<IPerformerSelectOption, true>
@@ -1482,6 +1563,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
       </div>
     );
 
+    // CUSTOM: begin - consistent entity vocabulary.
     return (
       <>
         {renderField("top_performer_ids", topTitle, topControl, fullWidthProps)}
@@ -1496,8 +1578,8 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
               formik.isSubmitting ||
               (topPerformers.length === 0 && bottomPerformers.length === 0)
             }
-            aria-label="Flip Top and Bottom performers"
-            title="Flip Top and Bottom performers" // CUSTOM
+            aria-label="Flip Top and Bottom vatos"
+            title="Flip Top and Bottom vatos" // CUSTOM
           >
             {/* CUSTOM: circular arrows indicate swapping performer roles. */}
             <Icon icon={faArrowsRotate} />
@@ -1511,6 +1593,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
         )}
       </>
     );
+    // CUSTOM: end
   }
   // CUSTOM: end
 
@@ -1524,6 +1607,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
         {renderTimeField()}
         {renderEndTimeField()}
         {renderDurationField()}
+        {renderRepeatButton()} {/* CUSTOM */}
         {renderTimestampCopyNotice()} {/* CUSTOM */}
         {formik.values.insert_mode === "marker" && renderGapWarning()}
         {formik.values.insert_mode === "marker" && renderTagsField()}

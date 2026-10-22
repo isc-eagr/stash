@@ -1,7 +1,7 @@
 import React from "react";
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
-import { RatingAdvisorStatsContent } from "src/components/Studios/StudioDetails/StudioRatingAdvisorStats";
+import { RatingAdvisorCriteriaMeters } from "src/components/Studios/StudioDetails/StudioRatingAdvisorStats";
 import { useVatoStatsRatingAdvisorQuery } from "src/core/generated-graphql";
 import type {
   StatsDateRangeInput,
@@ -41,14 +41,13 @@ export const VatoStatsRatingAdvisor: React.FC<IProps> = ({
   if (!data) return null;
 
   return (
-    <RatingAdvisorStatsContent
+    <RatingAdvisorCriteriaMeters
       description={
         studioScope
           ? `Averages for these ${studioScope.name} vatos, only counting vatos rated on each criterion.`
           : "Averages for these vatos, only counting vatos rated on each criterion."
       }
       sectionKeys={["performers"]}
-      showOverallSceneAverage={false}
       stats={data.globalRatingAdvisorStats}
       title={
         studioScope

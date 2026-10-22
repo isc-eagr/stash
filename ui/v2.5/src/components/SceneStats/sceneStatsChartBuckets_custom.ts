@@ -1,11 +1,15 @@
 export type SceneStatsActivityType = "sex" | "oral" | "solo";
 
-export function sceneStatsPositiveCount(value?: number | null) {
-  return typeof value === "number" && value > 0 ? value : undefined;
-}
+export { statsCountCustom as sceneStatsCount } from "src/utils/statsValues_custom";
 
 export function sceneStatsRatingBucket(value?: number | null) {
-  if (value === null || value === undefined || value <= 0) return undefined;
+  if (
+    value === null ||
+    value === undefined ||
+    !Number.isFinite(value) ||
+    value < 0
+  )
+    return undefined;
   const rating = Math.round(value);
   const start = Math.floor(rating / 5) * 5;
   return `${start}-${start + 4}`;

@@ -1,9 +1,22 @@
-export type SceneStatsSection = "overview" | "insights" | "activity-matrix";
+// Activity & Ratings now sit on the overview, so old ?section=insights links
+// open the overview.
+export type SceneStatsSection =
+  | "overview"
+  | "activity-matrix"
+  | "stashdb-matches";
+
+const extraSections: readonly string[] = ["activity-matrix", "stashdb-matches"];
+
+export function sceneStatsSectionFromKey(
+  key?: string | null
+): SceneStatsSection {
+  return key && extraSections.includes(key)
+    ? (key as SceneStatsSection)
+    : "overview";
+}
 
 export function sceneStatsSectionFromSearch(search: string): SceneStatsSection {
-  const section = new URLSearchParams(search).get("section");
-  if (section === "insights" || section === "activity-matrix") return section;
-  return "overview";
+  return sceneStatsSectionFromKey(new URLSearchParams(search).get("section"));
 }
 
 export function sceneStatsSearchForSection(
@@ -17,17 +30,21 @@ export function sceneStatsSearchForSection(
   return value ? `?${value}` : "";
 }
 
-export function sceneStatsIncludeSubTagsFromSearch(search: string) {
-  return new URLSearchParams(search).get("includeSubTags") === "true";
+// On/off switches kept in the URL, such as includeSubTags and hideFew.
+export type SceneStatsFlag = "includeSubTags" | "hideFew";
+
+export function sceneStatsFlagFromSearch(search: string, flag: SceneStatsFlag) {
+  return new URLSearchParams(search).get(flag) === "true";
 }
 
-export function sceneStatsSearchForIncludeSubTags(
+export function sceneStatsSearchForFlag(
   search: string,
-  includeSubTags: boolean
+  flag: SceneStatsFlag,
+  on: boolean
 ) {
   const parameters = new URLSearchParams(search);
-  if (includeSubTags) parameters.set("includeSubTags", "true");
-  else parameters.delete("includeSubTags");
+  if (on) parameters.set(flag, "true");
+  else parameters.delete(flag);
   const value = parameters.toString();
   return value ? `?${value}` : "";
 }

@@ -1,3 +1,4 @@
+import { getAppLocaleCustom } from "src/utils/appLocale_custom"; // CUSTOM
 import React from "react";
 import { formatTaskProgressDate } from "../taskProgress_custom";
 import { TaskProgressChartTooltip } from "./TaskProgressChartTooltip";
@@ -77,11 +78,11 @@ interface IBar {
   day?: ITaskProgressReportDay;
 }
 
-const weekdayFormat = new Intl.DateTimeFormat(undefined, {
+const weekdayFormat = new Intl.DateTimeFormat(getAppLocaleCustom(), {
   weekday: "short",
   timeZone: "UTC",
 });
-const monthFormat = new Intl.DateTimeFormat(undefined, {
+const monthFormat = new Intl.DateTimeFormat(getAppLocaleCustom(), {
   month: "short",
   timeZone: "UTC",
 });

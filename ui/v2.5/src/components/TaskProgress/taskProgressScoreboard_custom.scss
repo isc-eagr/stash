@@ -755,23 +755,9 @@
   }
 }
 
+/* Reuses .progress-period-tile so the counts match the parent milestone row. */
 .milestone-subrow-period {
-  display: grid;
-  flex: 0 1 11rem;
-  text-align: right;
-
-  strong {
-    font-size: 1.1rem;
-  }
-
-  small {
-    color: var(--score-muted);
-    white-space: nowrap;
-  }
-
-  .progress-delta {
-    display: inline;
-  }
+  flex: 0 1 8rem;
 }
 
 .milestone-subrows-empty,

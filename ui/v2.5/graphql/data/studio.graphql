@@ -128,6 +128,7 @@ fragment StudioData on Studio {
   }
   unique_performer_count
   facial_count
+  average_stashdb_matches
   # CUSTOM: end
   image_count
   gallery_count
@@ -185,6 +186,7 @@ fragment StudioDetailData on Studio {
     solo_scene_count
   }
   unique_performer_count_all: unique_performer_count(depth: -1)
+  average_stashdb_matches_all: average_stashdb_matches(depth: -1)
   image_count_all: image_count(depth: -1)
   gallery_count_all: gallery_count(depth: -1)
   performer_count_all: performer_count(depth: -1)

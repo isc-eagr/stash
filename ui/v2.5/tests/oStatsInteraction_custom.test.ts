@@ -13,8 +13,13 @@ const chartSource = readFileSync(
 // Shared chart: link bars keep native link semantics and descriptive names.
 assert.match(
   chartSource,
-  /<Link\s+className="stats-bar-chart-cell"[\s\S]*?to=\{datum\.to\}[\s\S]*?aria-label=\{label\}/,
+  /export const StatsBarTarget[\s\S]*?<Link[\s\S]*?to=\{to\}[\s\S]*?aria-label=\{label\}/,
   "chart destinations must be keyboard-accessible links with descriptive names"
+);
+assert.match(
+  chartSource,
+  /<StatsBarTarget\s+className="stats-bar-chart-cell"[\s\S]*?label=\{targetLabel\(datum\)\}[\s\S]*?to=\{datum\.count > 0 \? datum\.to : undefined\}/,
+  "column bars should link through the shared chart target"
 );
 assert.doesNotMatch(
   source + chartSource,
@@ -84,7 +89,7 @@ assert.match(
 );
 assert.match(
   source,
-  /\{!embedded && overview\.byStudio && \([\s\S]*?title="By Studio"/,
+  /studioCounts = embedded \? undefined : overview\?\.byStudio[\s\S]*?\{studioCounts && \([\s\S]*?title="By Studio"/,
   "the By Studio breakdown should remain global-only"
 );
 

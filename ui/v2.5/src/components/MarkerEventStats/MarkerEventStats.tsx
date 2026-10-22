@@ -1,8 +1,9 @@
+import { getAppLocaleCustom } from "src/utils/appLocale_custom"; // CUSTOM
 import { gql, useQuery } from "@apollo/client";
 import React, { useEffect, useMemo, useState } from "react";
-import { Alert, Button, Form, Nav } from "react-bootstrap";
+import { Alert, Nav } from "react-bootstrap";
 import { Helmet } from "react-helmet";
-import { Link, useHistory, useLocation } from "react-router-dom";
+import { useHistory, useLocation } from "react-router-dom";
 import {
   MarkerEventStatsKind,
   SortDirectionEnum,
@@ -15,7 +16,26 @@ import { SceneMarkerCardGrid } from "src/components/Scenes/SceneMarkerCardGrid";
 import { StatsPage } from "src/components/StatsPage_custom";
 import { StatsStudioSelector } from "src/components/StatsStudioSelector_custom";
 import { StatsFilterBar } from "src/components/StatsFilterBar_custom";
-import { StatsBarChart } from "src/components/StatsBarChart_custom";
+import {
+  StatsBarChart,
+  StatsChartLegend,
+  type IStatsBarDatum,
+} from "src/components/StatsBarChart_custom";
+import {
+  StatsChartGroup,
+  StatsCountryFlag,
+  StatsDivergingChart,
+  StatsKpiRow,
+  StatsPairGrid,
+  StatsRankByChips,
+  type IStatsKpi,
+} from "src/components/StatsCharts_custom";
+import {
+  STATS_BOTTOM_COLOR,
+  STATS_QUALITY_COLORS,
+  STATS_QUALITY_LEGEND,
+  STATS_TOP_COLOR,
+} from "src/utils/statsChartColors_custom";
 import { StatsTopCards } from "src/components/StatsTopCards_custom";
 import { StatsDateRangeFilter } from "src/components/StatsDateRangeFilter_custom";
 import { makeSceneStatsMarkerTagURL } from "src/components/SceneStats/sceneStatsSummary_custom";
@@ -39,19 +59,24 @@ import {
   buildMarkerEventChart,
   buildMarkerEventStatsContext,
   FACIAL_STATS_CHARTS,
+  MARKER_EVENT_QUALITIES,
+  MARKER_EVENT_QUALITY_LABELS,
   MARKER_EVENT_SORTS,
   MARKER_EVENT_UNKNOWN,
   markerEventMatchesFilter,
+  markerEventQuality,
   markerEventScenes,
   markerEventSortMetric,
   markerEventStatsSummary,
   NUT_STATS_CHARTS,
   rankMarkerEventMarkers,
   rankMarkerEventVatos,
+  type IMarkerEventChartDatum,
   type IMarkerEventChartDefinition,
   type IMarkerEventStatsContext,
   type IMarkerEvent,
   type MarkerEventChartCategory,
+  type MarkerEventQuality,
   type MarkerEventSort,
 } from "./markerEventStatsData_custom";
 
@@ -121,21 +146,15 @@ const FACIAL_STATS_PAGE: IMarkerEventStatsPage = {
   view: pageView("facial", FACIAL_STATS_CHARTS),
 };
 
-const RECEIVER_UNIT: [string, string] = ["receiver", "receivers"];
+const SCENE_UNIT: [string, string] = ["scene", "scenes"];
 const MARKER_CARD_PAGE_SIZE = 12;
 const NO_SELECTION = new Set<string>();
 const TOP_SECTION = "top";
 
-interface ISummaryCard {
-  label: string;
-  value: string;
-  title?: string;
-  to?: string;
-  action?: string;
-}
-
 function unitCount(count: number, unit: [string, string]) {
-  return `${count.toLocaleString()} ${count === 1 ? unit[0] : unit[1]}`;
+  return `${count.toLocaleString(getAppLocaleCustom())} ${
+    count === 1 ? unit[0] : unit[1]
+  }`;
 }
 
 function searchWithSection(search: string, section?: string) {
@@ -146,39 +165,51 @@ function searchWithSection(search: string, section?: string) {
   return value ? `?${value}` : "";
 }
 
-const SummaryCards: React.FC<{ cards: ISummaryCard[] }> = ({ cards }) => (
-  <section className="marker-event-stats-summary" aria-label="Summary">
-    {cards.map((card) => {
-      const content = (
-        <>
-          <div className="marker-event-stats-summary-value">{card.value}</div>
-          <div className="marker-event-stats-summary-label">{card.label}</div>
-          {card.action && <small>{card.action}</small>}
-        </>
-      );
-      return card.to ? (
-        <Link
-          className="marker-event-stats-summary-card linked"
-          key={card.label}
-          title={card.title}
-          to={card.to}
-        >
-          {content}
-        </Link>
-      ) : (
-        <div
-          className="marker-event-stats-summary-card"
-          key={card.label}
-          title={card.title}
-        >
-          {content}
-        </div>
-      );
-    })}
-  </section>
-);
+// What He Was Doing in role colors: bottoms green, tops blue.
+const ACTIVITY_ROLE_COLORS: Record<string, string | undefined> = {
+  GETTING_FUCKED: STATS_BOTTOM_COLOR,
+  SUCKING: STATS_BOTTOM_COLOR,
+  FUCKING: STATS_TOP_COLOR,
+  GETTING_SUCKED: STATS_TOP_COLOR,
+};
+
+const QUALITY_COLORS: Record<MarkerEventQuality, string> = {
+  REGULAR: STATS_QUALITY_COLORS.regular,
+  REALLY_HOT: STATS_QUALITY_COLORS.really_hot,
+  GOAT: STATS_QUALITY_COLORS.goat,
+};
+
+// Mirror rows: ages in order, everything else by combined count.
+function mirrorRowKeys(
+  left: IMarkerEventChartDatum[],
+  right: IMarkerEventChartDatum[],
+  numeric: boolean
+) {
+  const rows = new Map<
+    string,
+    { label: string; sort: number; count: number }
+  >();
+  [...left, ...right].forEach((datum) => {
+    const row = rows.get(datum.key) ?? {
+      label: datum.label,
+      sort: datum.sortValue,
+      count: 0,
+    };
+    row.count += datum.count;
+    rows.set(datum.key, row);
+  });
+  return Array.from(rows, ([key, row]) => ({ key, ...row })).sort((a, b) =>
+    numeric
+      ? a.sort - b.sort
+      : b.count - a.count || a.label.localeCompare(b.label)
+  );
+}
 
 // Ranked marker cards; only the visible page is fetched as full markers.
+function chartSizeClass(chart: IMarkerEventChartDefinition) {
+  return chart.size && `stats-${chart.size}`;
+}
+
 const MarkerEventCards: React.FC<{
   title: string;
   events: IMarkerEvent[];
@@ -221,25 +252,12 @@ const MarkerEventCards: React.FC<{
             {unitCount(ranked.length, ["marker", "markers"])}
           </span>
         </div>
-        <Form.Group
-          className="marker-event-stats-sort"
-          controlId={`${title}-sort`}
-        >
-          <Form.Label>Sort by</Form.Label>
-          <Form.Control
-            as="select"
-            onChange={(event: React.ChangeEvent<HTMLSelectElement>) =>
-              onSortChange(event.target.value as MarkerEventSort)
-            }
-            value={sort}
-          >
-            {MARKER_EVENT_SORTS.map((option) => (
-              <option key={option.key} value={option.key}>
-                {option.label}
-              </option>
-            ))}
-          </Form.Control>
-        </Form.Group>
+        <StatsRankByChips
+          label="Sort by"
+          options={MARKER_EVENT_SORTS}
+          value={sort}
+          onChange={onSortChange}
+        />
       </div>
       {error && <ErrorMessage error={error.message} />}
       {ranked.length === 0 ? (
@@ -261,15 +279,24 @@ const MarkerEventCards: React.FC<{
       )}
       {ranked.length > visibleCount && (
         <div className="stats-top-more">
-          <Button
+          <button
+            className="stats-chip"
             onClick={() =>
               setVisibleCount((current) => current + MARKER_CARD_PAGE_SIZE)
             }
-            size="sm"
-            variant="secondary"
+            type="button"
           >
-            Show more
-          </Button>
+            Show{" "}
+            {Math.min(
+              MARKER_CARD_PAGE_SIZE,
+              ranked.length - visibleCount
+            ).toLocaleString(getAppLocaleCustom())}{" "}
+            more
+          </button>
+          <span className="stats-top-count">
+            {visibleCount.toLocaleString(getAppLocaleCustom())} of{" "}
+            {ranked.length.toLocaleString(getAppLocaleCustom())}
+          </span>
         </div>
       )}
     </section>
@@ -468,15 +495,17 @@ const MarkerEventStatsDashboard: React.FC<{
       : url;
   })();
   const markerRule = `A marker with two tops counts as two ${page.unit[1]}; one without tops counts as one. The list counts markers and can include second-camera repeats, which this total skips.`;
-  const cards: ISummaryCard[] = [
+  const cards: IStatsKpi[] = [
     {
+      key: "count",
       label: page.countLabel,
-      value: summary.count.toLocaleString(),
+      value: summary.count.toLocaleString(getAppLocaleCustom()),
       title: markerRule,
       to: markersURL,
       action: markersURL ? "View markers" : undefined,
     },
     {
+      key: "time",
       label: page.timeLabel,
       value: TextUtils.formatDurationRange(summary.seconds),
       title: "Markers without an end count as 20 seconds.",
@@ -484,49 +513,90 @@ const MarkerEventStatsDashboard: React.FC<{
   ];
   if (page.kind === MarkerEventStatsKind.Orgasm) {
     cards.push({
+      key: "liters",
       label: "Estimated Liters",
-      value: `${summary.liters.toLocaleString(undefined, {
+      value: `${summary.liters.toLocaleString(getAppLocaleCustom(), {
         maximumFractionDigits: 2,
       })} L`,
       title: "Total Nuts × 3 mL",
     });
   }
 
-  const overview = (
-    <>
-      <SummaryCards cards={cards} />
-      <MarkerEventCards
-        title={page.unit[1].charAt(0).toUpperCase() + page.unit[1].slice(1)}
-        events={filteredEvents}
-        sort={sort}
-        onSortChange={setMetric}
-      />
-      <p className="stats-interaction-help">
-        Select a bar or Unknown badge to filter the totals, {page.unit[1]},
-        rankings, and charts on this page.
-      </p>
-      {[false, true].map((compact) => (
-        <div
-          className={
-            compact
-              ? "stats-chart-grid stats-chart-grid--compact"
-              : "stats-chart-grid"
-          }
-          key={String(compact)}
-        >
-          {charts
-            .filter((chart) => !!chart.compact === compact)
-            .map((chart) => (
-              <StatsBarChart
-                key={chart.key}
-                title={chart.label}
-                unit={chart.key === "group" ? RECEIVER_UNIT : page.unit}
-                total={chart.total}
-                totalNote={chart.note}
-                sortable={chart.sortable}
-                data={chart.data.map((datum) => ({
-                  key: datum.key,
-                  label: datum.label,
+  const unknownFor = (chart: (typeof charts)[number]) => ({
+    count: chart.unknownCount,
+    onSelect: () =>
+      addFilter({
+        category: chart.key,
+        label: "Unknown",
+        value: MARKER_EVENT_UNKNOWN,
+      }),
+  });
+
+  const chartBars = (chart: (typeof charts)[number]): IStatsBarDatum[] =>
+    chart.data.map((datum) => {
+      const filter = {
+        category: chart.key,
+        label: datum.label,
+        value: datum.key,
+      };
+      return {
+        key: datum.key,
+        label: datum.label,
+        count: datum.count,
+        onSelect: () => addFilter(filter),
+        segments: chart.stacked
+          ? MARKER_EVENT_QUALITIES.map((quality) => ({
+              key: quality,
+              label: MARKER_EVENT_QUALITY_LABELS[quality],
+              count: datum.qualities[quality],
+              color: QUALITY_COLORS[quality],
+              onSelect: () => {
+                addFilter(filter);
+                addFilter({
+                  category: "quality",
+                  label: MARKER_EVENT_QUALITY_LABELS[quality],
+                  value: quality,
+                });
+              },
+            }))
+          : undefined,
+      };
+    });
+
+  function renderChart(chart: (typeof charts)[number]) {
+    const unit = chart.key === "per_scene" ? SCENE_UNIT : page.unit;
+    if (chart.display === "none") return null;
+    if (chart.display === "grid") {
+      const cells = new Map(chart.data.map((datum) => [datum.key, datum]));
+      const giverKeys = new Map<string, string>();
+      const receiverKeys = new Map<string, string>();
+      chart.data.forEach((datum) => {
+        const [giver, receiver] = datum.key.split("|");
+        const [giverLabel, receiverLabel] = datum.label.split(" → ");
+        giverKeys.set(giver, giverLabel);
+        receiverKeys.set(receiver, receiverLabel);
+      });
+      const axis = (keys: Map<string, string>, index: 0 | 1) =>
+        Array.from(keys, ([key, label]) => ({
+          key,
+          label,
+          count: chart.data
+            .filter((datum) => datum.key.split("|")[index] === key)
+            .reduce((total, datum) => total + datum.count, 0),
+        })).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+      return (
+        <StatsPairGrid
+          className="stats-wide"
+          key={chart.key}
+          title={chart.label}
+          rowTitle="Giver"
+          columnTitle="Receiver"
+          rows={axis(giverKeys, 0)}
+          columns={axis(receiverKeys, 1)}
+          cell={(giver, receiver) => {
+            const datum = cells.get(`${giver}|${receiver}`);
+            return datum
+              ? {
                   count: datum.count,
                   onSelect: () =>
                     addFilter({
@@ -534,19 +604,127 @@ const MarkerEventStatsDashboard: React.FC<{
                       label: datum.label,
                       value: datum.key,
                     }),
-                }))}
-                unknown={{
-                  count: chart.unknownCount,
-                  onSelect: () =>
-                    addFilter({
-                      category: chart.key,
-                      label: "Unknown",
-                      value: MARKER_EVENT_UNKNOWN,
-                    }),
-                }}
-              />
-            ))}
-        </div>
+                }
+              : undefined;
+          }}
+          unit={unit}
+          total={chart.total}
+          totalNote={chart.note}
+          unknown={unknownFor(chart)}
+        />
+      );
+    }
+    if (chart.display === "mirror") {
+      const receiver = charts.find((item) => item.key === chart.mirror);
+      const giverBars = new Map(chartBars(chart).map((bar) => [bar.key, bar]));
+      const receiverBars = new Map(
+        (receiver ? chartBars(receiver) : []).map((bar) => [bar.key, bar])
+      );
+      const numeric = chart.key === "giver_age";
+      return (
+        <StatsDivergingChart
+          className={chartSizeClass(chart)}
+          key={chart.key}
+          title={chart.label}
+          // Receivers are bottoms (left, green); givers are tops (right, blue).
+          leftLabel="Receivers"
+          rightLabel="Givers"
+          leftColor={STATS_BOTTOM_COLOR}
+          rightColor={STATS_TOP_COLOR}
+          rows={mirrorRowKeys(chart.data, receiver?.data ?? [], numeric).map(
+            (row) => ({
+              key: row.key,
+              label: row.label,
+              icon:
+                chart.key === "giver_country" ? (
+                  <StatsCountryFlag country={row.key} />
+                ) : undefined,
+              left: receiverBars.get(row.key),
+              right: giverBars.get(row.key),
+            })
+          )}
+          extras={[receiver, chart].flatMap((item, index) =>
+            item && item.unknownCount > 0
+              ? [
+                  {
+                    key: `unknown-${item.key}`,
+                    label: `${index === 0 ? "Receiver" : "Giver"} Unknown`,
+                    ...unknownFor(item),
+                  },
+                ]
+              : []
+          )}
+          initialRowCount={numeric ? 80 : undefined}
+          unit={page.unit}
+          totalNote={chart.note}
+        />
+      );
+    }
+    return (
+      <StatsBarChart
+        className={chartSizeClass(chart)}
+        key={chart.key}
+        variant={chart.display}
+        title={chart.label}
+        unit={unit}
+        total={chart.total}
+        totalNote={chart.note}
+        sortable={chart.sortable}
+        data={chartBars(chart).map((bar) =>
+          chart.key === "giver_country"
+            ? { ...bar, icon: <StatsCountryFlag country={bar.key} /> }
+            : chart.key === "activity"
+            ? { ...bar, color: ACTIVITY_ROLE_COLORS[bar.key] }
+            : chart.key === "quality"
+            ? { ...bar, color: QUALITY_COLORS[markerEventQuality(bar.key)] }
+            : bar
+        )}
+        unknown={unknownFor(chart)}
+      />
+    );
+  }
+
+  // CUSTOM: charts grouped by topic, in definition order.
+  const chartPanels = Array.from(
+    new Set(charts.flatMap((chart) => chart.group ?? []))
+  ).map((title) => ({
+    title,
+    charts: charts.filter((chart) => chart.group === title),
+  }));
+
+  const overview = (
+    <>
+      <StatsKpiRow items={cards} label="Summary" />
+      <MarkerEventCards
+        title={page.unit[1].charAt(0).toUpperCase() + page.unit[1].slice(1)}
+        events={filteredEvents}
+        sort={sort}
+        onSortChange={setMetric}
+      />
+      {/* CUSTOM: the giver → receiver matrix sits right under the cards. */}
+      {charts
+        .filter((chart) => chart.display === "grid")
+        .map((chart) => (
+          <div className="marker-event-stats-matrix" key={chart.key}>
+            {renderChart(chart)}
+          </div>
+        ))}
+      <p className="stats-interaction-help">
+        Select a bar or Unknown badge to filter the totals, {page.unit[1]},
+        rankings, and charts on this page.
+      </p>
+      <div className="marker-event-stats-legend">
+        <span>Column colors</span>
+        <StatsChartLegend items={STATS_QUALITY_LEGEND} />
+      </div>
+      {chartPanels.map((panel) => (
+        <StatsChartGroup
+          className="stats-group--panel"
+          key={panel.title}
+          title={panel.title}
+        >
+          {panel.charts.map(renderChart)}
+        </StatsChartGroup>
       ))}
     </>
   );

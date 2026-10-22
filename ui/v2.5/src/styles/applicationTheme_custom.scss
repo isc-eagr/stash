@@ -16,6 +16,18 @@ html.application-theme-masculine-black {
   --black-steel-accent-bright: #ca8757;
   --black-steel-accent-dark: #704025;
   --black-steel-focus: rgba(202, 135, 87, 0.28);
+  --app-bg: var(--black-steel-bg);
+  --app-surface: var(--black-steel-surface);
+  --app-surface-raised: var(--black-steel-surface-raised);
+  --app-border: var(--black-steel-border);
+  --app-border-strong: var(--black-steel-border-strong);
+  --app-track: var(--black-steel-action);
+  --app-text: var(--black-steel-text);
+  --app-muted: var(--black-steel-text-muted);
+  --app-accent: var(--black-steel-accent-bright);
+  --app-control-radius: 2px;
+  --app-card-radius: 2px;
+  --app-panel-radius: 2px;
   color-scheme: dark;
 
   body {

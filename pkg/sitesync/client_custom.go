@@ -90,16 +90,22 @@ func (c *Client) Page(ctx context.Context, url string, members bool) (*html.Node
 
 // Body returns the content at url, read whole.
 func (c *Client) Body(ctx context.Context, url string, members bool) ([]byte, error) {
+	data, _, err := c.body(ctx, url, members)
+	return data, err
+}
+
+// body also returns pagination headers for public post indexes.
+func (c *Client) body(ctx context.Context, url string, members bool) ([]byte, http.Header, error) {
 	resp, err := c.get(ctx, url, members)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer resp.Body.Close()
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("reading %s: %w", url, err)
+		return nil, nil, fmt.Errorf("reading %s: %w", url, err)
 	}
-	return data, nil
+	return data, resp.Header, nil
 }
 
 // Size returns the byte size the site reports for url, or -1 when unknown.

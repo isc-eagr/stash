@@ -2,10 +2,21 @@ import assert from "node:assert/strict";
 import { taskProgressCurrentGoalPeriods } from "../src/components/taskProgress_custom.ts";
 import { taskProgressPeriodComparisons } from "../src/components/TaskProgress/taskProgressReports_custom.ts";
 import {
+  taskProgressDisplayPercentChange,
   taskProgressGoalStreak,
   taskProgressNextMedal,
   taskProgressCompletionCloses,
 } from "../src/components/TaskProgress/taskProgressScoreboard_custom.ts";
+
+assert.equal(
+  taskProgressDisplayPercentChange(-0.004),
+  0,
+  "a percentage change that rounds to zero has no negative sign"
+);
+assert.equal(taskProgressDisplayPercentChange(0), 0);
+assert.equal(taskProgressDisplayPercentChange(1.234), 1.23);
+assert.equal(taskProgressDisplayPercentChange(-1.234), -1.23);
+assert.equal(taskProgressDisplayPercentChange(undefined), undefined);
 
 assert.deepEqual(taskProgressNextMedal(642, 860), {
   threshold: 75,

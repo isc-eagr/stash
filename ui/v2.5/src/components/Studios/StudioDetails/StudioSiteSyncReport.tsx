@@ -58,7 +58,7 @@ export const StudioSiteSyncReport: React.FC<IStudioSiteSyncReportProps> = ({
       <p className="text-muted">{siteSyncSummaryCustom(report).join(" · ")}</p>
 
       {changed.length === 0 && issues.length === 0 && (
-        <p>Nada nuevo, todo al día.</p>
+        <p>Nothing new. Everything is up to date.</p>
       )}
 
       {changed.length > 0 && (

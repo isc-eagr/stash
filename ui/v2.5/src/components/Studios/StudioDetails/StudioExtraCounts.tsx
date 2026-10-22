@@ -1,7 +1,8 @@
+import { getAppLocaleCustom } from "src/utils/appLocale_custom"; // CUSTOM
 import React from "react";
 import { Button } from "react-bootstrap";
 import { Icon } from "src/components/Shared/Icon";
-import { faUserPlus } from "@fortawesome/free-solid-svg-icons";
+import { faFingerprint, faUserPlus } from "@fortawesome/free-solid-svg-icons";
 import * as GQL from "src/core/generated-graphql";
 import NavUtils from "src/utils/navigation";
 import { useRoleTags } from "src/hooks/useRoleTags";
@@ -72,10 +73,35 @@ export const StudioExtraCounts: React.FC<IStudioExtraCountsProps> = ({
     );
   }
 
+  // CUSTOM: average StashDB Matches per scraped scene, opening the scenes
+  // sorted by matches.
+  function maybeRenderStashDBMatchesButton() {
+    const average = includeChildStudios
+      ? studio.average_stashdb_matches_all
+      : studio.average_stashdb_matches;
+    if (average === null || average === undefined) return null;
+
+    return (
+      <Button
+        className="minimal scene-category-count stashdb-matches-average ml-3"
+        href={`/studios/${studio.id}/scenes?sortby=stashdb_matches&sortdir=desc`}
+        title="Avg StashDB Matches per scene"
+      >
+        <Icon icon={faFingerprint} className="category-icon-fa" />
+        <span>
+          {average.toLocaleString(getAppLocaleCustom(), {
+            maximumFractionDigits: 1,
+          })}
+        </span>
+      </Button>
+    );
+  }
+
   return (
     <span className="studio-extra-counts">
       {maybeRenderFacialsButton()}
       {maybeRenderUniquePerformersButton()}
+      {maybeRenderStashDBMatchesButton()}
     </span>
   );
 };

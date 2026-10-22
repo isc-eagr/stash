@@ -1,11 +1,10 @@
-const englishRegionNames = new Intl.DisplayNames(["en"], { type: "region" });
+import { getCountryByISO } from "src/utils/country";
+import { getAppLocaleCustom } from "./appLocale_custom";
+import { cleanStatsValueCustom } from "./statsValues_custom";
 
+// CUSTOM: Same catalog and locale as country selectors/details; keys stay ISO codes.
 export function statsCountryName(value?: string | null) {
-  const trimmed = value?.trim();
-  if (!trimmed) return "Unknown";
-  if (!/^[a-z]{2}$/i.test(trimmed)) return trimmed;
-
-  const code = trimmed.toUpperCase();
-  const name = englishRegionNames.of(code);
-  return !name || name === code || name === "Unknown Region" ? trimmed : name;
+  const cleaned = cleanStatsValueCustom(value);
+  if (!cleaned) return "Unknown";
+  return getCountryByISO(cleaned, getAppLocaleCustom()) ?? cleaned;
 }

@@ -1,3 +1,9 @@
+import {
+  subtractActivityIntervalsCustom as subtractSceneActivityIntervals,
+  intersectActivityIntervalsCustom as intersectSceneActivityIntervals,
+  activityDurationCustom as getSceneActivityDuration,
+  type ActivityIntervalCustom as SceneActivityInterval,
+} from "src/utils/activityIntervals_custom";
 import type * as GQL from "src/core/generated-graphql";
 import {
   getActivityTypePercentagesCustom,
@@ -35,19 +41,8 @@ export type SceneActivityMetricRows = {
   quality: SceneActivityMetric[];
 };
 
-export const SCENE_ACTIVITY_LABELS_CUSTOM: Record<
-  SceneActivityCategory,
-  string
-> = {
-  sex: "Fucking",
-  oral: "Eating pito",
-  solo: "Jerking",
-};
-
-type SceneActivityInterval = {
-  start: number;
-  end: number;
-};
+import { ACTIVITY_LABELS_CUSTOM as SCENE_ACTIVITY_LABELS_CUSTOM } from "src/utils/activityLabels_custom";
+export { SCENE_ACTIVITY_LABELS_CUSTOM };
 
 type SceneActivityMetricTag = {
   id: string;
@@ -168,91 +163,14 @@ export function sceneActivityMarkerIsOutstanding(
   return isGoat || marker.tags.length > 0;
 }
 
-function mergeSceneActivityIntervals(
-  intervals: SceneActivityInterval[]
-): SceneActivityInterval[] {
-  const sorted = [...intervals].sort((a, b) => a.start - b.start);
-  const merged: SceneActivityInterval[] = [];
-
-  sorted.forEach((interval) => {
-    const last = merged[merged.length - 1];
-    if (!last || interval.start > last.end) {
-      merged.push({ ...interval });
-      return;
-    }
-
-    last.end = Math.max(last.end, interval.end);
-  });
-
-  return merged;
-}
-
-function subtractSceneActivityIntervals(
-  intervals: SceneActivityInterval[],
-  subtractIntervals: SceneActivityInterval[]
-): SceneActivityInterval[] {
-  const blockers = mergeSceneActivityIntervals(subtractIntervals);
-
-  return mergeSceneActivityIntervals(intervals).flatMap((interval) => {
-    let cursor = interval.start;
-    const remaining: SceneActivityInterval[] = [];
-
-    blockers.forEach((blocker) => {
-      if (blocker.end <= cursor || blocker.start >= interval.end) return;
-
-      if (blocker.start > cursor) {
-        remaining.push({
-          start: cursor,
-          end: Math.min(blocker.start, interval.end),
-        });
-      }
-      cursor = Math.max(cursor, blocker.end);
-    });
-
-    if (cursor < interval.end) {
-      remaining.push({ start: cursor, end: interval.end });
-    }
-
-    return remaining;
-  });
-}
-
-function intersectSceneActivityIntervals(
-  firstIntervals: SceneActivityInterval[],
-  secondIntervals: SceneActivityInterval[]
-) {
-  const first = mergeSceneActivityIntervals(firstIntervals);
-  const second = mergeSceneActivityIntervals(secondIntervals);
-  const intersections: SceneActivityInterval[] = [];
-  let firstIndex = 0;
-  let secondIndex = 0;
-
-  while (firstIndex < first.length && secondIndex < second.length) {
-    const start = Math.max(first[firstIndex].start, second[secondIndex].start);
-    const end = Math.min(first[firstIndex].end, second[secondIndex].end);
-    if (end > start) intersections.push({ start, end });
-
-    if (first[firstIndex].end < second[secondIndex].end) {
-      firstIndex += 1;
-    } else {
-      secondIndex += 1;
-    }
-  }
-
-  return intersections;
-}
-
-function getSceneActivityDuration(intervals: SceneActivityInterval[]) {
-  return mergeSceneActivityIntervals(intervals).reduce(
-    (sum, interval) => sum + interval.end - interval.start,
-    0
-  );
-}
-
 export type SceneMarkerCountKeyCustom =
   | "orgasm_count"
   | "really_hot_orgasm_count"
   | "facial_count"
+  | "regular_orgasm_count"
+  | "goat_orgasm_count"
+  | "regular_facial_count"
+  | "goat_facial_count"
   | "really_hot_facial_count";
 
 // Counts orgasm/facial markers (primary or secondary tag, including subtags),
@@ -269,24 +187,50 @@ export function getSceneMarkerCountCustom(
   const roleTagId = key.endsWith("orgasm_count")
     ? roleTagIds.orgasmTagId
     : roleTagIds.facialTagId;
-  const reallyHot = key.startsWith("really_hot_");
-  if (!roleTagId || (reallyHot && !roleTagIds.reallyHotTagId)) {
+  const quality = key.startsWith("really_hot_")
+    ? "really_hot"
+    : key.startsWith("goat_")
+    ? "goat"
+    : key.startsWith("regular_")
+    ? "regular"
+    : undefined;
+  const reallyHot = quality === "really_hot";
+  if (
+    !roleTagId ||
+    (reallyHot && !roleTagIds.reallyHotTagId) ||
+    (quality === "goat" && !roleTagIds.goatTagId)
+  ) {
     return undefined;
   }
 
   const ancestors = sceneActivityTagAncestors(scene);
-  return scene.scene_markers.filter(
-    (marker) =>
-      sceneActivityMarkerHasTag(marker, roleTagId, ancestors) &&
-      (!reallyHot ||
-        sceneActivityMarkerHasTag(marker, roleTagIds.reallyHotTagId, ancestors))
-  ).length;
+  return scene.scene_markers.filter((marker) => {
+    if (!sceneActivityMarkerHasTag(marker, roleTagId, ancestors)) return false;
+    if (!quality) return true;
+    const goat = sceneActivityMarkerHasTag(
+      marker,
+      roleTagIds.goatTagId,
+      ancestors
+    );
+    const hot = sceneActivityMarkerHasTag(
+      marker,
+      roleTagIds.reallyHotTagId,
+      ancestors
+    );
+    return quality === "goat"
+      ? goat
+      : quality === "really_hot"
+      ? hot && !goat
+      : !hot && !goat;
+  }).length;
 }
 
-export function getSceneActivityMetrics(
-  scene: SceneActivityScene,
+export function getSceneActivityDataCustom<
+  M extends SceneActivityScene["scene_markers"][number]
+>(
+  scene: Omit<SceneActivityScene, "scene_markers"> & { scene_markers: M[] },
   roleTagIds: SceneActivityRoleTagIds
-): SceneActivityMetricRows | undefined {
+) {
   const sceneDuration = scene.files[0]?.duration ?? 0;
   if (sceneDuration <= 0) return undefined;
 
@@ -299,6 +243,11 @@ export function getSceneActivityMetrics(
     solo: [],
   };
   const outstandingIntervals: SceneActivityInterval[] = [];
+  const markers: Array<{
+    marker: M;
+    category: SceneActivityCategory;
+    interval: SceneActivityInterval;
+  }> = [];
   const ancestors = sceneActivityTagAncestors(scene);
 
   scene.scene_markers.forEach((marker) => {
@@ -316,6 +265,7 @@ export function getSceneActivityMetrics(
     const category = sceneActivityMarkerCategory(marker, roleTagIds);
     if (category) {
       intervalsByCategory[category].push(interval);
+      markers.push({ marker, category, interval });
     }
 
     if (sceneActivityMarkerIsOutstanding(marker, roleTagIds, ancestors)) {
@@ -375,23 +325,98 @@ export function getSceneActivityMetrics(
     "unusable",
   ]);
 
+  const activityOtherIntervals = subtractSceneActivityIntervals(
+    [{ start: 0, end: sceneDuration }],
+    activityIntervals
+  );
+  const qualityByActivity = Object.fromEntries(
+    (["sex", "oral", "solo"] as const).map((category) => [
+      category,
+      {
+        totalSeconds: activityDurations[category],
+        outstandingSeconds: getSceneActivityDuration(
+          intersectSceneActivityIntervals(
+            intervalsByCategory[category],
+            usableOutstandingIntervals
+          )
+        ),
+        unusableSeconds: getSceneActivityDuration(
+          intersectSceneActivityIntervals(
+            intervalsByCategory[category],
+            unusableIntervals
+          )
+        ),
+        standardSeconds: getSceneActivityDuration(
+          subtractSceneActivityIntervals(intervalsByCategory[category], [
+            ...outstandingIntervals,
+            ...unusableIntervals,
+          ])
+        ),
+      },
+    ])
+  ) as Record<
+    SceneActivityCategory,
+    {
+      totalSeconds: number;
+      outstandingSeconds: number;
+      unusableSeconds: number;
+      standardSeconds: number;
+    }
+  >;
+  return {
+    totalSeconds: sceneDuration,
+    activityTimeSeconds,
+    sexSeconds: activityDurations.sex,
+    oralSeconds: activityDurations.oral,
+    soloSeconds: activityDurations.solo,
+    otherSeconds: getSceneActivityDuration(activityOtherIntervals),
+    outstandingSeconds: outstandingDuration,
+    standardSeconds: standardDuration,
+    unclassifiedSeconds: unclassifiedDuration,
+    unusableSeconds: unusableDuration,
+    markers,
+    qualityByActivity,
+    activityOtherIntervals,
+    outstandingVisibleIntervals: usableOutstandingIntervals,
+    standardIntervals,
+    unclassifiedIntervals,
+    unusableIntervals,
+    activityDurations,
+    activityPercentages,
+    qualityPercentages,
+    intervalsByCategory,
+    usableOutstandingIntervals,
+    outstandingDuration,
+    unusableDuration,
+    standardDuration,
+    unclassifiedDuration,
+  };
+}
+
+export function getSceneActivityMetrics(
+  scene: SceneActivityScene,
+  roleTagIds: SceneActivityRoleTagIds
+): SceneActivityMetricRows | undefined {
+  const activity = getSceneActivityDataCustom(scene, roleTagIds);
+  if (!activity) return undefined;
+  const {
+    activityDurations,
+    activityPercentages,
+    qualityPercentages,
+    qualityByActivity,
+    outstandingDuration,
+    unusableDuration,
+    standardDuration,
+    unclassifiedDuration,
+  } = activity;
   return {
     activity: (["sex", "oral", "solo"] as const).flatMap((key) => {
       const label = SCENE_ACTIVITY_LABELS_CUSTOM[key];
       const duration = activityDurations[key];
       if (duration <= 0) return [];
-      const activityOutstandingDuration = getSceneActivityDuration(
-        intersectSceneActivityIntervals(
-          intervalsByCategory[key],
-          usableOutstandingIntervals
-        )
-      );
-      const activityNegativeDuration = getSceneActivityDuration(
-        intersectSceneActivityIntervals(
-          intervalsByCategory[key],
-          unusableIntervals
-        )
-      );
+      const activityOutstandingDuration =
+        qualityByActivity[key].outstandingSeconds;
+      const activityNegativeDuration = qualityByActivity[key].unusableSeconds;
 
       return [
         {

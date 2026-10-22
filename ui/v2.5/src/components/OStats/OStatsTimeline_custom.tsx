@@ -1,3 +1,4 @@
+import { getAppLocaleCustom } from "src/utils/appLocale_custom"; // CUSTOM
 import React from "react";
 import { Link } from "react-router-dom";
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
@@ -29,7 +30,7 @@ function formatODate(value: string) {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
 
-  return parsed.toLocaleString(undefined, {
+  return parsed.toLocaleString(getAppLocaleCustom(), {
     dateStyle: "medium",
     timeStyle: "short",
   });
@@ -314,7 +315,8 @@ export const OStatsFullTimeline: React.FC<PageProps & { page: number }> = ({
             <span />
           )}
           <span>
-            Page {result.page.toLocaleString()} of {pageCount.toLocaleString()}
+            Page {result.page.toLocaleString(getAppLocaleCustom())} of{" "}
+            {pageCount.toLocaleString(getAppLocaleCustom())}
           </span>
           {result.page < pageCount ? (
             <Link

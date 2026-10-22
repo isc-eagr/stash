@@ -1,3 +1,4 @@
+import { ACTIVITY_LABELS_CUSTOM } from "src/utils/activityLabels_custom";
 import React from "react";
 import type { SceneActivityMetricRows } from "src/components/Scenes/sceneActivityMetricsData_custom";
 import { SceneActivityMetrics } from "src/components/Scenes/SceneActivityMetrics_custom";
@@ -32,19 +33,19 @@ export const ActivityStatsCharts: React.FC<IProps> = ({
     activity: [
       {
         key: "sex",
-        label: "Fucking",
+        label: ACTIVITY_LABELS_CUSTOM.sex,
         duration: stats.sex_seconds,
         percent: Math.round(stats.sex_percent),
       },
       {
         key: "oral",
-        label: "Eating pito",
+        label: ACTIVITY_LABELS_CUSTOM.oral,
         duration: stats.oral_seconds,
         percent: Math.round(stats.oral_percent),
       },
       {
         key: "solo",
-        label: "Jerking",
+        label: ACTIVITY_LABELS_CUSTOM.solo,
         duration: stats.solo_seconds,
         percent: Math.round(stats.solo_percent),
       },

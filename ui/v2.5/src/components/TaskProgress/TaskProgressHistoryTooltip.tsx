@@ -6,6 +6,7 @@ import {
 } from "../taskProgress_custom";
 import type { ITaskProgressHistoryPoint } from "../taskProgress_custom";
 import { useProgressText } from "./progressView_custom";
+import { taskProgressDisplayPercentChange } from "./taskProgressScoreboard_custom"; // CUSTOM
 
 export type TaskProgressHistoryView = "remaining" | "cumulative";
 
@@ -17,11 +18,18 @@ export const TaskProgressHistoryTooltip: React.FC<{
   const intl = useIntl();
   const t = useProgressText();
   const percentages = taskProgressHistoryPercentages(point);
-  const percentage = (value: number, signed = false) =>
-    `${signed && value > 0 ? "+" : ""}${intl.formatNumber(value, {
-      maximumFractionDigits: 2,
-      minimumFractionDigits: 2,
-    })}%`;
+  const percentage = (value: number, signed = false) => {
+    const displayValue = signed
+      ? taskProgressDisplayPercentChange(value) ?? value
+      : value;
+    return `${signed && displayValue > 0 ? "+" : ""}${intl.formatNumber(
+      displayValue,
+      {
+        maximumFractionDigits: 2,
+        minimumFractionDigits: 2,
+      }
+    )}%`;
+  };
   return (
     <>
       <strong className="task-progress-history-chart-tooltip-title">

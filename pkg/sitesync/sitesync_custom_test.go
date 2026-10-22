@@ -20,6 +20,7 @@ type fakeSite struct {
 	pages    map[string]string // URL -> fixture file name or literal body
 	statuses map[string]int
 	sizes    map[string]int64
+	headers  map[string]http.Header
 	requests []string
 	authed   []bool
 }
@@ -51,6 +52,7 @@ func (f *fakeSite) RoundTrip(req *http.Request) (*http.Response, error) {
 		Body:          io.NopCloser(strings.NewReader(body)),
 		ContentLength: -1,
 		Request:       req,
+		Header:        f.headers[u],
 	}
 	if size, ok := f.sizes[u]; ok {
 		resp.ContentLength = size
@@ -388,7 +390,8 @@ func TestLatinboyzScrapeUsesTheSceneURL(t *testing.T) {
 	}})
 	require.NoError(t, err)
 	assert.Equal(t, Metadata{
-		Title:   "Cute Latino Twink – Brian",
+		Code:    "2224",
+		Title:   "Brian",
 		Date:    "2025-04-24",
 		Details: "Friday 4/25/2025 Video added. Brian is a sexy Colombian who likes futbol, chess and reading.\nHe’s back next month. Stay tuned.",
 		URLs:    []string{lbzPostBrian},
@@ -400,14 +403,47 @@ func TestLatinboyzScrapeUsesTheSceneURL(t *testing.T) {
 	assert.False(t, downloads)
 }
 
-// Recent posts name their images after am<code>; the search also returns
-// posts with longer codes.
+func TestLatinboyzCleanTitle(t *testing.T) {
+	for title, want := range map[string]string{
+		"LatinBoyz Model PABLO":                                               "Pablo",
+		"LatinBoyz Models ANTHONY, CEASAR and JESSE":                          "Anthony, Ceasar & Jesse",
+		"Gay Latino Porn GABRIEL and CYCO":                                    "Gabriel & Cyco",
+		"Gay Latin porn starring SAVIOR AND GABRIEL":                          "Savior & Gabriel",
+		"Latino three way sex video TRELINO, C-LO and LIL FELIX":              "Trelino, C-Lo & Lil Felix",
+		"FRANKO Gets Fucked Raw by JAKO":                                      "Franko & Jako",
+		"Why We Love Mexican Cock JONNIE":                                     "Jonnie",
+		"Gay Latin Porn JAE G and KATRACHO":                                   "Jae G & Katracho",
+		"Cute Latin Twink G BOY":                                              "G Boy",
+		"Cute Twink With Hot Ass LUCkY (And Fat Dick too)":                    "Lucky",
+		"Latin Twink with Uncut Cock DL":                                      "DL",
+		"Latino Bareback Twinks FELIPE and DEZIÑO":                            "Felipe & Deziño",
+		"UBER’s First Bareback Sex Scene with NIELO":                          "Uber & Nielo",
+		"ROLO… Big thick Latin dicks":                                         "Rolo",
+		"AUSTIN & BYRON… Byron’s hot hole gets filled":                        "Austin & Byron",
+		"iNFAMOUSj & STARZ… Hot gay latino porn video":                        "iNFAMOUSj & Starz",
+		"HUGO & HIS CURIOUS NEIGHBOR… Latin Bareback Video":                   "Hugo & His Curious Neighbor",
+		"Cute Latino Twink – Brian":                                           "Brian",
+		"Nude Latin Twink – Big Cock Omar":                                    "Omar",
+		"Latin Gay Bareback Porn Video – Bernardo & Agustin Latinboyz Models": "Bernardo & Agustin",
+		"Gay Latino 3some – Cielo, Daniel & Travi":                            "Cielo, Daniel & Travi",
+		"Gay Colombian Twink -Jeicol Latinboyz":                               "Jeicol",
+		"Huge Curved Latin Cock on Lleno":                                     "Lleno",
+		"Gay Latin Porn Aron & Friend":                                        "Aron & Friend",
+		"Gay Latin Porn HOT THREE WAY":                                        "",
+		"Gay Latin Twinks Porn":                                               "",
+		"HD1565.mp4":                                                          "",
+		"Nitro and Jay Diamond":                                               "Nitro & Jay Diamond",
+		"Freaky Jay":                                                          "Freaky Jay",
+	} {
+		assert.Equal(t, want, lbzCleanTitle(title), title)
+	}
+}
+
+// Public media filenames distinguish scene codes from longer codes.
 func TestLatinboyzScrapeFindsRecentPostsByCode(t *testing.T) {
-	search := func(code string) string { return fmt.Sprintf(lbzSearchURL, code) }
 	fake := &fakeSite{pages: map[string]string{
-		search("2224"): "lbz_search.json",
-		search("1887"): "[]",
-		lbzPostBrian:   "lbz_post.html",
+		fmt.Sprintf(lbzIndexURL, 1): "lbz_search.json",
+		lbzPostBrian:                "lbz_post.html",
 	}}
 	site := New(LatinboyzKey, newFakeClient(fake, "", ""))
 

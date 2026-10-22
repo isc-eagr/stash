@@ -142,6 +142,7 @@ test("only backend-only Studio metrics are requested from the metrics query", ()
     "no_metallic_scenes_count",
     "average_performer_rating",
     "average_overall_scene_rating",
+    "average_stashdb_matches",
   ]) {
     assert.equal(studioSortMetricNeedsBackendCustom(sortBy), true, sortBy);
   }

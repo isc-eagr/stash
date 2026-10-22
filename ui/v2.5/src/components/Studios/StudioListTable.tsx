@@ -63,6 +63,7 @@ const METRIC_COLUMNS: [string, boolean][] = [
   ["facial_count", false],
   ["standard_facial_count", false],
   ["really_hot_facial_count", false],
+  ["goat_facial_count", false], // CUSTOM
   ["royal_sapphire_scenes_count", true],
   ["gold_scenes_count", true],
   ["silver_scenes_count", true],
@@ -74,6 +75,7 @@ const METRIC_COLUMNS: [string, boolean][] = [
   ["average_standard_scene_rating", true],
   ["average_threesome_scene_rating", true],
   ["average_group_scene_rating", true],
+  ["average_stashdb_matches", true],
   ["created_at", false],
   ["updated_at", false],
 ];

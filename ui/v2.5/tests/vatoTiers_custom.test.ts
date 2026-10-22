@@ -204,7 +204,7 @@ assert.deepEqual(
   ),
   [
     ["Mexico", 3],
-    ["United States", 2],
+    ["United States of America", 2],
     ["Unknown", 2],
   ]
 );
@@ -247,7 +247,7 @@ const bronzeLatinUrl = decodeURIComponent(
 );
 assert.match(bronzeLatinUrl, /^\/performers\?/);
 assert.match(bronzeLatinUrl, /"type":"ethnicity"/);
-assert.match(bronzeLatinUrl, /"value":"Latino"/);
+assert.match(bronzeLatinUrl, /"value":"Latino,__exact__"/);
 assert.match(bronzeLatinUrl, /"type":"country"/);
 assert.match(bronzeLatinUrl, /"value":"MX"/);
 assert.match(bronzeLatinUrl, /"type":"metallic_rating"/);
@@ -263,6 +263,11 @@ assert.match(noTierUrl, /__include_non_metallic__/);
 assert.match(noTierUrl, /__unknown__/);
 assert.match(noTierUrl, /"type":"rating100"/);
 assert.match(noTierUrl, /"modifier":"NOT_NULL"/);
+const allTiersUrl = decodeURIComponent(makeVatoTierPerformersUrl({}));
+assert.match(
+  allTiersUrl,
+  /"value":\["bronze","silver","gold","royal_sapphire","none"\]/
+);
 
 const schemaRoot = new URL("../../../graphql/schema/", import.meta.url);
 const sources: string[] = [];

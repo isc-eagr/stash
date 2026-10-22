@@ -219,9 +219,7 @@ export function markerVatoLabelCustom(
   const vato = unnamed.find((u) => u.id === person.id);
   if (!vato) return person.label;
   const summary = formatUnnamedPerformerSummary(vato);
-  return summary === "Any performer"
-    ? vato.label
-    : `${vato.label} (${summary})`;
+  return summary === "Any vato" ? vato.label : `${vato.label} (${summary})`;
 }
 
 export function markerTagsSummaryCustom(group: IMarkerRoleGroupCustom) {

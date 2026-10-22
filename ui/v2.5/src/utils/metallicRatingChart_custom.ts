@@ -15,7 +15,7 @@ const metallicRatingChartBuckets: Record<
   MetallicRatingChartKey,
   MetallicRatingChartBucket
 > = {
-  none: { key: "none", label: "None", sortValue: 0 },
+  none: { key: "none", label: "No Tier", sortValue: 0 },
   bronze: { key: "bronze", label: "Bronze", sortValue: 1 },
   silver: { key: "silver", label: "Silver", sortValue: 2 },
   gold: { key: "gold", label: "Gold", sortValue: 3 },

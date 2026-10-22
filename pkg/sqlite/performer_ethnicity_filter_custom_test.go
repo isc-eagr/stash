@@ -13,6 +13,11 @@ func TestExpandPerformerEthnicitySelectionsCustom(t *testing.T) {
 		[]string{"Black", "Mixed", "Afrolatino", "Latino"},
 		expandPerformerEthnicitySelectionsCustom(" Black, Latino, Black "),
 	)
+	// Report drilldowns keep Mixed and Afrolatino in their own buckets.
+	assert.Equal(t,
+		[]string{"Black", "Latino"},
+		expandPerformerEthnicitySelectionsCustom("Black,Latino,__exact__"),
+	)
 }
 
 func TestPerformerEthnicityCriterionHandlerCustom(t *testing.T) {

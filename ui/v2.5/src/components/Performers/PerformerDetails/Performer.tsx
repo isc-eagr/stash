@@ -586,11 +586,13 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
     }
 
     if (isDestroying)
+      // CUSTOM: begin - consistent entity vocabulary.
       return (
         <LoadingIndicator
-          message={`Deleting performer ${performer.id}: ${performer.name}`}
+          message={`Deleting vato ${performer.id}: ${performer.name}`}
         />
       );
+    // CUSTOM: end
 
     const headerClassName = cx("detail-header", {
       edit: isEditing,
@@ -797,7 +799,9 @@ const PerformerLoader: React.FC<RouteComponentProps<IPerformerParams>> = ({
   if (loading) return <LoadingIndicator />;
   if (error) return <ErrorMessage error={error.message} />;
   if (!data?.findPerformer)
-    return <ErrorMessage error={`No performer found with id ${id}.`} />;
+    // CUSTOM: begin - consistent entity vocabulary.
+    return <ErrorMessage error={`No vato found with id ${id}.`} />;
+  // CUSTOM: end
 
   if (tab && !isTabKey(tab)) {
     return (

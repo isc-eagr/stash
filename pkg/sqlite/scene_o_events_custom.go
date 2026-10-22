@@ -96,9 +96,9 @@ func sceneLastOSQLCustom(sceneRef string) string {
 	return "NULLIF(MAX(COALESCE(" + sceneLast + ", ''), COALESCE(" + releaseLast + ", '')), '')"
 }
 
-// sceneTotalStashDBMatchesSQLCustom sums the scene's StashDB Matches and its
+// SceneTotalStashDBMatchesSQLCustom sums the scene's StashDB Matches and its
 // releases'; NULL while neither has a count.
-func sceneTotalStashDBMatchesSQLCustom(sceneRef string) string {
+func SceneTotalStashDBMatchesSQLCustom(sceneRef string) string {
 	sceneMatches := "(SELECT matches FROM scene_stashdb_matches WHERE scene_id = " + sceneRef + ")"
 	if !releaseOEventsReadyCustom.Load() {
 		return sceneMatches

@@ -1,3 +1,7 @@
+import {
+  activityDurationCustom as mergeDuration,
+  subtractActivityIntervalsCustom as subtractIntervals,
+} from "src/utils/activityIntervals_custom"; // CUSTOM
 import React, { useEffect, useMemo, useState } from "react";
 import cx from "classnames";
 import {
@@ -51,9 +55,7 @@ import { getOutstandingActivityMatrix } from "../sceneCardInsightsData_custom"; 
 import { SceneActivityMetricBox } from "../SceneActivityMetrics_custom"; // CUSTOM
 import { PerformerVersatilityByTime } from "src/components/Performers/PerformerDetails/PerformerVersatility_custom"; // CUSTOM
 import {
-  sceneActivityMarkerCategory,
-  sceneActivityMarkerIsOutstanding,
-  sceneActivityTagAncestors,
+  getSceneActivityDataCustom,
   type SceneActivityMetric,
   type SceneActivityMetricKey,
 } from "../sceneActivityMetricsData_custom"; // CUSTOM: shared marker classification
@@ -138,74 +140,6 @@ interface IPerformerStats {
   rows: IStatsRow[];
 }
 
-function mergeIntervals(intervals: IInterval[]) {
-  const sorted = [...intervals].sort((a, b) => a.start - b.start);
-  const merged: IInterval[] = [];
-
-  sorted.forEach((interval) => {
-    const last = merged[merged.length - 1];
-    if (!last || interval.start > last.end) {
-      merged.push({ ...interval });
-      return;
-    }
-
-    last.end = Math.max(last.end, interval.end);
-  });
-
-  return merged;
-}
-
-function mergeDuration(intervals: IInterval[]) {
-  return mergeIntervals(intervals).reduce(
-    (sum, interval) => sum + interval.end - interval.start,
-    0
-  );
-}
-
-function subtractIntervals(
-  intervals: IInterval[],
-  subtractIntervalsList: IInterval[]
-) {
-  const blockers = mergeIntervals(subtractIntervalsList);
-
-  return mergeIntervals(intervals).flatMap((interval) => {
-    let cursor = interval.start;
-    const remaining: IInterval[] = [];
-
-    blockers.forEach((blocker) => {
-      if (blocker.end <= cursor || blocker.start >= interval.end) return;
-
-      if (blocker.start > cursor) {
-        remaining.push({
-          start: cursor,
-          end: Math.min(blocker.start, interval.end),
-        });
-      }
-      cursor = Math.max(cursor, blocker.end);
-    });
-
-    if (cursor < interval.end) {
-      remaining.push({ start: cursor, end: interval.end });
-    }
-
-    return remaining;
-  });
-}
-
-function uncoveredIntervals(totalSeconds: number, intervals: IInterval[]) {
-  return subtractIntervals([{ start: 0, end: totalSeconds }], intervals);
-}
-
-function intersectIntervals(first: IInterval[], second: IInterval[]) {
-  return mergeIntervals(first).flatMap((firstInterval) =>
-    mergeIntervals(second).flatMap((secondInterval) => {
-      const start = Math.max(firstInterval.start, secondInterval.start);
-      const end = Math.min(firstInterval.end, secondInterval.end);
-      return end > start ? [{ start, end }] : [];
-    })
-  );
-}
-
 function percent(seconds: number, totalSeconds: number) {
   if (totalSeconds <= 0) return 0;
   return Math.round((seconds / totalSeconds) * 100);
@@ -215,7 +149,10 @@ function formatPercentValue(row: Pick<IStatsRow, "percent">) {
   return `${row.percent}%`;
 }
 
-function getActivityColor(key: string, soloColor = ACTIVITY_PIE_COLORS.solo) {
+function getActivityColor(
+  key: string,
+  soloColor: string = ACTIVITY_PIE_COLORS.solo
+) {
   const colors: Record<string, string> = {
     both: "#8f7ee7",
     sex: ACTIVITY_PIE_COLORS.sex,
@@ -314,103 +251,15 @@ function getActivityStats(
     reallyHotTagId?: string;
   }
 ): IActivityStats | undefined {
-  const totalSeconds = scene.files[0]?.duration ?? 0;
-  if (totalSeconds <= 0) return undefined;
-
-  const intervals: Record<ActivityCategory, IInterval[]> = {
-    sex: [],
-    oral: [],
-    solo: [],
-  };
-  const markers: IActivityMarker[] = [];
-  const outstandingIntervals: IInterval[] = [];
-  const ancestors = sceneActivityTagAncestors(scene);
-  const unusableIntervals =
-    scene.negative_markers
-      ?.map((marker) => ({
-        start: Math.max(0, Math.min(marker.start_seconds, totalSeconds)),
-        end: Math.max(0, Math.min(marker.end_seconds, totalSeconds)),
-      }))
-      .filter((interval) => interval.end > interval.start) ?? [];
-
-  scene.scene_markers.forEach((marker) => {
-    if (marker.end_seconds === null || marker.end_seconds === undefined) {
-      return;
-    }
-
-    const interval = {
-      start: Math.max(0, Math.min(marker.seconds, totalSeconds)),
-      end: Math.max(0, Math.min(marker.end_seconds, totalSeconds)),
-    };
-    if (interval.end <= interval.start) return;
-
-    const category = sceneActivityMarkerCategory(marker, roleTagIds);
-    const activityMarker = category
-      ? { marker, category, interval }
-      : undefined;
-    if (activityMarker) {
-      intervals[activityMarker.category].push(interval);
-      markers.push(activityMarker);
-    }
-
-    if (sceneActivityMarkerIsOutstanding(marker, roleTagIds, ancestors)) {
-      outstandingIntervals.push(interval);
-    }
-  });
-
-  const sexSeconds = mergeDuration(intervals.sex);
-  const oralSeconds = mergeDuration(intervals.oral);
-  const soloSeconds = mergeDuration(intervals.solo);
-  const activityIntervals = [
-    ...intervals.sex,
-    ...intervals.oral,
-    ...intervals.solo,
-  ];
-  const activityOtherIntervals = uncoveredIntervals(
-    totalSeconds,
-    activityIntervals
-  );
-  // CUSTOM: retain overlapping non-activity coverage and include any portion
-  // outside Sex/Oral/Solo instead of clipping Outstanding to activity.
-  const outstandingVisibleIntervals = subtractIntervals(
-    outstandingIntervals,
-    unusableIntervals
-  );
-  const standardIntervals = subtractIntervals(activityIntervals, [
-    ...outstandingIntervals,
-    ...unusableIntervals,
-  ]);
-  const unclassifiedIntervals = uncoveredIntervals(totalSeconds, [
-    ...activityIntervals,
-    ...outstandingIntervals,
-    ...unusableIntervals,
-  ]);
-  const qualityByActivity = (
-    Object.keys(intervals) as ActivityCategory[]
-  ).reduce((byActivity, category) => {
-    const categoryActivityIntervals = intervals[category];
-    const outstanding = intersectIntervals(
-      categoryActivityIntervals,
-      outstandingVisibleIntervals
-    );
-    const unusable = intersectIntervals(
-      categoryActivityIntervals,
-      unusableIntervals
-    );
-    byActivity[category] = {
-      totalSeconds: mergeDuration(categoryActivityIntervals),
-      outstandingSeconds: mergeDuration(outstanding),
-      unusableSeconds: mergeDuration(unusable),
-      standardSeconds: mergeDuration(
-        subtractIntervals(categoryActivityIntervals, [
-          ...outstandingIntervals,
-          ...unusableIntervals,
-        ])
-      ),
-    };
-    return byActivity;
-  }, {} as Record<ActivityCategory, IActivityQualityStats>);
-
+  const activity = getSceneActivityDataCustom(scene, roleTagIds);
+  if (!activity) return undefined;
+  const {
+    markers,
+    activityOtherIntervals,
+    outstandingVisibleIntervals,
+    standardIntervals,
+    unclassifiedIntervals,
+  } = activity;
   const loopSegments: Record<string, ILoopSegmentInput[]> = {
     sex: markers
       .filter((marker) => marker.category === "sex")
@@ -433,21 +282,7 @@ function getActivityStats(
     ),
   };
 
-  return {
-    totalSeconds,
-    activityTimeSeconds: mergeDuration(activityIntervals), // CUSTOM
-    sexSeconds,
-    oralSeconds,
-    soloSeconds,
-    unusableSeconds: mergeDuration(unusableIntervals),
-    otherSeconds: mergeDuration(activityOtherIntervals),
-    outstandingSeconds: mergeDuration(outstandingVisibleIntervals),
-    standardSeconds: mergeDuration(standardIntervals),
-    unclassifiedSeconds: mergeDuration(unclassifiedIntervals),
-    qualityByActivity,
-    markers,
-    loopSegments,
-  };
+  return { ...activity, loopSegments };
 }
 
 function addPerformerIntervals(
@@ -793,7 +628,7 @@ const SceneStatsPanel: React.FC<IProps> = ({
     },
     {
       key: "oral",
-      label: "Eating pito",
+      label: "Mamando Rifle",
       seconds: activityStats.oralSeconds,
       percent: activityPercentages.oral,
       category: "oral",
@@ -1412,6 +1247,7 @@ const SceneStatsPanel: React.FC<IProps> = ({
         interactionView
       );
 
+    // CUSTOM: begin - consistent entity vocabulary.
     return (
       <section className="scene-stats-interactions">
         <div className="scene-stats-interaction-toolbar">
@@ -1434,7 +1270,7 @@ const SceneStatsPanel: React.FC<IProps> = ({
             <thead>
               <tr>
                 <th
-                  aria-label="Rows are Top performers and columns are Bottom performers"
+                  aria-label="Rows are Top vatos and columns are Bottom vatos"
                   className="scene-stats-matrix-corner"
                 />
                 {performerStats.map((entry) => (
@@ -1573,6 +1409,7 @@ const SceneStatsPanel: React.FC<IProps> = ({
         </div>
       </section>
     );
+    // CUSTOM: end
   }
 
   function renderLoopTray() {
@@ -1745,9 +1582,10 @@ const SceneStatsPanel: React.FC<IProps> = ({
     );
   }
 
+  // CUSTOM: begin - consistent entity vocabulary.
   const detailTabs: { key: SceneStatsDetailView; label: string }[] = [
     ...(performerStats.length > 0
-      ? [{ key: "performer" as const, label: "Performer Explorer" }]
+      ? [{ key: "performer" as const, label: "Vato Explorer" }]
       : []),
     ...(performerStats.length > 0 &&
     shouldShowSceneStatsPartnerInteractions(scene.performers.length)
@@ -1760,6 +1598,7 @@ const SceneStatsPanel: React.FC<IProps> = ({
       ? [{ key: "activity" as const, label: "Activity Matrix" }]
       : []),
   ];
+  // CUSTOM: end
   const activeDetailView = detailTabs.some((tab) => tab.key === detailView)
     ? detailView
     : detailTabs[0]?.key;

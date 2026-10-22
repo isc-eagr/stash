@@ -39,7 +39,7 @@ assert.deepEqual(
     },
     {
       key: "oral-bottom",
-      label: "Time Sucking Pito",
+      label: "Time Mamando Rifle",
       role: "bottom",
       timestamp: "0:00",
     },

@@ -59,8 +59,10 @@ CREATE TABLE scenes (
   date TEXT,
   rating INTEGER,
   studio_id INTEGER,
-  created_at DATETIME
+  created_at DATETIME,
+  organized BOOLEAN NOT NULL DEFAULT 0
 );
+CREATE TABLE scene_stashdb_matches (scene_id INTEGER PRIMARY KEY, matches INTEGER NOT NULL);
 CREATE TABLE scenes_files (scene_id INTEGER, file_id INTEGER, "primary" BOOLEAN);
 CREATE TABLE files (id INTEGER PRIMARY KEY, size INTEGER);
 CREATE TABLE video_files (file_id INTEGER, duration REAL, width INTEGER, height INTEGER);
@@ -73,6 +75,7 @@ INSERT INTO scenes(id, title, date, rating, studio_id, created_at) VALUES
   (2, 'Released 2025 via release row', NULL, 70, 1, '2024-01-01 12:00:00'),
   (3, 'Undated', NULL, 50, NULL, '2023-01-01 12:00:00');
 INSERT INTO scene_releases(scene_id, date) VALUES (2, '2025-03-01');
+INSERT INTO scene_stashdb_matches(scene_id, matches) VALUES (1, 12), (2, 0);
 INSERT INTO scenes_o_dates(scene_id, o_date) VALUES
   (1, '2025-01-10 12:00:00'),
   (1, '2026-01-10 12:00:00'),
@@ -126,6 +129,8 @@ func TestActivityStatsSceneScopeCustomDateRangeFields(t *testing.T) {
 
 func TestSceneStatsBaseQueryCustomLimitsOCountsOnlyForODateRanges(t *testing.T) {
 	db := openSceneStatsDateRangeDBCustom(t)
+	matches := map[int]*int{}
+	studios := map[int]*string{}
 
 	oCounts := func(dateRange *statsDateRangeCustom) map[int][2]int {
 		scope, scopeArgs := activityStatsSceneScopeCustom(nil, nil, dateRange)
@@ -137,19 +142,25 @@ func TestSceneStatsBaseQueryCustomLimitsOCountsOnlyForODateRanges(t *testing.T) 
 
 		ret := map[int][2]int{}
 		for rows.Next() {
-			values := make([]interface{}, 12)
+			values := make([]interface{}, 15)
 			destinations := make([]interface{}, len(values))
 			for i := range values {
 				destinations[i] = &values[i]
 			}
 			require.NoError(t, rows.Scan(destinations...))
 			ret[customIntValue(values[0])] = [2]int{customIntValue(values[5]), customIntValue(values[11])}
+			matches[customIntValue(values[0])] = vatoStatsIntPtrValue(values[13])
+			studios[customIntValue(values[0])] = sceneStatsStringPtrValue(values[14])
 		}
 		require.NoError(t, rows.Err())
 		return ret
 	}
 
 	require.Equal(t, map[int][2]int{1: {2, 1}, 2: {1, 0}, 3: {1, 0}}, oCounts(nil))
+	twelve, zero := 12, 0
+	require.Equal(t, map[int]*int{1: &twelve, 2: &zero, 3: nil}, matches, "unscraped scenes stay null")
+	studioOne := "1"
+	require.Equal(t, map[int]*string{1: &studioOne, 2: &studioOne, 3: nil}, studios)
 	require.Equal(t,
 		map[int][2]int{1: {1, 1}, 3: {1, 0}},
 		oCounts(&statsDateRangeCustom{from: "2025-01-01", to: "2025-12-31", field: StatsDateFieldODate}),
@@ -164,12 +175,14 @@ func TestSceneStatsBaseQueryCustomLimitsOCountsOnlyForODateRanges(t *testing.T) 
 
 func TestSceneStatsAddPerformerCustomTracksPerformerIDs(t *testing.T) {
 	scene := &SceneStatsScene{}
-	sceneStatsAddPerformerCustom(scene, 10, "A", "MX")
-	sceneStatsAddPerformerCustom(scene, 20, "B", "US")
+	rating := 80
+	sceneStatsAddPerformerCustom(scene, 10, "A", "MX", &rating)
+	sceneStatsAddPerformerCustom(scene, 20, "B", "US", nil)
 	require.Equal(t, 2, scene.PerformerCount)
 	require.Equal(t, []string{"10", "20"}, scene.PerformerIds)
 	require.Equal(t, []string{"A", "B"}, scene.PerformerEthnicities)
 	require.Equal(t, []string{"MX", "US"}, scene.PerformerCountries)
+	require.Equal(t, []*int{&rating, nil}, scene.PerformerRatings)
 }
 
 func TestSceneStatsScopedMarkerQueryCustomRollsDescendantsUpToRoots(t *testing.T) {

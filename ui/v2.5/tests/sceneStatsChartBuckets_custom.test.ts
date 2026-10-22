@@ -2,18 +2,18 @@ import assert from "node:assert/strict";
 
 import {
   sceneStatsActivityType,
-  sceneStatsPositiveCount,
+  sceneStatsCount,
   sceneStatsRatingBucket,
   sceneStatsReleaseDay,
   sceneStatsReleaseMonth,
   sceneStatsReleaseYear,
 } from "../src/components/SceneStats/sceneStatsChartBuckets_custom.ts";
 
-assert.equal(sceneStatsPositiveCount(0), undefined);
-assert.equal(sceneStatsPositiveCount(null), undefined);
-assert.equal(sceneStatsPositiveCount(3), 3);
+assert.equal(sceneStatsCount(0), 0);
+assert.equal(sceneStatsCount(null), undefined);
+assert.equal(sceneStatsCount(3), 3);
 
-assert.equal(sceneStatsRatingBucket(0), undefined);
+assert.equal(sceneStatsRatingBucket(0), "0-4");
 assert.equal(sceneStatsRatingBucket(null), undefined);
 assert.equal(sceneStatsRatingBucket(61), "60-64");
 

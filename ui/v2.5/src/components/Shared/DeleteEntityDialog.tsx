@@ -1,3 +1,4 @@
+import { runDeletionCustom } from "src/components/Shared/deletion_custom"; // CUSTOM
 import React, { useState } from "react";
 import { defineMessages, FormattedMessage, useIntl } from "react-intl";
 import { FetchResult } from "@apollo/client";
@@ -55,26 +56,26 @@ export const DeleteEntityDialog: React.FC<IDeleteEntityDialogProps> = ({
   // Network state
   const [isDeleting, setIsDeleting] = useState(false);
 
-  async function onDelete() {
-    setIsDeleting(true);
-    try {
-      await deleteEntities();
-      if (onDeleted) {
-        onDeleted();
-      }
-      Toast.success(
-        intl.formatMessage(messages.deleteToast, {
-          count,
-          singularEntity,
-          pluralEntity,
-        })
-      );
-    } catch (e) {
-      Toast.error(e);
-    }
-    setIsDeleting(false);
-    onClose(true);
+  // CUSTOM: share success/failure and retry behavior across all deletion dialogs.
+  function onDelete() {
+    return runDeletionCustom({
+      action: () => deleteEntities(),
+      onSuccess: () => {
+        onDeleted?.();
+        Toast.success(
+          intl.formatMessage(messages.deleteToast, {
+            count,
+            singularEntity,
+            pluralEntity,
+          })
+        );
+      },
+      onError: Toast.error,
+      setRunning: setIsDeleting,
+      onApplied: onClose,
+    });
   }
+  // CUSTOM: end
 
   return (
     <ModalComponent

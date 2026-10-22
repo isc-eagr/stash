@@ -1,3 +1,4 @@
+import { setAppLocaleCustom } from "src/utils/appLocale_custom"; // CUSTOM
 import React, { Suspense, useEffect, useState } from "react";
 import RemoteO from "./components/RemoteO/RemoteO"; // CUSTOM
 import {
@@ -237,12 +238,13 @@ export const App: React.FC = () => {
         },
       });
 
+      setAppLocaleCustom(intlLanguage); // CUSTOM
       setMessages(newMessages);
       moment.locale([language, defaultLocale]);
     };
 
     setLocale();
-  }, [customMessages, language]);
+  }, [customMessages, language, intlLanguage]); // CUSTOM
 
   const location = useLocation();
   const history = useHistory();

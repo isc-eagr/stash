@@ -117,20 +117,23 @@ export const TaskProgressContributions: React.FC<{
         history={taskProgressHistoryEntries(tracker.history)}
         periodLabel={periodName}
       />
-      <div className="milestone-subrow-period">
-        <span>
+      {/* CUSTOM: same markup as the parent milestone's period tile. */}
+      <div className="progress-period-tile milestone-subrow-period">
+        <div className="progress-period-tile-heading">
+          <span>{t(periodName)}</span>
+        </div>
+        <div className="progress-period-tile-value">
           <strong>
             <FormattedNumber value={comparison.current.completed} />
-          </strong>{" "}
-          {t(periodName)}
-        </span>
-        <small>
+          </strong>
           <TaskProgressItemsDelta
             current={comparison.current.completed}
             previous={comparison.previous.completed}
             label={comparison.label}
             compact
-          />{" "}
+          />
+        </div>
+        <small className="progress-period-tile-previous">
           {t("prev")} <FormattedNumber value={comparison.previous.completed} />
         </small>
       </div>

@@ -22,9 +22,9 @@ export const itemLabels: Record<string, string> = {
   scene_marker: "Markers",
   image: "Images",
   gallery: "Galleries",
-  performer: "Performers",
+  performer: "Vatos",
   studio: "Studios",
-  group: "Groups",
+  group: "Movies",
 };
 
 export const taskProgressStatuses = [
@@ -93,9 +93,20 @@ export function taskProgressHistoryEntries(
 
 export function useProgressText() {
   const intl = useIntl();
+  const entities: Record<string, string> = {
+    Scenes: "scenes",
+    Markers: "markers",
+    Images: "images",
+    Galleries: "galleries",
+    Vatos: "performers",
+    Studios: "studios",
+    Movies: "groups",
+  };
   return (label: string) =>
     intl.formatMessage({
-      id: `task_progress_v2.${label.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`,
+      id:
+        entities[label] ??
+        `task_progress_v2.${label.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`,
       defaultMessage: label,
     });
 }

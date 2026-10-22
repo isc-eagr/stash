@@ -135,6 +135,29 @@ assert.match(tooltip, /Progress this day/);
 assert.match(tooltip, /19\.61%/);
 assert.match(tooltip, /Incoming<\/dt><dd>2/);
 assert.match(tooltip, /Goal<\/dt><dd>20/);
+const roundedNegativeZero = render(
+  React.createElement(TaskProgressHistoryTooltip, {
+    point: {
+      date: "2026-09-24",
+      completed: 0,
+      incoming: 0,
+      added: 0,
+      removed: 0,
+      remaining: 9900,
+      completedAverage: 0,
+      cumulativeCompleted: 100,
+      previousCompleted: 100.4,
+      previousRemaining: 9899.6,
+    },
+    view: "cumulative",
+  })
+);
+assert.match(
+  roundedNegativeZero,
+  /Progress this day<\/dt><dd>0\.00%<\/dd>/,
+  "history tooltip progress does not show a negative zero percentage"
+);
+assert.doesNotMatch(roundedNegativeZero, /-0\.00%/);
 const remaining = render(
   React.createElement(TaskProgressHistoryTooltip, {
     point: daily[5],

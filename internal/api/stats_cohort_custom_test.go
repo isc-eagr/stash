@@ -104,3 +104,42 @@ func TestStatsCohortRejectsInvalidIDsCustom(t *testing.T) {
 		require.Error(t, err)
 	}
 }
+
+func TestOrganizedStatsSceneScopeCustom(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
+	_, err = db.Exec(`
+CREATE TABLE studios(id INTEGER PRIMARY KEY, parent_id INTEGER);
+CREATE TABLE scenes(id INTEGER PRIMARY KEY, studio_id INTEGER, organized INTEGER);
+INSERT INTO studios VALUES(1,NULL),(2,1);
+INSERT INTO scenes VALUES(10,1,1),(20,2,0),(30,2,1),(40,NULL,0);`)
+	require.NoError(t, err)
+
+	depth := -1
+	studioID := 1
+	for _, tc := range []struct {
+		name     string
+		studioID *int
+		want     []int
+	}{
+		{name: "library", want: []int{10, 30}},
+		{name: "studio tree", studioID: &studioID, want: []int{10, 30}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			scope, args := activityStatsSceneScopeCustom(tc.studioID, &depth, nil)
+			scope, err := organizedStatsSceneScopeCustom(scope)
+			require.NoError(t, err)
+			rows, err := db.Query(scope+"\nSELECT id FROM selected_scenes ORDER BY id", args...)
+			require.NoError(t, err)
+			defer rows.Close()
+			var got []int
+			for rows.Next() {
+				var id int
+				require.NoError(t, rows.Scan(&id))
+				got = append(got, id)
+			}
+			require.Equal(t, tc.want, got)
+		})
+	}
+}

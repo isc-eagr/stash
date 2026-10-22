@@ -1,3 +1,4 @@
+import { cleanStatsValueCustom as cleanValue } from "src/utils/statsValues_custom"; // CUSTOM
 // CUSTOM: chart data for Nut Stats and Facial Stats. Every total, ranking,
 // and chart is built from the loaded events, so chart filters apply to all.
 import { statsCountryName } from "src/utils/statsCountry_custom";
@@ -45,16 +46,57 @@ export type MarkerEventChartCategory =
   | "activity"
   | "type"
   | "quality"
-  | "group";
+  | "per_scene";
+
+// How a chart draws: columns for ordered values, ranked rows for categories,
+// mirror for giver vs receiver (the receiver chart rides along), grid for
+// giver → receiver pairs, none for filters with no chart of their own.
+export type MarkerEventChartDisplay =
+  | "columns"
+  | "ranked"
+  | "mirror"
+  | "grid"
+  | "none";
 
 export interface IMarkerEventChartDefinition {
   key: MarkerEventChartCategory;
   label: string;
+  display: MarkerEventChartDisplay;
+  // The receiver chart drawn on the right of a mirror.
+  mirror?: MarkerEventChartCategory;
   // Shown when one event can land in several bars.
   note?: string;
   sortable?: boolean;
-  // Low-cardinality charts share a row.
-  compact?: boolean;
+  // Columns stacked by Regular, Really Hot and GOAT.
+  stacked?: boolean;
+  // Topic group the chart sits in; charts are listed in page order.
+  group?: string;
+  // Row share: three small, two medium (default) or one wide chart per row.
+  size?: "small" | "wide";
+}
+
+export type MarkerEventQuality = "REGULAR" | "REALLY_HOT" | "GOAT";
+
+export const MARKER_EVENT_QUALITIES: MarkerEventQuality[] = [
+  "REGULAR",
+  "REALLY_HOT",
+  "GOAT",
+];
+
+export const MARKER_EVENT_QUALITY_LABELS: Record<MarkerEventQuality, string> = {
+  REGULAR: "Regular",
+  REALLY_HOT: "Really Hot",
+  GOAT: "GOAT",
+};
+
+export function markerEventQuality(quality: string): MarkerEventQuality {
+  return MARKER_EVENT_QUALITIES.includes(quality as MarkerEventQuality)
+    ? (quality as MarkerEventQuality)
+    : "REGULAR";
+}
+
+function qualityRank(quality: string) {
+  return MARKER_EVENT_QUALITIES.indexOf(markerEventQuality(quality));
 }
 
 export interface IMarkerEventChartDatum {
@@ -62,13 +104,15 @@ export interface IMarkerEventChartDatum {
   label: string;
   count: number;
   sortValue: number;
+  // Events per quality, for stacked columns.
+  qualities: Record<MarkerEventQuality, number>;
 }
 
 export interface IMarkerEventStatsContext {
   performers: Map<string, IMarkerEventPerformer>;
   typeNames: Map<string, string>;
-  // Distinct givers each receiver got in a scene, over every loaded event.
-  groupSizes: Map<string, number>;
+  // Events in each scene, over every loaded event.
+  sceneEventCounts: Map<string, number>;
 }
 
 export const MARKER_EVENT_UNKNOWN = "__unknown__";
@@ -79,55 +123,145 @@ const RECEIVER_NOTE =
   "A facial counts once for each receiver, so bars can overlap.";
 
 export const NUT_STATS_CHARTS: IMarkerEventChartDefinition[] = [
-  { key: "giver_ethnicity", label: "By Ethnicity" },
-  { key: "giver_age", label: "Age at Scene", sortable: true },
-  { key: "giver_country", label: "By Country" },
+  {
+    key: "per_scene",
+    label: "Nuts Per Scene",
+    display: "columns",
+    sortable: true,
+    stacked: true,
+    group: "The Nuts",
+    size: "small",
+  },
+  {
+    key: "quality",
+    label: "Quality",
+    display: "columns",
+    group: "The Nuts",
+    size: "small",
+  },
+  {
+    key: "o_count",
+    label: "By O Count",
+    display: "columns",
+    sortable: true,
+    stacked: true,
+    group: "The Nuts",
+    size: "small",
+  },
+  {
+    key: "giver_age",
+    label: "Age at Scene",
+    display: "columns",
+    sortable: true,
+    stacked: true,
+    group: "The Vatos",
+    size: "wide",
+  },
+  {
+    key: "giver_ethnicity",
+    label: "By Ethnicity",
+    display: "ranked",
+    group: "The Vatos",
+  },
+  {
+    key: "giver_country",
+    label: "By Country",
+    display: "ranked",
+    group: "The Vatos",
+  },
   {
     key: "activity",
     label: "What He Was Doing",
+    display: "ranked",
     note: "A nut counts once for each thing he was doing, so bars can overlap.",
-    compact: true,
+    group: "The Action",
   },
   {
     key: "type",
     label: "By Type",
+    display: "ranked",
     note: "A nut counts once for each type, so bars can overlap.",
-    compact: true,
+    group: "The Action",
   },
-  { key: "quality", label: "Really Hot", compact: true },
-  { key: "o_count", label: "By O Count", sortable: true, compact: true },
 ];
 
+// The giver → receiver grid sits under the cards, outside the groups.
 export const FACIAL_STATS_CHARTS: IMarkerEventChartDefinition[] = [
   {
     key: "pair_ethnicity",
     label: "Giver → Receiver Ethnicity",
+    display: "grid",
     note: RECEIVER_NOTE,
   },
-  { key: "giver_ethnicity", label: "Giver Ethnicity" },
   {
-    key: "receiver_ethnicity",
-    label: "Receiver Ethnicity",
-    note: RECEIVER_NOTE,
-  },
-  { key: "giver_age", label: "Giver Age at Scene", sortable: true },
-  {
-    key: "receiver_age",
-    label: "Receiver Age at Scene",
-    note: RECEIVER_NOTE,
+    key: "per_scene",
+    label: "Facials Per Scene",
+    display: "columns",
     sortable: true,
+    stacked: true,
+    group: "The Facials",
   },
-  { key: "giver_country", label: "Giver Country" },
-  { key: "receiver_country", label: "Receiver Country", note: RECEIVER_NOTE },
-  { key: "quality", label: "Really Hot", compact: true },
+  {
+    key: "o_count",
+    label: "By O Count",
+    display: "columns",
+    sortable: true,
+    stacked: true,
+    group: "The Facials",
+  },
+  {
+    key: "quality",
+    label: "Quality",
+    display: "columns",
+    group: "The Facials",
+  },
   {
     key: "type",
     label: "By Type",
+    display: "ranked",
     note: "A facial counts once for each type, so bars can overlap.",
-    compact: true,
+    group: "The Facials",
   },
-  { key: "group", label: "Group Facials", sortable: true, compact: true },
-  { key: "o_count", label: "By O Count", sortable: true, compact: true },
+  {
+    key: "giver_age",
+    label: "Age at Scene",
+    display: "mirror",
+    mirror: "receiver_age",
+    note: RECEIVER_NOTE,
+    group: "The Vatos",
+    size: "wide",
+  },
+  {
+    key: "receiver_age",
+    label: "Receiver Age at Scene",
+    display: "none",
+  },
+  {
+    key: "giver_ethnicity",
+    label: "Ethnicity",
+    display: "mirror",
+    mirror: "receiver_ethnicity",
+    note: RECEIVER_NOTE,
+    group: "The Vatos",
+  },
+  {
+    key: "receiver_ethnicity",
+    label: "Receiver Ethnicity",
+    display: "none",
+  },
+  {
+    key: "giver_country",
+    label: "Country",
+    display: "mirror",
+    mirror: "receiver_country",
+    note: RECEIVER_NOTE,
+    group: "The Vatos",
+  },
+  {
+    key: "receiver_country",
+    label: "Receiver Country",
+    display: "none",
+  },
 ];
 
 const ACTIVITY_LABELS: Record<string, string> = {
@@ -138,62 +272,32 @@ const ACTIVITY_LABELS: Record<string, string> = {
   SOLO: "Solo",
 };
 
-const QUALITY_LABELS: Record<string, string> = {
-  REGULAR: "Regular",
-  REALLY_HOT: "Really Hot",
-  GOAT: "GOAT",
-};
-
-function cleanValue(value?: string | null) {
-  const trimmed = value?.trim();
-  if (
-    !trimmed ||
-    trimmed.toLowerCase() === "<nil>" ||
-    trimmed.toLowerCase() === "null"
-  ) {
-    return undefined;
-  }
-  return trimmed;
-}
-
-function groupKey(sceneID: string, receiverID: string) {
-  return `${sceneID}:${receiverID}`;
-}
-
 export function buildMarkerEventStatsContext(
   events: readonly IMarkerEvent[],
   performers: readonly IMarkerEventPerformer[],
   types: readonly { id: string; name: string }[]
 ): IMarkerEventStatsContext {
-  const givers = new Map<string, Set<string>>();
-  events.forEach((event) => {
-    const giver = event.giver?.performer_id ?? `marker:${event.marker_id}`;
-    event.receivers.forEach((receiver) => {
-      const key = groupKey(event.scene_id, receiver.performer_id);
-      const current = givers.get(key) ?? new Set<string>();
-      current.add(giver);
-      givers.set(key, current);
-    });
-  });
+  const sceneEventCounts = new Map<string, number>();
+  events.forEach((event) =>
+    sceneEventCounts.set(
+      event.scene_id,
+      (sceneEventCounts.get(event.scene_id) ?? 0) + 1
+    )
+  );
   return {
     performers: new Map(
       performers.map((performer) => [performer.id, performer])
     ),
     typeNames: new Map(types.map((type) => [type.id, type.name])),
-    groupSizes: new Map(
-      Array.from(givers, ([key, giverIDs]) => [key, giverIDs.size])
-    ),
+    sceneEventCounts,
   };
 }
 
 type CategoryValue = { key: string; label: string; sortValue: number };
 
-function cappedCountValue(count: number, singular?: string, plural?: string) {
-  const capped = Math.min(count, 3);
-  const key = count >= 3 ? "3+" : String(count);
-  const suffix =
-    singular && plural ? ` ${count === 1 ? singular : plural}` : "";
-  return { key, label: `${key}${suffix}`, sortValue: capped };
+// Every count gets its own column; nothing folds into a "3+" or "4+" bar.
+function countValue(count: number): CategoryValue {
+  return { key: String(count), label: String(count), sortValue: count };
 }
 
 function vatoValue(
@@ -273,7 +377,7 @@ export function markerEventCategoryValues(
       });
     }
     case "o_count":
-      return { values: [cappedCountValue(event.o_count)], unknown: false };
+      return { values: [countValue(event.o_count)], unknown: false };
     case "activity": {
       const values = event.activities.map((activity) => ({
         key: activity,
@@ -299,19 +403,18 @@ export function markerEventCategoryValues(
         values: [
           {
             key: event.quality,
-            label: QUALITY_LABELS[event.quality] ?? event.quality,
-            sortValue: Object.keys(QUALITY_LABELS).indexOf(event.quality),
+            label:
+              MARKER_EVENT_QUALITY_LABELS[markerEventQuality(event.quality)],
+            sortValue: qualityRank(event.quality),
           },
         ],
         unknown: false,
       };
-    case "group":
-      return receiverValues(event, (receiver) => {
-        const size = context.groupSizes.get(
-          groupKey(event.scene_id, receiver.performer_id)
-        );
-        return size ? cappedCountValue(size, "giver", "givers") : undefined;
-      });
+    case "per_scene":
+      return {
+        values: [countValue(context.sceneEventCounts.get(event.scene_id) ?? 1)],
+        unknown: false,
+      };
   }
 }
 
@@ -338,7 +441,8 @@ function sortChartData(data: IMarkerEventChartDatum[]) {
   );
 }
 
-// Group Facials counts receivers in a scene; every other chart counts events.
+// Nuts/Facials Per Scene count scenes; every other chart counts events. Shares
+// are of the events with a known value, so Unknown never dilutes them.
 export function buildMarkerEventChart(
   events: readonly IMarkerEvent[],
   category: MarkerEventChartCategory,
@@ -346,23 +450,31 @@ export function buildMarkerEventChart(
 ) {
   const buckets = new Map<string, IMarkerEventChartDatum>();
   let unknownCount = 0;
-  let total = events.length;
+  let total = 0;
+  const add = (value: CategoryValue, quality: string) => {
+    const datum = buckets.get(value.key) ?? {
+      ...value,
+      count: 0,
+      qualities: { REGULAR: 0, REALLY_HOT: 0, GOAT: 0 },
+    };
+    datum.count += 1;
+    datum.qualities[markerEventQuality(quality)] += 1;
+    buckets.set(value.key, datum);
+  };
 
-  if (category === "group") {
-    const counted = new Set<string>();
-    events.forEach((event) =>
-      event.receivers.forEach((receiver) => {
-        const key = groupKey(event.scene_id, receiver.performer_id);
-        const size = context.groupSizes.get(key);
-        if (!size || counted.has(key)) return;
-        counted.add(key);
-        const value = cappedCountValue(size, "giver", "givers");
-        const datum = buckets.get(value.key) ?? { ...value, count: 0 };
-        datum.count += 1;
-        buckets.set(value.key, datum);
-      })
-    );
-    total = counted.size;
+  if (category === "per_scene") {
+    // A scene counts once, with its best facial.
+    const best = new Map<string, IMarkerEvent>();
+    events.forEach((event) => {
+      const current = best.get(event.scene_id);
+      if (!current || qualityRank(event.quality) > qualityRank(current.quality))
+        best.set(event.scene_id, event);
+    });
+    best.forEach((event) => {
+      const { values } = markerEventCategoryValues(event, category, context);
+      values.forEach((value) => add(value, event.quality));
+    });
+    total = best.size;
   } else {
     events.forEach((event) => {
       const { values, unknown } = markerEventCategoryValues(
@@ -371,11 +483,10 @@ export function buildMarkerEventChart(
         context
       );
       if (unknown) unknownCount += 1;
-      new Map(values.map((value) => [value.key, value])).forEach((value) => {
-        const datum = buckets.get(value.key) ?? { ...value, count: 0 };
-        datum.count += 1;
-        buckets.set(value.key, datum);
-      });
+      if (values.length > 0) total += 1;
+      new Map(values.map((value) => [value.key, value])).forEach((value) =>
+        add(value, event.quality)
+      );
     });
   }
 

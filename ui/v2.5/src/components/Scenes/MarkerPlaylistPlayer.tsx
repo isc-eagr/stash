@@ -1,3 +1,4 @@
+import { useConfirmActionCustom } from "src/components/Shared/useConfirmAction_custom"; // CUSTOM
 import { useRemotePlayerCustom } from "../RemoteO/useRemotePlayer_custom"; // CUSTOM
 import React, {
   useCallback,
@@ -144,6 +145,7 @@ export const MarkerPlaylistPlayer: React.FC = () => {
   const location = useLocation();
   const history = useHistory(); // CUSTOM
   const Toast = useToast();
+  const { confirm: confirmAction, confirmModal } = useConfirmActionCustom(); // CUSTOM
   const { configuration } = useConfigurationContext(); // CUSTOM
   const { sfwContentMode } = configuration.interface; // CUSTOM
 
@@ -1129,7 +1131,13 @@ export const MarkerPlaylistPlayer: React.FC = () => {
 
   const handleDeletePlaylist = useCallback(
     async (id: string, name: string) => {
-      if (!window.confirm(`Delete playlist "${name}"?`)) {
+      if (
+        !(await confirmAction({
+          header: "Delete playlist",
+          message: `Delete playlist "${name}"?`,
+          confirmText: intl.formatMessage({ id: "actions.delete" }),
+        }))
+      ) {
         return;
       }
 
@@ -1141,7 +1149,7 @@ export const MarkerPlaylistPlayer: React.FC = () => {
         Toast.error(`Failed to delete playlist: ${err}`);
       }
     },
-    [destroyPlaylist, Toast, refetchPlaylists]
+    [destroyPlaylist, Toast, refetchPlaylists, confirmAction, intl]
   );
 
   if (loading) {
@@ -1325,6 +1333,8 @@ export const MarkerPlaylistPlayer: React.FC = () => {
 
   return (
     <div className="marker-playlist-player" ref={containerRef}>
+      {/* CUSTOM: themed confirmation shares the fullscreen container. */}
+      {confirmModal}
       <Helmet>
         <title>Marker Playlist - Stash</title>
       </Helmet>
@@ -1507,7 +1517,9 @@ export const MarkerPlaylistPlayer: React.FC = () => {
                     e.stopPropagation();
                     stepMarker(-1);
                   }}
-                  title={intl.formatMessage({ id: "marker_playlist.previous" })}
+                  title={intl.formatMessage({
+                    id: "marker_playlist.previous",
+                  })}
                   aria-label={intl.formatMessage({
                     id: "marker_playlist.previous",
                   })}

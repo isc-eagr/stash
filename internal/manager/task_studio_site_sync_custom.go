@@ -66,8 +66,11 @@ func (s *Manager) StudioSiteSyncCustom(ctx context.Context, studioID int, steps 
 		return 0, fmt.Errorf("%s has no site sync", studio.Name)
 	}
 	cfg := studioSiteSyncConfigCustom(config.GetInstance().GetUIConfiguration(), key)
-	if cfg.PicsPath == "" {
+	if cfg.PicsPath == "" && key != sitesync.LatinboyzKey && (steps.Pictures || steps.Galleries) {
 		return 0, fmt.Errorf("set the %s pictures folder in Settings > Custom first", studio.Name)
+	}
+	if cfg.PicsPath != "" {
+		cfg.PicsPath = filepath.Clean(cfg.PicsPath)
 	}
 
 	site := sitesync.New(key, sitesync.NewClient(cfg.Username, cfg.Password, siteSyncRequestDelayCustom))
@@ -76,14 +79,14 @@ func (s *Manager) StudioSiteSyncCustom(ctx context.Context, studioID int, steps 
 		data:     &repoSiteSyncDataCustom{repo: s.Repository},
 		site:     site,
 		studioID: studioID,
-		picsPath: filepath.Clean(cfg.PicsPath),
+		picsPath: cfg.PicsPath,
 		steps:    steps,
 		report:   newSiteSyncReportCustom(name),
 	}
 	sync := job.MakeJobExec(func(ctx context.Context, progress *job.Progress) (err error) {
 		defer func() { task.report.finish(ctx, err) }()
 		scanPaths, err := task.syncScenes(ctx, progress)
-		if err != nil || job.IsCancelled(ctx) || !steps.Galleries {
+		if err != nil || job.IsCancelled(ctx) || !task.steps.Galleries {
 			return err
 		}
 		if len(scanPaths) > 0 {
@@ -158,6 +161,8 @@ type studioSiteSyncTaskCustom struct {
 	report   *siteSyncReportCustom
 	// Code -> hand-added pictures folders, read once per run.
 	folders map[string][]string
+	// Conflicting/ambiguous metadata must not create or attach pictures.
+	blocked map[int]bool
 }
 
 type siteSyncWorkCustom struct {
@@ -175,14 +180,20 @@ func (t *studioSiteSyncTaskCustom) syncScenes(ctx context.Context, progress site
 	if err != nil {
 		return nil, err
 	}
+	t.preparePublicPictures()
 	work, err := t.resolveCodes(ctx, scenes)
 	if err != nil {
 		return nil, err
 	}
 
 	var fill, download []*siteSyncWorkCustom
+	public, isPublic := t.site.(sitesync.PublicSceneSite)
 	for _, w := range work {
-		if w.newCode || (t.steps.Metadata && (w.scene.Title == "" || w.scene.Date == "")) {
+		incomplete := w.scene.Title == "" || w.scene.Date == ""
+		if isPublic {
+			incomplete = incomplete || w.scene.Details == "" || !public.HasSceneURL(siteSyncSceneCustom(w.scene))
+		}
+		if w.newCode || (w.code == "" && t.steps.Codes) || (t.steps.Metadata && incomplete) {
 			fill = append(fill, w)
 		}
 		if !w.scene.HasGallery && (t.steps.Pictures || t.steps.Galleries) {
@@ -198,20 +209,38 @@ func (t *studioSiteSyncTaskCustom) syncScenes(ctx context.Context, progress site
 			return nil, nil
 		}
 		var md sitesync.Metadata
-		if t.steps.Metadata {
+		if t.steps.Metadata || (w.code == "" && t.steps.Codes) {
 			md, err = t.site.Scrape(ctx, w.code, siteSyncSceneCustom(w.scene))
 			switch {
+			case errors.Is(err, sitesync.ErrCodeConflict), errors.Is(err, sitesync.ErrAmbiguous):
+				if t.blocked == nil {
+					t.blocked = map[int]bool{}
+				}
+				t.blocked[w.scene.ID] = true
+				t.report.issue(w.scene, w.code, err.Error())
+				progress.Increment()
+				continue
 			case errors.Is(err, sitesync.ErrUnauthorized):
 				return nil, fmt.Errorf("%s: %w; check the credentials in Settings > Custom", name, err)
 			case errors.Is(err, sitesync.ErrNotFound):
 				notOnSite++
 				logger.Infof("[site sync] %s: %s (code %s) is not on the site", name, w.scene.Basename, w.code)
-				t.report.issue(w.scene, w.code, fmt.Sprintf("Code %s is not on the site", w.code))
+				issue := fmt.Sprintf("Code %s is not on the site", w.code)
+				if isPublic {
+					issue = "No public match; add the public Latinboyz scene URL in Scenes > Edit > URLs"
+				}
+				t.report.issue(w.scene, w.code, issue)
 			case err != nil:
 				failed++
 				logger.Warnf("[site sync] %s: reading %s (code %s): %v", name, w.scene.Basename, w.code, err)
 				t.report.issue(w.scene, w.code, fmt.Sprintf("Reading the site failed: %v", err))
 			}
+		}
+		if w.code == "" && md.Code != "" && t.steps.Codes {
+			w.code, w.newCode = md.Code, true
+		}
+		if !t.steps.Metadata {
+			md = sitesync.Metadata{}
 		}
 		var filled []string
 		// The site's image replaces the generated cover when the scene is
@@ -251,6 +280,10 @@ func (t *studioSiteSyncTaskCustom) syncScenes(ctx context.Context, progress site
 	for _, w := range download {
 		if job.IsCancelled(ctx) {
 			return nil, nil
+		}
+		if t.blocked[w.scene.ID] || w.code == "" {
+			progress.Increment()
+			continue
 		}
 		dirs, err := t.picsDirs(w.code)
 		if err != nil {
@@ -335,6 +368,14 @@ func (t *studioSiteSyncTaskCustom) resolveCodes(ctx context.Context, scenes []mo
 			newCode = code != ""
 		}
 		if code == "" {
+			if public, ok := t.site.(sitesync.PublicSceneSite); ok && t.steps.Codes {
+				if public.HasSceneURL(siteSyncSceneCustom(scene)) {
+					work = append(work, &siteSyncWorkCustom{scene: scene})
+				} else {
+					t.report.issue(scene, "", "Cannot match filename; add the public Latinboyz scene URL in Scenes > Edit > URLs, or enter Code")
+				}
+				continue
+			}
 			unresolved = append(unresolved, siteSyncSceneCustom(scene))
 			pending[scene.ID] = scene
 			continue
@@ -440,6 +481,9 @@ func siteSyncScenePartialCustom(w *siteSyncWorkCustom, md sitesync.Metadata) (mo
 // pictures folder holds scanned images. Scenes without pictures get none, so
 // a later run can still find them.
 func (t *studioSiteSyncTaskCustom) createGalleries(ctx context.Context, progress siteSyncProgressCustom) error {
+	if !t.steps.Galleries {
+		return nil
+	}
 	name := t.site.Name()
 	scenes, err := t.data.Scenes(ctx, t.studioID)
 	if err != nil {
@@ -447,7 +491,7 @@ func (t *studioSiteSyncTaskCustom) createGalleries(ctx context.Context, progress
 	}
 	var todo []models.SiteSyncSceneCustom
 	for _, scene := range scenes {
-		if !scene.Postponed && !scene.HasGallery && scene.Code != "" {
+		if !scene.Postponed && !scene.HasGallery && scene.Code != "" && !t.blocked[scene.ID] {
 			todo = append(todo, scene)
 		}
 	}

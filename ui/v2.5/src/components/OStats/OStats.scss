@@ -36,48 +36,8 @@
   gap: 0.75rem;
 }
 
-.ostats-summary {
-  display: grid;
-  gap: 0.75rem;
-  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-  margin-bottom: 1.5rem;
-}
-
-.ostats-summary-item {
-  background: linear-gradient(180deg, rgba(13, 29, 50, 0.92), #070b12);
-  border: 1px solid rgba(71, 134, 212, 0.26);
-  border-radius: 8px;
-  min-width: 0;
-  padding: 0.8rem;
-}
-
-.ostats-summary-value {
-  color: #fff;
-  font-size: 1.35rem;
-  font-weight: 800;
-  line-height: 1.1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ostats-summary-label {
-  color: #8fb7e8;
-  font-size: 0.78rem;
-  font-weight: 800;
-  margin-top: 0.35rem;
-  text-transform: uppercase;
-}
-
-.ostats-summary-detail {
-  color: #c7d9ee;
-  font-size: 0.82rem;
-  font-weight: 700;
-  margin-top: 0.35rem;
-}
-
 .ostats-drilldown-total {
-  color: #9cc8ff;
+  color: var(--stats-accent);
   font-size: 1rem;
   font-weight: 800;
   margin-bottom: 0.85rem;
@@ -89,11 +49,11 @@
 
 .ostats-chart-panel,
 .ostats-section {
-  background: #070b12;
-  border: 1px solid rgba(71, 134, 212, 0.22);
-  border-radius: 8px;
+  background: var(--stats-surface);
+  border: 1px solid var(--stats-border);
+  border-radius: 14px;
   min-width: 0;
-  padding: 1rem;
+  padding: 1rem 1.1rem;
 }
 
 .ostats-back-button {
@@ -104,7 +64,7 @@
 
 .ostats-empty {
   align-items: center;
-  color: #8fb7e8;
+  color: var(--stats-muted);
   display: flex;
   min-height: 5rem;
 }
@@ -119,7 +79,7 @@
   overflow-x: hidden;
   overflow-y: scroll;
   padding: 0;
-  scrollbar-color: rgba(84, 150, 230, 0.8) rgba(18, 49, 90, 0.45);
+  scrollbar-color: var(--stats-border-strong) var(--stats-surface);
   scrollbar-gutter: stable;
 
   &::-webkit-scrollbar {
@@ -127,25 +87,25 @@
   }
 
   &::-webkit-scrollbar-track {
-    background: rgba(18, 49, 90, 0.45);
+    background: var(--stats-surface);
     border-radius: 6px;
   }
 
   &::-webkit-scrollbar-thumb {
-    background: rgba(84, 150, 230, 0.8);
-    border: 2px solid #070b12;
+    background: var(--stats-border-strong);
+    border: 2px solid var(--stats-surface);
     border-radius: 999px;
   }
 
   &::-webkit-scrollbar-thumb:hover {
-    background: #73b2ff;
+    background: var(--stats-accent);
   }
 }
 
 .ostats-event {
   align-items: center;
-  background: rgba(17, 41, 72, 0.62);
-  border: 1px solid rgba(72, 134, 211, 0.2);
+  background: var(--stats-surface-raised);
+  border: 1px solid var(--stats-border);
   border-radius: 6px;
   display: grid;
   gap: 0.65rem;
@@ -155,13 +115,13 @@
 
   &:hover,
   &:focus-within {
-    border-color: rgba(115, 178, 255, 0.72);
+    border-color: var(--stats-accent);
   }
 }
 
 .ostats-event-thumb {
   aspect-ratio: 16 / 9;
-  background-color: rgba(26, 61, 105, 0.5);
+  background-color: var(--stats-track);
   border-radius: 4px;
   display: block;
   object-fit: cover;
@@ -180,7 +140,7 @@
 
 .ostats-event-time {
   align-items: center;
-  color: #8fb7e8;
+  color: var(--stats-muted);
   display: flex;
   font-size: 0.78rem;
   font-weight: 800;
@@ -189,10 +149,10 @@
 }
 
 .ostats-event-new {
-  background: #35a853;
-  border: 1px solid rgba(174, 255, 193, 0.72);
+  background: var(--stats-accent);
+  border: 1px solid var(--stats-peak);
   border-radius: 999px;
-  color: #fff;
+  color: #101317;
   font-size: 0.66rem;
   font-weight: 900;
   letter-spacing: 0.04em;
@@ -202,8 +162,8 @@
 
 /* CUSTOM */
 .ostats-event-ordinal {
-  background: #7549b8;
-  border: 1px solid rgba(216, 184, 255, 0.72);
+  background: var(--stats-track);
+  border: 1px solid var(--stats-border-strong);
   border-radius: 999px;
   color: #fff;
   font-size: 0.66rem;
@@ -223,7 +183,7 @@
 }
 
 .ostats-event-meta {
-  color: #8fb7e8;
+  color: var(--stats-muted);
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem 0.75rem;
@@ -253,8 +213,8 @@
 }
 
 .ostats-event-tag {
-  background: rgba(26, 74, 135, 0.42);
-  border: 1px solid rgba(76, 146, 230, 0.38);
+  background: var(--stats-surface);
+  border: 1px solid var(--stats-border-strong);
   border-radius: 999px;
   color: #f7f7f7;
   font-size: 0.8rem;
@@ -266,7 +226,7 @@
 
   &:hover,
   &:focus-visible {
-    background: rgba(39, 93, 157, 0.95);
+    background: var(--stats-track);
     color: #fff;
     text-decoration: none;
   }
@@ -314,7 +274,9 @@
 .ostats-timeline {
   gap: 1rem;
   grid-auto-rows: 1fr;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+
+  /* Five per row, so Latest (5 events) and timeline pages (25) fill rows. */
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   max-height: 60rem;
   padding-right: 0.25rem;
 }
@@ -342,7 +304,7 @@
   flex-direction: column;
 }
 
-@media (max-width: 1280px) {
+@media (max-width: 1100px) {
   .ostats-timeline {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -361,8 +323,7 @@
 /* CUSTOM: end O stats drilldown screenshot cards */
 
 /* CUSTOM: begin O calendar heatmap and overview spacing */
-.ostats-page .stats-bar-chart,
-.ostats-page .stats-chart-grid,
+.ostats-page > .stats-bar-chart,
 .ostats-section {
   margin-top: 1rem;
 }
@@ -377,7 +338,7 @@
 }
 
 .ostats-calendar-summary {
-  color: #c7d9ee;
+  color: var(--stats-muted);
   display: flex;
   flex-wrap: wrap;
   font-size: 0.85rem;
@@ -400,7 +361,7 @@
 
 .ostats-calendar-month,
 .ostats-calendar-weekday {
-  color: #8fb7e8;
+  color: var(--stats-muted);
   font-size: 0.68rem;
   line-height: var(--ostats-calendar-cell);
   white-space: nowrap;
@@ -412,7 +373,7 @@
 }
 
 .ostats-calendar-cell {
-  background: rgba(26, 61, 105, 0.36);
+  background: var(--stats-track);
   border-radius: 2px;
   display: block;
   height: var(--ostats-calendar-cell);
@@ -432,34 +393,34 @@
 .ostats-calendar-cell--untracked {
   background: repeating-linear-gradient(
     45deg,
-    rgba(143, 183, 232, 0.12),
-    rgba(143, 183, 232, 0.12) 2px,
+    rgba(165, 170, 173, 0.12),
+    rgba(165, 170, 173, 0.12) 2px,
     transparent 2px,
     transparent 4px
   );
 }
 
 .ostats-calendar-level-1 {
-  background: #1d4f8a;
+  background: #5a3320;
 }
 
 .ostats-calendar-level-2 {
-  background: #2e7fd6;
+  background: #8a4f2c;
 }
 
 .ostats-calendar-level-3 {
-  background: #5ea6f5;
+  background: #ca8757;
 }
 
 .ostats-calendar-level-4 {
-  background: #b7dcff;
+  background: #f0c08f;
 }
 
 .ostats-calendar-legend {
   --ostats-calendar-cell: 0.8rem;
 
   align-items: center;
-  color: #8fb7e8;
+  color: var(--stats-muted);
   display: flex;
   font-size: 0.72rem;
   gap: 3px;

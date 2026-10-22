@@ -136,7 +136,10 @@ export function useCreateScrapedPerformer(
     const pIndex = newPerformersClone.findIndex(
       (p) => p.name === toCreate.name
     );
-    if (pIndex === -1) throw new Error("Could not find performer to remove");
+    if (pIndex === -1)
+      // CUSTOM: begin - consistent entity vocabulary.
+      throw new Error("Could not find vato to remove");
+    // CUSTOM: end
 
     newPerformersClone.splice(pIndex, 1);
 

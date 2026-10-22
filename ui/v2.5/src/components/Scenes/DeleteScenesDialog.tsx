@@ -1,3 +1,4 @@
+import { runDeletionCustom } from "src/components/Shared/deletion_custom"; // CUSTOM
 import React, { useState } from "react";
 import { Form } from "react-bootstrap";
 import { useScenesDestroy } from "src/core/StashService";
@@ -62,18 +63,19 @@ export const DeleteScenesDialog: React.FC<IDeleteSceneDialogProps> = (
     };
   }
 
-  async function onDelete() {
-    setIsDeleting(true);
-    try {
-      await deleteScene();
-      Toast.success(toastMessage);
-      props.onClose(true);
-    } catch (e) {
-      Toast.error(e);
-      props.onClose(false);
-    }
-    setIsDeleting(false);
+  // CUSTOM: share success/failure and retry behavior across all deletion dialogs.
+  function onDelete() {
+    return runDeletionCustom({
+      action: () => deleteScene(),
+      onSuccess: () => {
+        Toast.success(toastMessage);
+      },
+      onError: Toast.error,
+      setRunning: setIsDeleting,
+      onApplied: props.onClose,
+    });
   }
+  // CUSTOM: end
 
   function funscriptPath(sp: string) {
     const extIndex = sp.lastIndexOf(".");

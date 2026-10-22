@@ -32,7 +32,7 @@ export const SCENE_GOAT_ELEMENT_BONUS_CHOICES_CUSTOM: IRatingAdvisorChoiceCustom
       value: 2,
       label: "GOAT +20",
       description:
-        "You're into vatos and collect porn exactly for moments like this.",
+        "Life-changing. You're into vatos and collect porn exactly for moments like this.",
     },
   ];
 
@@ -58,17 +58,20 @@ export const SCENE_ORGASM_QUALITY_CHOICES_CUSTOM: IRatingAdvisorChoiceCustom[] =
     {
       value: 2,
       label: "Standard nuts",
-      description: "Normalito. A solid nut, nada legendary.",
+      description:
+        "Normalito. A solid nut, hot because nuts are hot but that's it.",
     },
     {
       value: 3,
       label: "Above average",
-      description: "That nut hits. The scene's better for it.",
+      description:
+        "That nut is delicious. The vato seems to have loved it, or it's a facial which by default falls in this range.",
     },
     {
       value: 4,
       label: "Outstanding nuts",
-      description: "You're rewinding that nut. The pinche highlight.",
+      description:
+        "You thought this kind of nut was only possible in dreams. The amount of mecos and the way the bright white looks on screen, the pulsing, the way the vato squirms. DAMN!!!",
     },
   ];
 

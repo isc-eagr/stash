@@ -219,6 +219,20 @@ class MultiSegmentLoopPlugin extends videojs.getPlugin("plugin") {
     this.emitChange();
   }
 
+  // CUSTOM: keep a running repeat in sync with a marker form that is still being edited
+  retargetMarkerRepeat(markerId: string, segment: ILoopSegmentInput): void {
+    const target = this.markerRepeat.retarget(
+      markerId,
+      segment,
+      this.player.duration()
+    );
+    if (target === null) return;
+    this.clearBoundaryTimer();
+    this.seekTo(target);
+    this.scheduleBoundaryCheck(true);
+    this.emitChange();
+  }
+
   private getPlaybackSegment(): ILoopSegmentInput | undefined {
     return (
       this.markerRepeat.active?.segment ??

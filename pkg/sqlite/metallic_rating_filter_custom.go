@@ -16,6 +16,7 @@ const (
 	metallicTierSilver              = "silver"
 	metallicTierGold                = "gold"
 	metallicTierRoyalSapphire       = "royal_sapphire"
+	metallicTierNone                = "none" // No Tier: rated, below Bronze
 	metallicIncludeNonMetallicCards = "__include_non_metallic__"
 )
 
@@ -79,6 +80,8 @@ func metallicRatingCriterionHandler(
 		includes := normalizeMetallicRatingTiers(criterion.Value)
 		excludes := normalizeMetallicRatingTiers(criterion.Excludes)
 		includeNonMetallic := hasMetallicRatingOption(criterion.Excludes, metallicIncludeNonMetallicCards)
+		includeNoTier := hasMetallicRatingOption(criterion.Value, metallicTierNone)
+		excludeNoTier := hasMetallicRatingOption(criterion.Excludes, metallicTierNone)
 
 		switch criterion.Modifier {
 		case models.CriterionModifierIncludes, models.CriterionModifierIncludesAll, models.CriterionModifierEquals:
@@ -88,23 +91,34 @@ func metallicRatingCriterionHandler(
 				hasMetallicRatingOption(criterion.Value, metallicIncludeNonMetallicCards)
 			excludes = append(excludes, includes...)
 			includes = nil
+			excludeNoTier = excludeNoTier || includeNoTier
+			includeNoTier = false
 		default:
 			f.setError(fmt.Errorf("invalid modifier %s for metallic rating criterion", criterion.Modifier))
 			return
 		}
 
-		if len(includes) > 0 {
-			f.whereClauses = append(f.whereClauses, cfg.tiersClause(includes))
-		}
-		if len(excludes) > 0 {
-			if !includeNonMetallic {
-				f.whereClauses = append(f.whereClauses, cfg.anyMetallicClause())
-				f.whereClauses = append(f.whereClauses, cfg.tiersClause(excludes).not())
-			} else {
-				f.whereClauses = append(f.whereClauses, notTrueClause(cfg.tiersClause(excludes)))
+		f.whereClauses = append(f.whereClauses, cfg.filterClauses(includes, includeNoTier, excludes, excludeNoTier, includeNonMetallic)...)
+	}
+}
+
+func (c metallicRatingFilterConfig) filterClauses(includes []string, includeNoTier bool, excludes []string, excludeNoTier bool, includeNonMetallic bool) []sqlClause {
+	var ret []sqlClause
+	if len(includes) > 0 || includeNoTier {
+		ret = append(ret, c.includeClause(includes, includeNoTier))
+	}
+	if len(excludes) > 0 || excludeNoTier {
+		if !includeNonMetallic {
+			// No Tier cards are non-metallic, so they are already left out.
+			ret = append(ret, c.anyMetallicClause(), c.tiersClause(excludes).not())
+		} else {
+			ret = append(ret, notTrueClause(c.tiersClause(excludes)))
+			if excludeNoTier {
+				ret = append(ret, notTrueClause(c.noTierClause()))
 			}
 		}
 	}
+	return ret
 }
 
 func notTrueClause(clause sqlClause) sqlClause {
@@ -150,6 +164,20 @@ func (c metallicRatingFilterConfig) tiersClause(tiers []string) sqlClause {
 	}
 
 	return orClauses(clauses...)
+}
+
+// includeClause adds rated non-metallic cards when No Tier is selected, so
+// all five tiers together skip only unrated cards without an override tag.
+func (c metallicRatingFilterConfig) includeClause(tiers []string, includeNoTier bool) sqlClause {
+	clause := c.tiersClause(tiers)
+	if !includeNoTier {
+		return clause
+	}
+	return orClauses(clause, c.noTierClause())
+}
+
+func (c metallicRatingFilterConfig) noTierClause() sqlClause {
+	return andClauses(makeClause(c.ratingColumn+" IS NOT NULL"), notTrueClause(c.anyMetallicClause()))
 }
 
 func (c metallicRatingFilterConfig) anyMetallicClause() sqlClause {
@@ -236,19 +264,26 @@ func (c metallicRatingFilterConfig) goatMarkerClause() sqlClause {
 	)`, c.primaryTable, sceneMarkerDirectTagHierarchyConditionCustom("mrg", goatTagID)))
 }
 
+// CUSTOM: Match the UI's highest-tier-first precedence even for reordered thresholds.
 func (c metallicRatingFilterConfig) ratingRangeClause(tier string) sqlClause {
-	switch tier {
-	case metallicTierBronze:
-		return makeClause(fmt.Sprintf("%s >= ? AND %s < ?", c.ratingColumn, c.ratingColumn), c.thresholds.bronze, c.thresholds.silver)
-	case metallicTierSilver:
-		return makeClause(fmt.Sprintf("%s >= ? AND %s < ?", c.ratingColumn, c.ratingColumn), c.thresholds.silver, c.thresholds.gold)
-	case metallicTierGold:
-		return makeClause(fmt.Sprintf("%s >= ? AND %s < ?", c.ratingColumn, c.ratingColumn), c.thresholds.gold, c.thresholds.royalSapphire)
-	case metallicTierRoyalSapphire:
-		return makeClause(fmt.Sprintf("%s >= ?", c.ratingColumn), c.thresholds.royalSapphire)
-	default:
-		return makeClause("0 = 1")
+	tiers := []string{metallicTierRoyalSapphire, metallicTierGold, metallicTierSilver, metallicTierBronze}
+	limits := []int{c.thresholds.royalSapphire, c.thresholds.gold, c.thresholds.silver, c.thresholds.bronze}
+	for index, key := range tiers {
+		if key != tier {
+			continue
+		}
+		if index == 0 {
+			return makeClause(c.ratingColumn+" >= ?", limits[index])
+		}
+		upper := limits[0]
+		for _, value := range limits[:index] {
+			if value < upper {
+				upper = value
+			}
+		}
+		return makeClause(fmt.Sprintf("%s >= ? AND %s < ?", c.ratingColumn, c.ratingColumn), limits[index], upper)
 	}
+	return makeClause("0 = 1")
 }
 
 func (c metallicRatingFilterConfig) overrideTagIDsForTier(tier string) []string {

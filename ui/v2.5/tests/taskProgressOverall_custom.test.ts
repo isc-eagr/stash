@@ -59,6 +59,11 @@ assert.match(
 );
 assert.doesNotMatch(
   overallSource,
+  /weekGain|previousPercent|t\("this week"\)/,
+  "the Overall hero no longer calculates or displays a weekly percentage label"
+);
+assert.doesNotMatch(
+  overallSource,
   /<ProgressBar/,
   "the Overall Progress card no longer duplicates progress as a linear bar"
 );

@@ -5,6 +5,8 @@ export type SceneStatsMarkerLinkTag = {
 };
 
 export type SceneStatsVatoCountBuckets = {
+  zero: number;
+  unknown: number;
   one: number;
   standard: number;
   threesome: number;
@@ -12,17 +14,24 @@ export type SceneStatsVatoCountBuckets = {
 };
 
 export function sceneStatsVatoCountBuckets(
-  performerCounts: readonly number[]
+  performerCounts: readonly (number | null | undefined)[]
 ): SceneStatsVatoCountBuckets {
   return performerCounts.reduce<SceneStatsVatoCountBuckets>(
     (counts, performerCount) => {
-      if (performerCount === 1) counts.one += 1;
+      if (
+        typeof performerCount !== "number" ||
+        !Number.isFinite(performerCount) ||
+        performerCount < 0
+      )
+        counts.unknown += 1;
+      else if (performerCount === 0) counts.zero += 1;
+      else if (performerCount === 1) counts.one += 1;
       else if (performerCount === 2) counts.standard += 1;
       else if (performerCount === 3) counts.threesome += 1;
       else if (performerCount >= 4) counts.group += 1;
       return counts;
     },
-    { one: 0, standard: 0, threesome: 0, group: 0 }
+    { zero: 0, unknown: 0, one: 0, standard: 0, threesome: 0, group: 0 }
   );
 }
 
@@ -62,23 +71,4 @@ export function makeSceneStatsMarkerTagURL(
   return `/scenes/markers?${params}`;
 }
 
-export type SceneStatsVatoCountBucket =
-  | "one"
-  | "standard"
-  | "threesome"
-  | "group";
-
-export function makeSceneStatsVatoCountURL(bucket: SceneStatsVatoCountBucket) {
-  const rangeByBucket = {
-    one: { modifier: "EQUALS", value: { value: 1 } },
-    standard: { modifier: "EQUALS", value: { value: 2 } },
-    threesome: { modifier: "EQUALS", value: { value: 3 } },
-    group: { modifier: "GREATER_THAN", value: { value: 3 } },
-  } as const;
-  const criterionData = {
-    type: "performer_count",
-    ...rangeByBucket[bucket],
-  };
-  return `/scenes?c=${encodeURIComponent(JSON.stringify(criterionData))}&z=2`;
-}
 // CUSTOM: end

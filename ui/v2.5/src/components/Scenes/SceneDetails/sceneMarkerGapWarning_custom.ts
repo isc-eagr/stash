@@ -577,7 +577,7 @@ function findSceneMarkerWarningsForDraft(
   if (performerCounts.top + performerCounts.bottom === 0) {
     warnings.push({
       issueType: "missing-performers",
-      message: "Marker has no top or bottom performers.",
+      message: "Marker has no top or bottom vatos.",
     });
   }
 

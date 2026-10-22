@@ -13,6 +13,15 @@ export interface ITaskProgressNextMedal {
   need: number;
 }
 
+// CUSTOM: Normalize percentage changes after rounding so rounded zero has no negative sign.
+export function taskProgressDisplayPercentChange(
+  value: number | undefined
+): number | undefined {
+  if (value === undefined) return undefined;
+  const rounded = Number(value.toFixed(2));
+  return rounded === 0 ? 0 : rounded;
+}
+
 /** The first unearned medal and how many items it still needs. */
 export function taskProgressNextMedal(
   completed: number,

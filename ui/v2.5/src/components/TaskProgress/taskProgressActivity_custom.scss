@@ -38,38 +38,38 @@ button.progress-activity-day {
 }
 
 .progress-report-goal-red {
-  --progress-report-goal-color: #eca2a8;
+  --progress-report-goal-color: var(--semantic-goal-red);
 
-  background: #eca2a8;
-  fill: #eca2a8;
+  background: var(--semantic-goal-red);
+  fill: var(--semantic-goal-red);
 }
 
 .progress-report-goal-orange {
-  --progress-report-goal-color: #edbd87;
+  --progress-report-goal-color: var(--semantic-goal-orange);
 
-  background: #edbd87;
-  fill: #edbd87;
+  background: var(--semantic-goal-orange);
+  fill: var(--semantic-goal-orange);
 }
 
 .progress-report-goal-yellow {
-  --progress-report-goal-color: #e6d58c;
+  --progress-report-goal-color: var(--semantic-goal-yellow);
 
-  background: #e6d58c;
-  fill: #e6d58c;
+  background: var(--semantic-goal-yellow);
+  fill: var(--semantic-goal-yellow);
 }
 
 .progress-report-goal-green {
-  --progress-report-goal-color: #91d3b0;
+  --progress-report-goal-color: var(--semantic-goal-green);
 
-  background: #91d3b0;
-  fill: #91d3b0;
+  background: var(--semantic-goal-green);
+  fill: var(--semantic-goal-green);
 }
 
 .progress-report-goal-sapphire {
-  --progress-report-goal-color: #94c3df;
+  --progress-report-goal-color: var(--semantic-goal-sapphire);
 
-  background: #94c3df;
-  fill: #94c3df;
+  background: var(--semantic-goal-sapphire);
+  fill: var(--semantic-goal-sapphire);
 }
 
 .progress-report-bars {
@@ -104,7 +104,7 @@ button.progress-activity-day {
   overflow: hidden;
 
   > span {
-    background: var(--progress-report-goal-color, #91d3b0);
+    background: var(--progress-report-goal-color, var(--semantic-goal-green));
     border-radius: 0.3rem 0.3rem 0 0;
     display: block;
     min-height: 2px;
@@ -140,7 +140,7 @@ button.progress-activity-day {
 }
 
 .progress-report-heat-4 {
-  background: #91d3b0;
+  background: var(--semantic-goal-green);
 }
 
 .progress-report-calendar-grid {

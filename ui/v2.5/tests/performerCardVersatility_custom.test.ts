@@ -112,7 +112,7 @@ const ratingCardStyles = readFileSync(
 );
 assert.equal(
   ratingCardStyles.match(
-    /\.performer-card-versatility-count\.is-bottom \{\s*color: #28a745 !important;/g
+    /\.performer-card-versatility-count\.is-bottom \{\s*color: var\(--semantic-bottom\) !important;/g
   )?.length,
   3,
   "every metallic card theme keeps the green bottom counts"

@@ -79,6 +79,7 @@ const sortByOptions = [
       messageID: "really_hot_facial_count",
       value: "really_hot_facial_count",
     },
+    { messageID: "goat_facial_count", value: "goat_facial_count" }, // CUSTOM
     {
       messageID: "royal_sapphire_scene_count",
       value: "royal_sapphire_scenes_count",
@@ -206,6 +207,10 @@ const sortByOptions = [
     {
       messageID: "average_overall_scene_rating",
       value: "average_overall_scene_rating",
+    },
+    {
+      messageID: "average_stashdb_matches",
+      value: "average_stashdb_matches",
     },
     // CUSTOM: end
   ]);

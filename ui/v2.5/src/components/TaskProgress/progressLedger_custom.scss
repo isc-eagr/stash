@@ -24,7 +24,7 @@
   overflow: hidden;
 
   > span {
-    background: var(--progress-report-goal-color, #91d3b0);
+    background: var(--progress-report-goal-color, var(--semantic-goal-green));
     display: block;
     height: 100%;
   }

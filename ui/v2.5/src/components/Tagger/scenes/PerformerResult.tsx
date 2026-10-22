@@ -108,7 +108,10 @@ const PerformerResult: React.FC<IPerformerResultProps> = ({
     selectPerformer(undefined);
   };
 
-  if (stashLoading) return <div>Loading performer</div>;
+  if (stashLoading)
+    // CUSTOM: begin - consistent entity vocabulary.
+    return <div>Loading vato</div>;
+  // CUSTOM: end
 
   if (matchedPerformer && matchedStashID) {
     return (

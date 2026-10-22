@@ -1,13 +1,14 @@
+import { SEMANTIC_COLORS_CUSTOM } from "src/utils/semanticColors_custom";
 import { ROLE_COLORS_CUSTOM } from "src/utils/roleColors_custom";
 
 export const ACTIVITY_PIE_COLORS = {
-  sex: "#d9822b",
-  oral: "#00b3a4",
-  solo: "#a855f7",
-  other: "#8a9ba8",
-  outstanding: "#ffd700",
-  standard: "#28a745",
-  unusable: "#dc3545",
+  sex: SEMANTIC_COLORS_CUSTOM.sex,
+  oral: SEMANTIC_COLORS_CUSTOM.oral,
+  solo: SEMANTIC_COLORS_CUSTOM.solo,
+  other: SEMANTIC_COLORS_CUSTOM.unclassified,
+  outstanding: SEMANTIC_COLORS_CUSTOM.outstanding,
+  standard: SEMANTIC_COLORS_CUSTOM.standard,
+  unusable: SEMANTIC_COLORS_CUSTOM.unusable,
   top: ROLE_COLORS_CUSTOM.top.color,
   bottom: ROLE_COLORS_CUSTOM.bottom.color,
 };

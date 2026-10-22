@@ -101,7 +101,7 @@ assert.deepEqual(
     },
     {
       key: "oral",
-      label: "Eating pito",
+      label: "Mamando Rifle",
       percent: 30,
       duration: 30,
       outstandingPercent: 50,

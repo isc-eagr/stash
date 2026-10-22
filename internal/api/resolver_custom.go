@@ -25,28 +25,6 @@ type sceneMultiSegmentLoopPresetInputResolver struct{ *Resolver }
 const sceneODateTrackingStart = "2024-03-08"
 const sceneODateMostOsExcludedDay = "2025-09-08"
 
-type customRatingTierThresholds struct {
-	bronze        int
-	silver        int
-	gold          int
-	royalSapphire int
-}
-
-type customRatingTierOverrideTags struct {
-	bronze        string
-	silver        string
-	gold          string
-	royalSapphire string
-	goat          string
-}
-
-var defaultCustomRatingTierThresholds = customRatingTierThresholds{
-	bronze:        60,
-	silver:        73,
-	gold:          84,
-	royalSapphire: 90,
-}
-
 type sceneOEventAssociatedTagCandidate struct {
 	OID      string
 	MarkerID int
@@ -102,218 +80,11 @@ func (r *queryResolver) PerformerEthnicities(ctx context.Context) (ret []string,
 	return ret, nil
 }
 
-func customRatingTierSQLClause(tier string, thresholds customRatingTierThresholds, overrides customRatingTierOverrideTags) (string, []interface{}) {
-	var clauses []string
-	var args []interface{}
-
-	if overrideTagIDs := customOverrideTagIDsForTier(tier, overrides); len(overrideTagIDs) > 0 {
-		noHigherPriorityClause, noHigherPriorityArgs := customHasNoAnyPerformerTagClause(
-			customHigherPriorityOverrideTagIDsForTier(tier, overrides),
-		)
-		hasOverrideClause, hasOverrideArgs := customHasAnyPerformerTagClause(overrideTagIDs)
-		clauses = append(clauses, fmt.Sprintf("(%s AND %s)", noHigherPriorityClause, hasOverrideClause))
-		args = append(args, noHigherPriorityArgs...)
-		args = append(args, hasOverrideArgs...)
-	}
-
-	noOverrideClause, noOverrideArgs := customHasNoAnyPerformerTagClause(customAllOverrideTagIDs(overrides))
-	ratingClause, ratingArgs := customRatingRangeSQLClause(tier, thresholds)
-	clauses = append(clauses, fmt.Sprintf("(%s AND %s)", noOverrideClause, ratingClause))
-	args = append(args, noOverrideArgs...)
-	args = append(args, ratingArgs...)
-
-	return "(" + strings.Join(clauses, " OR ") + ")", args
-}
-
-func customRatingRangeSQLClause(tier string, thresholds customRatingTierThresholds) (string, []interface{}) {
-	switch tier {
-	case "bronze":
-		return "rating >= ? AND rating < ?", []interface{}{thresholds.bronze, thresholds.silver}
-	case "silver":
-		return "rating >= ? AND rating < ?", []interface{}{thresholds.silver, thresholds.gold}
-	case "gold":
-		return "rating >= ? AND rating < ?", []interface{}{thresholds.gold, thresholds.royalSapphire}
-	case "royal_sapphire":
-		return "rating >= ?", []interface{}{thresholds.royalSapphire}
-	default:
-		return "0 = 1", nil
-	}
-}
-
-func customOverrideTagIDsForTier(tier string, overrides customRatingTierOverrideTags) []string {
-	switch tier {
-	case "bronze":
-		return customNonEmptyStrings(overrides.bronze)
-	case "silver":
-		return customNonEmptyStrings(overrides.silver)
-	case "gold":
-		return customNonEmptyStrings(overrides.gold)
-	case "royal_sapphire":
-		return customNonEmptyStrings(overrides.royalSapphire, overrides.goat)
-	default:
-		return nil
-	}
-}
-
-func customHigherPriorityOverrideTagIDsForTier(tier string, overrides customRatingTierOverrideTags) []string {
-	switch tier {
-	case "bronze":
-		return customNonEmptyStrings(overrides.silver, overrides.gold, overrides.royalSapphire, overrides.goat)
-	case "silver":
-		return customNonEmptyStrings(overrides.gold, overrides.royalSapphire, overrides.goat)
-	case "gold":
-		return customNonEmptyStrings(overrides.royalSapphire, overrides.goat)
-	default:
-		return nil
-	}
-}
-
-func customAllOverrideTagIDs(overrides customRatingTierOverrideTags) []string {
-	return customNonEmptyStrings(
-		overrides.bronze,
-		overrides.silver,
-		overrides.gold,
-		overrides.royalSapphire,
-		overrides.goat,
-	)
-}
-
-func customHasAnyPerformerTagClause(tagIDs []string) (string, []interface{}) {
-	if len(tagIDs) == 0 {
-		return "0 = 1", nil
-	}
-
-	placeholders := strings.TrimRight(strings.Repeat("?,", len(tagIDs)), ",")
-	return fmt.Sprintf(
-		"EXISTS (SELECT 1 FROM performers_tags prt WHERE prt.performer_id = performers.id AND prt.tag_id IN (%s))",
-		placeholders,
-	), customStringSliceToInterfaces(tagIDs)
-}
-
-func customHasNoAnyPerformerTagClause(tagIDs []string) (string, []interface{}) {
-	if len(tagIDs) == 0 {
-		return "1 = 1", nil
-	}
-
-	hasAnyClause, args := customHasAnyPerformerTagClause(tagIDs)
-	return "NOT " + hasAnyClause, args
-}
-
-func getCustomPerformerRatingTierThresholds() customRatingTierThresholds {
-	ret := defaultCustomRatingTierThresholds
-	uiConfig := config.GetInstance().GetUIConfiguration()
-	thresholds := customMapValue(uiConfig, "ratingCardThresholds")
-	if performerThresholds := customMapValue(thresholds, "performer"); performerThresholds != nil {
-		applyCustomRatingTierThresholds(&ret, performerThresholds)
-	} else {
-		applyCustomRatingTierThresholds(&ret, thresholds)
-	}
-	return ret
-}
-
-func getCustomRatingTierOverrideTags() customRatingTierOverrideTags {
-	uiConfig := config.GetInstance().GetUIConfiguration()
-	overrideTags := customMapValue(uiConfig, "ratingCardOverrideTagIds")
-	roleTags := customMapValue(uiConfig, "roleTagIds")
-
-	return customRatingTierOverrideTags{
-		bronze:        customStringConfigValue(overrideTags["bronzeTagId"]),
-		silver:        customStringConfigValue(overrideTags["silverTagId"]),
-		gold:          customStringConfigValue(overrideTags["goldTagId"]),
-		royalSapphire: customStringConfigValue(overrideTags["royalSapphireTagId"]),
-		goat:          customStringConfigValue(roleTags["goatTagId"]),
-	}
-}
-
-func applyCustomRatingTierThresholds(thresholds *customRatingTierThresholds, values map[string]interface{}) {
-	if values == nil {
-		return
-	}
-	if value, ok := customIntConfigValue(values["bronze"]); ok {
-		thresholds.bronze = customClampRatingThreshold(value)
-	}
-	if value, ok := customIntConfigValue(values["silver"]); ok {
-		thresholds.silver = customClampRatingThreshold(value)
-	}
-	if value, ok := customIntConfigValue(values["gold"]); ok {
-		thresholds.gold = customClampRatingThreshold(value)
-	}
-	if value, ok := customIntConfigValue(values["royalSapphire"]); ok {
-		thresholds.royalSapphire = customClampRatingThreshold(value)
-	}
-}
-
 func customStringConfigValue(value interface{}) string {
 	if value == nil {
 		return ""
 	}
 	return strings.TrimSpace(fmt.Sprint(value))
-}
-
-func customMapValue(values map[string]interface{}, key string) map[string]interface{} {
-	if values == nil {
-		return nil
-	}
-	switch typed := values[key].(type) {
-	case map[string]interface{}:
-		return typed
-	case map[interface{}]interface{}:
-		ret := make(map[string]interface{}, len(typed))
-		for k, v := range typed {
-			if keyString, ok := k.(string); ok {
-				ret[keyString] = v
-			}
-		}
-		return ret
-	default:
-		return nil
-	}
-}
-
-func customNonEmptyStrings(values ...string) []string {
-	var ret []string
-	seen := map[string]bool{}
-	for _, value := range values {
-		trimmed := strings.TrimSpace(value)
-		if trimmed != "" && !seen[trimmed] {
-			ret = append(ret, trimmed)
-			seen[trimmed] = true
-		}
-	}
-	return ret
-}
-
-func customStringSliceToInterfaces(values []string) []interface{} {
-	ret := make([]interface{}, len(values))
-	for i, value := range values {
-		ret[i] = value
-	}
-	return ret
-}
-
-func customIntConfigValue(value interface{}) (int, bool) {
-	switch typed := value.(type) {
-	case int:
-		return typed, true
-	case int64:
-		return int(typed), true
-	case float64:
-		return int(typed), true
-	case float32:
-		return int(typed), true
-	case string:
-		parsed, err := strconv.Atoi(typed)
-		return parsed, err == nil
-	default:
-		return 0, false
-	}
-}
-
-func customClampRatingThreshold(value int) int {
-	if value < 0 {
-		return 0
-	}
-	return value
 }
 
 func customStringValue(value interface{}) string {
@@ -495,13 +266,16 @@ SELECT
   fs.primary_width,
   fs.primary_height,
   os.most_recent_o_date,
-  CASE WHEN rsb.scene_id IS NOT NULL THEN 1 ELSE 0 END AS has_royal_sapphire_bonus
+  CASE WHEN rsb.scene_id IS NOT NULL THEN 1 ELSE 0 END AS has_royal_sapphire_bonus,
+  CASE WHEN s.organized THEN 1 ELSE 0 END AS organized,
+  %s AS stashdb_matches,
+  s.studio_id
 FROM scenes s
 LEFT JOIN file_stats fs ON fs.scene_id = s.id
 LEFT JOIN o_stats os ON os.scene_id = s.id
 LEFT JOIN royal_sapphire_bonus_scenes rsb ON rsb.scene_id = s.id
 WHERE s.id IN (SELECT id FROM selected_scenes)
-ORDER BY s.date DESC, s.id DESC`, sceneScope, oDateWhere, effectiveDateExpr)
+ORDER BY s.date DESC, s.id DESC`, sceneScope, oDateWhere, effectiveDateExpr, sqlite.SceneTotalStashDBMatchesSQLCustom("s.id"))
 }
 
 func sceneStatsScopedPerformerQueryCustom(sceneScope string) string {
@@ -510,17 +284,19 @@ SELECT
   ps.scene_id,
   ps.performer_id,
   p.ethnicity,
-  p.country
+  p.country,
+  p.rating
 FROM performers_scenes ps
 JOIN performers p ON p.id = ps.performer_id
 WHERE ps.scene_id IN (SELECT id FROM selected_scenes)`
 }
 
-func sceneStatsAddPerformerCustom(scene *SceneStatsScene, performerID int, ethnicity string, country string) {
+func sceneStatsAddPerformerCustom(scene *SceneStatsScene, performerID int, ethnicity string, country string, rating *int) {
 	scene.PerformerCount++
 	scene.PerformerIds = append(scene.PerformerIds, strconv.Itoa(performerID))
 	scene.PerformerEthnicities = append(scene.PerformerEthnicities, ethnicity)
 	scene.PerformerCountries = append(scene.PerformerCountries, country)
+	scene.PerformerRatings = append(scene.PerformerRatings, rating)
 }
 
 // sceneStatsScopedMarkerQueryCustom returns one row per (scene, marker, role
@@ -600,7 +376,7 @@ func (r *queryResolver) SceneStats(ctx context.Context, studioID *string, depth 
 		out := &SceneStatsResult{Scenes: []*SceneStatsScene{}}
 		byID := make(map[int]*SceneStatsScene, len(rows))
 		for _, row := range rows {
-			if len(row) < 12 {
+			if len(row) < 15 {
 				continue
 			}
 
@@ -621,9 +397,13 @@ func (r *queryResolver) SceneStats(ctx context.Context, studioID *string, depth 
 				PrimaryHeight:         vatoStatsIntPtrValue(row[9]),
 				MostRecentODate:       sceneStatsStringPtrValue(row[10]),
 				HasRoyalSapphireBonus: customIntValue(row[11]) != 0,
+				Organized:             customIntValue(row[12]) != 0,
+				StashdbMatches:        vatoStatsIntPtrValue(row[13]),
+				StudioID:              sceneStatsStringPtrValue(row[14]),
 				PerformerIds:          []string{},
 				PerformerEthnicities:  []string{},
 				PerformerCountries:    []string{},
+				PerformerRatings:      []*int{},
 				MarkerTagGroups:       []*SceneStatsMarkerTagGroup{},
 				TagIds:                []string{},
 			}
@@ -641,7 +421,7 @@ func (r *queryResolver) SceneStats(ctx context.Context, studioID *string, depth 
 			return err
 		}
 		for _, row := range performerRows {
-			if len(row) < 4 {
+			if len(row) < 5 {
 				continue
 			}
 			scene := byID[customIntValue(row[0])]
@@ -653,6 +433,7 @@ func (r *queryResolver) SceneStats(ctx context.Context, studioID *string, depth 
 				customIntValue(row[1]),
 				customStringValue(row[2]),
 				customStringValue(row[3]),
+				vatoStatsIntPtrValue(row[4]),
 			)
 		}
 
@@ -680,6 +461,8 @@ func (r *queryResolver) SceneStats(ctx context.Context, studioID *string, depth 
 			soloTagID,
 			facialTagID,
 			configuredRoleTagIDCustom(uiConfig, "reallyHotTagId"),
+			// GOAT facials color the Scene Stats facial columns.
+			configuredRoleTagIDCustom(uiConfig, "goatTagId"),
 		})
 		markerArgs = append(append([]interface{}{}, sceneScopeArgs...), markerArgs...)
 		_, markerRows, err := db.QuerySQL(ctx, markerQuery, markerArgs)
@@ -1332,7 +1115,7 @@ ORDER BY cnt DESC, tag_name ASC`
 
 func vatoStatsEthnicityLabel(value interface{}) string {
 	ret := strings.TrimSpace(customStringValue(value))
-	if ret == "" || strings.EqualFold(ret, "<nil>") || strings.EqualFold(ret, "null") {
+	if statsMissingTextCustom(ret) {
 		return "Unknown"
 	}
 	return ret
@@ -1709,7 +1492,7 @@ WITH o_ethnicities AS (
   SELECT DISTINCT
     od.rowid AS o_id,
     CASE
-      WHEN performers.ethnicity IS NULL OR TRIM(performers.ethnicity) = '' OR LOWER(TRIM(performers.ethnicity)) IN ('<nil>', 'null')
+      WHEN ` + statsMissingTextSQLCustom("performers.ethnicity") + `
       THEN 'Unknown'
       ELSE TRIM(performers.ethnicity)
     END AS ethnicity
@@ -1778,16 +1561,14 @@ func (r *queryResolver) SceneOEventsByEthnicity(ctx context.Context, ethnicity s
       FROM ` + sqlite.SceneOEventCastSQLCustom() + ` known_ps
       JOIN performers known_p ON known_p.id = known_ps.performer_id
       WHERE known_ps.owner_key = od.owner_key
-        AND known_p.ethnicity IS NOT NULL
-        AND TRIM(known_p.ethnicity) <> ''
-        AND LOWER(TRIM(known_p.ethnicity)) NOT IN ('<nil>', 'null')
+        AND NOT ` + statsMissingTextSQLCustom("known_p.ethnicity") + `
     )
     OR EXISTS (
       SELECT 1
       FROM ` + sqlite.SceneOEventCastSQLCustom() + ` unknown_ps
       LEFT JOIN performers unknown_p ON unknown_p.id = unknown_ps.performer_id
       WHERE unknown_ps.owner_key = od.owner_key
-        AND (unknown_p.ethnicity IS NULL OR TRIM(unknown_p.ethnicity) = '' OR LOWER(TRIM(unknown_p.ethnicity)) IN ('<nil>', 'null'))
+        AND ` + statsMissingTextSQLCustom("unknown_p.ethnicity") + `
     )
   )`
 			args = nil
@@ -1833,7 +1614,7 @@ WITH o_countries AS (
   SELECT DISTINCT
     od.rowid AS o_id,
     CASE
-      WHEN performers.country IS NULL OR TRIM(performers.country) = '' OR LOWER(TRIM(performers.country)) IN ('<nil>', 'null')
+      WHEN ` + statsMissingTextSQLCustom("performers.country") + `
       THEN 'Unknown'
       ELSE TRIM(performers.country)
     END AS country
@@ -1900,16 +1681,14 @@ func (r *queryResolver) SceneOEventsByCountry(ctx context.Context, country strin
       FROM ` + sqlite.SceneOEventCastSQLCustom() + ` known_ps
       JOIN performers known_p ON known_p.id = known_ps.performer_id
       WHERE known_ps.owner_key = od.owner_key
-        AND known_p.country IS NOT NULL
-        AND TRIM(known_p.country) <> ''
-        AND LOWER(TRIM(known_p.country)) NOT IN ('<nil>', 'null')
+        AND NOT ` + statsMissingTextSQLCustom("known_p.country") + `
     )
     OR EXISTS (
       SELECT 1
       FROM ` + sqlite.SceneOEventCastSQLCustom() + ` unknown_ps
       LEFT JOIN performers unknown_p ON unknown_p.id = unknown_ps.performer_id
       WHERE unknown_ps.owner_key = od.owner_key
-        AND (unknown_p.country IS NULL OR TRIM(unknown_p.country) = '' OR LOWER(TRIM(unknown_p.country)) IN ('<nil>', 'null'))
+        AND ` + statsMissingTextSQLCustom("unknown_p.country") + `
     )
   )`
 		args = nil
@@ -2276,7 +2055,7 @@ ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1)
 
 func vatoStatsStringPtrValue(value interface{}) *string {
 	ret := strings.TrimSpace(customStringValue(value))
-	if ret == "" || strings.EqualFold(ret, "<nil>") || strings.EqualFold(ret, "null") {
+	if statsMissingTextCustom(ret) {
 		return nil
 	}
 	return &ret
@@ -2404,15 +2183,18 @@ func (r *queryResolver) VatoStatsPerformers(ctx context.Context, studioID *strin
 	if err != nil {
 		return nil, err
 	}
+	// Only organized scenes count toward a vato's scene, role, O and age numbers.
+	sceneScope, err = organizedStatsSceneScopeCustom(sceneScope)
+	if err != nil {
+		return nil, err
+	}
 	oDateWhere, oDateArgs := dateRange.oDateWhereSQL("od")
 
 	baseURL, _ := ctx.Value(BaseURLCtxKey).(string)
-	thresholds := getCustomPerformerRatingTierThresholds()
-	overrides := getCustomRatingTierOverrideTags()
-	bronzeClause, bronzeArgs := customRatingTierSQLClause("bronze", thresholds, overrides)
-	silverClause, silverArgs := customRatingTierSQLClause("silver", thresholds, overrides)
-	goldClause, goldArgs := customRatingTierSQLClause("gold", thresholds, overrides)
-	royalSapphireClause, royalSapphireArgs := customRatingTierSQLClause("royal_sapphire", thresholds, overrides)
+	bronzeClause, bronzeArgs := sqlite.PerformerMetallicTierClauseCustom("bronze")
+	silverClause, silverArgs := sqlite.PerformerMetallicTierClauseCustom("silver")
+	goldClause, goldArgs := sqlite.PerformerMetallicTierClauseCustom("gold")
+	royalSapphireClause, royalSapphireArgs := sqlite.PerformerMetallicTierClauseCustom("royal_sapphire")
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		db := manager.GetInstance().Database

@@ -51,7 +51,9 @@ const StashSearchResult: React.FC<IStashSearchResultProps> = ({
 
   const handleSave = async (input: GQL.PerformerCreateInput) => {
     setError({});
-    setSaveState("Saving performer");
+    // CUSTOM: begin - consistent entity vocabulary.
+    setSaveState("Saving vato");
+    // CUSTOM: end
     setModalPerformer(undefined);
 
     if (input.stash_ids?.length) {
@@ -70,14 +72,16 @@ const StashSearchResult: React.FC<IStashSearchResultProps> = ({
     const res = await updatePerformer(updateData);
 
     if (!res?.data?.performerUpdate)
+      // CUSTOM: begin - consistent entity vocabulary.
       setError({
-        message: `Failed to save performer "${performer.name}"`,
+        message: `Failed to save vato "${performer.name}"`,
         details:
           res?.errors?.[0].message ===
           "UNIQUE constraint failed: performers.name"
             ? "Name already exists"
             : res?.errors?.[0].message,
       });
+    // CUSTOM: end
     else onPerformerTagged(performer);
     setSaveState("");
   };
@@ -97,6 +101,7 @@ const StashSearchResult: React.FC<IStashSearchResultProps> = ({
     </Button>
   ));
 
+  // CUSTOM: begin - consistent entity vocabulary.
   return (
     <>
       {modalPerformer && (
@@ -106,7 +111,7 @@ const StashSearchResult: React.FC<IStashSearchResultProps> = ({
           performer={modalPerformer}
           onSave={handleSave}
           icon={faTags}
-          header="Update Performer"
+          header="Update Vato"
           excludedPerformerFields={excludedPerformerFields}
           endpoint={endpoint}
         />
@@ -128,6 +133,7 @@ const StashSearchResult: React.FC<IStashSearchResultProps> = ({
       </div>
     </>
   );
+  // CUSTOM: end
 };
 
 export default StashSearchResult;

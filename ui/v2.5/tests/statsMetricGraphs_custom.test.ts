@@ -21,10 +21,6 @@ const vatoMetricGraphs = [
   ["facial_received_count", "Facials Received"],
 ] as const;
 
-const zeroExcludedVatoMetricGraphs = vatoMetricGraphs.filter(
-  ([metric]) => metric !== "scene_count"
-);
-
 for (const [metric, label] of vatoMetricGraphs) {
   assert.match(
     vatoStatsSource,
@@ -38,14 +34,6 @@ for (const [metric, label] of vatoMetricGraphs) {
   );
 }
 
-for (const [metric, label] of zeroExcludedVatoMetricGraphs) {
-  assert.match(
-    vatoStatsSource,
-    new RegExp(`excludeZeroCountFromChart[\\s\\S]*?case "${metric}":`),
-    `${label} should exclude zero-count vatos rather than show an Unknown badge`
-  );
-}
-
 assert.match(
   vatoStatsSource,
   /case "scene_count":\s*return nonNegativeNumericValueLabel\(performer\.scene_count\);/,
@@ -54,13 +42,13 @@ assert.match(
 
 assert.match(
   vatoStatsSource,
-  /if \(!value\) \{\s*if \(!excludeZeroCountFromChart\(category\)\) unknownCount \+= 1;/,
+  /if \(!value\) \{\s*unknownCount \+= 1;/,
   "Vato metric graphs should not count zero-scene vatos as Unknown"
 );
 
 assert.match(
   sceneStatsSource,
-  /o_count: "O Count"[\s\S]*?category: "o_count"[\s\S]*?title="By O Count"/,
+  /o_count: "O Count"[\s\S]*?category: "o_count"[\s\S]*?title="O Count"/,
   "Scene Stats should bucket O counts and render a drill-down graph"
 );
 

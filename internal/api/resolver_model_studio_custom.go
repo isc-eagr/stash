@@ -6,10 +6,12 @@ import (
 	"context"
 	"strconv"
 
+	"github.com/stashapp/stash/internal/manager"
 	"github.com/stashapp/stash/internal/manager/config"
 	"github.com/stashapp/stash/pkg/models"
 	"github.com/stashapp/stash/pkg/performer"
 	"github.com/stashapp/stash/pkg/scene"
+	"github.com/stashapp/stash/pkg/sqlite"
 )
 
 func (r *studioResolver) UniquePerformerCount(ctx context.Context, obj *models.Studio, depth *int) (ret int, err error) {
@@ -60,6 +62,29 @@ func (r *studioResolver) FacialCount(ctx context.Context, obj *models.Studio, de
 		return err
 	}); err != nil {
 		return 0, err
+	}
+
+	return ret, nil
+}
+
+// AverageStashdbMatches averages scene totals (scene plus releases), like the
+// Studio list column; unscraped scenes are left out.
+func (r *studioResolver) AverageStashdbMatches(ctx context.Context, obj *models.Studio, depth *int) (ret *float64, err error) {
+	studioID := strconv.Itoa(obj.ID)
+	sceneScope, sceneScopeArgs, err := sceneStatsSceneScopeCustom(&studioID, depth, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	query := sceneScope + "\nSELECT AVG(" + sqlite.SceneTotalStashDBMatchesSQLCustom("selected_scenes.id") + ") FROM selected_scenes"
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		_, rows, err := manager.GetInstance().Database.QuerySQL(ctx, query, sceneScopeArgs)
+		if err == nil && len(rows) > 0 && len(rows[0]) > 0 {
+			ret = customFloatPtrValue(rows[0][0])
+		}
+		return err
+	}); err != nil {
+		return nil, err
 	}
 
 	return ret, nil

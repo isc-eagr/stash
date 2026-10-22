@@ -29,7 +29,7 @@ const sites = [
     name: "LatinBoyz",
     members: false,
     picsHint:
-      "Holds the unzipped picture sets, each named with its code like latinboyz-model-brian-am2224",
+      "Optional. Extract photo sets here with their scene code, e.g. latinboyz-model-brian-am2224. Metadata needs no folder or subscription.",
   },
 ];
 

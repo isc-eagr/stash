@@ -257,7 +257,7 @@ export const SceneMarkerHighlightPerformersPopover = <
           ))}
         </div>
       ) : (
-        <div className="scene-marker-activity-config-empty">No performers</div>
+        <div className="scene-marker-activity-config-empty">No vatos</div>
       )}
     </div>
   );

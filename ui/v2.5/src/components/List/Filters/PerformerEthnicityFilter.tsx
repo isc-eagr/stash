@@ -1,6 +1,10 @@
 import React, { useMemo } from "react";
 import Select from "react-select";
-import { EthnicityCriterion } from "src/models/list-filter/criteria/ethnicity";
+import {
+  EthnicityCriterion,
+  ethnicityExactValue,
+  ethnicityTokenLabels,
+} from "src/models/list-filter/criteria/ethnicity";
 import { usePerformerEthnicitiesQuery } from "src/core/generated-graphql";
 
 interface IOption {
@@ -26,9 +30,13 @@ export const PerformerEthnicityFilter: React.FC<{
       .filter((v) => v.length > 0);
     return codes.map(
       (v: string) =>
-        options.find((o: IOption) => o.value === v) || { label: v, value: v }
+        options.find((o: IOption) => o.value === v) || {
+          label: ethnicityTokenLabels[v] ?? v,
+          value: v,
+        }
     );
   }, [criterion.value, options]);
+  const exact = selectedValues.some((v) => v.value === ethnicityExactValue);
 
   return (
     <div>
@@ -46,8 +54,9 @@ export const PerformerEthnicityFilter: React.FC<{
       />
       <div style={{ marginTop: 4 }}>
         <small className="text-muted">
-          Note: Afrolatino counts as Black and Latino; Mixed counts as Black and
-          White.
+          {exact
+            ? "Exact match: Mixed and Afrolatino only count as themselves."
+            : "Note: Afrolatino counts as Black and Latino; Mixed counts as Black and White."}
         </small>
       </div>
     </div>

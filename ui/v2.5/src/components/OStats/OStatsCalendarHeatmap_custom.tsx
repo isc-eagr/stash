@@ -1,3 +1,4 @@
+import { getAppLocaleCustom } from "src/utils/appLocale_custom"; // CUSTOM
 import React, { useEffect, useMemo, useState } from "react";
 import { gql, useQuery } from "@apollo/client";
 import { Form } from "react-bootstrap";
@@ -27,20 +28,26 @@ const SCENE_O_CALENDAR_DAY_COUNTS = gql`
 const WEEKDAY_LABELS = ["Mon", "", "Wed", "", "Fri", "", "Sun"];
 
 function monthLabel(month: number) {
-  return new Date(Date.UTC(2024, month - 1, 1)).toLocaleString(undefined, {
-    month: "short",
-    timeZone: "UTC",
-  });
+  return new Date(Date.UTC(2024, month - 1, 1)).toLocaleString(
+    getAppLocaleCustom(),
+    {
+      month: "short",
+      timeZone: "UTC",
+    }
+  );
 }
 
 function longDate(date: string) {
-  return new Date(`${date}T00:00:00Z`).toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  });
+  return new Date(`${date}T00:00:00Z`).toLocaleDateString(
+    getAppLocaleCustom(),
+    {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      timeZone: "UTC",
+    }
+  );
 }
 
 // The heatmap picks its own calendar year, so it ignores the page date range.
@@ -111,17 +118,19 @@ export const OStatsCalendarHeatmap: React.FC<{
           <div className="ostats-calendar-summary">
             <span>{formatStatsTotal(summary.total, "O", "O's")}</span>
             <span>
-              {summary.activeDays.toLocaleString()} active{" "}
+              {summary.activeDays.toLocaleString(getAppLocaleCustom())} active{" "}
               {summary.activeDays === 1 ? "day" : "days"}
             </span>
             {summary.bestDay && (
               <span>
-                Best day: {summary.bestDay.count.toLocaleString()} on{" "}
+                Best day:{" "}
+                {summary.bestDay.count.toLocaleString(getAppLocaleCustom())} on{" "}
                 {longDate(summary.bestDay.date)}
               </span>
             )}
             <span>
-              Longest streak: {summary.longestStreak.toLocaleString()}{" "}
+              Longest streak:{" "}
+              {summary.longestStreak.toLocaleString(getAppLocaleCustom())}{" "}
               {summary.longestStreak === 1 ? "day" : "days"}
             </span>
           </div>

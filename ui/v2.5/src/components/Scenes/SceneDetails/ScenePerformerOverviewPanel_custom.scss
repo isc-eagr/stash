@@ -489,11 +489,11 @@ a.scene-performer-overview-rating--o-count {
   }
 
   &.is-top h4 {
-    border-left-color: #17a2b8;
+    border-left-color: var(--semantic-top);
   }
 
   &.is-bottom h4 {
-    border-left-color: #28a745;
+    border-left-color: var(--semantic-bottom);
   }
 }
 

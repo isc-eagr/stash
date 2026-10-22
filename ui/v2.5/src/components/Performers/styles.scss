@@ -170,18 +170,18 @@
   }
 
   &.is-top {
-    border-left-color: #17a2b8;
+    border-left-color: var(--semantic-top);
 
     strong {
-      color: #17a2b8;
+      color: var(--semantic-top);
     }
   }
 
   &.is-bottom {
-    border-left-color: #28a745;
+    border-left-color: var(--semantic-bottom);
 
     strong {
-      color: #28a745;
+      color: var(--semantic-bottom);
     }
   }
 }

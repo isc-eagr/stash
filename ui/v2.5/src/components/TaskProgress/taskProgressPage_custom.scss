@@ -214,41 +214,6 @@
     }
   }
 
-  .progress-goal-period-red {
-    --progress-goal-bar-end: #eca2a8;
-    --progress-goal-bar-start: #eca2a8;
-    box-shadow: inset 0 0 0 1px rgba(245, 86, 86, 0.18);
-    color: #eca2a8;
-  }
-
-  .progress-goal-period-orange {
-    --progress-goal-bar-end: #edbd87;
-    --progress-goal-bar-start: #edbd87;
-    box-shadow: inset 0 0 0 1px rgba(240, 140, 58, 0.18);
-    color: #edbd87;
-  }
-
-  .progress-goal-period-yellow {
-    --progress-goal-bar-end: #e6d58c;
-    --progress-goal-bar-start: #e6d58c;
-    box-shadow: inset 0 0 0 1px rgba(242, 201, 76, 0.18);
-    color: #e6d58c;
-  }
-
-  .progress-goal-period-green {
-    --progress-goal-bar-end: #91d3b0;
-    --progress-goal-bar-start: #91d3b0;
-    box-shadow: inset 0 0 0 1px rgba(53, 196, 106, 0.18);
-    color: #91d3b0;
-  }
-
-  .progress-goal-period-sapphire {
-    --progress-goal-bar-end: #94c3df;
-    --progress-goal-bar-start: #94c3df;
-    box-shadow: inset 0 0 0 1px rgba(77, 184, 255, 0.18);
-    color: #94c3df;
-  }
-
   .progress-tracker-modal-items {
     display: flex;
     flex-wrap: wrap;
@@ -295,11 +260,11 @@
 }
 
 .progress-delta-up {
-  color: #91d3b0;
+  color: var(--semantic-goal-green);
 }
 
 .progress-delta-down {
-  color: #eca2a8;
+  color: var(--semantic-goal-red);
 }
 
 .progress-delta-flat {
@@ -431,41 +396,6 @@
       display: block;
       height: 100%;
     }
-  }
-
-  .progress-goal-period-red {
-    --progress-goal-bar-end: #eca2a8;
-    --progress-goal-bar-start: #eca2a8;
-    box-shadow: inset 0 0 0 1px rgba(245, 86, 86, 0.18);
-    color: #eca2a8;
-  }
-
-  .progress-goal-period-orange {
-    --progress-goal-bar-end: #edbd87;
-    --progress-goal-bar-start: #edbd87;
-    box-shadow: inset 0 0 0 1px rgba(240, 140, 58, 0.18);
-    color: #edbd87;
-  }
-
-  .progress-goal-period-yellow {
-    --progress-goal-bar-end: #e6d58c;
-    --progress-goal-bar-start: #e6d58c;
-    box-shadow: inset 0 0 0 1px rgba(242, 201, 76, 0.18);
-    color: #e6d58c;
-  }
-
-  .progress-goal-period-green {
-    --progress-goal-bar-end: #91d3b0;
-    --progress-goal-bar-start: #91d3b0;
-    box-shadow: inset 0 0 0 1px rgba(53, 196, 106, 0.18);
-    color: #91d3b0;
-  }
-
-  .progress-goal-period-sapphire {
-    --progress-goal-bar-end: #94c3df;
-    --progress-goal-bar-start: #94c3df;
-    box-shadow: inset 0 0 0 1px rgba(77, 184, 255, 0.18);
-    color: #94c3df;
   }
 }
 
@@ -910,27 +840,27 @@
 
 .task-progress-timer-green {
   background: rgba(53, 196, 106, 0.13);
-  color: #91d3b0;
+  color: var(--semantic-goal-green);
 }
 
 .task-progress-timer-light-green {
   background: rgba(104, 220, 145, 0.13);
-  color: #91d3b0;
+  color: var(--semantic-goal-green);
 }
 
 .task-progress-timer-yellow {
   background: rgba(242, 201, 76, 0.13);
-  color: #e6d58c;
+  color: var(--semantic-goal-yellow);
 }
 
 .task-progress-timer-orange {
   background: rgba(240, 140, 58, 0.13);
-  color: #edbd87;
+  color: var(--semantic-goal-orange);
 }
 
 .task-progress-timer-red {
   background: rgba(245, 86, 86, 0.13);
-  color: #eca2a8;
+  color: var(--semantic-goal-red);
 }
 
 .task-progress-timer-status {
@@ -990,15 +920,15 @@
   animation: progress-completed-shimmer 3s ease-in-out infinite;
   background: linear-gradient(
     110deg,
-    #94c3df 15%,
+    var(--semantic-goal-sapphire) 15%,
     #b9e6ff 35%,
-    #94c3df 55%,
+    var(--semantic-goal-sapphire) 55%,
     #123f9f 75%,
-    #94c3df
+    var(--semantic-goal-sapphire)
   );
   background-clip: text;
   background-size: 250% 100%;
-  color: #94c3df;
+  color: var(--semantic-goal-sapphire);
   filter: drop-shadow(0 0 4px rgba(56, 189, 248, 0.55));
   -webkit-text-fill-color: transparent;
 }
@@ -1021,5 +951,15 @@
 @media (prefers-reduced-motion: reduce) {
   .task-progress-page .progress-score-percent-complete {
     animation: none;
+  }
+}
+
+/* CUSTOM: Shared by page tiles and tracker details. */
+@each $state in ("red", "orange", "yellow", "green", "sapphire") {
+  .progress-goal-period-#{$state} {
+    --progress-goal-bar-end: var(--semantic-goal-#{$state});
+    --progress-goal-bar-start: var(--semantic-goal-#{$state});
+    box-shadow: inset 0 0 0 1px rgba(var(--semantic-goal-#{$state}-rgb), 0.2);
+    color: var(--semantic-goal-#{$state});
   }
 }

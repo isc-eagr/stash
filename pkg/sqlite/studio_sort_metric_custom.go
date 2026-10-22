@@ -143,6 +143,8 @@ func StudioSortMetricExpressionCustom(sort string) (string, bool) {
 		return studioOCountExprCustom(), true
 	case "facial_count":
 		return studioFacialCountExprCustom(), true
+	case studioAverageStashDBMatchesSortCustom:
+		return studioAverageStashDBMatchesExprCustom(), true
 	}
 
 	if ratingKey, ok := studioRatingCriteriaSortKeysCustom[sort]; ok {

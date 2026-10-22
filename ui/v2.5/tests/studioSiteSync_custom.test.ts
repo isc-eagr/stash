@@ -7,12 +7,28 @@ import {
   siteSyncHasStepCustom,
   siteSyncInputCustom,
   siteSyncStepsCustom,
+  siteSyncTooltipCustom,
   siteSyncSummaryCustom,
   splitSiteSyncScenesCustom,
 } from "../src/components/Studios/StudioDetails/studioSiteSync_custom.ts";
 
 const papis = { name: "NakedPapis", pictures: true };
 const latinboyz = { name: "LatinBoyz", pictures: false };
+
+test("LatinBoyz explains public URL fallback and optional local photos", () => {
+  const tooltip = siteSyncTooltipCustom(latinboyz);
+  assert.ok(tooltip?.includes("No subscription needed."));
+  assert.ok(tooltip?.includes("Scenes > Edit > URLs"));
+  assert.ok(tooltip?.includes("Settings > Custom"));
+  assert.ok(
+    tooltip?.includes("enter Code if neither filename nor page contains it")
+  );
+  assert.equal(siteSyncTooltipCustom(papis), undefined);
+  const codes = siteSyncStepsCustom(latinboyz).find(
+    (step) => step.key === "codes"
+  );
+  assert.ok(codes?.description.includes("without a code"));
+});
 
 test("site sync hides the pictures step for sites without downloads", () => {
   assert.deepEqual(

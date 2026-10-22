@@ -27,10 +27,7 @@ const summaryEnd = vatoStatsSource.indexOf(
   summaryStart
 );
 const summarySource = vatoStatsSource.slice(summaryStart, summaryEnd);
-const primarySummary = summarySource.slice(
-  0,
-  summarySource.indexOf("</section>")
-);
+const primarySummary = summarySource;
 assert.deepEqual(
   [...primarySummary.matchAll(/label: "([^"]+)"/g)].map((match) => match[1]),
   ["Total Vatos", "Meters of Pito"],
@@ -40,7 +37,7 @@ assert.doesNotMatch(primarySummary, /<details|Fun stats/);
 assert.match(primarySummary, /summary\.totalPenisMeters/);
 assert.match(
   primarySummary,
-  /title:.*summary\.assumedCount.*estimated at 17 cm/
+  /title:[\s\S]*?summary\.assumedCount[\s\S]*?estimated at 17 cm/
 );
 assert.doesNotMatch(vatoStatsSource, /sceneOrgasmCount|totalOrgasmTime/);
 assert.doesNotMatch(
@@ -58,9 +55,14 @@ assert.doesNotMatch(
   "the duplicate total should not appear under the Vato Stats title"
 );
 assert.match(
+  primarySummary,
+  /<StatsKpiRow\b/,
+  "the summary should use the shared big-number row"
+);
+assert.doesNotMatch(
   vatoStatsStyles,
-  /\.vatostats-summary-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\);/,
-  "the summary should use an even two-column desktop layout"
+  /vatostats-summary/,
+  "the old summary card styles should be gone"
 );
 assert.match(nutStatsSource, /countLabel: "Total Nuts"/);
 assert.match(nutStatsSource, /timeLabel: "Total Nut Time"/);

@@ -209,8 +209,8 @@ INSERT INTO scene_release_stashdb_matches VALUES (9, 3), (10, 2);`)
 		{sceneTotalOCountSQLCustom("scenes.id"), 3, "0"},
 		{sceneLastOSQLCustom("scenes.id"), 1, "2026-02-01 10:00:00"},
 		{sceneLastOSQLCustom("scenes.id"), 2, "2026-01-05 10:00:00"},
-		{sceneTotalStashDBMatchesSQLCustom("scenes.id"), 1, "7"},
-		{sceneTotalStashDBMatchesSQLCustom("scenes.id"), 3, "2"},
+		{SceneTotalStashDBMatchesSQLCustom("scenes.id"), 1, "7"},
+		{SceneTotalStashDBMatchesSQLCustom("scenes.id"), 3, "2"},
 	} {
 		if got := get(`SELECT `+check.expr+` FROM scenes WHERE id = ?`, check.scene); got.String != check.want {
 			t.Fatalf("%s for scene %d: got %v, want %s", check.expr, check.scene, got, check.want)
@@ -219,7 +219,7 @@ INSERT INTO scene_release_stashdb_matches VALUES (9, 3), (10, 2);`)
 	if got := get(`SELECT ` + sceneLastOSQLCustom("scenes.id") + ` FROM scenes WHERE id = 3`); got.Valid {
 		t.Fatalf("scene without O's has last O %v", got)
 	}
-	if got := get(`SELECT ` + sceneTotalStashDBMatchesSQLCustom("scenes.id") + ` FROM scenes WHERE id = 2`); got.Valid {
+	if got := get(`SELECT ` + SceneTotalStashDBMatchesSQLCustom("scenes.id") + ` FROM scenes WHERE id = 2`); got.Valid {
 		t.Fatalf("unscraped scene has StashDB Matches %v", got)
 	}
 	for groupID, want := range map[int]string{7: "1", 8: "2"} {

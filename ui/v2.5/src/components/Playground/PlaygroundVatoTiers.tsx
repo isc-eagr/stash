@@ -1,3 +1,7 @@
+import {
+  formatAppDecimalCustom,
+  getAppLocaleCustom,
+} from "src/utils/appLocale_custom"; // CUSTOM
 import React, { useMemo, useState } from "react";
 import { Alert, Button, ButtonGroup, Form, Spinner } from "react-bootstrap";
 import { Link } from "react-router-dom";
@@ -109,12 +113,14 @@ export const VatoTiersView: React.FC<{
         <Link
           className="vato-tiers-count"
           to={vatoListUrl(tier, values)}
-          aria-label={`View ${count.toLocaleString()} vatos · ${
+          aria-label={`View ${count.toLocaleString(
+            getAppLocaleCustom()
+          )} vatos · ${
             vatoTiers.find((entry) => entry.key === tier)?.label ?? "All tiers"
           }`}
         >
-          <strong>{count.toLocaleString()}</strong>
-          <span>{percentage.toFixed(1)}% current</span>
+          <strong>{count.toLocaleString(getAppLocaleCustom())}</strong>
+          <span>{formatAppDecimalCustom(percentage, 1)}% current</span>
         </Link>
         <button
           type="button"
@@ -142,9 +148,9 @@ export const VatoTiersView: React.FC<{
             }
           }}
         >
-          <strong>{projectedCount.toLocaleString()}</strong>
+          <strong>{projectedCount.toLocaleString(getAppLocaleCustom())}</strong>
           <span>
-            {projectedPercentage.toFixed(1)}% projected
+            {formatAppDecimalCustom(projectedPercentage, 1)}% projected
             {delta ? ` · ${delta > 0 ? "+" : ""}${delta}` : ""}
           </span>
         </button>
@@ -184,8 +190,9 @@ export const VatoTiersView: React.FC<{
           <h2>Vato Tiers</h2>
           {!state.loading && !state.error && (
             <span role="status">
-              {filtered.length.toLocaleString()} of{" "}
-              {state.performers.length.toLocaleString()} vatos
+              {filtered.length.toLocaleString(getAppLocaleCustom())} of{" "}
+              {state.performers.length.toLocaleString(getAppLocaleCustom())}{" "}
+              vatos
             </span>
           )}
         </div>
@@ -249,7 +256,8 @@ export const VatoTiersView: React.FC<{
       {state.loading && (
         <div className="vato-tiers-empty" role="status">
           <Spinner animation="border" size="sm" /> Loading{" "}
-          {state.tier ?? "vatos"}… · {state.loaded.toLocaleString()}
+          {state.tier ?? "vatos"}… ·{" "}
+          {state.loaded.toLocaleString(getAppLocaleCustom())}
         </div>
       )}
       {state.error && <Alert variant="danger">{state.error}</Alert>}
@@ -261,9 +269,9 @@ export const VatoTiersView: React.FC<{
                 key={tier.key}
                 className="vato-tiers-card"
                 style={{ "--tier-color": tier.color } as React.CSSProperties}
-                aria-label={`View ${totals[tier.key].toLocaleString()} ${
-                  tier.label
-                } vatos`}
+                aria-label={`View ${totals[tier.key].toLocaleString(
+                  getAppLocaleCustom()
+                )} ${tier.label} vatos`}
               >
                 <span className="vato-tiers-card-label">{tier.label}</span>
                 {renderCount(totals[tier.key], filtered.length, tier.key)}

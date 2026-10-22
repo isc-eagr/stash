@@ -175,50 +175,66 @@ export function getRatingCardThresholdsForEntity(
   return normalizeRatingCardThresholds(entityThresholds ?? thresholds);
 }
 
-function getRatingTierClass(
-  rating?: number | null,
-  thresholds?: IRatingCardThresholdConfig | null,
-  thresholdEntity?: "scene" | "performer"
-): string {
-  if (rating === undefined || rating === null) return "";
+export type MetallicRatingTierCustom =
+  | "none"
+  | "bronze"
+  | "silver"
+  | "gold"
+  | "royal_sapphire";
+export const METALLIC_TIER_CLASSES_CUSTOM: Record<
+  MetallicRatingTierCustom,
+  string
+> = {
+  none: "",
+  bronze: "rating-3-stars",
+  silver: "rating-4-stars",
+  gold: "rating-5-stars",
+  royal_sapphire: "rating-royal-sapphire",
+};
+type MetallicRatingInputCustom = {
+  rating?: number | null;
+  tags?: readonly IRatingCardTag[] | null;
+  goatTagId?: string | null;
+  overrideTagIds?: IRatingCardOverrideTagIds | null;
+  thresholds?: IRatingCardThresholdConfig | null;
+  thresholdEntity?: "scene" | "performer";
+  ratingScores?: readonly IRatingCardScore[] | null;
+  sceneHasRoyalSapphireBonus?: boolean;
+};
 
-  const normalizedThresholds = getRatingCardThresholdsForEntity(
+// The one semantic classifier for cards, charts, Playground and predicates.
+export function getMetallicRatingTierCustom(
+  input: MetallicRatingInputCustom
+): MetallicRatingTierCustom | undefined {
+  const {
+    rating,
+    tags,
+    goatTagId,
+    overrideTagIds,
     thresholds,
-    thresholdEntity
-  );
-
-  if (rating >= normalizedThresholds.royalSapphire)
-    return "rating-royal-sapphire";
-  if (rating >= normalizedThresholds.gold) return "rating-5-stars";
-  if (rating >= normalizedThresholds.silver) return "rating-4-stars";
-  if (rating >= normalizedThresholds.bronze) return "rating-3-stars";
-  return "";
-}
-
-function getRatingTierOverrideClass(
-  tags: readonly IRatingCardTag[] | null | undefined,
-  overrideTagIds?: IRatingCardOverrideTagIds | null,
-  goatTagId?: string | null,
-  sceneHasRoyalSapphireBonus?: boolean
-): string {
+    thresholdEntity,
+    ratingScores,
+    sceneHasRoyalSapphireBonus,
+  } = input;
   if (
-    sceneHasRoyalSapphireBonus ||
+    (thresholdEntity !== "performer" &&
+      (sceneHasRoyalSapphireBonus ||
+        hasRoyalSapphireSceneBonus(ratingScores))) ||
     hasConfiguredTag(tags, overrideTagIds?.royalSapphireTagId) ||
     hasConfiguredTag(tags, goatTagId)
-  ) {
-    return "rating-royal-sapphire";
-  }
-  if (hasConfiguredTag(tags, overrideTagIds?.goldTagId)) {
-    return "rating-5-stars";
-  }
-  if (hasConfiguredTag(tags, overrideTagIds?.silverTagId)) {
-    return "rating-4-stars";
-  }
-  if (hasConfiguredTag(tags, overrideTagIds?.bronzeTagId)) {
-    return "rating-3-stars";
-  }
-
-  return "";
+  )
+    return "royal_sapphire";
+  if (hasConfiguredTag(tags, overrideTagIds?.goldTagId)) return "gold";
+  if (hasConfiguredTag(tags, overrideTagIds?.silverTagId)) return "silver";
+  if (hasConfiguredTag(tags, overrideTagIds?.bronzeTagId)) return "bronze";
+  if (rating === undefined || rating === null || !Number.isFinite(rating))
+    return undefined;
+  const limits = getRatingCardThresholdsForEntity(thresholds, thresholdEntity);
+  if (rating >= limits.royalSapphire) return "royal_sapphire";
+  if (rating >= limits.gold) return "gold";
+  if (rating >= limits.silver) return "silver";
+  if (rating >= limits.bronze) return "bronze";
+  return "none";
 }
 
 export function getRatingCardClass({
@@ -248,19 +264,18 @@ export function getRatingCardClass({
 
   const themeClass = `rating-card-theme-${normalizeRatingCardTheme(theme)}`;
 
-  const overrideClass = getRatingTierOverrideClass(
+  const tier = getMetallicRatingTierCustom({
+    rating,
     tags,
-    overrideTagIds,
     goatTagId,
-    thresholdEntity !== "performer" &&
-      (sceneHasRoyalSapphireBonus || hasRoyalSapphireSceneBonus(ratingScores))
-  );
-  if (overrideClass) return `${themeClass} ${overrideClass}`;
-
-  const tierClass = getRatingTierClass(rating, thresholds, thresholdEntity);
-  if (!tierClass) return "";
-
-  return `${themeClass} ${tierClass}`;
+    overrideTagIds,
+    thresholds,
+    thresholdEntity,
+    ratingScores,
+    sceneHasRoyalSapphireBonus,
+  });
+  const tierClass = tier ? METALLIC_TIER_CLASSES_CUSTOM[tier] : "";
+  return tierClass ? `${themeClass} ${tierClass}` : "";
 }
 
 export function isRoyalSapphireRatingCard({
@@ -280,17 +295,15 @@ export function isRoyalSapphireRatingCard({
   ratingScores?: readonly IRatingCardScore[] | null;
   sceneHasRoyalSapphireBonus?: boolean;
 }) {
-  const overrideClass = getRatingTierOverrideClass(
-    tags,
-    overrideTagIds,
-    undefined,
-    thresholdEntity !== "performer" &&
-      (sceneHasRoyalSapphireBonus || hasRoyalSapphireSceneBonus(ratingScores))
-  );
-  if (overrideClass) return overrideClass === "rating-royal-sapphire";
-
   return (
-    getRatingTierClass(rating, thresholds, thresholdEntity) ===
-    "rating-royal-sapphire"
+    getMetallicRatingTierCustom({
+      rating,
+      tags,
+      overrideTagIds,
+      thresholds,
+      thresholdEntity,
+      ratingScores,
+      sceneHasRoyalSapphireBonus,
+    }) === "royal_sapphire"
   );
 }

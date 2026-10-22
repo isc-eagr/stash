@@ -1,12 +1,13 @@
+import { SEMANTIC_COLORS_CUSTOM } from "./semanticColors_custom";
 export const ROLE_COLORS_CUSTOM = {
   top: {
-    color: "#17a2b8",
-    variant: "info",
-    outlineVariant: "outline-info",
+    color: SEMANTIC_COLORS_CUSTOM.top,
+    variant: "role-top",
+    outlineVariant: "outline-role-top",
   },
   bottom: {
-    color: "#28a745",
-    variant: "success",
-    outlineVariant: "outline-success",
+    color: SEMANTIC_COLORS_CUSTOM.bottom,
+    variant: "role-bottom",
+    outlineVariant: "outline-role-bottom",
   },
 } as const;

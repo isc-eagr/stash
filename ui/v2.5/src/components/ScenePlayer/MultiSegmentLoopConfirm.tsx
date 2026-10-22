@@ -1,50 +1,22 @@
-import React, { useCallback, useState } from "react";
-import { useIntl } from "react-intl";
-import { ModalComponent } from "src/components/Shared/Modal";
+import { useCallback } from "react";
+import type { IConfirmActionRequestCustom } from "src/components/Shared/useConfirmAction_custom";
+import { useConfirmActionCustom } from "src/components/Shared/useConfirmAction_custom";
 
-// Confirmation dialog for destructive loop actions. A container keeps the
-// dialog visible while the player is fullscreen.
-export interface IMultiSegmentLoopConfirmRequest {
-  header: string;
-  message: React.ReactNode;
-  confirmText: string;
-  variant?: "danger" | "primary";
+export interface IMultiSegmentLoopConfirmRequest
+  extends IConfirmActionRequestCustom {
   onConfirm: () => void;
 }
-
+// CUSTOM: Loop confirmations share the app dialog and retain fullscreen support.
 export function useMultiSegmentLoopConfirm(container?: HTMLElement | null) {
-  const intl = useIntl();
-  const [request, setRequest] = useState<IMultiSegmentLoopConfirmRequest>();
-  const close = useCallback(() => setRequest(undefined), []);
-
-  const confirmModal = (
-    <ModalComponent
-      show={!!request}
-      header={request?.header}
-      onHide={close}
-      accept={{
-        text: request?.confirmText,
-        variant: request?.variant ?? "danger",
-        onClick: () => {
-          request?.onConfirm();
-          close();
-        },
-      }}
-      cancel={{
-        text: intl.formatMessage({ id: "actions.cancel" }),
-        variant: "secondary",
-        onClick: close,
-      }}
-      modalProps={container ? { container } : undefined}
-    >
-      {request?.message}
-    </ModalComponent>
-  );
-
+  const { confirm: requestConfirmation, confirmModal } =
+    useConfirmActionCustom(container);
   const confirm = useCallback(
-    (next: IMultiSegmentLoopConfirmRequest) => setRequest(next),
-    []
+    (request: IMultiSegmentLoopConfirmRequest) => {
+      void requestConfirmation(request).then((accepted) => {
+        if (accepted) request.onConfirm();
+      });
+    },
+    [requestConfirmation]
   );
-
   return { confirm, confirmModal };
 }

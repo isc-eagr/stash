@@ -11,6 +11,8 @@ import {
   StringCriterion,
   createStringCriterionOption,
 } from "src/models/list-filter/criteria/criterion";
+import { ethnicityExactValue } from "src/models/list-filter/criteria/ethnicity";
+import { metallicRatingNoTierValue } from "src/models/list-filter/criteria/metallic-rating_custom";
 import {
   RatingCriterion,
   RatingCriterionOption,
@@ -121,10 +123,11 @@ export const makeVatoTierPerformersUrl = ({
 }: IVatoTierPerformerUrlFilters) => {
   const criteria: Record<string, unknown>[] = [];
   if (ethnicity.length) {
+    // Tier counts group exact ethnicities, so skip the search-only expansion.
     criteria.push({
       type: "ethnicity",
       modifier: "INCLUDES",
-      value: ethnicity.join(","),
+      value: [...ethnicity, ethnicityExactValue].join(","),
     });
   }
   if (country.length) {
@@ -155,6 +158,13 @@ export const makeVatoTierPerformersUrl = ({
         value: 0,
       });
     }
+  } else {
+    // All tiers = the five tier buckets, so unrated, untagged vatos stay out.
+    criteria.push({
+      type: "metallic_rating",
+      modifier: "INCLUDES",
+      value: [...vatoTierKeys, metallicRatingNoTierValue],
+    });
   }
 
   // Keep the sentinel in the URL rather than substituting a null-only filter:

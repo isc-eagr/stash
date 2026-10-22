@@ -1,8 +1,10 @@
+import { formatAppDecimalCustom } from "src/utils/appLocale_custom"; // CUSTOM
 import React from "react";
 import type { ITaskProgressHistoryEntry } from "../taskProgress_custom";
 import type { IProgressLedgerSnapshot } from "./progressLedger_custom";
 import { useProgressText } from "./progressView_custom";
 import { TaskProgressMedalBar } from "./TaskProgressMedalBar";
+import { taskProgressDisplayPercentChange } from "./taskProgressScoreboard_custom"; // CUSTOM
 
 /**
  * Previous close → current percentage with the medal bar, the period's gain
@@ -17,8 +19,10 @@ export const TaskProgressPeriodProgress: React.FC<{
   const t = useProgressText();
   const { completed, total, percent, previousPercent, netCompletedGain } =
     snapshot;
-  const points =
-    previousPercent !== undefined ? percent - previousPercent : undefined;
+  // CUSTOM: Round before formatting and choosing the change color.
+  const points = taskProgressDisplayPercentChange(
+    previousPercent !== undefined ? percent - previousPercent : undefined
+  );
   return (
     <div className="progress-score-progress">
       <div
@@ -28,10 +32,10 @@ export const TaskProgressPeriodProgress: React.FC<{
         <span>
           {previousPercent === undefined
             ? "—"
-            : `${previousPercent.toFixed(2)}%`}
+            : `${formatAppDecimalCustom(previousPercent, 2)}%`}
         </span>
         <span aria-hidden="true">→</span>
-        <strong>{percent.toFixed(2)}%</strong>
+        <strong>{formatAppDecimalCustom(percent, 2)}%</strong>
       </div>
       <TaskProgressMedalBar
         completed={completed}
@@ -48,8 +52,8 @@ export const TaskProgressPeriodProgress: React.FC<{
                   points >= 0 ? "progress-score-gain" : "progress-score-loss"
                 }
               >
-                {points >= 0 ? "+" : ""}
-                {points.toFixed(2)}%
+                {points > 0 ? "+" : ""}
+                {formatAppDecimalCustom(points, 2)}%
               </strong>{" "}
               {t(periodLabel)}
             </>

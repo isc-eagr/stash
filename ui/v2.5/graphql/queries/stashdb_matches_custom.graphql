@@ -62,3 +62,23 @@ query StashDBMatchesReport {
     }
   }
 }
+
+# CUSTOM: names for the Scene Stats > StashDB Matches By Vato and By Studio
+# tables. Skip when empty: an empty ids list returns everything.
+query StashDBMatchesPerformerNames($ids: [ID!]) {
+  findPerformers(ids: $ids) {
+    performers {
+      id
+      name
+    }
+  }
+}
+
+query StashDBMatchesStudioNames($ids: [ID!]) {
+  findStudios(ids: $ids) {
+    studios {
+      id
+      name
+    }
+  }
+}

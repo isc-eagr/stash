@@ -20,7 +20,7 @@ const paletteSource = readFileSync(
 );
 
 test("scene scrubber colors configured solo markers with the shared jerk color", () => {
-  assert.match(paletteSource, /solo:\s*"#a855f7"/);
+  assert.match(paletteSource, /solo:\s*SEMANTIC_COLORS_CUSTOM\.solo/);
   assert.match(
     markerPluginSource,
     /findColors\(tagNames: string\[\], soloTagNames: string\[\] = \[\]\)/

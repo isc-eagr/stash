@@ -330,6 +330,26 @@ const definitions: Record<
     format: "count",
     value: markerCount("orgasm_count"),
   },
+  regular_orgasm_count: {
+    messageID: "regular_orgasm_count",
+    format: "count",
+    value: markerCount("regular_orgasm_count"),
+  },
+  goat_orgasm_count: {
+    messageID: "goat_orgasm_count",
+    format: "count",
+    value: markerCount("goat_orgasm_count"),
+  },
+  regular_facial_count: {
+    messageID: "regular_facial_count",
+    format: "count",
+    value: markerCount("regular_facial_count"),
+  },
+  goat_facial_count: {
+    messageID: "goat_facial_count",
+    format: "count",
+    value: markerCount("goat_facial_count"),
+  },
   really_hot_orgasm_count: {
     messageID: "really_hot_orgasm_count",
     format: "count",

@@ -235,7 +235,11 @@ assert.doesNotMatch(
   /RatingCriteriaTooltip/,
   "the card rating star has no hover summary"
 );
-assert.match(cardSource, /<SceneRatingStrip scene=\{props\.scene\} \/>/);
+assert.match(
+  cardSource,
+  /<SceneRatingStrip scene=\{props\.scene\} nutReportInline \/>/,
+  "scene cards show the nut report inside the rating strip"
+);
 const sceneDetailSource = source("Scenes/SceneDetails/Scene.tsx");
 assert.match(
   sceneDetailSource,

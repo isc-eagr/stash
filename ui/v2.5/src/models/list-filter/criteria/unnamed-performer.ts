@@ -103,7 +103,9 @@ export function formatUnnamedPerformerSummary(
   parts.push(...getRatingCriteriaLabels(performer.rating_criteria));
 
   if (parts.length === 0) {
-    return "Any performer";
+    // CUSTOM: begin - consistent entity vocabulary.
+    return "Any vato";
+    // CUSTOM: end
   }
 
   return parts.join(", ");

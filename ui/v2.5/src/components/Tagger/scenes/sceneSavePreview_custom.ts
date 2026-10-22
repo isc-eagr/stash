@@ -141,7 +141,7 @@ export function getSceneSaveChanges(
   );
   add(
     "performers",
-    "Performers",
+    "Vatos",
     local.performers.map((p) => p.id),
     input.performer_ids ?? local.performers.map((p) => p.id)
   );

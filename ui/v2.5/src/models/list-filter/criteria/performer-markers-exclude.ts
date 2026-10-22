@@ -137,7 +137,9 @@ export class PerformerMarkersExcludeCriterion extends Criterion {
       g.performer_ethnicities.length > 0 ||
       g.performer_role !== "any"
     ) {
-      parts.push("Performer: ...");
+      // CUSTOM: begin - consistent entity vocabulary.
+      parts.push("Vato: ...");
+      // CUSTOM: end
     }
     if (
       g.partner_ids.length > 0 ||

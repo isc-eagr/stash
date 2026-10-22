@@ -1,3 +1,4 @@
+import { getAppLocaleCustom } from "src/utils/appLocale_custom"; // CUSTOM
 import cloneDeep from "lodash-es/cloneDeep";
 import React, { useMemo } from "react";
 import { Form } from "react-bootstrap";
@@ -204,7 +205,7 @@ export const SidebarOptionFilter: React.FC<ISidebarFilter> = ({
         label:
           option.type === "metallic_rating"
             ? formatMetallicRatingOptionLabel(o.toString())
-            : o.toLocaleString(),
+            : o.toLocaleString(getAppLocaleCustom()),
       }));
 
     if (

@@ -1,3 +1,4 @@
+import { formatAppDecimalCustom } from "src/utils/appLocale_custom"; // CUSTOM
 import React, { useState } from "react";
 import { Alert, Button, Card } from "react-bootstrap";
 import { FormattedNumber } from "react-intl";
@@ -13,7 +14,7 @@ import {
   taskProgressReportPeriod,
   taskProgressPeriodComparisons,
 } from "./taskProgressReports_custom";
-import { taskProgressGoalStreak } from "./taskProgressScoreboard_custom";
+import { taskProgressGoalStreak } from "./taskProgressScoreboard_custom"; // CUSTOM
 import { TaskProgressOverallModal } from "./TaskProgressOverallModal";
 
 export const TaskProgressOverall: React.FC = () => {
@@ -47,10 +48,6 @@ export const TaskProgressOverall: React.FC = () => {
         )
       : undefined;
   const streak = history ? taskProgressGoalStreak(history, today) : 0;
-  const weekGain =
-    snapshot?.previousPercent !== undefined
-      ? snapshot.percent - snapshot.previousPercent
-      : undefined;
 
   return (
     <>
@@ -101,7 +98,7 @@ export const TaskProgressOverall: React.FC = () => {
           ) : (
             <>
               <div className="progress-score-hero-figure">
-                <strong>{snapshot.percent.toFixed(2)}%</strong>
+                <strong>{formatAppDecimalCustom(snapshot.percent, 2)}%</strong>
                 <div className="progress-score-counts progress-score-counts-large">
                   <span className="progress-score-done">
                     <strong>
@@ -124,23 +121,6 @@ export const TaskProgressOverall: React.FC = () => {
                 percent={snapshot.percent}
                 gain={snapshot.netCompletedGain}
                 history={history ?? []}
-                caption={
-                  weekGain !== undefined && (
-                    <>
-                      <strong
-                        className={
-                          weekGain >= 0
-                            ? "progress-score-gain"
-                            : "progress-score-loss"
-                        }
-                      >
-                        {weekGain >= 0 ? "+" : ""}
-                        {weekGain.toFixed(2)}%
-                      </strong>{" "}
-                      {t("this week")}
-                    </>
-                  )
-                }
               />
             </>
           )}

@@ -154,6 +154,22 @@ const sortByOptions = [
       value: "orgasm_count",
     },
     {
+      messageID: "regular_orgasm_count",
+      value: "regular_orgasm_count",
+    },
+    {
+      messageID: "goat_orgasm_count",
+      value: "goat_orgasm_count",
+    },
+    {
+      messageID: "regular_facial_count",
+      value: "regular_facial_count",
+    },
+    {
+      messageID: "goat_facial_count",
+      value: "goat_facial_count",
+    },
+    {
       messageID: "really_hot_orgasm_count",
       value: "really_hot_orgasm_count",
     },

@@ -140,6 +140,11 @@ const definitions: Record<
     format: "count",
     value: activeBackendValue,
   },
+  goat_facial_count: {
+    messageID: "goat_facial_count",
+    format: "count",
+    value: activeBackendValue,
+  },
   royal_sapphire_scenes_count: {
     messageID: "royal_sapphire_scene_count",
     format: "count",
@@ -298,6 +303,11 @@ const definitions: Record<
   average_overall_scene_rating: {
     messageID: "average_overall_scene_rating",
     format: "rating",
+    value: activeBackendValue,
+  },
+  average_stashdb_matches: {
+    messageID: "average_stashdb_matches",
+    format: "decimal",
     value: activeBackendValue,
   },
   created_at: {

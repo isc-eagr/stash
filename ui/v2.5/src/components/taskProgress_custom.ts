@@ -1,3 +1,4 @@
+import { getAppLocaleCustom } from "src/utils/appLocale_custom";
 export interface ITaskProgressHistoryEntry {
   date: string;
   completed: number;
@@ -417,17 +418,12 @@ function padTaskProgressDatePart(value: number): string {
 }
 
 export function formatTaskProgressDate(value: string | Date): string {
-  if (value instanceof Date) {
-    return `${padTaskProgressDatePart(
-      value.getDate()
-    )}/${padTaskProgressDatePart(value.getMonth() + 1)}/${value.getFullYear()}`;
-  }
-
-  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) return value;
-
-  const [, year, month, day] = match;
-  return `${day}/${month}/${year}`;
+  if (value instanceof Date)
+    return value.toLocaleDateString(getAppLocaleCustom());
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const date = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString(getAppLocaleCustom(), { timeZone: "UTC" });
 }
 
 export function taskProgressLocalDateToISO(value: Date): string {

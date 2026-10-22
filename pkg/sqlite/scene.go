@@ -987,11 +987,11 @@ func (qb *SceneStore) OCountByPerformerID(ctx context.Context, performerID int) 
 		return 0, err
 	}
 	exists, err := releaseTransferTableExistsCustom(ctx, "scene_release_o_dates") // CUSTOM
-	if err != nil { // CUSTOM
+	if err != nil {                                                               // CUSTOM
 		return 0, err // CUSTOM
 	} // CUSTOM
 	if exists { // CUSTOM
-		var releaseCount int // CUSTOM
+		var releaseCount int                                                                                                                                                                                           // CUSTOM
 		if err := dbWrapper.Get(ctx, &releaseCount, `SELECT COUNT(*) FROM scene_release_o_dates o JOIN scene_release_performers p ON p.release_id = o.release_id WHERE p.performer_id = ?`, performerID); err != nil { // CUSTOM
 			return 0, err // CUSTOM
 		} // CUSTOM
@@ -1148,11 +1148,11 @@ func (qb *SceneStore) PlayDuration(ctx context.Context) (float64, error) {
 		return 0, err
 	}
 	exists, err := releaseTransferTableExistsCustom(ctx, "scene_release_metadata") // CUSTOM
-	if err != nil { // CUSTOM
+	if err != nil {                                                                // CUSTOM
 		return 0, err // CUSTOM
 	} // CUSTOM
 	if exists { // CUSTOM
-		var releaseDuration float64 // CUSTOM
+		var releaseDuration float64                                                                                                       // CUSTOM
 		if err := dbWrapper.Get(ctx, &releaseDuration, `SELECT COALESCE(SUM(play_duration),0) FROM scene_release_metadata`); err != nil { // CUSTOM
 			return 0, err // CUSTOM
 		} // CUSTOM
@@ -1412,6 +1412,10 @@ var sceneSortOptions = sortOptions{
 	"really_hot_orgasm_count",       // CUSTOM
 	"facial_count",                  // CUSTOM
 	"really_hot_facial_count",       // CUSTOM
+	"regular_orgasm_count",          // CUSTOM
+	"goat_orgasm_count",             // CUSTOM
+	"regular_facial_count",          // CUSTOM
+	"goat_facial_count",             // CUSTOM
 }
 
 func (qb *SceneStore) setSceneSort(query *queryBuilder, findFilter *models.FindFilterType) error {

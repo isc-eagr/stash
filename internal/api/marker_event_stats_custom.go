@@ -273,7 +273,7 @@ func loadMarkerEventStatsCustom(run markerEventStatsRunnerCustom, sceneScope str
 		marker := &markerEventStatsMarkerCustom{
 			id:          customStatsIntValue(row[0]),
 			sceneID:     customStatsIntValue(row[1]),
-			sceneTitle:  vatoStatsStringPtrValue(row[3]),
+			sceneTitle:  sceneStatsStringPtrValue(row[3]),
 			sceneRating: vatoStatsIntPtrValue(row[4]),
 			duration:    customStatsFloatValue(row[2]),
 			quality:     MarkerEventQualityRegular,

@@ -201,7 +201,7 @@ export function getScenePerformerOverviewActivityMetrics(
     },
     {
       key: "oral-bottom",
-      label: "Time Sucking Pito",
+      label: "Time Mamando Rifle",
       role: "bottom",
       seconds: stats.oral_bottom_seconds,
     },

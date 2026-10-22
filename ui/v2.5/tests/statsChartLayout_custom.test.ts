@@ -13,6 +13,10 @@ const oStatsSource = readFileSync(
   new URL("../src/components/OStats/OStats.tsx", import.meta.url),
   "utf8"
 );
+const groupStyles = readFileSync(
+  new URL("../src/components/statsCharts_custom.scss", import.meta.url),
+  "utf8"
+);
 const chartStyles = readFileSync(
   new URL("../src/components/statsBarChart_custom.scss", import.meta.url),
   "utf8"
@@ -40,46 +44,83 @@ for (const [name, source] of [
   );
 }
 
+// Charts sit in topic groups instead of chart-type panels.
+for (const [name, source] of [
+  ["Scene Stats", sceneStatsSource],
+  ["Vato Stats", vatoStatsSource],
+  ["O Stats", oStatsSource],
+] as const) {
+  assert.doesNotMatch(
+    source,
+    /<StatsComposition\b|<StatsInlineComposition\b/,
+    `${name} should chart its splits as bars, not composition rows`
+  );
+  assert.doesNotMatch(
+    source,
+    /"Distribution"|"Breakdown"/,
+    `${name} should group charts by topic, not by chart type`
+  );
+  assert.doesNotMatch(
+    source,
+    /stats-chart-grid|<StatsSplitBar\b/,
+    `${name} should not use the old grids or standalone split cards`
+  );
+}
 assert.match(
   sceneStatsSource,
-  /stats-chart-grid stats-chart-grid--thirds[\s\S]*?title="Has Facial"[\s\S]*?title="By Facial Count"[\s\S]*?title="By Really Hot Facial Count"/,
-  "Scene Stats should keep the related facial charts together"
+  /title="The Scene"[\s\S]*?"By Release Year"[\s\S]*?title="Duration"[\s\S]*?title="Rating"[\s\S]*?title="Metallic Rating"[\s\S]*?title="Resolution"[\s\S]*?title="Scene Type"[\s\S]*?title="The Vatos"[\s\S]*?title="Vato Count"[\s\S]*?title="Vato Ethnicity"[\s\S]*?title="Vato Country"[\s\S]*?title="O's, Nuts & Facials"/,
+  "Scene Stats groups scene, vato, and O charts"
+);
+assert.doesNotMatch(
+  sceneStatsSource,
+  /coverage=|title: "Coverage"/,
+  "Coverage was redundant with Scene type"
 );
 assert.match(
   sceneStatsSource,
-  /stats-chart-grid stats-chart-grid--compact[\s\S]*?title="By Metallic Rating"[\s\S]*?title="Scene Type"[\s\S]*?title="By Resolution"/,
-  "Scene Stats compact grid should contain the remaining stable charts"
+  /title="Rating"[\s\S]*?\/>\s*<StatsBarChart\s+className="stats-small"\s+title="Metallic Rating"/,
+  "Metallic Rating sits right after the Rating columns"
+);
+assert.match(
+  sceneStatsSource,
+  /title="O's, Nuts & Facials"[\s\S]*?title="O Count"[\s\S]*?title="Nuts Per Scene"[\s\S]*?title="Facials Per Scene"[\s\S]*?unknown=\{unorganizedUnknown\}/,
+  "Scene Stats shows O Count, then nuts and facials per scene with an Unknown pill for unorganized scenes"
 );
 assert.match(
   vatoStatsSource,
-  /compactChartCategories[\s\S]*?"metallic_rating"[\s\S]*?"circumcised"/,
-  "Vato Stats should identify stable low-cardinality chart categories"
+  /title: "The Vatos"[\s\S]*?title: "Roles & Scenes"[\s\S]*?title: "O's & Facials"[\s\S]*?title="Ratings"/,
+  "Vato Stats groups looks, roles, O's, and ratings"
+);
+assert.match(
+  oStatsSource,
+  /title="The Scene"[\s\S]*?title="The Vatos"[\s\S]*?title="The Action"/,
+  "O Stats groups scene, vato, and action charts"
+);
+assert.match(
+  groupStyles,
+  /\.stats-group-grid\s*\{[\s\S]*?repeat\(6, minmax\(0, 1fr\)\)[\s\S]*?grid-column: span 3;[\s\S]*?> \.stats-small\s*\{\s*grid-column: span 2;[\s\S]*?> \.stats-wide\s*\{\s*grid-column: 1 \/ -1;/,
+  "a row holds three small, two medium, or one wide chart"
+);
+assert.doesNotMatch(
+  sceneStatsSource,
+  /title="Has Facial"|title="By Really Hot Facial Count"/,
+  "the separate facial charts should be merged"
 );
 assert.match(
   vatoStatsSource,
-  /stats-chart-grid stats-chart-grid--compact/,
-  "Vato Stats should render a dedicated compact chart grid"
+  /<StatsDivergingChart\b[\s\S]*?leftLabel="Bottoms"[\s\S]*?rightLabel="Tops"[\s\S]*?leftColor=\{STATS_BOTTOM_COLOR\}[\s\S]*?rightColor=\{STATS_TOP_COLOR\}/,
+  "Vato Stats roles put bottoms (green) left and tops (blue) right"
 );
 
 assert.match(
   chartStyles,
-  /\.stats-chart-grid--compact\s*\{[\s\S]*?grid-template-columns:\s*repeat\(auto-fit/,
-  "compact charts should use responsive columns"
+  /\.stats-page\s*\{[\s\S]*?--stats-accent:\s*var\(--app-accent/,
+  "stats charts follow the Black Steel copper accent"
 );
 assert.match(
   chartStyles,
-  /\.stats-chart-grid--thirds\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3,/,
-  "facial charts should share one desktop row"
-);
-assert.match(
-  chartStyles,
-  /\.stats-chart-grid--compact,\s*\.stats-chart-grid--thirds\s*\{[\s\S]*?\.stats-bar-chart-bars\s*\{[\s\S]*?justify-content:\s*flex-start;[\s\S]*?\.stats-bar-chart-cell\s*\{[\s\S]*?flex:\s*1 1 0;/,
-  "compact bars should flex into the panel and keep the scroll origin reachable"
-);
-assert.match(
-  chartStyles,
-  /\.scenestats-page \.stats-bar-chart\s*\{[\s\S]*?--stats-chart-fill:/,
-  "Scene Stats keeps its gold chart theme through custom properties"
+  /\.stats-bar-chart-fill\s*\{[\s\S]*?&\.peak\s*\{/,
+  "the tallest column stands out"
 );
 
 // Ranked image cards replace the three-slot podiums everywhere.
@@ -101,13 +142,38 @@ for (const [name, source] of [
 }
 assert.match(
   vatoStatsSource,
-  /<StatsTopCards\s+title=\{podiumDescriptor\}[\s\S]*?<Form\.Label>Rank by<\/Form\.Label>/,
-  "Vato Stats keeps the Best pitos title and ranks by a selectable metric"
+  /<StatsTopCards\s+title=\{podiumDescriptor\}[\s\S]*?rankBy=\{\{/,
+  "Vato Stats keeps the Best pitos title and ranks by chips"
 );
 assert.match(
   sceneStatsSource,
-  /title="Top Scenes"[\s\S]*?<Form\.Label>Rank by<\/Form\.Label>/,
-  "Scene Stats ranks by a selectable metric"
+  /title="Top Scenes"[\s\S]*?rankBy=\{\{[\s\S]*?view=\{showList \? "table" : "cards"\}/,
+  "Scene Stats ranks by chips and keeps the table view in the URL"
 );
 
 console.log("Stats chart layout tests passed.");
+
+// Quality charts use the canonical palette.
+const colorSource = readFileSync(
+  new URL("../src/utils/statsChartColors_custom.ts", import.meta.url),
+  "utf8"
+);
+assert.match(
+  colorSource,
+  /STATS_QUALITY_COLORS[\s\S]*?really_hot: colors.reallyHot[\s\S]*?goat: colors.goat/,
+  "Really Hot is gold and GOAT is sapphire"
+);
+
+// Facial Stats: the giver → receiver matrix sits right under the cards.
+const markerEventSource = readFileSync(
+  new URL(
+    "../src/components/MarkerEventStats/MarkerEventStats.tsx",
+    import.meta.url
+  ),
+  "utf8"
+);
+assert.match(
+  markerEventSource,
+  /<MarkerEventCards[\s\S]*?\/>\s*\{\/\* CUSTOM: the giver → receiver matrix sits right under the cards\. \*\/\}\s*\{charts\s*\.filter\(\(chart\) => chart\.display === "grid"\)/,
+  "the matrix follows the marker cards"
+);

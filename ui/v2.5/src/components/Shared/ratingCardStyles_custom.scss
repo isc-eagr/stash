@@ -491,11 +491,11 @@
 
   /* CUSTOM: card versatility counts keep their role colors over the card link color. */
   .performer-card-versatility-count.is-top {
-    color: #17a2b8 !important;
+    color: var(--semantic-top) !important;
   }
 
   .performer-card-versatility-count.is-bottom {
-    color: #28a745 !important;
+    color: var(--semantic-bottom) !important;
   }
 
   .scene-activity-metrics .scene-activity-metric,
@@ -800,11 +800,11 @@
 
   /* CUSTOM: card versatility counts keep their role colors over the card link color. */
   .performer-card-versatility-count.is-top {
-    color: #17a2b8 !important;
+    color: var(--semantic-top) !important;
   }
 
   .performer-card-versatility-count.is-bottom {
-    color: #28a745 !important;
+    color: var(--semantic-bottom) !important;
   }
 
   hr {
@@ -1121,11 +1121,11 @@
 
   /* CUSTOM: card versatility counts keep their role colors over the card link color. */
   .performer-card-versatility-count.is-top {
-    color: #17a2b8 !important;
+    color: var(--semantic-top) !important;
   }
 
   .performer-card-versatility-count.is-bottom {
-    color: #28a745 !important;
+    color: var(--semantic-bottom) !important;
   }
 
   hr {

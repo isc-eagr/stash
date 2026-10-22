@@ -54,13 +54,13 @@ assert.match(
 
 assert.match(
   scrubberStyles,
-  /\.vjs-marker\s*\{[\s\S]*?&\.vjs-marker-royal-sapphire\s*\{[\s\S]*?background-color:\s*#05080d;[\s\S]*?border:\s*1px solid rgba\(18,\s*63,\s*159,\s*0\.96\);[\s\S]*?box-shadow:\s*0 0 4px rgba\(56,\s*189,\s*248,\s*0\.38\),[\s\S]*?0 0 8px rgba\(18,\s*63,\s*159,\s*0\.5\)/,
+  /\.vjs-marker\s*\{[\s\S]*?&\.vjs-marker-royal-sapphire\s*\{[\s\S]*?background-color:\s*#05080d;[\s\S]*?border:\s*1px solid rgba\(var\(--semantic-goat-rgb\),\s*0\.96\);[\s\S]*?box-shadow:\s*0 0 4px rgba\(var\(--semantic-goat-rgb\),\s*0\.38\),[\s\S]*?0 0 8px rgba\(var\(--semantic-goat-rgb\),\s*0\.5\)/,
   "timeline dots use the marker panel's Royal Sapphire border and compact glow"
 );
 
 assert.match(
   scrubberStyles,
-  /\.vjs-marker-range\s*\{[\s\S]*?&\.vjs-marker-royal-sapphire\s*\{[\s\S]*?background-color:\s*#05080d;[\s\S]*?border:\s*1px solid rgba\(18,\s*63,\s*159,\s*0\.96\);[\s\S]*?box-shadow:\s*0 0 4px rgba\(56,\s*189,\s*248,\s*0\.38\),[\s\S]*?0 0 8px rgba\(18,\s*63,\s*159,\s*0\.5\)/,
+  /\.vjs-marker-range\s*\{[\s\S]*?&\.vjs-marker-royal-sapphire\s*\{[\s\S]*?background-color:\s*#05080d;[\s\S]*?border:\s*1px solid rgba\(var\(--semantic-goat-rgb\),\s*0\.96\);[\s\S]*?box-shadow:\s*0 0 4px rgba\(var\(--semantic-goat-rgb\),\s*0\.38\),[\s\S]*?0 0 8px rgba\(var\(--semantic-goat-rgb\),\s*0\.5\)/,
   "timeline ranges use the marker panel's Royal Sapphire border and compact glow"
 );
 

@@ -1,3 +1,4 @@
+import { getAppLocaleCustom } from "src/utils/appLocale_custom"; // CUSTOM
 import React, { useMemo, useState } from "react";
 import { Alert, Button, Form, ProgressBar, Tab, Tabs } from "react-bootstrap";
 import { Helmet } from "react-helmet";
@@ -97,7 +98,11 @@ const PlaygroundSceneExplorer: React.FC<{
           size="sm"
           disabled={loading}
           title={`Refresh the 12-hour cache${
-            loadedAt ? ` (loaded ${new Date(loadedAt).toLocaleString()})` : ""
+            loadedAt
+              ? ` (loaded ${new Date(loadedAt).toLocaleString(
+                  getAppLocaleCustom()
+                )})`
+              : ""
           }.`}
           onClick={onReload}
         >
@@ -180,7 +185,9 @@ const PlaygroundSceneExplorer: React.FC<{
           <p>
             Loading scenes
             {total
-              ? ` · ${loaded.toLocaleString()} / ${total.toLocaleString()}`
+              ? ` · ${loaded.toLocaleString(
+                  getAppLocaleCustom()
+                )} / ${total.toLocaleString(getAppLocaleCustom())}`
               : "…"}
           </p>
           <ProgressBar animated now={total ? (loaded / total) * 100 : 0} />
@@ -195,12 +202,17 @@ const PlaygroundSceneExplorer: React.FC<{
               <div
                 role="status"
                 className="playground-count"
-                title={`${filtered.length.toLocaleString()} matching scenes; ${(
+                title={`${filtered.length.toLocaleString(
+                  getAppLocaleCustom()
+                )} matching scenes; ${(
                   filtered.length - points.length
-                ).toLocaleString()} missing or invalid axis scores.`}
+                ).toLocaleString(
+                  getAppLocaleCustom()
+                )} missing or invalid axis scores.`}
               >
-                {sampledPoints.length.toLocaleString()} sampled ·{" "}
-                {points.length.toLocaleString()} rated
+                {sampledPoints.length.toLocaleString(getAppLocaleCustom())}{" "}
+                sampled · {points.length.toLocaleString(getAppLocaleCustom())}{" "}
+                rated
               </div>
             </div>
             <div className="playground-splits">

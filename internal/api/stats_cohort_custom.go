@@ -53,3 +53,13 @@ func applyStatsCohortCustom(scope string, args []interface{}, cohort *StatsCohor
 	}
 	return scope, args, nil
 }
+
+// organizedStatsSceneScopeCustom narrows a scene scope to organized scenes.
+// It must run before applyStatsCohortCustom adds trailing CTEs.
+func organizedStatsSceneScopeCustom(scope string) (string, error) {
+	end := strings.LastIndex(scope, ")")
+	if end < 0 {
+		return "", fmt.Errorf("invalid stats scene scope")
+	}
+	return scope[:end] + "\n  AND scenes.organized = 1\n" + scope[end:], nil
+}

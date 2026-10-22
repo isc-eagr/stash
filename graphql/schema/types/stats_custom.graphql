@@ -180,12 +180,19 @@ type SceneStatsScene {
   performer_ids: [ID!]!
   performer_ethnicities: [String!]!
   performer_countries: [String!]!
+  "Vato ratings in performer_ids order; null when unrated"
+  performer_ratings: [Int]!
   marker_tag_groups: [SceneStatsMarkerTagGroup!]!
   tag_ids: [ID!]!
   primary_width: Int
   primary_height: Int
   most_recent_o_date: String
   has_royal_sapphire_bonus: Boolean!
+  "Organized scenes have their markers and tags filled in; others count as Unknown"
+  organized: Boolean!
+  "StashDB Matches of the scene plus its releases; null when never scraped"
+  stashdb_matches: Int
+  studio_id: ID
 }
 
 "Compact SceneStats dataset returned without per-scene GraphQL relationship resolution"

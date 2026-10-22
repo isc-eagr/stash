@@ -2,11 +2,12 @@ import assert from "node:assert/strict";
 
 import {
   makeSceneStatsMarkerTagURL,
-  makeSceneStatsVatoCountURL,
   sceneStatsVatoCountBuckets,
 } from "../src/components/SceneStats/sceneStatsSummary_custom.ts";
 
 assert.deepEqual(sceneStatsVatoCountBuckets([0, 1, 2, 3, 4, 7]), {
+  zero: 1,
+  unknown: 0,
   one: 1,
   standard: 1,
   threesome: 1,
@@ -31,36 +32,11 @@ assert.deepEqual(JSON.parse(encodedCriterion), {
   bottom_rating: null,
 });
 
-const decodedVatoCriterion = (
-  bucket: "one" | "standard" | "threesome" | "group"
-) => {
-  const bucketURL = makeSceneStatsVatoCountURL(bucket);
-  assert.equal(
-    new URL(bucketURL, "http://localhost").searchParams.get("z"),
-    "2"
-  );
-  const encoded = new URLSearchParams(bucketURL.split("?")[1]).get("c");
-  assert.ok(encoded);
-  return JSON.parse(encoded);
-};
-
-assert.deepEqual(decodedVatoCriterion("one"), {
-  type: "performer_count",
-  modifier: "EQUALS",
-  value: { value: 1 },
-});
-assert.deepEqual(decodedVatoCriterion("standard"), {
-  type: "performer_count",
-  modifier: "EQUALS",
-  value: { value: 2 },
-});
-assert.deepEqual(decodedVatoCriterion("threesome"), {
-  type: "performer_count",
-  modifier: "EQUALS",
-  value: { value: 3 },
-});
-assert.deepEqual(decodedVatoCriterion("group"), {
-  type: "performer_count",
-  modifier: "GREATER_THAN",
-  value: { value: 3 },
+assert.deepEqual(sceneStatsVatoCountBuckets([null, undefined, -1, 0]), {
+  zero: 1,
+  unknown: 3,
+  one: 0,
+  standard: 0,
+  threesome: 0,
+  group: 0,
 });

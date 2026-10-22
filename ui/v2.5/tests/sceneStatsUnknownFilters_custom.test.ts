@@ -31,15 +31,15 @@ for (const [category, key] of [
   ["o_count", "oCount"],
   ["performer_count", "performerCount"],
   ["facial_count", "facialCount"],
-  ["really_hot_facial_count", "reallyHotFacialCount"],
 ] as const) {
-  for (const value of [undefined, null, 0, -1, NaN]) {
+  for (const value of [undefined, null, -1, NaN]) {
     assert.equal(isSceneStatsUnknownValue(category, { [key]: value }), true);
   }
   assert.equal(isSceneStatsUnknownValue(category, { [key]: 1 }), false);
+  assert.equal(isSceneStatsUnknownValue(category, { [key]: 0 }), false);
 }
 
-for (const rating of [undefined, null, 0]) {
+for (const rating of [undefined, null]) {
   assert.equal(
     isSceneStatsUnknownValue("rating", {
       ratingBucket: sceneStatsRatingBucket(rating),

@@ -1,16 +1,20 @@
 package sitesync
 
 // CUSTOM: LatinBoyz. Everything comes from the public WordPress posts: the
-// scene's own latinboyz.com URL or, for recent posts whose images carry
-// am<code>, a site search. Pictures are not downloaded; their folders are
+// scene's own latinboyz.com URL or a cached public post index matched by
+// image and trailer codes. Pictures are not downloaded; their folders are
 // added by hand, named after the members zip files.
 
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
+	"path"
 	"regexp"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,14 +22,17 @@ import (
 )
 
 const (
-	lbzHost      = "latinboyz.com"
-	lbzSearchURL = "https://latinboyz.com/wp-json/wp/v2/posts?search=am%s&per_page=20&_fields=link,content"
+	lbzHost     = "latinboyz.com"
+	lbzIndexURL = "https://latinboyz.com/wp-json/wp/v2/posts?per_page=100&page=%d&orderby=id&order=asc&_fields=link,content"
 )
 
 var (
 	// File names put the code after a letter prefix: HD2224, am245v2,
 	// wmv1069-3000HD, NEWam1798, 1700HD.
-	lbzFileCodeRE = regexp.MustCompile(`^[A-Za-z]*(\d{3,})`)
+	lbzFileCodeRE   = regexp.MustCompile(`^[A-Za-z]*(\d{3,})`)
+	lbzMediaCodeRE  = regexp.MustCompile(`(?i)(?:^|[-_])(?:am|HD|wmv)(\d{3,})`)
+	ErrCodeConflict = errors.New("conflicting scene codes")
+	ErrAmbiguous    = errors.New("more than one public scene matches")
 	// A pictures folder name part holding the code: am2224 or 1455.
 	lbzFolderPartRE = regexp.MustCompile(`(?i)^(?:am)?(\d{3,})$`)
 	// Post paragraphs that link to the members area or credit the photographer.
@@ -33,27 +40,46 @@ var (
 )
 
 type latinboyz struct {
-	client *Client
+	client   *Client
+	index    map[string][]string
+	indexed  bool
+	indexErr error
 }
 
 func (s *latinboyz) Name() string    { return "LatinBoyz" }
 func (s *latinboyz) Client() *Client { return s.client }
 
 func (s *latinboyz) SceneCode(scene Scene) string {
-	if m := lbzFileCodeRE.FindStringSubmatch(scene.Basename); m != nil {
+	if m := lbzFileCodeRE.FindStringSubmatch(strings.TrimSpace(scene.Basename)); m != nil {
 		return m[1]
 	}
 	return ""
 }
 
+func (s *latinboyz) HasSceneURL(scene Scene) bool {
+	return lbzPostURL(scene.URLs) != ""
+}
+
 func (s *latinboyz) Scrape(ctx context.Context, code string, scene Scene) (Metadata, error) {
-	postURL := lbzPostURL(scene.URLs)
-	if postURL == "" {
-		var err error
-		if postURL, err = s.findPost(ctx, code); err != nil {
-			return Metadata{}, err
+	if fileCode := s.SceneCode(scene); code != "" && fileCode != "" && code != fileCode {
+		return Metadata{}, fmt.Errorf("%w: Code is %s but the filename names %s; check Code or the filename", ErrCodeConflict, code, fileCode)
+	}
+	for _, raw := range scene.URLs {
+		if postURL := lbzPostURL([]string{raw}); postURL != "" {
+			md, err := s.scrapePost(ctx, postURL, code)
+			if !errors.Is(err, ErrNotFound) {
+				return md, err
+			}
 		}
 	}
+	postURL, err := s.findPost(ctx, code)
+	if err != nil {
+		return Metadata{}, err
+	}
+	return s.scrapePost(ctx, postURL, code)
+}
+
+func (s *latinboyz) scrapePost(ctx context.Context, postURL, code string) (Metadata, error) {
 	doc, err := s.client.Page(ctx, postURL, false)
 	if err != nil {
 		return Metadata{}, err
@@ -62,40 +88,137 @@ func (s *latinboyz) Scrape(ctx context.Context, code string, scene Scene) (Metad
 	if ret.Title == "" {
 		return Metadata{}, ErrNotFound
 	}
+	// A title that names nobody stays as the site wrote it.
+	if names := lbzCleanTitle(ret.Title); names != "" {
+		ret.Title = names
+	}
+	var codes []string
+	if contents := findByClass(doc, "entry-content"); len(contents) > 0 {
+		codes = lbzMediaCodes(contents[0])
+	}
+	if len(codes) > 1 || (len(codes) == 1 && code != "" && codes[0] != code) {
+		return Metadata{}, fmt.Errorf("%w: Code %q, public page codes %s; check Code or URLs", ErrCodeConflict, code, strings.Join(codes, ", "))
+	}
+	if len(codes) == 1 {
+		ret.Code = codes[0]
+	}
+	for _, link := range findAll(doc, "link") {
+		if attr(link, "rel") == "canonical" {
+			if canonical := lbzPostURL([]string{attr(link, "href")}); canonical != "" {
+				postURL = canonical
+			}
+		}
+	}
 	ret.URLs = []string{postURL}
 	return ret, nil
 }
 
-// findPost searches the posts for am<code> and returns the only one whose
-// content names exactly that code; the search also matches longer codes.
+// findPost reads the complete public index once per run, including failures.
+// A partial index must never turn an ambiguous code into a unique match.
 func (s *latinboyz) findPost(ctx context.Context, code string) (string, error) {
 	if code == "" || strings.Trim(code, "0123456789") != "" {
 		return "", ErrNotFound
 	}
-	body, err := s.client.Body(ctx, fmt.Sprintf(lbzSearchURL, code), false)
-	if err != nil {
-		return "", err
+	if !s.indexed {
+		s.indexed = true
+		s.indexErr = s.loadIndex(ctx)
 	}
-	var posts []struct {
-		Link    string `json:"link"`
-		Content struct {
-			Rendered string `json:"rendered"`
-		} `json:"content"`
+	if s.indexErr != nil {
+		return "", s.indexErr
 	}
-	if err := json.Unmarshal(body, &posts); err != nil {
-		return "", fmt.Errorf("reading the search for am%s: %w", code, err)
+	links := s.index[code]
+	if len(links) > 1 {
+		return "", fmt.Errorf("%w for code %s; add the correct public scene URL in Scenes > Edit > URLs", ErrAmbiguous, code)
 	}
-	codeRE := regexp.MustCompile(`(?i)\bam` + code + `(?:\D|$)`)
-	var links []string
-	for _, p := range posts {
-		if codeRE.MatchString(p.Content.Rendered) {
-			links = append(links, p.Link)
-		}
-	}
-	if len(links) != 1 {
+	if len(links) == 0 {
 		return "", ErrNotFound
 	}
 	return links[0], nil
+}
+
+func (s *latinboyz) loadIndex(ctx context.Context) error {
+	index := map[string][]string{}
+	for page := 1; ; page++ {
+		body, headers, err := s.client.body(ctx, fmt.Sprintf(lbzIndexURL, page), false)
+		if err != nil {
+			return fmt.Errorf("reading public post index page %d: %w", page, err)
+		}
+		var posts []struct {
+			Link    string `json:"link"`
+			Content struct {
+				Rendered string `json:"rendered"`
+			} `json:"content"`
+		}
+		if err := json.Unmarshal(body, &posts); err != nil {
+			return fmt.Errorf("reading public post index page %d: %w", page, err)
+		}
+		for _, post := range posts {
+			link := lbzPostURL([]string{post.Link})
+			if link == "" {
+				continue
+			}
+			doc, err := html.Parse(strings.NewReader(post.Content.Rendered))
+			if err != nil {
+				return err
+			}
+			for _, code := range lbzMediaCodes(doc) {
+				if !slices.Contains(index[code], link) {
+					index[code] = append(index[code], link)
+				}
+			}
+		}
+		pages, err := strconv.Atoi(headers.Get("X-WP-TotalPages"))
+		if (err == nil && page >= pages) || (err != nil && len(posts) < 100) {
+			break
+		}
+		if len(posts) == 0 {
+			return errors.New("public post index ended before its last page")
+		}
+	}
+	s.index = index
+	return nil
+}
+
+// lbzMediaCodes reads codes only from actual image/video filenames, never
+// arbitrary paragraph numbers, dates, dimensions, or related page links.
+func lbzMediaCodes(doc *html.Node) []string {
+	var codes []string
+	var walk func(*html.Node)
+	walk = func(n *html.Node) {
+		if n.Type == html.ElementNode {
+			for _, a := range n.Attr {
+				switch a.Key {
+				case "src", "href", "poster", "srcset", "data-src", "data-srcset":
+				default:
+					continue
+				}
+				for _, raw := range strings.FieldsFunc(a.Val, func(r rune) bool { return r == ',' || r == ' ' || r == '\n' || r == '\t' }) {
+					u, err := url.Parse(raw)
+					if err != nil {
+						continue
+					}
+					if u.Host != "" && strings.TrimPrefix(strings.ToLower(u.Hostname()), "www.") != lbzHost {
+						continue
+					}
+					name := path.Base(u.Path)
+					switch strings.ToLower(path.Ext(name)) {
+					case ".jpg", ".jpeg", ".png", ".webp", ".mp4", ".wmv", ".mov", ".m4v", ".webm":
+					default:
+						continue
+					}
+					if m := lbzMediaCodeRE.FindStringSubmatch(name); m != nil && !slices.Contains(codes, m[1]) {
+						codes = append(codes, m[1])
+					}
+				}
+			}
+		}
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			walk(c)
+		}
+	}
+	walk(doc)
+	slices.Sort(codes)
+	return codes
 }
 
 // FolderCode reads the code from folder names such as
@@ -118,7 +241,8 @@ func lbzPostURL(urls []string) string {
 		if err != nil || (u.Scheme != "https" && u.Scheme != "http") {
 			continue
 		}
-		if strings.TrimPrefix(strings.ToLower(u.Host), "www.") == lbzHost && strings.Trim(u.Path, "/") != "" {
+		post := strings.Trim(u.Path, "/")
+		if strings.TrimPrefix(strings.ToLower(u.Host), "www.") == lbzHost && u.User == nil && post != "" && !strings.Contains(post, "/") && post != "join" {
 			return raw
 		}
 	}

@@ -1,3 +1,4 @@
+import { getAppLocaleCustom } from "src/utils/appLocale_custom"; // CUSTOM
 import React from "react";
 import { faStar } from "@fortawesome/free-solid-svg-icons";
 import { OverlayTrigger, Tooltip } from "react-bootstrap";
@@ -23,7 +24,9 @@ type PerformerRatingAdvisorStatsData =
   GQL.PerformerRatingAdvisorStatsQuery["performerRatingAdvisorStats"];
 
 function formatSceneAverageRating(value: number) {
-  return value.toLocaleString(undefined, { maximumFractionDigits: 1 });
+  return value.toLocaleString(getAppLocaleCustom(), {
+    maximumFractionDigits: 1,
+  });
 }
 
 export const PerformerSceneAverageRating: React.FC<{

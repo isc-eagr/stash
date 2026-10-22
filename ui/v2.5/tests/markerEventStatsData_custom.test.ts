@@ -61,20 +61,29 @@ const context = buildMarkerEventStatsContext(events, performers, [
   { id: "45", name: "handsfree" },
 ]);
 
-test("group sizes count distinct givers per receiver in a scene", () => {
-  assert.equal(context.groupSizes.get("10:2"), 1);
-  assert.equal(context.groupSizes.get("10:1"), 1);
-  // Two facials without a top are two different givers.
-  assert.equal(context.groupSizes.get("11:2"), 2);
-  const chart = buildMarkerEventChart(events, "group", context);
+test("facials per scene count each scene once with its best facial", () => {
+  assert.equal(context.sceneEventCounts.get("10"), 2);
+  assert.equal(context.sceneEventCounts.get("11"), 2);
+  const chart = buildMarkerEventChart(events, "per_scene", context);
   assert.deepEqual(
-    chart.data.map((datum) => [datum.label, datum.count]),
-    [
-      ["1 giver", 3],
-      ["2 givers", 1],
-    ]
+    chart.data.map((datum) => [datum.key, datum.count, datum.qualities]),
+    [["2", 2, { REGULAR: 1, REALLY_HOT: 0, GOAT: 1 }]]
   );
-  assert.equal(chart.total, 4, "group facials count receivers, not facials");
+
+  // Busy scenes keep their own column instead of folding into "4+".
+  const busy = ["5", "6", "7", "8", "9"].map((marker_id) =>
+    event({ marker_id, scene_id: "12" })
+  );
+  const busyContext = buildMarkerEventStatsContext(busy, performers, []);
+  assert.deepEqual(
+    buildMarkerEventChart(busy, "per_scene", busyContext).data.map((datum) => [
+      datum.key,
+      datum.label,
+      datum.count,
+    ]),
+    [["5", "5", 1]]
+  );
+  assert.equal(chart.total, 2, "facials per scene counts scenes");
 });
 
 test("giver charts use the vato who came, with Unknown for missing data", () => {
@@ -87,7 +96,8 @@ test("giver charts use the vato who came, with Unknown for missing data", () => 
     ]
   );
   assert.equal(ethnicity.unknownCount, 2);
-  assert.equal(ethnicity.total, 4);
+  // Shares use the events with a known giver, so Unknown never dilutes them.
+  assert.equal(ethnicity.total, 2);
 
   const age = buildMarkerEventChart(events, "giver_age", context);
   assert.deepEqual(
@@ -99,7 +109,7 @@ test("giver charts use the vato who came, with Unknown for missing data", () => 
   const country = buildMarkerEventChart(events, "giver_country", context);
   assert.deepEqual(
     country.data.map((datum) => datum.label),
-    ["Mexico", "United States"]
+    ["Mexico", "United States of America"]
   );
 });
 
@@ -138,7 +148,8 @@ test("O count, type, quality, and activity buckets", () => {
     [
       ["0", 2],
       ["1", 1],
-      ["3+", 1],
+      // 4 O's keep their own column instead of folding into "3+".
+      ["4", 1],
     ]
   );
   assert.deepEqual(
@@ -185,12 +196,12 @@ test("filters match bars and Unknown badges", () => {
       .map((item) => item.marker_id),
     ["2"]
   );
-  const twoGivers = { category: "group" as const, value: "2" };
+  const twoPerScene = { category: "per_scene" as const, value: "2" };
   assert.deepEqual(
     events
-      .filter((item) => markerEventMatchesFilter(item, twoGivers, context))
+      .filter((item) => markerEventMatchesFilter(item, twoPerScene, context))
       .map((item) => item.marker_id),
-    ["3", "4"]
+    ["1", "2", "3", "4"]
   );
 });
 
@@ -267,4 +278,64 @@ test("marker rankings keep one card per marker and break ties", () => {
     value: 45,
   });
   assert.equal(markerEventSortMetric(ranked[3], "latest_o").value, null);
+});
+
+test("stacked columns split each bar by Regular, Really Hot and GOAT", () => {
+  const oCounts = buildMarkerEventChart(events, "o_count", context);
+  assert.deepEqual(
+    oCounts.data.map((datum) => [datum.key, datum.qualities]),
+    [
+      ["0", { REGULAR: 2, REALLY_HOT: 0, GOAT: 0 }],
+      ["1", { REGULAR: 0, REALLY_HOT: 0, GOAT: 1 }],
+      ["4", { REGULAR: 0, REALLY_HOT: 1, GOAT: 0 }],
+    ]
+  );
+});
+
+test("both pages chart nuts or facials per scene", async () => {
+  const { NUT_STATS_CHARTS, FACIAL_STATS_CHARTS } = await import(
+    "../src/components/MarkerEventStats/markerEventStatsData_custom.ts"
+  );
+  assert.equal(
+    NUT_STATS_CHARTS.find((chart) => chart.key === "per_scene")?.label,
+    "Nuts Per Scene"
+  );
+  assert.equal(
+    FACIAL_STATS_CHARTS.find((chart) => chart.key === "per_scene")?.label,
+    "Facials Per Scene"
+  );
+});
+
+test("chart groups fill whole rows of three small, two medium or one wide", async () => {
+  const { NUT_STATS_CHARTS, FACIAL_STATS_CHARTS } = await import(
+    "../src/components/MarkerEventStats/markerEventStatsData_custom.ts"
+  );
+  const span = { small: 2, wide: 6 } as const;
+  for (const charts of [NUT_STATS_CHARTS, FACIAL_STATS_CHARTS]) {
+    const groups = new Map<string, number[]>();
+    charts.forEach((chart) => {
+      if (!chart.group) return;
+      groups.set(chart.group, [
+        ...(groups.get(chart.group) ?? []),
+        chart.size ? span[chart.size] : 3,
+      ]);
+    });
+    groups.forEach((spans, group) => {
+      const left = spans.reduce((row, value) => {
+        assert.ok(row + value <= 6, `${group} should not overflow a row`);
+        return (row + value) % 6;
+      }, 0);
+      assert.equal(left, 0, `${group} should end on a full row`);
+    });
+  }
+  assert.deepEqual(
+    Array.from(new Set(NUT_STATS_CHARTS.flatMap((chart) => chart.group ?? []))),
+    ["The Nuts", "The Vatos", "The Action"]
+  );
+  assert.deepEqual(
+    Array.from(
+      new Set(FACIAL_STATS_CHARTS.flatMap((chart) => chart.group ?? []))
+    ),
+    ["The Facials", "The Vatos"]
+  );
 });

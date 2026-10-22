@@ -13,6 +13,10 @@ import (
 
 const performerUnknownSelectionCustom = "__unknown__"
 
+// performerExactSelectionCustom turns off the search-only ethnicity expansion,
+// so report drilldowns list exactly the vatos their counts show.
+const performerExactSelectionCustom = "__exact__"
+
 // insightPerformerIDsCriterionHandlerCustom restores the exact vato set saved
 // by a Playground tier drilldown. One JSON parameter avoids SQLite's bind limit.
 func insightPerformerIDsCriterionHandlerCustom(ids []string) criterionHandlerFunc {
@@ -37,13 +41,17 @@ func expandPerformerEthnicitySelectionsCustom(value string) []string {
 		ret = append(ret, value)
 	}
 
+	exact := hasPerformerSelectionCustom(value, performerExactSelectionCustom)
 	for _, value := range strings.Split(value, ",") {
 		value = strings.TrimSpace(value)
-		if value == "" || value == performerUnknownSelectionCustom {
+		if value == "" || value == performerUnknownSelectionCustom || value == performerExactSelectionCustom {
 			continue
 		}
 
 		appendValue(value)
+		if exact {
+			continue
+		}
 		if strings.EqualFold(value, "Black") {
 			appendValue("Mixed")
 			appendValue("Afrolatino")
@@ -76,9 +84,9 @@ func expandPerformerCountrySelectionsCustom(value string) []string {
 	return ret
 }
 
-func hasPerformerUnknownSelectionCustom(value string) bool {
+func hasPerformerSelectionCustom(value string, selection string) bool {
 	for _, value := range strings.Split(value, ",") {
-		if strings.TrimSpace(value) == performerUnknownSelectionCustom {
+		if strings.TrimSpace(value) == selection {
 			return true
 		}
 	}
@@ -151,7 +159,7 @@ func performerEthnicityCriterionHandlerCustom(criterion *models.StringCriterionI
 			f,
 			column,
 			values,
-			hasPerformerUnknownSelectionCustom(criterion.Value),
+			hasPerformerSelectionCustom(criterion.Value, performerUnknownSelectionCustom),
 			criterion.Modifier,
 		)
 	}
@@ -179,7 +187,7 @@ func performerCountryCriterionHandlerCustom(criterion *models.StringCriterionInp
 			f,
 			column,
 			expandPerformerCountrySelectionsCustom(criterion.Value),
-			hasPerformerUnknownSelectionCustom(criterion.Value),
+			hasPerformerSelectionCustom(criterion.Value, performerUnknownSelectionCustom),
 			criterion.Modifier,
 		)
 	}

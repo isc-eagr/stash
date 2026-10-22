@@ -1,3 +1,4 @@
+import { formatAppDecimalCustom } from "src/utils/appLocale_custom"; // CUSTOM
 import { useEffect, useRef, useState } from "react";
 import { useApolloClient } from "@apollo/client";
 import { Alert, Button } from "react-bootstrap";
@@ -106,7 +107,7 @@ export default function RemoteO() {
           setConfirmation(
             `O recorded at ${remoteTimeCustom(
               result.video_timestamp
-            )} (${result.video_timestamp.toFixed(3)} seconds).`
+            )} (${formatAppDecimalCustom(result.video_timestamp, 3)} seconds).`
           );
           setPending(undefined);
           sessionStorage.removeItem(pendingKey);

@@ -37,11 +37,12 @@ const PerformerScrapeModal: React.FC<IProps> = ({
 
   useEffect(() => inputRef.current?.focus(), []);
 
+  // CUSTOM: begin - consistent entity vocabulary.
   return (
     <ModalComponent
       show
       onHide={onHide}
-      header={`Scrape performer from ${scraper.name}`}
+      header={`Scrape vato from ${scraper.name}`}
       accept={{
         text: intl.formatMessage({ id: "actions.cancel" }),
         onClick: onHide,
@@ -52,7 +53,7 @@ const PerformerScrapeModal: React.FC<IProps> = ({
         <Form.Control
           onChange={(e) => onInputChange(e.currentTarget.value)}
           defaultValue={name ?? ""}
-          placeholder="Performer name..."
+          placeholder="Vato name..."
           className="text-input mb-4"
           ref={inputRef}
         />
@@ -78,6 +79,7 @@ const PerformerScrapeModal: React.FC<IProps> = ({
       </div>
     </ModalComponent>
   );
+  // CUSTOM: end
 };
 
 export default PerformerScrapeModal;

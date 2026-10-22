@@ -1,3 +1,4 @@
+import { formatAppDecimalCustom } from "src/utils/appLocale_custom"; // CUSTOM
 import React from "react";
 import { FormattedNumber } from "react-intl";
 import type { TaskProgressTrackerDataFragment as Tracker } from "src/core/generated-graphql";
@@ -30,13 +31,16 @@ export const TaskProgressAtAGlance: React.FC<IProps> = ({ tracker }) => {
       : []),
     {
       label: t("Percentage completed"),
-      value: `${percentage.toFixed(2)}%`,
+      value: `${formatAppDecimalCustom(percentage, 2)}%`,
     },
     ...(!completed
       ? [
           {
             label: t("Percentage remaining"),
-            value: `${Math.max(0, 100 - percentage).toFixed(2)}%`,
+            value: `${formatAppDecimalCustom(
+              Math.max(0, 100 - percentage),
+              2
+            )}%`,
           },
         ]
       : []),

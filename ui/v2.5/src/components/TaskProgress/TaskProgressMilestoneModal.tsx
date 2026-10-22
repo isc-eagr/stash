@@ -1,3 +1,4 @@
+import { formatAppDecimalCustom } from "src/utils/appLocale_custom"; // CUSTOM
 import React from "react";
 import { Button, Modal } from "react-bootstrap";
 import { FormattedNumber } from "react-intl";
@@ -58,7 +59,7 @@ export const TaskProgressMilestoneModal: React.FC<{
             <div key={item.label} className="progress-tracker-at-a-glance-card">
               <strong>
                 {item.label === "Percentage complete" ? (
-                  `${item.value.toFixed(2)}%`
+                  `${formatAppDecimalCustom(item.value, 2)}%`
                 ) : (
                   <FormattedNumber value={item.value} />
                 )}

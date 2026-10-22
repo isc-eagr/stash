@@ -1,3 +1,7 @@
+import {
+  formatAppDecimalCustom,
+  getAppLocaleCustom,
+} from "src/utils/appLocale_custom"; // CUSTOM
 import React, { useMemo, useState } from "react";
 import { Alert, Button, ButtonGroup, ProgressBar } from "react-bootstrap";
 import { useConfigurationContext } from "src/hooks/Config";
@@ -119,8 +123,8 @@ export const PlaygroundSceneTiers: React.FC<{
           disabled={!current.count}
           onClick={() => openExact(`${label} · Current`, current.ids)}
         >
-          <strong>{current.count.toLocaleString()}</strong>
-          <span>{currentPercent.toFixed(1)}% current</span>
+          <strong>{current.count.toLocaleString(getAppLocaleCustom())}</strong>
+          <span>{formatAppDecimalCustom(currentPercent, 1)}% current</span>
         </button>
         <button
           type="button"
@@ -130,9 +134,11 @@ export const PlaygroundSceneTiers: React.FC<{
           disabled={!projected.count}
           onClick={() => openExact(`${label} · Projected`, projected.ids)}
         >
-          <strong>{projected.count.toLocaleString()}</strong>
+          <strong>
+            {projected.count.toLocaleString(getAppLocaleCustom())}
+          </strong>
           <span>
-            {projectedPercent.toFixed(1)}% projected
+            {formatAppDecimalCustom(projectedPercent, 1)}% projected
             {delta ? ` · ${delta > 0 ? "+" : ""}${delta}` : ""}
           </span>
         </button>
@@ -172,8 +178,9 @@ export const PlaygroundSceneTiers: React.FC<{
           <h2>Scene Tiers</h2>
           {!state.loading && !state.error && (
             <span role="status">
-              {totals.currentTotal.toLocaleString()} tiered of{" "}
-              {filtered.length.toLocaleString()} matching scenes
+              {totals.currentTotal.toLocaleString(getAppLocaleCustom())} tiered
+              of {filtered.length.toLocaleString(getAppLocaleCustom())} matching
+              scenes
             </span>
           )}
         </div>
@@ -183,7 +190,9 @@ export const PlaygroundSceneTiers: React.FC<{
           disabled={state.loading}
           title={
             state.loadedAt
-              ? `Loaded ${new Date(state.loadedAt).toLocaleString()}`
+              ? `Loaded ${new Date(state.loadedAt).toLocaleString(
+                  getAppLocaleCustom()
+                )}`
               : undefined
           }
           onClick={onReload}
@@ -221,7 +230,9 @@ export const PlaygroundSceneTiers: React.FC<{
           <p>
             Loading scenes
             {state.total
-              ? ` · ${state.loaded.toLocaleString()} / ${state.total.toLocaleString()}`
+              ? ` · ${state.loaded.toLocaleString(
+                  getAppLocaleCustom()
+                )} / ${state.total.toLocaleString(getAppLocaleCustom())}`
               : "…"}
           </p>
           <ProgressBar

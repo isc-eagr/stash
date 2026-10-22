@@ -10,14 +10,28 @@ const detailsSource = readFileSync(
   "utf8"
 );
 
-test("scene Details leads with shared insights before Description", () => {
-  const insightIndex = detailsSource.indexOf("<SceneCardInsights");
-  const descriptionIndex = detailsSource.indexOf("{renderDetails()}");
+test("scene insights moved from the Details tab to the header date line", () => {
+  const sceneSource = readFileSync(
+    new URL("../src/components/Scenes/SceneDetails/Scene.tsx", import.meta.url),
+    "utf8"
+  );
+  const insightsSource = readFileSync(
+    new URL(
+      "../src/components/Scenes/SceneCardInsights_custom.tsx",
+      import.meta.url
+    ),
+    "utf8"
+  );
 
-  assert.ok(insightIndex >= 0);
-  assert.ok(descriptionIndex > insightIndex);
-  assert.match(detailsSource, /roleStatsByPerformer=\{roleStatsByPerformer\}/);
-  assert.match(detailsSource, /detailPage/);
+  assert.doesNotMatch(detailsSource, /<SceneCardInsights/);
+  assert.match(
+    sceneSource,
+    /className="scene-meta-line"[\s\S]*?className="date"[\s\S]*?<SceneDetailInsights scene=\{scene\} \/>/
+  );
+  assert.match(
+    insightsSource,
+    /export const SceneDetailInsights[\s\S]*?roleStatsByPerformer=\{roleStatsByPerformer\}[\s\S]*?detailPage/
+  );
 });
 
 test("StashDB Matches stay in the toolbar, not Details", () => {

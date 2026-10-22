@@ -15,8 +15,8 @@ import {
   makeSceneStatsActivityMatrixTreeRows,
 } from "./sceneStatsActivityMatrixData_custom";
 import {
-  sceneStatsIncludeSubTagsFromSearch,
-  sceneStatsSearchForIncludeSubTags,
+  sceneStatsFlagFromSearch,
+  sceneStatsSearchForFlag,
 } from "./sceneStatsSection_custom";
 
 interface IProps {
@@ -42,7 +42,10 @@ export const SceneStatsActivityMatrix: React.FC<IProps> = ({
 }) => {
   const history = useHistory();
   const location = useLocation();
-  const includeSubTags = sceneStatsIncludeSubTagsFromSearch(location.search);
+  const includeSubTags = sceneStatsFlagFromSearch(
+    location.search,
+    "includeSubTags"
+  );
   const { data, error, loading } = useSceneStatsActivityMatrixQuery({
     variables: {
       studioId,
@@ -81,9 +84,7 @@ export const SceneStatsActivityMatrix: React.FC<IProps> = ({
   }
   if (error) return <ErrorMessage error={error.message} />;
   if (matrix.rows.length === 0) {
-    return (
-      <Alert variant="secondary">No tagged marker activity yet. Nada.</Alert>
-    );
+    return <Alert variant="secondary">No tagged marker activity yet.</Alert>;
   }
 
   return (
@@ -96,8 +97,9 @@ export const SceneStatsActivityMatrix: React.FC<IProps> = ({
         onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
           history.replace({
             ...location,
-            search: sceneStatsSearchForIncludeSubTags(
+            search: sceneStatsSearchForFlag(
               location.search,
+              "includeSubTags",
               event.target.checked
             ),
           })

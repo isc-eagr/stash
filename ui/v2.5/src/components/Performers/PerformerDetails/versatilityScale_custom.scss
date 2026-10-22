@@ -64,11 +64,11 @@
   font-weight: 800;
 
   &.is-bottom {
-    color: #28a745;
+    color: var(--semantic-bottom);
   }
 
   &.is-top {
-    color: #17a2b8;
+    color: var(--semantic-top);
     text-align: right;
   }
 }
@@ -173,12 +173,12 @@
 
   &.is-top,
   &.is-top:hover {
-    color: #17a2b8;
+    color: var(--semantic-top);
   }
 
   &.is-bottom,
   &.is-bottom:hover {
-    color: #28a745;
+    color: var(--semantic-bottom);
   }
 }
 

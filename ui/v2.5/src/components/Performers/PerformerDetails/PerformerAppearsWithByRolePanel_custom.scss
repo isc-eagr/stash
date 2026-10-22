@@ -8,23 +8,23 @@
 
   .role-section-top {
     .role-section-header {
-      border-left-color: #17a2b8;
+      border-left-color: var(--semantic-top);
     }
 
     .role-section-title,
     .role-section-subtitle {
-      color: #17a2b8;
+      color: var(--semantic-top);
     }
   }
 
   .role-section-bottom {
     .role-section-header {
-      border-left-color: #28a745;
+      border-left-color: var(--semantic-bottom);
     }
 
     .role-section-title,
     .role-section-subtitle {
-      color: #28a745;
+      color: var(--semantic-bottom);
     }
   }
 
@@ -32,11 +32,11 @@
     width: 180px;
 
     &.is-top .co-performer-role-duration strong {
-      color: #17a2b8;
+      color: var(--semantic-top);
     }
 
     &.is-bottom .co-performer-role-duration strong {
-      color: #28a745;
+      color: var(--semantic-bottom);
     }
   }
 

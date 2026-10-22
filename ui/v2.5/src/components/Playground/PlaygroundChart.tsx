@@ -1,3 +1,4 @@
+import { getAppLocaleCustom } from "src/utils/appLocale_custom"; // CUSTOM
 import React, {
   useEffect,
   useLayoutEffect,
@@ -217,7 +218,10 @@ export const PlaygroundChart: React.FC<IProps> = ({
         {playgroundQuadrants.map((quadrant, index) => (
           <span key={quadrant.label}>
             <i style={{ background: quadrant.color }} />
-            {quadrant.label} <strong>{counts[index].toLocaleString()}</strong>
+            {quadrant.label}{" "}
+            <strong>
+              {counts[index].toLocaleString(getAppLocaleCustom())}
+            </strong>
           </span>
         ))}
       </div>
@@ -355,7 +359,7 @@ export const PlaygroundChart: React.FC<IProps> = ({
             : ""
         }Click to pin details. High includes the dividing value.`}
       >
-        {positions.length.toLocaleString()} shown
+        {positions.length.toLocaleString(getAppLocaleCustom())} shown
         <span className="sr-only">
           . Click to pin details.{" "}
           {spreadPoints && "Positions are spread; tooltips show exact scores."}

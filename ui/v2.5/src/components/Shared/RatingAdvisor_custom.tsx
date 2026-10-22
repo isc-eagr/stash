@@ -1,3 +1,4 @@
+import { useConfirmActionCustom } from "./useConfirmAction_custom";
 import { gql, useQuery } from "@apollo/client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Badge, Button } from "react-bootstrap";
@@ -100,28 +101,29 @@ const RatingAdvisorScoresQuery = gql`
 const sceneVatoAttractivenessChoices = ratingAdvisorSixLevelChoicesCustom([
   {
     label: "Not attractive",
-    description: "Nel. He ain't why you're here, ni modo.",
+    description: "Nel. He ain't why you're here.",
   },
   {
     label: "Some appeal",
-    description: "Not bad, pero no te prende.",
+    description: "He has a little something going on, but it's barely there.",
   },
   {
     label: "Decent",
-    description:
-      "Ahí la lleva. Cute enough, but he ain't the reason you clicked.",
+    description: "Cute enough, but he ain't the reason you clicked.",
   },
   {
     label: "Attractive",
-    description: "Está rico. This vato makes the scene better, a huevo.",
+    description:
+      "This vato is definitely attractive and makes the scene better.",
   },
   {
     label: "Very attractive",
-    description: "Qué rico, wey. Fine as hell and the reason you're watching.",
+    description: "Firme as hell. Something about him strongly pulls you in.",
   },
   {
     label: "Perfect",
-    description: "He's seriously one of the reasons you're into vatos.",
+    description:
+      "Everything you've ever wanted in a vato. The face, the body, the verga, the way he moves, the way he talks. Vatos like him are the reason you're into vatos.",
   },
 ]);
 
@@ -132,7 +134,7 @@ const sceneMetrics: IAdvisorMetric[] = [
     shortTitle: "Top",
     max: 5,
     weight: 0.6,
-    hint: "Is the activo here a papacito or nah? Rate his look in this scene, not his overall face and body ratings.",
+    hint: "Is the activo here hot or nah? Rate his look in this scene, not his overall face and body ratings.",
     choices: sceneVatoAttractivenessChoices,
   },
   {
@@ -141,7 +143,7 @@ const sceneMetrics: IAdvisorMetric[] = [
     shortTitle: "Bottom",
     max: 5,
     weight: 0.2,
-    hint: "Is the pasivo a papacito or nah? Rate his look in this scene, not his overall face and body ratings.",
+    hint: "Is the pasivo hot or nah? Rate his look in this scene, not his overall face and body ratings.",
     choices: sceneVatoAttractivenessChoices,
   },
   {
@@ -150,33 +152,33 @@ const sceneMetrics: IAdvisorMetric[] = [
     shortTitle: "Energy",
     max: 5,
     weight: SCENE_ENERGY_WEIGHT_CUSTOM,
-    hint: "How hot the actual cogida feels: rhythm, reactions, chemistry, todo.",
+    hint: "How hot the actual action feels: rhythm, reactions, chemistry, todo.",
     choices: ratingAdvisorSixLevelChoicesCustom([
       {
         label: "No energy",
-        description: "Pura hueva. These vatos are clocked out, wey.",
+        description:
+          "These vatos are clocked out, uncomfortable, or look like they don't wanna be there.",
       },
       {
         label: "Serviceable",
-        description: "Ahí van. They're fucking, but sin chispa.",
+        description: "They're fucking, but sin chispa.",
       },
       {
         label: "Decent",
-        description: "Ahí la lleva. Some rico stretches, nada too crazy.",
+        description: "Some firme stretches, nothing too crazy.",
       },
       {
         label: "Strong",
-        description: "Good rhythm and reactions. The fucking really lands.",
+        description: "Good rhythm and reactions. The action really lands.",
       },
       {
         label: "Excellent",
-        description:
-          "Bien cachondos. Hot as hell, and they can't keep their hands off each other.",
+        description: "Hot as hell, these ñeros know what they're doing.",
       },
       {
         label: "Perfect quality",
         description:
-          "Pinche perfecto. You'd watch this even if you didn't like the vatos.",
+          "The action is so perfect and hot you'd watch this even if you didn't like the vatos.",
       },
     ]),
   },
@@ -185,18 +187,19 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "Uniform/setting factor",
     max: 0.5,
     section: "bonus",
-    hint: "Cop, mechanic, albañil... flip it on when the fantasy makes it hotter.",
+    hint: "Cop, soldado, mechanic, albañil... flip it on when the fantasy makes it hotter.",
     choices: [
       {
         value: 0,
         label: "No theme bonus",
-        description: "The theme ain't doing nada extra for you.",
+        description:
+          "No specific theme, or it's there but in a very minor way, or there is a theme but doesn't do anything for you.",
       },
       {
         value: 0.5,
         label: "Theme present",
         description:
-          "The uniform, fantasy, or setup makes this way hotter. Qué rico.",
+          "These papis are dressed up as cop, soldado, mechanic, albañil, or any other really firme uniform.",
       },
     ],
   },
@@ -205,12 +208,12 @@ const sceneMetrics: IAdvisorMetric[] = [
     title: "Oral-only scene",
     max: 0.5,
     section: "bonus",
-    hint: "Flip it on when it's puro eating verga, start to finish.",
+    hint: "Flip it on when it's puro mamar rifle, start to finish.",
     choices: [
       {
         value: 0,
         label: "Not oral-only",
-        description: "There's more than mamando pito going on.",
+        description: "There's more than mamar rifle going on.",
       },
       {
         value: 0.5,
@@ -234,7 +237,8 @@ const sceneMetrics: IAdvisorMetric[] = [
       {
         value: SCENE_GOD_TIER_ORGASM_BONUS_CUSTOM,
         label: "God-tier nuts",
-        description: "That nut or facial is straight-up legendary. No mames.",
+        description:
+          "Legendary. More mecos, with more force, than you knew was real. The verga pulsing, the vato shaking through all of it, the whole screen dripping. No mames.",
       },
     ],
   },
@@ -256,13 +260,14 @@ const sceneMetrics: IAdvisorMetric[] = [
       {
         value: 0,
         label: "No bonus",
-        description: "No sorpresa activo here.",
+        description:
+          "The top and bottom are exactly who you'd have expected before clicking.",
       },
       {
         value: 0.5,
         label: "Unlikely top bonus",
         description:
-          "Looked like he'd be taking verga, but ended up providing it.",
+          "Looked like a vato would be taking verga, but he ended up providing it.",
       },
     ],
   },
@@ -278,7 +283,7 @@ const sceneMetrics: IAdvisorMetric[] = [
         value: 0,
         label: "Mostly unusable",
         description:
-          "Puro relleno. Long setup, bad positions, and dead stretches; most of it's a skip.",
+          "Puro relleno. Long setup, bad positions, tragic angles, and dead stretches. Most of it's a skip.",
       },
       {
         value: 1,
@@ -289,13 +294,13 @@ const sceneMetrics: IAdvisorMetric[] = [
         value: 2,
         label: "Standard or mixed",
         description:
-          "Normalito. Usable enough, or a desmadre with a few chingón stretches worth it.",
+          "Normalito. Usable enough, or a few chingón stretches worth it.",
       },
       {
         value: 3,
         label: "Highly usable",
         description:
-          "Most of it's jalable. Good angles, positions, and intensity.",
+          "Most of it is worth it. Good angles, positions, camera work, and intensity.",
       },
       {
         value: 4,
@@ -344,7 +349,7 @@ const sceneMetrics: IAdvisorMetric[] = [
       {
         value: 0,
         label: "No penalty",
-        description: "Looks fine and stays out of the way.",
+        description: "Mostly looks fine.",
       },
       {
         value: -1,
@@ -363,7 +368,7 @@ const sceneMetrics: IAdvisorMetric[] = [
       {
         value: 0,
         label: "No penalty",
-        description: "Still feels human, spontaneous, and real.",
+        description: "Still feels human and real.",
       },
       {
         value: -1,
@@ -406,13 +411,12 @@ const soloSceneMetrics: IAdvisorMetric[] = [
       {
         value: 2,
         label: "Into it",
-        description: "He's enjoying that verga, no doubt.",
+        description: "He's enjoying stroking his verga, no doubt.",
       },
       {
         value: 3,
         label: "Excited",
-        description:
-          "Bien prendido. Real reactions, and he wants to be right there.",
+        description: "This ñero anda caliente and it shows.",
       },
       {
         value: 4,
@@ -453,17 +457,18 @@ const soloSceneMetrics: IAdvisorMetric[] = [
     title: "Feet",
     max: 1,
     section: "bonus",
-    hint: "Flip it on when the feet get real screen time and you're into it.",
+    hint: "Flip it on when the patotas get real screen time and you're into it.",
     choices: [
       {
         value: 0,
         label: "No feet bonus",
-        description: "No feet, or they ain't doing nada for you.",
+        description: "No patas, or they ain't doing nada for you.",
       },
       {
         value: 1,
         label: "Feet bonus",
-        description: "The feet get real screen time and make it hotter.",
+        description:
+          "The patotas are delicious and masculine, and they get real screen time.",
         scoreValue: 1,
       },
     ],
@@ -486,7 +491,7 @@ const groupSceneMetrics: IAdvisorMetric[] = [
     title: "Top Lineup Attractiveness",
     shortTitle: "Tops",
     weight: GROUP_SCENE_WEIGHTS_CUSTOM.topAttractiveness,
-    hint: "Are the activos papacitos or nah? Rate the lineup in this scene, not their overall face and body ratings.",
+    hint: "Are the activos hot or nah? Rate the lineup in this scene, not their overall face and body ratings.",
   },
   {
     key: GROUP_SCENE_RATING_KEYS_CUSTOM.criteria.energyCoordination,
@@ -504,7 +509,7 @@ const groupSceneMetrics: IAdvisorMetric[] = [
     key: GROUP_SCENE_RATING_KEYS_CUSTOM.criteria.usability,
     title: "Usability",
     weight: GROUP_SCENE_WEIGHTS_CUSTOM.usability,
-    hint: "How much of the orgy works without skipping around.",
+    hint: "How much of the action works without skipping around.",
   },
   // Orgasm is always the last criterion.
   {
@@ -518,18 +523,17 @@ const groupSceneMetrics: IAdvisorMetric[] = [
     title: "Attractive Bottom",
     max: GROUP_SCENE_BONUSES_CUSTOM.bottomAttractiveness,
     section: "bonus",
-    hint: "Flip it on when the bottoms are fine enough to add extra heat.",
+    hint: "Flip it on when the pasivos are fine enough to add extra heat.",
     choices: [
       {
         value: 0,
         label: "No bottom bonus",
-        description: "The bottoms ain't why this scene works.",
+        description: "The pasivos ain't why this scene works.",
       },
       {
         value: GROUP_SCENE_BONUSES_CUSTOM.bottomAttractiveness,
         label: "Attractive bottom bonus",
-        description:
-          "The bottoms are bien buenos and give the scene a nice bump.",
+        description: "The pasivos are firme and give the scene a nice bump.",
       },
     ],
   },
@@ -543,7 +547,7 @@ const groupSceneMetrics: IAdvisorMetric[] = [
       {
         value: 0,
         label: "Not group oral-only",
-        description: "There's more than mamadas going on.",
+        description: "There's more than mamar rifle going on.",
       },
       {
         value: GROUP_SCENE_BONUSES_CUSTOM.oralOnly,
@@ -567,7 +571,7 @@ const performerMetrics: IAdvisorMetric[] = [
     title: "Face",
     max: 5,
     weight: 0.6,
-    hint: "How much that face pulls you in. Just the face, nothing else.",
+    hint: "How much that face pulls you in.",
     choices: ratingAdvisorSixLevelChoicesCustom([
       {
         label: "Not Attractive",
@@ -575,11 +579,11 @@ const performerMetrics: IAdvisorMetric[] = [
       },
       {
         label: "Some Appeal",
-        description: "Tiene su chiste, but not a strong pull.",
+        description: "Ahí la lleva, but not a strong pull.",
       },
       {
         label: "Decent",
-        description: "Normalito. Cute face, nothing that stops you.",
+        description: "Normalito. Cute face.",
       },
       {
         label: "Attractive",
@@ -662,7 +666,7 @@ const performerMetrics: IAdvisorMetric[] = [
       },
       {
         label: "Perfect",
-        description: "No mames. If he's in it, you're watching. Period.",
+        description: "No mames. This ñero was born for fucking.",
       },
     ]),
   },
@@ -717,13 +721,14 @@ const performerMetrics: IAdvisorMetric[] = [
       {
         value: 2,
         label: "Strong",
-        description: "Bien macho. Albañil energy, confident and in charge.",
+        description:
+          "Masculine appeal. Something about the way this ñero moves. Confident, in charge, deep voice.",
       },
       {
         value: 3,
         label: "Core ideal",
         description:
-          "Peak vato. He's seriously one of the reasons you're into vatos.",
+          "Peak masculine appeal. Looking like a chaka straight out of Ecatepec. He's the peak embodiment of why you're into vatos.",
       },
     ],
   },
@@ -742,7 +747,7 @@ const performerMetrics: IAdvisorMetric[] = [
       {
         value: 0.5,
         label: "Consistent draw",
-        description: "You see his name, you know it's gonna be rico.",
+        description: "You see his name, you know it's gonna be firme.",
       },
     ],
   },
@@ -762,7 +767,7 @@ const performerMetrics: IAdvisorMetric[] = [
       {
         value: 0.5,
         label: "Pito bonus",
-        description: "Qué rifle. You'd watch just for that verga.",
+        description: "Qué rifle tan perfecto. You'd watch just for that verga.",
       },
     ],
   },
@@ -781,7 +786,8 @@ const performerMetrics: IAdvisorMetric[] = [
       {
         value: 0.5,
         label: "Present",
-        description: "The ink makes him look hotter and más malandro.",
+        description:
+          "The ink makes him look hotter, or like a malandro straight out of Ecatepec.",
       },
     ],
   },
@@ -963,6 +969,7 @@ const RatingAdvisorModal: React.FC<{
 }) => {
   const { configuration } = useConfigurationContext();
   const Toast = useToast();
+  const { confirm: confirmAction, confirmModal } = useConfirmActionCustom();
   const [setRatingScore] = GQL.useRatingScoreSetMutation();
   const [deleteRatingScore] = GQL.useRatingScoreDeleteMutation();
   const [resetRatingScores] = GQL.useRatingScoreResetMutation();
@@ -1202,11 +1209,14 @@ const RatingAdvisorModal: React.FC<{
 
   async function resetAdvisor() {
     if (
-      !window.confirm(
-        entityType === "scene"
-          ? "Wipe every answer and remove this scene's rating?"
-          : "Wipe every answer? His overall rating stays put."
-      )
+      !(await confirmAction({
+        header: "Reset Rating Advisor",
+        message:
+          entityType === "scene"
+            ? "Wipe every answer and remove this scene's rating?"
+            : "Wipe every answer? His overall rating stays put.",
+        confirmText: "Reset",
+      }))
     ) {
       return;
     }
@@ -1438,117 +1448,123 @@ const RatingAdvisorModal: React.FC<{
   }
 
   return (
-    <ModalComponent
-      show
-      onHide={onClose}
-      header={advisorTitle}
-      icon={faWandMagicSparkles}
-      closeButton
-      accept={{ onClick: onClose, text: "Close" }}
-      modalProps={{ size: "xl", keyboard: true }}
-      dialogClassName="rating-advisor-dialog"
-    >
-      <div className={`rating-advisor-summary ${ratingTierClass}`}>
-        <div className="rating-advisor-score-summary">
-          <span>Rating</span>
-          <strong>{ratingUnavailable ? "—" : suggestion.rating100}</strong>
-          {suggestion.tier !== "Plain" && (
-            <Badge variant="secondary">{suggestion.tier}</Badge>
-          )}
-        </div>
-        <div className="rating-advisor-completion">
-          <div>
-            <span>
-              {ratedCoreCount} of {coreMetrics.length} rated
-            </span>
+    <>
+      {confirmModal}
+      {
+        <ModalComponent
+          show
+          onHide={onClose}
+          header={advisorTitle}
+          icon={faWandMagicSparkles}
+          closeButton
+          accept={{ onClick: onClose, text: "Close" }}
+          modalProps={{ size: "xl", keyboard: true }}
+          dialogClassName="rating-advisor-dialog"
+        >
+          <div className={`rating-advisor-summary ${ratingTierClass}`}>
+            <div className="rating-advisor-score-summary">
+              <span>Rating</span>
+              <strong>{ratingUnavailable ? "—" : suggestion.rating100}</strong>
+              {suggestion.tier !== "Plain" && (
+                <Badge variant="secondary">{suggestion.tier}</Badge>
+              )}
+            </div>
+            <div className="rating-advisor-completion">
+              <div>
+                <span>
+                  {ratedCoreCount} of {coreMetrics.length} rated
+                </span>
+              </div>
+              <div
+                aria-label={`${ratedCoreCount} of ${coreMetrics.length} criteria rated`}
+                aria-valuemax={coreMetrics.length}
+                aria-valuemin={0}
+                aria-valuenow={ratedCoreCount}
+                className="rating-advisor-progress"
+                role="progressbar"
+              >
+                <span style={{ width: `${completionPercent}%` }} />
+              </div>
+            </div>
+            {savingMetricKeys.size > 0 && (
+              <div className="rating-advisor-save-status" aria-live="polite">
+                {`Saving ${savingMetricKeys.size} change${
+                  savingMetricKeys.size === 1 ? "" : "s"
+                }…`}
+              </div>
+            )}
+            {advisorScoresError && (
+              <div className="rating-advisor-save-status" role="alert">
+                Couldn&apos;t load the auto bonus data. Your saved answers are
+                fine.
+              </div>
+            )}
           </div>
           <div
-            aria-label={`${ratedCoreCount} of ${coreMetrics.length} criteria rated`}
-            aria-valuemax={coreMetrics.length}
-            aria-valuemin={0}
-            aria-valuenow={ratedCoreCount}
-            className="rating-advisor-progress"
-            role="progressbar"
+            className={`rating-advisor-note-row${
+              allCoreRated ? "" : " rating-advisor-note-row-reset-only"
+            }`}
           >
-            <span style={{ width: `${completionPercent}%` }} />
+            {allCoreRated && (
+              <p className="rating-advisor-note">
+                Core rating done, ese. Bonuses and penalties are optional.
+              </p>
+            )}
+            <Button
+              disabled={resetting || savingMetricKeys.size > 0}
+              onClick={() => void resetAdvisor()}
+              size="sm"
+              variant="outline-danger"
+            >
+              {resetting ? "Resetting…" : "Reset advisor"}
+            </Button>
           </div>
-        </div>
-        {savingMetricKeys.size > 0 && (
-          <div className="rating-advisor-save-status" aria-live="polite">
-            {`Saving ${savingMetricKeys.size} change${
-              savingMetricKeys.size === 1 ? "" : "s"
-            }…`}
-          </div>
-        )}
-        {advisorScoresError && (
-          <div className="rating-advisor-save-status" role="alert">
-            Couldn&apos;t load the auto bonus data. Your saved answers are fine.
-          </div>
-        )}
-      </div>
-      <div
-        className={`rating-advisor-note-row${
-          allCoreRated ? "" : " rating-advisor-note-row-reset-only"
-        }`}
-      >
-        {allCoreRated && (
-          <p className="rating-advisor-note">
-            Core rating done, ese. Bonuses and penalties are optional.
-          </p>
-        )}
-        <Button
-          disabled={resetting || savingMetricKeys.size > 0}
-          onClick={() => void resetAdvisor()}
-          size="sm"
-          variant="outline-danger"
-        >
-          {resetting ? "Resetting…" : "Reset advisor"}
-        </Button>
-      </div>
-      <section
-        aria-label="Rating criteria"
-        className="rating-advisor-section rating-advisor-section-core"
-      >
-        <div className="rating-advisor-core-grid">
-          {coreMetrics.map(renderMetric)}
-        </div>
-      </section>
-      <section
-        aria-labelledby="rating-advisor-bonus-title"
-        className="rating-advisor-section rating-advisor-section-bonuses"
-      >
-        <div className="rating-advisor-section-heading">
-          <div>
-            <h4 id="rating-advisor-bonus-title">Bonuses</h4>
-            <span>Only flip on what really makes it hotter.</span>
-          </div>
-        </div>
-        <div className="rating-advisor-adjustment-grid">
-          {renderOrgasmBonus()}
-          {bonusMetrics.map(renderAdjustmentMetric)}
-        </div>
-      </section>
-      {penaltyMetrics.length > 0 && (
-        <section
-          aria-labelledby="rating-advisor-penalty-title"
-          className="rating-advisor-section rating-advisor-section-penalties"
-        >
-          <div className="rating-advisor-section-heading">
-            <div>
-              <h4 id="rating-advisor-penalty-title">Penalties</h4>
-              <span>
-                {entityType === "performer"
-                  ? "Flip on whatever's dragging the vato down."
-                  : "Flip on whatever's dragging the scene down."}
-              </span>
+          <section
+            aria-label="Rating criteria"
+            className="rating-advisor-section rating-advisor-section-core"
+          >
+            <div className="rating-advisor-core-grid">
+              {coreMetrics.map(renderMetric)}
             </div>
-          </div>
-          <div className="rating-advisor-adjustment-grid">
-            {penaltyMetrics.map(renderAdjustmentMetric)}
-          </div>
-        </section>
-      )}
-    </ModalComponent>
+          </section>
+          <section
+            aria-labelledby="rating-advisor-bonus-title"
+            className="rating-advisor-section rating-advisor-section-bonuses"
+          >
+            <div className="rating-advisor-section-heading">
+              <div>
+                <h4 id="rating-advisor-bonus-title">Bonuses</h4>
+                <span>Only flip on what really makes it hotter.</span>
+              </div>
+            </div>
+            <div className="rating-advisor-adjustment-grid">
+              {renderOrgasmBonus()}
+              {bonusMetrics.map(renderAdjustmentMetric)}
+            </div>
+          </section>
+          {penaltyMetrics.length > 0 && (
+            <section
+              aria-labelledby="rating-advisor-penalty-title"
+              className="rating-advisor-section rating-advisor-section-penalties"
+            >
+              <div className="rating-advisor-section-heading">
+                <div>
+                  <h4 id="rating-advisor-penalty-title">Penalties</h4>
+                  <span>
+                    {entityType === "performer"
+                      ? "Flip on whatever's dragging the vato down."
+                      : "Flip on whatever's dragging the scene down."}
+                  </span>
+                </div>
+              </div>
+              <div className="rating-advisor-adjustment-grid">
+                {penaltyMetrics.map(renderAdjustmentMetric)}
+              </div>
+            </section>
+          )}
+        </ModalComponent>
+      }
+    </>
   );
 };
 

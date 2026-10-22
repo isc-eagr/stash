@@ -19,11 +19,17 @@ type Scene struct {
 // Metadata is what a site publishes for a code. Fields it could not reach
 // are empty.
 type Metadata struct {
+	Code    string // code confirmed by a public post, when available
 	Title   string
 	Date    string // YYYY-MM-DD
 	Details string
 	URLs    []string
 	Cover   string // image URL
+}
+
+// PublicSceneSite can fill metadata from a scene URL without a scene code.
+type PublicSceneSite interface {
+	HasSceneURL(Scene) bool
 }
 
 type Site interface {

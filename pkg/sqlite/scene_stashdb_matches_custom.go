@@ -277,11 +277,11 @@ SELECT started_at, finished_at, checked, changed, unchanged, not_found, failed, 
 
 // The filter and sort use the scene's count plus its releases', as shown.
 func (qb *sceneFilterHandler) stashDBMatchesCriterionHandlerCustom(c *models.IntCriterionInput) criterionHandlerFunc {
-	return intCriterionHandler(c, sceneTotalStashDBMatchesSQLCustom("scenes.id"), nil)
+	return intCriterionHandler(c, SceneTotalStashDBMatchesSQLCustom("scenes.id"), nil)
 }
 
 // Unscraped scenes sort last in both directions.
 func (qb *SceneStore) sortByStashDBMatchesCustom(query *queryBuilder, direction string) string {
-	matches := sceneTotalStashDBMatchesSQLCustom("scenes.id")
+	matches := SceneTotalStashDBMatchesSQLCustom("scenes.id")
 	return " ORDER BY " + matches + " IS NULL, " + matches + " " + getSortDirection(direction)
 }

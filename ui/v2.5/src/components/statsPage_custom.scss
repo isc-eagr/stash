@@ -11,9 +11,9 @@
 /* CUSTOM: Shared removable filters and explicit interaction cues. */
 .stats-filter-bar {
   align-items: center;
-  background: #101820;
-  border: 1px solid #52677d;
-  border-radius: 8px;
+  background: var(--stats-surface);
+  border: 1px solid var(--stats-border-strong);
+  border-radius: var(--app-panel-radius);
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
@@ -37,10 +37,10 @@
 }
 
 .stats-filter-chip {
-  background: #203c59;
-  border: 1px solid #6689ad;
+  background: var(--stats-surface-raised);
+  border: 1px solid var(--stats-accent);
   border-radius: 1rem;
-  color: #fff;
+  color: var(--stats-text);
   cursor: pointer;
   min-height: 2rem;
   overflow-wrap: anywhere;
@@ -48,7 +48,7 @@
   text-align: left;
 
   &:hover {
-    background: #315778;
+    background: var(--stats-track);
   }
 
   &:focus-visible {
@@ -58,7 +58,7 @@
 }
 
 .stats-interaction-help {
-  color: #c3cedb;
+  color: var(--stats-muted);
   font-size: 0.875rem;
   margin: 0.75rem 0;
 }
@@ -91,7 +91,7 @@
   }
 
   .form-label {
-    color: #d8bf83;
+    color: var(--stats-muted);
     font-size: 0.8rem;
     font-weight: 700;
     text-transform: uppercase;
@@ -134,7 +134,7 @@
   }
 
   .form-label {
-    color: #d8bf83;
+    color: var(--stats-muted);
     font-size: 0.8rem;
     font-weight: 700;
     text-transform: uppercase;
@@ -142,7 +142,7 @@
 }
 
 .stats-scope-note {
-  color: #c3cedb;
+  color: var(--stats-muted);
   font-size: 0.8rem;
   margin: -0.5rem 0 0.75rem;
 }
@@ -156,5 +156,48 @@
     .form-group {
       flex: 1 1 8rem;
     }
+  }
+}
+
+/* CUSTOM: stats destinations in the Black Steel style: steel tiles with a
+   copper edge on the current page. */
+.stats-page .stats-links {
+  gap: 0.6rem;
+  margin-bottom: 1.5rem;
+}
+
+.stats-page .stats-links-item {
+  background: var(--stats-surface);
+  border-color: var(--stats-border);
+  border-radius: var(--app-panel-radius);
+  color: var(--stats-text);
+  flex-direction: row;
+  font-size: 0.85rem;
+  font-weight: 700;
+  gap: 0.6rem;
+  letter-spacing: 0.04em;
+  min-height: 3.5rem;
+  padding: 0.6rem 0.9rem;
+
+  .stats-links-icon {
+    font-size: 1.25rem;
+  }
+
+  .stats-links-mask {
+    height: 1.25rem;
+    width: 1.25rem;
+  }
+
+  &:hover,
+  &:focus {
+    background: var(--stats-surface-raised);
+    border-color: var(--stats-border-strong);
+    color: #fff;
+  }
+
+  &.active {
+    background: var(--stats-surface-raised);
+    border-color: var(--stats-border-strong);
+    box-shadow: inset 0 -2px 0 var(--stats-accent);
   }
 }

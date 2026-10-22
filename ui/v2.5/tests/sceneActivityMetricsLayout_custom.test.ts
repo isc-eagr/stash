@@ -70,41 +70,49 @@ test("scene cards place the activity bar and criteria after the date", () => {
   assert.ok(criteriaIndex > barIndex);
 });
 
-test("scene card popovers render below scene insights", () => {
+test("scene card insights share the date line, not the popovers", () => {
   const popoverRenderer = cardSource.slice(
     cardSource.indexOf("function maybeRenderPopoverButtonGroup"),
     cardSource.indexOf("const SceneCardDetails")
   );
-  const insightsIndex = popoverRenderer.indexOf("<SceneCardInsights");
-  const popoversIndex = popoverRenderer.indexOf(
-    '<ButtonGroup className="card-popovers">'
-  );
+  const metaLineIndex = cardSource.indexOf('className="scene-meta-line"');
+  const dateIndex = cardSource.indexOf("scene-card__date", metaLineIndex);
+  const insightsIndex = cardSource.indexOf("<SceneCardInsights", dateIndex);
+  const barIndex = cardSource.indexOf("<SceneActivityBar", insightsIndex);
 
-  assert.ok(insightsIndex >= 0);
-  assert.ok(popoversIndex > insightsIndex);
+  assert.doesNotMatch(popoverRenderer, /<SceneCardInsights/);
+  assert.ok(metaLineIndex >= 0);
+  assert.ok(dateIndex > metaLineIndex);
+  assert.ok(insightsIndex > dateIndex);
+  assert.ok(barIndex > insightsIndex);
 });
 
-test("scene details place the activity bar below the title and above metadata", () => {
+test("scene details place the activity bar below the date line and above the toolbar", () => {
   const headerStart = detailSource.indexOf(
     'className="scene-header-container"'
-  );
-  const metricsIndex = detailSource.indexOf(
-    "<SceneDetailActivityBar",
-    headerStart
   );
   const metadataIndex = detailSource.indexOf(
     'className="scene-subheader"',
     headerStart
   );
+  const insightsIndex = detailSource.indexOf(
+    "<SceneDetailInsights",
+    metadataIndex
+  );
+  const metricsIndex = detailSource.indexOf(
+    "<SceneDetailActivityBar",
+    insightsIndex
+  );
   const toolbarIndex = detailSource.indexOf(
     'className="scene-toolbar"',
-    metadataIndex
+    metricsIndex
   );
 
   assert.ok(headerStart >= 0);
-  assert.ok(metricsIndex > headerStart);
-  assert.ok(metadataIndex > metricsIndex);
-  assert.ok(toolbarIndex > metadataIndex);
+  assert.ok(metadataIndex > headerStart);
+  assert.ok(insightsIndex > metadataIndex);
+  assert.ok(metricsIndex > insightsIndex);
+  assert.ok(toolbarIndex > metricsIndex);
   assert.doesNotMatch(detailSource, /mouthSvg|gaySvg|straightSvg/);
   assert.match(
     detailSource,
@@ -209,8 +217,8 @@ test("scene type icons are retired from the scene card title", () => {
 });
 
 test("jerk activity uses a distinct shared color across activity charts", () => {
-  assert.match(paletteSource, /oral:\s*"#00b3a4"/);
-  assert.match(paletteSource, /solo:\s*"#a855f7"/);
+  assert.match(paletteSource, /oral:\s*SEMANTIC_COLORS_CUSTOM\.oral/);
+  assert.match(paletteSource, /solo:\s*SEMANTIC_COLORS_CUSTOM\.solo/);
   assert.match(metricsSource, /const soloColor = ACTIVITY_PIE_COLORS\.solo/);
   assert.match(
     sceneStatsPanelSource,

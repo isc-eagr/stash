@@ -3,8 +3,11 @@ import { ModifierCriterionOption, MultiStringCriterion } from "./criterion";
 
 // CUSTOM: begin - metallic rating filter
 export const metallicRatingIncludeNonMetallicValue = "__include_non_metallic__";
+// Rated below Bronze. Excluding it only matters when non-metallic cards are kept.
+export const metallicRatingNoTierValue = "none";
 
 const metallicRatingOptions = [
+  metallicRatingNoTierValue,
   "bronze",
   "silver",
   "gold",
@@ -52,6 +55,9 @@ export function formatMetallicRatingOptionLabel(value: string) {
   }
   if (value === "royal_sapphire") {
     return "Royal Sapphire";
+  }
+  if (value === metallicRatingNoTierValue) {
+    return "No Tier";
   }
 
   return value.charAt(0).toUpperCase() + value.slice(1);

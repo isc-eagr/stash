@@ -4,12 +4,12 @@ import { metallicRatingChartBucket } from "../src/utils/metallicRatingChart_cust
 
 assert.deepEqual(metallicRatingChartBucket(59, null), {
   key: "none",
-  label: "None",
+  label: "No Tier",
   sortValue: 0,
 });
 assert.deepEqual(metallicRatingChartBucket(0, undefined), {
   key: "none",
-  label: "None",
+  label: "No Tier",
   sortValue: 0,
 });
 assert.equal(metallicRatingChartBucket(null, null), undefined);

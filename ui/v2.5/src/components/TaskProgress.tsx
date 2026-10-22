@@ -1,3 +1,4 @@
+import { getAppLocaleCustom } from "src/utils/appLocale_custom"; // CUSTOM
 import React, { useState } from "react";
 import { Alert, Button, Form, Nav } from "react-bootstrap"; // CUSTOM
 import { useHistory, useLocation } from "react-router-dom"; // CUSTOM
@@ -200,7 +201,8 @@ const TaskProgress: React.FC = () => {
                 t("Refreshing…")
               ) : data.lastUpdated ? (
                 <>
-                  {t("Last refreshed")}: {data.lastUpdated.toLocaleTimeString()}
+                  {t("Last refreshed")}:{" "}
+                  {data.lastUpdated.toLocaleTimeString(getAppLocaleCustom())}
                 </>
               ) : null}
             </small>

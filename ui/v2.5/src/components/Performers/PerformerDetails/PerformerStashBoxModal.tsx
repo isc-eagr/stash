@@ -200,11 +200,12 @@ const PerformerStashBoxModal: React.FC<IProps> = ({
     );
   }
 
+  // CUSTOM: begin - consistent entity vocabulary.
   return (
     <ModalComponent
       show
       onHide={onHide}
-      header={`Scrape performer from ${stashboxDisplayName(
+      header={`Scrape vato from ${stashboxDisplayName(
         instance.name,
         instance.index
       )}`}
@@ -218,7 +219,7 @@ const PerformerStashBoxModal: React.FC<IProps> = ({
         <Form.Control
           onChange={(e) => onInputChange(e.currentTarget.value)}
           defaultValue={name ?? ""}
-          placeholder="Performer name..."
+          placeholder="Vato name..."
           className="text-input mb-4"
           ref={inputRef}
         />
@@ -234,6 +235,7 @@ const PerformerStashBoxModal: React.FC<IProps> = ({
       </div>
     </ModalComponent>
   );
+  // CUSTOM: end
 };
 
 export default PerformerStashBoxModal;

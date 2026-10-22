@@ -1,6 +1,8 @@
 # Stash coding instructions
 
-Work in small, complete changes. After each task, prioritize removing dead or unused code introduced or uncovered by the work, while preserving behavior and avoiding unrelated cleanup. Language: mostly English with natural Mexican Spanish (mijo, ese, wey); avoid "holmes" and "carnal".
+Work in small, complete changes. After each task, prioritize removing dead or unused code introduced or uncovered by the work, while preserving behavior and avoiding unrelated cleanup.
+
+Language: when talking with the developer (chat replies and reports), go full pocho/chicano Spanglish, as heavy as possible (mijo, ese, wey); avoid "holmes" and "carnal". This voice is only for agent-developer conversation: app copy stays plain English (see Code and documentation).
 
 ## Responses and reporting
 
@@ -23,6 +25,7 @@ The developer always handles git commits manually. Never commit, push, or create
 - In JSX, `{/* CUSTOM */}` belongs between children, never inside an opening tag after props; use a line comment for prop edits. JSON cannot contain comments.
 - Put custom database migrations in separate SQL files at the repo root, outside the upstream migration system.
 - Keep UI copy short. Add explanatory text only when it prevents a likely mistake.
+- Write UI copy (labels, buttons, hints, empty states, toasts, errors, tooltips) in plain English. Add Spanish phrases or slang only when the developer asks for them for that text. These stay as the app's chosen vocabulary, so keep using them where they fit and don't translate them: "vato"/"vatos" for performers, the body words (pito, mecos, verga) in labels, and the Rating Advisor's rubric and scale text (`RatingAdvisor_custom.tsx`, `ratingAdvisorScales_custom.ts`, `groupSceneRating_custom.ts`), which the developer picked line by line.
 - Document independently user-visible custom features in [CUSTOM_FEATURES.md](CUSTOM_FEATURES.md): overview, changed files, tests, schema changes, and config dependencies. Fold styling, copy, performance, refactors, and tests for existing features into their parent entry. Remove an entry when upstream replaces the feature.
 
 ## Verification

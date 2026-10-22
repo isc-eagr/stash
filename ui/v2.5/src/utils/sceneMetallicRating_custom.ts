@@ -1,4 +1,4 @@
-import { getRatingCardThresholdsForEntity } from "src/utils/ratingCardStyles_custom";
+import { getMetallicRatingTierCustom } from "src/utils/ratingCardStyles_custom";
 import type { IUIConfig } from "src/core/config";
 
 export type SceneMetallicRatingScene = {
@@ -15,40 +15,19 @@ export type SceneMetallicRating =
 
 type UIConfig = IUIConfig | undefined;
 
-function hasTag(scene: SceneMetallicRatingScene, tagId?: string | null) {
-  return !!tagId && scene.tags.includes(tagId);
-}
-
-// Shared by Scene Stats and O Stats: GOAT/bonus and override tags win, then
-// the configured scene rating thresholds.
+// Scene Stats and O Stats use the same semantic classifier as cards.
 export function sceneMetallicRating(
   scene: SceneMetallicRatingScene,
   uiConfig: UIConfig
 ): SceneMetallicRating | undefined {
-  const overrideTagIds = uiConfig?.ratingCardOverrideTagIds;
-  const goatTagId = uiConfig?.roleTagIds?.goatTagId;
-
-  if (
-    scene.has_royal_sapphire_bonus ||
-    hasTag(scene, overrideTagIds?.royalSapphireTagId) ||
-    hasTag(scene, goatTagId)
-  ) {
-    return "royal_sapphire";
-  }
-  if (hasTag(scene, overrideTagIds?.goldTagId)) return "gold";
-  if (hasTag(scene, overrideTagIds?.silverTagId)) return "silver";
-  if (hasTag(scene, overrideTagIds?.bronzeTagId)) return "bronze";
-
-  const rating = scene.rating100;
-  if (rating === undefined || rating === null) return undefined;
-
-  const thresholds = getRatingCardThresholdsForEntity(
-    uiConfig?.ratingCardThresholds,
-    "scene"
-  );
-  if (rating >= thresholds.royalSapphire) return "royal_sapphire";
-  if (rating >= thresholds.gold) return "gold";
-  if (rating >= thresholds.silver) return "silver";
-  if (rating >= thresholds.bronze) return "bronze";
-  return undefined;
+  const tier = getMetallicRatingTierCustom({
+    rating: scene.rating100,
+    tags: scene.tags.map((id) => ({ id })),
+    thresholds: uiConfig?.ratingCardThresholds,
+    overrideTagIds: uiConfig?.ratingCardOverrideTagIds,
+    goatTagId: uiConfig?.roleTagIds?.goatTagId,
+    sceneHasRoyalSapphireBonus: scene.has_royal_sapphire_bonus,
+    thresholdEntity: "scene",
+  });
+  return tier === "none" ? undefined : tier;
 }

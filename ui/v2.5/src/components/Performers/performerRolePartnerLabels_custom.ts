@@ -25,7 +25,7 @@ export function getPerformerRolePartnerPopupText(
   type: PerformerRolePartnerType,
   performerName?: string | null
 ) {
-  const name = performerName || "Performer";
+  const name = performerName || "Vato";
   return `${name} ${actionLabels[category][type]}`;
 }
 

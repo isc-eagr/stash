@@ -41,20 +41,26 @@ export const ModalComponent: React.FC<IModal> = ({
   disabled,
   modalProps,
   dialogClassName,
-  closeButton = false, // CUSTOM
+  closeButton, // CUSTOM
   footerButtons,
   leftFooterButtons,
 }) => (
   <Modal
+    {...modalProps}
     className="ModalComponent"
-    keyboard={false}
-    onHide={onHide ?? defaultOnHide}
+    // CUSTOM: Dismissal is available when idle and blocked while an action runs.
+    keyboard={!isRunning && (modalProps?.keyboard ?? true)}
+    backdrop={isRunning ? "static" : modalProps?.backdrop ?? true}
+    onHide={
+      isRunning
+        ? defaultOnHide
+        : onHide ?? cancel?.onClick ?? accept?.onClick ?? defaultOnHide
+    }
     show={show}
     dialogClassName={dialogClassName}
-    {...modalProps}
   >
     {/* CUSTOM: optional header close button */}
-    <Modal.Header closeButton={closeButton}>
+    <Modal.Header closeButton={!isRunning && (closeButton ?? !cancel)}>
       {icon ? <Icon icon={icon} /> : ""}
       <span>{header ?? ""}</span>
     </Modal.Header>
@@ -66,7 +72,7 @@ export const ModalComponent: React.FC<IModal> = ({
         {cancel ? (
           <Button
             disabled={isRunning}
-            variant={cancel.variant ?? "primary"}
+            variant={cancel.variant ?? "secondary"}
             onClick={cancel.onClick}
             className="ml-2"
           >
@@ -84,7 +90,8 @@ export const ModalComponent: React.FC<IModal> = ({
         <Button
           disabled={isRunning || disabled}
           variant={accept?.variant ?? "primary"}
-          onClick={accept?.onClick}
+          // CUSTOM: A plain Close button uses the same dismissal handler.
+          onClick={accept?.onClick ?? onHide ?? cancel?.onClick}
           className="ml-2"
         >
           {isRunning ? (

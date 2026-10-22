@@ -405,6 +405,7 @@ const DraggableOverlayImage: React.FC<IDraggableOverlayImageProps> = ({
     overlay.rotation
   );
 
+  // CUSTOM: begin - consistent entity vocabulary.
   return (
     <div
       ref={containerRef}
@@ -480,7 +481,7 @@ const DraggableOverlayImage: React.FC<IDraggableOverlayImageProps> = ({
       >
         <img
           src={overlay.url}
-          alt="Performer overlay"
+          alt="Vato overlay"
           draggable={false}
           onLoad={handleImageLoad}
           style={{
@@ -543,4 +544,5 @@ const DraggableOverlayImage: React.FC<IDraggableOverlayImageProps> = ({
       />
     </div>
   );
+  // CUSTOM: end
 };

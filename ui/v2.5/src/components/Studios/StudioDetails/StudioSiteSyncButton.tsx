@@ -16,6 +16,7 @@ import {
   siteSyncHasStepCustom,
   siteSyncInputCustom,
   siteSyncStepsCustom,
+  siteSyncTooltipCustom,
 } from "./studioSiteSync_custom";
 import { StudioSiteSyncReport } from "./StudioSiteSyncReport";
 
@@ -82,6 +83,7 @@ export const StudioSiteSyncButton: React.FC<IStudioSiteSyncButtonProps> = ({
         variant="secondary"
         disabled={loading || running}
         onClick={() => setShowConfirm(true)}
+        title={siteSyncTooltipCustom(site)}
       >
         {syncLabel()}
       </Button>

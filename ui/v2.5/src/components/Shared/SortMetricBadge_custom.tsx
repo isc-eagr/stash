@@ -1,3 +1,4 @@
+import { getAppLocaleCustom } from "src/utils/appLocale_custom"; // CUSTOM
 import React from "react";
 import { useIntl } from "react-intl";
 import * as GQL from "src/core/generated-graphql";
@@ -59,7 +60,7 @@ export const SortMetricValueCustom: React.FC<{
     case "bytes":
       return number === undefined ? <>{"—"}</> : <FileSize size={number} />;
     case "count":
-      return <>{number?.toLocaleString() ?? "—"}</>;
+      return <>{number?.toLocaleString(getAppLocaleCustom()) ?? "—"}</>;
     case "percent":
       return <>{number === undefined ? "—" : `${Math.round(number)}%`}</>;
     case "rating":
@@ -67,7 +68,7 @@ export const SortMetricValueCustom: React.FC<{
         <>
           {number === undefined
             ? "—"
-            : `${number.toLocaleString(undefined, {
+            : `${number.toLocaleString(getAppLocaleCustom(), {
                 maximumFractionDigits: 1,
               })}/100`}
         </>
@@ -103,7 +104,9 @@ export const SortMetricValueCustom: React.FC<{
         <>
           {number === undefined
             ? "—"
-            : number.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+            : number.toLocaleString(getAppLocaleCustom(), {
+                maximumFractionDigits: 2,
+              })}
         </>
       );
   }

@@ -135,6 +135,33 @@ test("marker repeat preserves the entire active loop and resumes its playhead", 
   assert.equal(clock.time, 50, "the previous single-segment loop resumes");
 });
 
+test("marker repeat retargets an edited draft range and keeps the resume point", () => {
+  const { plugin, clock } = createLoop();
+  clock.time = 54.25;
+  plugin.retargetMarkerRepeat("draft", repeatRange);
+  assert.equal(
+    plugin.getSnapshot().markerRepeatId,
+    null,
+    "nothing to retarget"
+  );
+
+  plugin.toggleMarkerRepeat("draft", repeatRange);
+  plugin.onSeeking();
+  plugin.onSeeked();
+  plugin.retargetMarkerRepeat("draft", { start: 90, end: 95, title: "Edited" });
+  plugin.onSeeking();
+  plugin.onSeeked();
+  assert.equal(clock.time, 90);
+  clock.time = 95;
+  plugin.checkLoop();
+  assert.equal(clock.time, 90, "the edited range repeats");
+
+  plugin.toggleMarkerRepeat("draft", repeatRange);
+  plugin.onSeeking();
+  plugin.onSeeked();
+  assert.equal(clock.time, 54.25);
+});
+
 test("marker repeat preserves remote subsets and their revision", () => {
   const { plugin, clock } = createLoop();
   const revision = plugin.getRemoteLoopState().loop_revision;

@@ -18,10 +18,10 @@ import {
   oStatsTimelineSearchCustom,
 } from "../src/components/OStats/oStatsTimelinePaging_custom.ts";
 
-test("stats rankings start with five scenes or six vatos and expand by ten or twelve", () => {
+test("stats rankings start with five scenes or vatos and expand by ten", () => {
   assert.deepEqual(STATS_TOP_PAGING_CUSTOM, {
     scene: { initial: 5, more: 10 },
-    vato: { initial: 6, more: 12 },
+    vato: { initial: 5, more: 10 },
   });
   const source = readFileSync(
     new URL("../src/components/StatsTopCards_custom.tsx", import.meta.url),

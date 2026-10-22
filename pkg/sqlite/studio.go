@@ -772,8 +772,10 @@ var studioSortOptions = sortOptions{
 	"facial_scenes_count",                      // CUSTOM
 	"standard_facial_count",                    // CUSTOM
 	"really_hot_facial_count",                  // CUSTOM
+	"goat_facial_count",                        // CUSTOM
 	"facial_count",                             // CUSTOM
 	"unique_performers_count",                  // CUSTOM
+	"average_stashdb_matches",                  // CUSTOM
 	"random",
 	"rating",
 	"tag_count",
@@ -844,6 +846,8 @@ func (qb *StudioStore) getStudioSort(findFilter *models.FindFilterType) (string,
 		sortQuery += qb.sortByOCount(direction)
 	case "unique_performers_count": // CUSTOM
 		sortQuery += qb.sortByUniquePerformerCount(direction)
+	case studioAverageStashDBMatchesSortCustom: // CUSTOM
+		sortQuery += qb.sortByAverageStashDBMatchesCustom(direction)
 	default:
 		if tier, ok := studioMetallicSceneSortKeysCustom[sort]; ok { // CUSTOM
 			sortQuery += qb.sortByMetallicSceneCountCustom(tier, direction)

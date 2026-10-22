@@ -1,6 +1,10 @@
-import { sceneStatsPositiveCount } from "./sceneStatsChartBuckets_custom";
+import {
+  cleanStatsValueCustom,
+  statsCountCustom,
+  STATS_UNKNOWN_VALUE_CUSTOM,
+} from "src/utils/statsValues_custom";
 
-export const STATS_UNKNOWN_FILTER_VALUE = "__unknown__";
+export const STATS_UNKNOWN_FILTER_VALUE = STATS_UNKNOWN_VALUE_CUSTOM;
 
 export type SceneStatsUnknownValues = {
   ethnicities?: ReadonlyArray<string | null | undefined>;
@@ -13,15 +17,13 @@ export type SceneStatsUnknownValues = {
   releaseMonth?: number | null;
   releaseDay?: number | null;
   facialCount?: number | null;
-  reallyHotFacialCount?: number | null;
   sceneType?: string | null;
   resolution?: string | null;
 };
 
 function hasKnownDemographic(values?: SceneStatsUnknownValues["ethnicities"]) {
   return !!values?.some((value) => {
-    const cleaned = value?.trim();
-    return !!cleaned && cleaned.toLowerCase() !== "<nil>";
+    return cleanStatsValueCustom(value) !== undefined;
   });
 }
 
@@ -38,9 +40,9 @@ export function isSceneStatsUnknownValue(
     case "country":
       return !hasKnownDemographic(values.countries);
     case "o_count":
-      return sceneStatsPositiveCount(values.oCount) === undefined;
+      return statsCountCustom(values.oCount) === undefined;
     case "performer_count":
-      return sceneStatsPositiveCount(values.performerCount) === undefined;
+      return statsCountCustom(values.performerCount) === undefined;
     case "rating":
       return !values.ratingBucket;
     case "metallic_rating":
@@ -57,9 +59,7 @@ export function isSceneStatsUnknownValue(
       );
     }
     case "facial_count":
-      return sceneStatsPositiveCount(values.facialCount) === undefined;
-    case "really_hot_facial_count":
-      return sceneStatsPositiveCount(values.reallyHotFacialCount) === undefined;
+      return statsCountCustom(values.facialCount) === undefined;
     case "scene_type":
       return !values.sceneType;
     case "resolution":
