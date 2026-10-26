@@ -257,6 +257,92 @@ export function getRatingAdvisorCompletionCustom(
   };
 }
 
+export type RatingAdvisorTierCustom =
+  | "plain"
+  | "bronze"
+  | "silver"
+  | "gold"
+  | "royal-sapphire";
+
+export interface IRatingAdvisorTierThresholdsCustom {
+  bronze: number;
+  silver: number;
+  gold: number;
+  royalSapphire: number;
+}
+
+const RATING_ADVISOR_TIER_LABELS_CUSTOM: Record<
+  RatingAdvisorTierCustom,
+  string
+> = {
+  plain: "No tier",
+  bronze: "Bronze",
+  silver: "Silver",
+  gold: "Gold",
+  "royal-sapphire": "Royal Sapphire",
+};
+
+function getRatingAdvisorTierStepsCustom(
+  thresholds: IRatingAdvisorTierThresholdsCustom
+) {
+  return [
+    { tier: "bronze" as const, min: thresholds.bronze },
+    { tier: "silver" as const, min: thresholds.silver },
+    { tier: "gold" as const, min: thresholds.gold },
+    { tier: "royal-sapphire" as const, min: thresholds.royalSapphire },
+  ];
+}
+
+// The advisor's tier, and how far the next one is.
+export function getRatingAdvisorTierCustom(
+  rating100: number,
+  thresholds: IRatingAdvisorTierThresholdsCustom,
+  royalSapphireOverride = false
+) {
+  const steps = getRatingAdvisorTierStepsCustom(thresholds);
+  let tier: RatingAdvisorTierCustom = "plain";
+  if (royalSapphireOverride) {
+    tier = "royal-sapphire";
+  } else {
+    for (const step of steps) {
+      if (rating100 >= step.min) tier = step.tier;
+    }
+  }
+
+  const tierIndex = steps.findIndex((step) => step.tier === tier);
+  const next = royalSapphireOverride ? undefined : steps[tierIndex + 1];
+
+  return {
+    tier,
+    label: RATING_ADVISOR_TIER_LABELS_CUSTOM[tier],
+    next: next
+      ? {
+          tier: next.tier,
+          label: RATING_ADVISOR_TIER_LABELS_CUSTOM[next.tier],
+          remaining: Math.max(0, next.min - rating100),
+        }
+      : undefined,
+  };
+}
+
+// Tier zones on a 0–100 ladder, as percentages of its width.
+export function getRatingAdvisorTierLadderCustom(
+  thresholds: IRatingAdvisorTierThresholdsCustom
+) {
+  const clamp = (value: number) => Math.max(0, Math.min(100, value));
+  const steps = getRatingAdvisorTierStepsCustom(thresholds);
+  const starts = [
+    { tier: "plain" as RatingAdvisorTierCustom, min: 0 },
+    ...steps,
+  ];
+
+  return starts.map((step, index) => {
+    const start = clamp(step.min);
+    const end = clamp(starts[index + 1]?.min ?? 100);
+    return { tier: step.tier, start, width: Math.max(0, end - start) };
+  });
+}
+
 export function getRatingAdvisorChoiceHeatLevelCustom(
   choiceIndex: number,
   choiceCount: number
@@ -389,6 +475,9 @@ export function getRatingAdvisorAdjustmentSummariesCustom<
             ),
             section,
             contribution,
+            description:
+              metric.choices.find((choice) => choice.value === value)
+                ?.description ?? "",
           },
         ];
   });
@@ -402,6 +491,7 @@ export function getRatingAdvisorAdjustmentSummariesCustom<
       ),
       section: "bonus",
       contribution: orgasmBonus / 10,
+      description: "",
     });
   }
 

@@ -108,37 +108,77 @@
   }
 }
 
-/* Scene Types bar above the tiles on performer totals. */
-.scene-types-bar.performer-scene-types-bar {
-  margin-top: 0.5rem;
+/* Scene Types tiles (performer totals, studios): Sex/Oral/Solo tinted
+   with their scene-type colors. */
+.scene-type-tiles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.scene-type-tiles__label {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.scene-type-tiles,
+.performer-count-tiles {
+  .performer-role-badges {
+    grid-auto-columns: minmax(0, 1fr);
+    margin: 0;
+    padding-bottom: 0;
+  }
+}
+
+@each $key in sex, oral, solo {
+  .performer-role-badges.performer-category-strip--tiles
+    .role-badge-item--#{$key}
+    .category-icon-container {
+    background-color: rgba(var(--semantic-#{$key}-rgb), 0.12);
+    border-color: rgba(var(--semantic-#{$key}-rgb), 0.45);
+
+    &:has(.role-badge-link):hover {
+      background-color: rgba(var(--semantic-#{$key}-rgb), 0.22);
+      border-color: rgba(var(--semantic-#{$key}-rgb), 0.75);
+    }
+  }
+}
+
+/* Performer totals: Scene Types tiles, a divider, then Nut/Feet. */
+.performer-count-tiles {
+  align-items: flex-end;
+  display: flex;
+  gap: 0.75rem;
+  max-width: 30rem;
   width: 100%;
 
-  .scene-activity-metrics__row {
-    flex-wrap: nowrap;
-    justify-content: space-between;
+  > .scene-type-tiles {
+    flex: 3 1 0;
   }
 
-  .scene-activity-metric--zero {
-    opacity: 0.38;
+  > .performer-role-badges {
+    flex: 2 1 0;
   }
-}
 
-.performer-scene-types-bar--full {
-  margin-top: 0.75rem;
-
-  .scene-activity-metrics__group {
-    background: rgba(0, 0, 0, 0.35);
+  .performer-count-tiles__divider {
+    align-self: stretch;
+    background: rgba(255, 255, 255, 0.18);
+    flex: 0 0 1px;
+    margin-top: 1.2rem;
   }
 }
 
-.performer-scene-types-bar--compact {
-  .scene-activity-metrics__group {
-    gap: 0.25rem;
-    padding: 0.3rem 0.4rem;
-  }
+/* Cards and the Scene Detail vato overview: one short row, no label. */
+.performer-count-tiles--compact {
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  max-width: none;
 
-  /* Cards are too narrow for percents; the bar and tooltips carry them. */
-  .scene-activity-metric__copy small {
-    display: none;
+  .performer-count-tiles__divider {
+    margin-top: 0;
   }
 }

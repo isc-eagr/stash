@@ -261,8 +261,8 @@ assert.ok(
 const performerPageSource = source("Performers/PerformerDetails/Performer.tsx");
 assert.match(
   performerPageSource,
-  /performer-head-identity[\s\S]*?<RatingCriteriaStrip\s+className="rating-panel rating-panel--vato"/,
-  "performer pages show his rating strip beside his name and ratings"
+  /performer-head-identity[\s\S]*?<RatingCriteriaStrip\s+className="rating-panel rating-panel--vato"[\s\S]*?<PerformerCategoryStrip[\s\S]*?performer-head-body/,
+  "performer pages show his rating strip in the name row, before the count tiles"
 );
 assert.doesNotMatch(
   performerPageSource,
@@ -297,7 +297,7 @@ const studioHeaderSource = source(
 );
 assert.match(
   studioHeaderSource,
-  /<StudioSceneTypesBar[\s\S]*?rating-panel rating-panel--scenes[\s\S]*?rating-panel rating-panel--vato/,
+  /<StudioSceneTypeTiles[\s\S]*?size="full"[\s\S]*?rating-panel rating-panel--scenes[\s\S]*?rating-panel rating-panel--vato/,
   "studio pages show Scene Types, then scene averages apart from vato averages"
 );
 const averagesSource = source(
@@ -316,8 +316,8 @@ assert.match(
 const studioCardSource = source("Studios/StudioCard.tsx");
 assert.match(
   studioCardSource,
-  /<StudioSceneTypesBar[\s\S]*?\{maybeRenderSceneTypesBar\(\)\}/,
-  "studio cards show the scene-count bar"
+  /<StudioSceneTypeTiles[\s\S]*?size="compact"[\s\S]*?\{maybeRenderSceneTypeTiles\(\)\}/,
+  "studio cards show compact Scene Types tiles"
 );
 assert.match(
   studioCardSource,

@@ -11,6 +11,8 @@ import {
   formatRatingAdvisorContributionCustom,
   getRatingAdvisorChoiceHeatLevelCustom,
   getRatingAdvisorChoiceScoreCustom,
+  getRatingAdvisorTierCustom,
+  getRatingAdvisorTierLadderCustom,
   getSceneGoatElementBonusFilterChoicesCustom,
   getSceneOrgasmQualityFilterChoicesCustom,
   normalizeRatingAdvisorPersistedScoreValueCustom,
@@ -276,7 +278,7 @@ const toggle = (value: number) => ({
   max: Math.max(0, value),
   choices: [
     { value: 0, label: "Off", description: "" },
-    { value, label: "On", description: "" },
+    { value, label: "On", description: `Helper for ${value}` },
   ],
 });
 const adjustmentMetrics = [
@@ -312,13 +314,21 @@ assert.deepEqual(
       title: "O count",
       section: "bonus",
       contribution: 0.3,
+      description: "",
     },
-    { key: "theme", title: "Uniform", section: "bonus", contribution: 0.5 },
+    {
+      key: "theme",
+      title: "Uniform",
+      section: "bonus",
+      contribution: 0.5,
+      description: "Helper for 0.5",
+    },
     {
       key: "noOrgasm",
       title: "No nut",
       section: "penalty",
       contribution: -2,
+      description: "Helper for -2",
     },
   ],
   "adjustments skip criteria and zero values and lead with the O Count bonus"
@@ -354,4 +364,49 @@ assert.equal(
 assert.equal(
   getRatingAdvisorAdjustmentTooltipLabelCustom("unknown", "Fallback"),
   "Fallback"
+);
+
+// Score Ledger: tier, distance to the next tier, and the tier ladder.
+const ledgerThresholds = {
+  bronze: 60,
+  silver: 73,
+  gold: 84,
+  royalSapphire: 90,
+};
+assert.deepEqual(getRatingAdvisorTierCustom(53, ledgerThresholds), {
+  tier: "plain",
+  label: "No tier",
+  next: { tier: "bronze", label: "Bronze", remaining: 7 },
+});
+assert.deepEqual(getRatingAdvisorTierCustom(84, ledgerThresholds), {
+  tier: "gold",
+  label: "Gold",
+  next: { tier: "royal-sapphire", label: "Royal Sapphire", remaining: 6 },
+});
+assert.deepEqual(getRatingAdvisorTierCustom(95, ledgerThresholds), {
+  tier: "royal-sapphire",
+  label: "Royal Sapphire",
+  next: undefined,
+});
+assert.deepEqual(
+  getRatingAdvisorTierCustom(40, ledgerThresholds, true),
+  { tier: "royal-sapphire", label: "Royal Sapphire", next: undefined },
+  "a GOAT bonus locks Royal Sapphire with no next tier"
+);
+assert.deepEqual(getRatingAdvisorTierLadderCustom(ledgerThresholds), [
+  { tier: "plain", start: 0, width: 60 },
+  { tier: "bronze", start: 60, width: 13 },
+  { tier: "silver", start: 73, width: 11 },
+  { tier: "gold", start: 84, width: 6 },
+  { tier: "royal-sapphire", start: 90, width: 10 },
+]);
+assert.deepEqual(
+  getRatingAdvisorTierLadderCustom({
+    bronze: 60,
+    silver: 73,
+    gold: 84,
+    royalSapphire: 120,
+  }).at(-1),
+  { tier: "royal-sapphire", start: 100, width: 0 },
+  "thresholds above 100 stay on the ladder"
 );

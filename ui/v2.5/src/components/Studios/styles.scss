@@ -136,19 +136,10 @@
   }
 }
 
-/* Activity Type bar in the card details, full width with a one-line legend. */
+/* Scene Types tiles in the card details, sized like the vato card tiles. */
 .studio-card .studio-card-activity {
   margin-top: 0.4rem;
-  width: 100%;
-
-  .scene-activity-metrics__group {
-    padding: 0.4rem 0.5rem;
-  }
-
-  .scene-activity-metrics__row {
-    flex-wrap: wrap;
-    justify-content: space-between;
-  }
+  max-width: 60%;
 }
 
 .studio-activity-popover {
@@ -270,21 +261,7 @@
   }
 
   .studio-header-activity {
-    gap: 0.5rem;
-
-    .scene-activity-metrics__group {
-      background: rgba(0, 0, 0, 0.35);
-      gap: 0.45rem;
-      padding: 0.55rem 0.65rem;
-    }
-
-    .scene-activity-metrics__distribution {
-      height: 0.6rem;
-    }
-
-    .scene-activity-metrics__row {
-      justify-content: space-between;
-    }
+    max-width: 18rem;
   }
 
   /* Scene averages and the vato strip side by side when there is room. */
@@ -347,9 +324,4 @@
     list-style-type: none;
   }
   /* stylelint-enable selector-class-pattern */
-}
-
-/* CUSTOM: count-based scene distribution stays within one complete track. */
-.scene-types-bar .scene-activity-metrics__distribution {
-  overflow: hidden;
 }

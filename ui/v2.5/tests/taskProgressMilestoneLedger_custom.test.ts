@@ -265,10 +265,16 @@ assert.match(
   "the selected period drives contributions"
 );
 assert.match(contributions, /Previous close → current completion/);
+assert.equal(
+  (contributions.match(/class="progress-period-tile[ "]/g) ?? []).length,
+  1,
+  "nested rows show only the selected period's tile, not the Day/Week/Month/Year cells"
+);
+assert.match(contributions, /progress-period-tile milestone-subrow-period/);
 assert.doesNotMatch(
   contributions,
-  /progress-period-tile|>Details<|aria-label="Edit"/,
-  "nested rows skip period cells and actions"
+  />Details<|aria-label="Edit"/,
+  "nested rows skip Details and Edit"
 );
 assert.doesNotMatch(contributions, /task-progress-history-chart-plot/);
 

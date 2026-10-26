@@ -1,7 +1,7 @@
 import { useConfirmActionCustom } from "./useConfirmAction_custom";
 import { gql, useQuery } from "@apollo/client";
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Badge, Button } from "react-bootstrap";
+import React, { useEffect, useRef, useState } from "react";
+import { Button } from "react-bootstrap";
 import { faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
 import { ModalComponent } from "src/components/Shared/Modal";
 import { RatingNumber } from "src/components/Shared/Rating/RatingNumber";
@@ -9,22 +9,24 @@ import * as GQL from "src/core/generated-graphql";
 import { useConfigurationContext } from "src/hooks/Config";
 import { useToast } from "src/hooks/Toast";
 import {
-  getRatingCardClass,
   getRatingCardThresholdsForEntity,
   isRoyalSapphireSceneBonus,
-  normalizeRatingCardThresholds,
 } from "src/utils/ratingCardStyles_custom";
 import {
   calculateRatingAdvisorOrgasmBonusCustom,
   calculateRatingAdvisorRating100Custom,
+  getRatingAdvisorAdjustmentTooltipLabelCustom,
   getRatingAdvisorOrgasmBonusDescriptionCustom,
   formatRatingAdvisorContributionCustom,
   getRatingAdvisorCompletionCustom,
   getRatingAdvisorChoiceHeatLevelCustom,
   getRatingAdvisorChoiceScoreCustom,
+  getRatingAdvisorTierCustom,
+  getRatingAdvisorTierLadderCustom,
   normalizeRatingAdvisorPersistedScoreValueCustom,
   ratingAdvisorSixLevelChoicesCustom,
   resolveRatingAdvisorScoresCustom,
+  type RatingAdvisorTierCustom,
   SCENE_ENERGY_WEIGHT_CUSTOM,
   SCENE_GOD_TIER_ORGASM_BONUS_CUSTOM,
   SCENE_GOAT_ELEMENT_BONUS_CHOICES_CUSTOM,
@@ -64,12 +66,6 @@ interface IAdvisorMetric {
   section?: "bonus" | "penalty";
   weight?: number;
   choices: IAdvisorChoice[];
-}
-
-interface IRatingSuggestion {
-  rating100: number;
-  tier: string;
-  tierClassName: string;
 }
 
 interface IAdvisorPersistedScore {
@@ -923,31 +919,26 @@ function formatMetricContribution(metric: IAdvisorMetric, score?: number) {
   )}`;
 }
 
-function getSceneSuggestion(
-  total: number,
-  thresholds: ReturnType<typeof normalizeRatingCardThresholds>,
-  royalSapphireOverride = false
-): IRatingSuggestion {
-  const rating100 = Math.round(total * 10);
+// Ledger swatches reuse the semantic palette, one color per core criterion.
+const CRITERION_COLORS = ["top", "bottom", "sex", "oral", "solo", "regular"];
 
-  if (royalSapphireOverride || rating100 >= thresholds.royalSapphire) {
-    return {
-      rating100,
-      tier: "Elite / Royal Sapphire",
-      tierClassName: "royal-sapphire",
-    };
-  }
-  if (rating100 >= thresholds.gold) {
-    return { rating100, tier: "Gold", tierClassName: "gold" };
-  }
-  if (rating100 >= thresholds.silver) {
-    return { rating100, tier: "Silver", tierClassName: "silver" };
-  }
-  if (rating100 >= thresholds.bronze) {
-    return { rating100, tier: "Bronze", tierClassName: "bronze" };
-  }
+function getCriterionColor(index: number) {
+  return `var(--semantic-${CRITERION_COLORS[index % CRITERION_COLORS.length]})`;
+}
 
-  return { rating100, tier: "Plain", tierClassName: "plain" };
+function getTierColor(tier: RatingAdvisorTierCustom) {
+  return `var(--semantic-${tier === "plain" ? "no-tier" : tier})`;
+}
+
+function formatRatingDelta(delta: number) {
+  if (delta === 0) return "±0";
+  return delta > 0 ? `+${delta}` : `−${Math.abs(delta)}`;
+}
+
+interface IAdvisorPreview {
+  key: string;
+  // undefined previews clearing the answer.
+  value?: number;
 }
 
 const RatingAdvisorModal: React.FC<{
@@ -1009,9 +1000,7 @@ const RatingAdvisorModal: React.FC<{
   const [savingMetricKeys, setSavingMetricKeys] = useState<Set<string>>(
     () => new Set()
   );
-  const [previewScores, setPreviewScores] = useState<
-    Record<string, number | undefined>
-  >({});
+  const [preview, setPreview] = useState<IAdvisorPreview>();
   const savingMetricKeysRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -1056,21 +1045,28 @@ const RatingAdvisorModal: React.FC<{
     coreMetrics.map((metric) => metric.key),
     scores
   );
-  const ratedCoreCount = coreCompletion.rated;
-  const allCoreRated = coreCompletion.complete;
-  const completionPercent = coreCompletion.percent;
-  const scoreSubtotal = useMemo(
-    () =>
+
+  function calculateRating100(candidate: Record<string, number | undefined>) {
+    return calculateRatingAdvisorRating100Custom(
       metrics.reduce(
-        (sum, metric) => sum + getChoiceScore(metric, scores[metric.key]),
+        (sum, metric) => sum + getChoiceScore(metric, candidate[metric.key]),
         0
       ),
-    [metrics, scores]
-  );
-  const calculatedRating100 = calculateRatingAdvisorRating100Custom(
-    scoreSubtotal,
-    orgasmBonus
-  );
+      orgasmBonus
+    );
+  }
+
+  function hasRoyalSapphireBonus(
+    candidate: Record<string, number | undefined>
+  ) {
+    return (
+      entityType === "scene" &&
+      (isRoyalSapphireSceneBonus("goatElement", candidate.goatElement) ||
+        isRoyalSapphireSceneBonus("godTierOrgasm", candidate.godTierOrgasm))
+    );
+  }
+
+  const calculatedRating100 = calculateRating100(scores);
   const displayRating100 =
     savingMetricKeys.size === 0 && confirmedRating100 !== undefined
       ? confirmedRating100
@@ -1079,22 +1075,118 @@ const RatingAdvisorModal: React.FC<{
     confirmedRating100 === undefined &&
     !advisorScoresData &&
     (advisorScoresLoading || !!advisorScoresError);
-  const sceneHasRoyalSapphireBonus =
-    entityType === "scene" &&
-    (isRoyalSapphireSceneBonus("goatElement", scores.goatElement) ||
-      isRoyalSapphireSceneBonus("godTierOrgasm", scores.godTierOrgasm));
-  const suggestion = getSceneSuggestion(
-    displayRating100 / 10,
+  const royalSapphireBonus = hasRoyalSapphireBonus(scores);
+  const tier = getRatingAdvisorTierCustom(
+    displayRating100,
     thresholds,
-    sceneHasRoyalSapphireBonus
+    royalSapphireBonus
   );
-  const ratingTierClass = getRatingCardClass({
-    rating: suggestion.rating100,
-    theme: configuration?.ui?.ratingCardTheme,
-    thresholds: configuration?.ui?.ratingCardThresholds,
-    thresholdEntity: entityType,
-    sceneHasRoyalSapphireBonus,
-  });
+  const nextTierHint = tier.next
+    ? `${tier.next.remaining} to ${tier.next.label}`
+    : royalSapphireBonus && displayRating100 < thresholds.royalSapphire
+    ? "Locked by a GOAT bonus"
+    : "Top tier";
+
+  // Hovering a choice projects the rating it would give.
+  const previewScores = preview
+    ? { ...scores, [preview.key]: preview.value }
+    : undefined;
+  const previewRating100 = previewScores
+    ? displayRating100 + calculateRating100(previewScores) - calculatedRating100
+    : undefined;
+  const previewTier =
+    previewScores && previewRating100 !== undefined
+      ? getRatingAdvisorTierCustom(
+          previewRating100,
+          thresholds,
+          hasRoyalSapphireBonus(previewScores)
+        )
+      : undefined;
+  const previewDelta =
+    previewRating100 !== undefined
+      ? previewRating100 - displayRating100
+      : undefined;
+  const ladder = getRatingAdvisorTierLadderCustom(thresholds);
+  const markerPercent = Math.max(
+    0,
+    Math.min(100, previewRating100 ?? displayRating100)
+  );
+
+  const ledgerRows = [
+    ...coreMetrics.map((metric, index) => {
+      const score = scores[metric.key];
+      return {
+        key: metric.key,
+        kind: score === undefined ? "unrated" : "criterion",
+        color: score === undefined ? "transparent" : getCriterionColor(index),
+        name: metric.shortTitle ?? metric.title,
+        detail:
+          metric.choices.find((choice) => choice.value === score)?.label ??
+          "Not rated",
+        value:
+          score === undefined
+            ? "—"
+            : formatRatingAdvisorContributionCustom(
+                getChoiceScore(metric, score)
+              ),
+      };
+    }),
+    ...(orgasmCount
+      ? [
+          {
+            key: "orgasm-count-bonus",
+            kind: "bonus",
+            color: "var(--rating-advisor-bonus)",
+            name: "O count",
+            detail: `${orgasmCount} recorded`,
+            value: formatRatingAdvisorContributionCustom(orgasmBonus / 10),
+          },
+        ]
+      : []),
+    ...[...bonusMetrics, ...penaltyMetrics].flatMap((metric) => {
+      const score = scores[metric.key];
+      const contribution = getChoiceScore(metric, score);
+      if (contribution === 0) return [];
+      return [
+        {
+          key: metric.key,
+          kind: contribution > 0 ? "bonus" : "penalty",
+          color:
+            contribution > 0
+              ? "var(--rating-advisor-bonus)"
+              : "var(--rating-advisor-penalty)",
+          name: getRatingAdvisorAdjustmentTooltipLabelCustom(
+            metric.key,
+            metric.title
+          ),
+          detail:
+            metric.choices.find((choice) => choice.value === score)?.label ??
+            "",
+          value: formatRatingAdvisorContributionCustom(contribution),
+        },
+      ];
+    }),
+  ];
+  const bonusPoints =
+    orgasmBonus +
+    bonusMetrics.reduce(
+      (sum, metric) =>
+        sum + Math.max(0, getChoiceScore(metric, scores[metric.key]) * 10),
+      0
+    );
+  const stack = [
+    ...coreMetrics.map((metric, index) => ({
+      key: metric.key,
+      color: getCriterionColor(index),
+      width: getChoiceScore(metric, scores[metric.key]) * 10,
+    })),
+    {
+      key: "bonuses",
+      color: "var(--rating-advisor-bonus)",
+      width: bonusPoints,
+    },
+  ].filter((segment) => segment.width > 0);
+
   const advisorTitle =
     entityType === "performer"
       ? "Vato rating"
@@ -1103,6 +1195,10 @@ const RatingAdvisorModal: React.FC<{
       : sceneRatingMode === "solo"
       ? "Solo scene rating"
       : "Scene rating";
+
+  const showPreview = (key: string, value?: number) =>
+    setPreview({ key, value });
+  const clearPreview = () => setPreview(undefined);
 
   async function setScore(metric: IAdvisorMetric, normalizedValue: number) {
     const previousValue = scores[metric.key];
@@ -1207,6 +1303,14 @@ const RatingAdvisorModal: React.FC<{
     }
   }
 
+  // Clicking the selected answer again clears it.
+  function toggleScore(metric: IAdvisorMetric, value: number) {
+    clearPreview();
+    void (scores[metric.key] === value
+      ? deleteScore(metric)
+      : setScore(metric, value));
+  }
+
   async function resetAdvisor() {
     if (
       !(await confirmAction({
@@ -1228,7 +1332,7 @@ const RatingAdvisorModal: React.FC<{
       });
       const update = result.data?.ratingScoreReset;
       setScores(getInitialScores(metrics));
-      setPreviewScores({});
+      setPreview(undefined);
       setAuthoritativeScores(update?.scores ?? []);
       setConfirmedRating100(update?.rating100 ?? rating100 ?? 0);
       await onRatingSaved?.();
@@ -1239,253 +1343,350 @@ const RatingAdvisorModal: React.FC<{
     }
   }
 
-  function renderMetric(metric: IAdvisorMetric) {
+  function renderCriterion(metric: IAdvisorMetric, index: number) {
     const score = scores[metric.key];
-    const selected = metric.choices.find((choice) => choice.value === score);
-    const previewScore = previewScores[metric.key];
-    const previewed = metric.choices.find(
-      (choice) => choice.value === previewScore
-    );
-    const displayedChoice = previewed ?? selected;
     const saving = savingMetricKeys.has(metric.key);
+    const previewed =
+      preview?.key === metric.key && preview.value !== undefined
+        ? metric.choices.find((choice) => choice.value === preview.value)
+        : undefined;
+    const displayedChoice =
+      previewed ?? metric.choices.find((choice) => choice.value === score);
     const titleID = `rating-advisor-${metric.key}-title`;
     const hintID = `rating-advisor-${metric.key}-hint`;
 
     return (
-      <section className="rating-advisor-metric" key={metric.key}>
-        <div className="rating-advisor-metric-header">
-          <div>
-            <h5 id={titleID}>{metric.title}</h5>
-            <p id={hintID}>{metric.hint}</p>
-          </div>
-          <div className="rating-advisor-metric-status" aria-live="polite">
-            {(saving || score === undefined) && (
-              <span>{saving ? "Saving…" : "Not rated"}</span>
-            )}
-            <Badge variant={score === undefined ? "secondary" : "primary"}>
-              {formatMetricContribution(metric, score)}
-            </Badge>
-          </div>
+      <section className="rating-advisor-criterion" key={metric.key}>
+        <div className="rating-advisor-criterion-info">
+          <h5 id={titleID}>
+            <span
+              aria-hidden="true"
+              className="rating-advisor-swatch"
+              style={{ backgroundColor: getCriterionColor(index) }}
+            />
+            {metric.title}
+          </h5>
+          <p id={hintID}>{metric.hint}</p>
+          <span className="rating-advisor-criterion-points" aria-live="polite">
+            {saving
+              ? "Saving…"
+              : score === undefined
+              ? "Not rated"
+              : `${formatMetricContribution(metric, score)} pts`}
+          </span>
         </div>
-        <div
-          aria-describedby={hintID}
-          aria-labelledby={titleID}
-          className="rating-advisor-choice-list"
-          role="group"
-        >
-          {metric.choices.map((choice, choiceIndex) => (
-            <Button
-              aria-pressed={choice.value === score}
-              className="rating-advisor-choice"
-              data-rating-level={
-                choice.value === score
-                  ? getRatingAdvisorChoiceHeatLevelCustom(
-                      choiceIndex,
-                      metric.choices.length
-                    )
-                  : undefined
-              }
-              disabled={saving}
-              key={choice.value}
-              onBlur={() =>
-                setPreviewScores((current) => ({
-                  ...current,
-                  [metric.key]: undefined,
-                }))
-              }
-              onClick={() => void setScore(metric, choice.value)}
-              onFocus={() =>
-                setPreviewScores((current) => ({
-                  ...current,
-                  [metric.key]: choice.value,
-                }))
-              }
-              onMouseEnter={() =>
-                setPreviewScores((current) => ({
-                  ...current,
-                  [metric.key]: choice.value,
-                }))
-              }
-              onMouseLeave={(event) => {
-                if (event.currentTarget !== document.activeElement) {
-                  setPreviewScores((current) => ({
-                    ...current,
-                    [metric.key]: undefined,
-                  }));
-                }
-              }}
-              size="sm"
-              type="button"
-              variant={choice.value === score ? "primary" : "outline-secondary"}
-            >
-              <strong>{choice.value}</strong>
-              <span>{choice.label}</span>
-            </Button>
-          ))}
-        </div>
-        <div className="rating-advisor-selected" aria-live="polite">
-          {displayedChoice ? (
-            <>
-              <strong>{displayedChoice.label}</strong>
-              <div className="rating-advisor-selected-description">
-                <span>{displayedChoice.description}</span>
-                {selected && (
-                  <Button
-                    disabled={saving}
-                    onClick={() => void deleteScore(metric)}
-                    size="sm"
-                    type="button"
-                    variant="outline-secondary"
-                  >
-                    Clear
-                  </Button>
+        <div className="rating-advisor-criterion-input">
+          <div
+            aria-describedby={hintID}
+            aria-labelledby={titleID}
+            className="rating-advisor-pills"
+            onMouseLeave={clearPreview}
+            role="group"
+          >
+            {metric.choices.map((choice, choiceIndex) => (
+              <button
+                aria-label={`${choice.value}: ${choice.label}`}
+                aria-pressed={choice.value === score}
+                className="rating-advisor-pill"
+                data-rating-level={getRatingAdvisorChoiceHeatLevelCustom(
+                  choiceIndex,
+                  metric.choices.length
                 )}
-              </div>
-            </>
-          ) : (
-            <span>Pick whichever fits, wey.</span>
-          )}
+                disabled={saving}
+                key={choice.value}
+                onBlur={clearPreview}
+                onClick={() => toggleScore(metric, choice.value)}
+                onFocus={() => showPreview(metric.key, choice.value)}
+                onMouseEnter={() => showPreview(metric.key, choice.value)}
+                type="button"
+              >
+                {choice.value}
+              </button>
+            ))}
+          </div>
+          <p className="rating-advisor-choice-text" aria-live="polite">
+            {displayedChoice ? (
+              <>
+                <strong
+                  className="rating-advisor-choice-label"
+                  data-rating-level={getRatingAdvisorChoiceHeatLevelCustom(
+                    metric.choices.indexOf(displayedChoice),
+                    metric.choices.length
+                  )}
+                >
+                  {displayedChoice.label}
+                </strong>{" "}
+                <span>{displayedChoice.description}</span>
+              </>
+            ) : (
+              <span>Pick whichever fits, wey.</span>
+            )}
+          </p>
         </div>
       </section>
     );
   }
 
-  function renderAdjustmentMetric(metric: IAdvisorMetric) {
+  function renderAdjustment(metric: IAdvisorMetric) {
     const score = scores[metric.key];
     const saving = savingMetricKeys.has(metric.key);
-    const activeChoice = metric.choices.find(
+    const effectiveChoices = metric.choices.filter(
       (choice) => getChoiceScore(metric, choice.value) !== 0
     );
-    const inactiveChoice = metric.choices.find(
+    const hasOffChoice = metric.choices.some(
       (choice) => getChoiceScore(metric, choice.value) === 0
     );
-    const activeChoiceCount = metric.choices.filter(
-      (choice) => getChoiceScore(metric, choice.value) !== 0
-    ).length;
     const active = score !== undefined && getChoiceScore(metric, score) !== 0;
-    const activeBonus = active && metric.section === "bonus";
+    const tone = metric.section === "penalty" ? "penalty" : "bonus";
 
-    if (!activeChoice || !inactiveChoice || activeChoiceCount > 1) {
-      return renderMetric(metric);
+    if (effectiveChoices.length === 1 && hasOffChoice) {
+      const activeChoice = effectiveChoices[0];
+
+      return (
+        <button
+          aria-checked={active}
+          className="rating-advisor-switch"
+          data-tone={tone}
+          disabled={saving}
+          key={metric.key}
+          onBlur={clearPreview}
+          onClick={() =>
+            toggleScore(metric, active ? score! : activeChoice.value)
+          }
+          onFocus={() =>
+            showPreview(metric.key, active ? undefined : activeChoice.value)
+          }
+          onMouseEnter={() =>
+            showPreview(metric.key, active ? undefined : activeChoice.value)
+          }
+          onMouseLeave={clearPreview}
+          role="switch"
+          type="button"
+        >
+          <span aria-hidden="true" className="rating-advisor-switch-track" />
+          <span className="rating-advisor-switch-text">
+            <strong>{metric.title}</strong>
+            <span>{active ? activeChoice.description : metric.hint}</span>
+          </span>
+          <span className="rating-advisor-switch-value">
+            {saving
+              ? "Saving…"
+              : formatRatingAdvisorContributionCustom(
+                  getChoiceScore(metric, activeChoice.value)
+                )}
+          </span>
+        </button>
+      );
     }
 
+    const previewed =
+      preview?.key === metric.key && preview.value !== undefined
+        ? metric.choices.find((choice) => choice.value === preview.value)
+        : undefined;
+    const displayedChoice =
+      previewed ??
+      (active
+        ? metric.choices.find((choice) => choice.value === score)
+        : undefined);
+    const titleID = `rating-advisor-${metric.key}-title`;
+
     return (
-      <section
-        className={`rating-advisor-adjustment${
-          activeBonus ? " rating-advisor-adjustment-bonus-active" : ""
-        }`}
+      <div
+        className="rating-advisor-switch rating-advisor-levels"
+        data-active={active}
+        data-tone={tone}
         key={metric.key}
       >
-        <div>
-          <div className="rating-advisor-adjustment-title">
-            <strong>{metric.title}</strong>
-            {active && (
-              <Badge variant={activeBonus ? "danger" : "primary"}>
-                {formatMetricContribution(metric, score)}
-              </Badge>
-            )}
-          </div>
-          <span>{active ? activeChoice.description : metric.hint}</span>
+        <span className="rating-advisor-switch-text">
+          <strong id={titleID}>{metric.title}</strong>
+          <span>{displayedChoice?.description ?? metric.hint}</span>
+        </span>
+        <div
+          aria-labelledby={titleID}
+          className="rating-advisor-level-group"
+          onMouseLeave={clearPreview}
+          role="group"
+        >
+          {effectiveChoices.map((choice) => {
+            const selected = choice.value === score;
+            return (
+              <button
+                aria-label={choice.label}
+                aria-pressed={selected}
+                disabled={saving}
+                key={choice.value}
+                onBlur={clearPreview}
+                onClick={() => toggleScore(metric, choice.value)}
+                onFocus={() =>
+                  showPreview(metric.key, selected ? undefined : choice.value)
+                }
+                onMouseEnter={() =>
+                  showPreview(metric.key, selected ? undefined : choice.value)
+                }
+                type="button"
+              >
+                {formatRatingAdvisorContributionCustom(
+                  getChoiceScore(metric, choice.value)
+                )}
+              </button>
+            );
+          })}
         </div>
-        <div className="rating-advisor-adjustment-action">
-          {saving && <span aria-live="polite">Saving…</span>}
-          <Button
-            aria-checked={active}
-            aria-label={`${metric.title}: ${active ? "on" : "off"}`}
-            disabled={saving}
-            onClick={() =>
-              void (active
-                ? deleteScore(metric)
-                : setScore(metric, activeChoice.value))
-            }
-            role="switch"
-            size="sm"
-            variant={
-              activeBonus ? "danger" : active ? "primary" : "outline-secondary"
-            }
-          >
-            {active ? "Enabled" : "Enable"}
-          </Button>
-        </div>
-      </section>
+      </div>
     );
   }
 
   function renderOrgasmBonus() {
-    const active = orgasmBonus !== 0;
-
     return (
-      <section
-        className={`rating-advisor-adjustment rating-advisor-adjustment-readonly${
-          active ? " rating-advisor-adjustment-bonus-active" : ""
-        }`}
+      <div
+        className="rating-advisor-switch rating-advisor-switch-readonly"
+        data-active={orgasmBonus !== 0}
+        data-tone="bonus"
         key="orgasm-count-bonus"
       >
-        <div>
-          <div className="rating-advisor-adjustment-title">
-            <strong>O Count bonus</strong>
-            <Badge variant={active ? "danger" : "secondary"}>
-              {orgasmCount === undefined
-                ? "—"
-                : formatRatingAdvisorContributionCustom(orgasmBonus / 10)}
-            </Badge>
-          </div>
+        <span className="rating-advisor-switch-text">
+          <strong>O Count bonus</strong>
           <span>
             {getRatingAdvisorOrgasmBonusDescriptionCustom(entityType)}
           </span>
-        </div>
-        {advisorScoresLoading && orgasmCount === undefined ? (
-          <Badge variant="secondary">Loading…</Badge>
-        ) : advisorScoresError && orgasmCount === undefined ? (
-          <Badge variant="secondary">Unavailable</Badge>
-        ) : (
-          <Badge variant={active ? "danger" : "secondary"}>
-            {orgasmCount ?? 0} recorded
-          </Badge>
-        )}
-      </section>
+        </span>
+        <span className="rating-advisor-switch-value">
+          {orgasmCount === undefined
+            ? "—"
+            : formatRatingAdvisorContributionCustom(orgasmBonus / 10)}
+          <small>
+            {advisorScoresLoading && orgasmCount === undefined
+              ? "Loading…"
+              : advisorScoresError && orgasmCount === undefined
+              ? "Unavailable"
+              : `${orgasmCount ?? 0} recorded`}
+          </small>
+        </span>
+      </div>
     );
   }
 
   return (
     <>
       {confirmModal}
-      {
-        <ModalComponent
-          show
-          onHide={onClose}
-          header={advisorTitle}
-          icon={faWandMagicSparkles}
-          closeButton
-          accept={{ onClick: onClose, text: "Close" }}
-          modalProps={{ size: "xl", keyboard: true }}
-          dialogClassName="rating-advisor-dialog"
+      <ModalComponent
+        show
+        onHide={onClose}
+        header={advisorTitle}
+        icon={faWandMagicSparkles}
+        closeButton
+        accept={{ onClick: onClose, text: "Close" }}
+        leftFooterButtons={
+          <Button
+            disabled={resetting || savingMetricKeys.size > 0}
+            onClick={() => void resetAdvisor()}
+            size="sm"
+            variant="outline-danger"
+          >
+            {resetting ? "Resetting…" : "Reset advisor"}
+          </Button>
+        }
+        modalProps={{ size: "xl", keyboard: true }}
+        dialogClassName="rating-advisor-dialog"
+      >
+        <div
+          className="rating-advisor-ledger"
+          style={
+            {
+              "--rating-advisor-tier-color": getTierColor(tier.tier),
+            } as React.CSSProperties
+          }
         >
-          <div className={`rating-advisor-summary ${ratingTierClass}`}>
-            <div className="rating-advisor-score-summary">
-              <span>Rating</span>
-              <strong>{ratingUnavailable ? "—" : suggestion.rating100}</strong>
-              {suggestion.tier !== "Plain" && (
-                <Badge variant="secondary">{suggestion.tier}</Badge>
-              )}
-            </div>
-            <div className="rating-advisor-completion">
+          <aside aria-label="Rating breakdown" className="rating-advisor-score">
+            <div className="rating-advisor-score-total">
+              <strong>{ratingUnavailable ? "—" : displayRating100}</strong>
               <div>
-                <span>
-                  {ratedCoreCount} of {coreMetrics.length} rated
+                <span className="rating-advisor-tier">
+                  <span aria-hidden="true" />
+                  {tier.label}
                 </span>
-              </div>
-              <div
-                aria-label={`${ratedCoreCount} of ${coreMetrics.length} criteria rated`}
-                aria-valuemax={coreMetrics.length}
-                aria-valuemin={0}
-                aria-valuenow={ratedCoreCount}
-                className="rating-advisor-progress"
-                role="progressbar"
-              >
-                <span style={{ width: `${completionPercent}%` }} />
+                <span>{nextTierHint}</span>
               </div>
             </div>
+            <div
+              aria-live="polite"
+              className="rating-advisor-preview"
+              data-direction={
+                previewDelta === undefined
+                  ? undefined
+                  : previewDelta < 0
+                  ? "down"
+                  : "up"
+              }
+            >
+              {previewRating100 === undefined || previewDelta === undefined
+                ? "Hover any choice to see its impact"
+                : `${formatRatingDelta(previewDelta)} → ${previewRating100} · ${
+                    previewTier?.label
+                  }`}
+            </div>
+            <div aria-hidden="true" className="rating-advisor-ladder">
+              <div className="rating-advisor-ladder-track">
+                {ladder.map((zone) => (
+                  <span
+                    data-reached={displayRating100 >= zone.start}
+                    key={zone.tier}
+                    style={{
+                      backgroundColor: getTierColor(zone.tier),
+                      left: `${zone.start}%`,
+                      width: `${zone.width}%`,
+                    }}
+                  />
+                ))}
+                <i style={{ left: `${markerPercent}%` }} />
+              </div>
+              <div className="rating-advisor-ladder-ticks">
+                {ladder.slice(1).map((zone) => (
+                  <span key={zone.tier} style={{ left: `${zone.start}%` }}>
+                    {zone.start}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <section
+              aria-labelledby="rating-advisor-breakdown-title"
+              className="rating-advisor-breakdown"
+            >
+              <h6 id="rating-advisor-breakdown-title">Where it comes from</h6>
+              <div aria-hidden="true" className="rating-advisor-stack">
+                {stack.map((segment) => (
+                  <span
+                    data-kind={segment.key === "bonuses" ? "bonus" : undefined}
+                    key={segment.key}
+                    style={{
+                      backgroundColor: segment.color,
+                      width: `${segment.width}%`,
+                    }}
+                  />
+                ))}
+              </div>
+              <ul>
+                {ledgerRows.map((row) => (
+                  <li data-kind={row.kind} key={row.key}>
+                    <span
+                      aria-hidden="true"
+                      className="rating-advisor-swatch"
+                      style={{ backgroundColor: row.color }}
+                    />
+                    <span className="rating-advisor-ledger-name">
+                      <strong>{row.name}</strong> <span>{row.detail}</span>
+                    </span>
+                    <span className="rating-advisor-ledger-value">
+                      {row.value}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <div className="rating-advisor-ledger-total">
+                <span>Total</span>
+                <strong>{ratingUnavailable ? "—" : displayRating100}</strong>
+              </div>
+            </section>
             {savingMetricKeys.size > 0 && (
               <div className="rating-advisor-save-status" aria-live="polite">
                 {`Saving ${savingMetricKeys.size} change${
@@ -1499,71 +1700,38 @@ const RatingAdvisorModal: React.FC<{
                 fine.
               </div>
             )}
-          </div>
-          <div
-            className={`rating-advisor-note-row${
-              allCoreRated ? "" : " rating-advisor-note-row-reset-only"
-            }`}
-          >
-            {allCoreRated && (
-              <p className="rating-advisor-note">
-                Core rating done, ese. Bonuses and penalties are optional.
-              </p>
-            )}
-            <Button
-              disabled={resetting || savingMetricKeys.size > 0}
-              onClick={() => void resetAdvisor()}
-              size="sm"
-              variant="outline-danger"
-            >
-              {resetting ? "Resetting…" : "Reset advisor"}
-            </Button>
-          </div>
-          <section
-            aria-label="Rating criteria"
-            className="rating-advisor-section rating-advisor-section-core"
-          >
-            <div className="rating-advisor-core-grid">
-              {coreMetrics.map(renderMetric)}
-            </div>
-          </section>
-          <section
-            aria-labelledby="rating-advisor-bonus-title"
-            className="rating-advisor-section rating-advisor-section-bonuses"
-          >
-            <div className="rating-advisor-section-heading">
-              <div>
-                <h4 id="rating-advisor-bonus-title">Bonuses</h4>
-                <span>Only flip on what really makes it hotter.</span>
-              </div>
-            </div>
-            <div className="rating-advisor-adjustment-grid">
-              {renderOrgasmBonus()}
-              {bonusMetrics.map(renderAdjustmentMetric)}
-            </div>
-          </section>
-          {penaltyMetrics.length > 0 && (
-            <section
-              aria-labelledby="rating-advisor-penalty-title"
-              className="rating-advisor-section rating-advisor-section-penalties"
-            >
-              <div className="rating-advisor-section-heading">
-                <div>
-                  <h4 id="rating-advisor-penalty-title">Penalties</h4>
-                  <span>
-                    {entityType === "performer"
-                      ? "Flip on whatever's dragging the vato down."
-                      : "Flip on whatever's dragging the scene down."}
-                  </span>
-                </div>
-              </div>
-              <div className="rating-advisor-adjustment-grid">
-                {penaltyMetrics.map(renderAdjustmentMetric)}
-              </div>
+          </aside>
+          <div className="rating-advisor-main">
+            <p className="rating-advisor-progress-note">
+              {coreCompletion.complete
+                ? "Core rating done, ese. Bonuses and penalties are optional."
+                : `${coreCompletion.rated} of ${coreCompletion.total} rated · hover a number to preview, click it again to clear`}
+            </p>
+            <section aria-label="Rating criteria">
+              {coreMetrics.map(renderCriterion)}
             </section>
-          )}
-        </ModalComponent>
-      }
+            <div className="rating-advisor-adjustments">
+              <section
+                aria-labelledby="rating-advisor-bonus-title"
+                data-tone="bonus"
+              >
+                <h6 id="rating-advisor-bonus-title">Bonuses</h6>
+                {renderOrgasmBonus()}
+                {bonusMetrics.map(renderAdjustment)}
+              </section>
+              {penaltyMetrics.length > 0 && (
+                <section
+                  aria-labelledby="rating-advisor-penalty-title"
+                  data-tone="penalty"
+                >
+                  <h6 id="rating-advisor-penalty-title">Penalties</h6>
+                  {penaltyMetrics.map(renderAdjustment)}
+                </section>
+              )}
+            </div>
+          </div>
+        </div>
+      </ModalComponent>
     </>
   );
 };

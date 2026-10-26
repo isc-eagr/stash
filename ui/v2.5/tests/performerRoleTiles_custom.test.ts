@@ -34,13 +34,36 @@ assert.match(
 
 assert.match(
   strip,
-  /: showZeroTiles\s*\? safeRolesToShow\.filter\(\(role\) => role\.category === "facial"\)/,
-  "totals keep only the Facial tile; Sex/Oral/Solo move to the Scene Types bar"
+  /: showZeroTiles\s*\? safeRolesToShow\.filter\(\s*\(role\) =>\s*role\.category === "facial" && isRoleSortHighlighted\("facial_count"\)\s*\)/,
+  "totals leave Facial to Versatility unless sorted by Facial Count"
 );
 assert.match(
   strip,
-  /\{showZeroTiles && \(\s*<SceneTypesBar[\s\S]*?showEmpty/,
-  "totals always show the Scene Types bar"
+  /const countTiles =\s*tiles && showZeroTiles \?[\s\S]*?<SceneTypeTiles[\s\S]*?performer-count-tiles__divider[\s\S]*?\{strip\}/,
+  "totals show Scene Types tiles, a divider, then Nut/Feet"
+);
+
+// Scene Types tiles: shared by performer totals and studios.
+const sceneTypeTiles = read("Shared/SceneTypeTiles_custom.tsx");
+assert.match(
+  sceneTypeTiles,
+  /const url = row\.count > 0 \? getUrl\(row\.key, row\.label\) : undefined;/,
+  "zero scene types render without a link"
+);
+assert.match(
+  sceneTypeTiles,
+  /title=\{`\$\{row\.label\}: \$\{row\.count\} scene\$\{[\s\S]*?\(\$\{Math\.round\(row\.percent\)\}%\)`\}/,
+  "each tile's tooltip carries its share of scenes"
+);
+assert.match(
+  read("Performers/PerformerDetails/performerRoleTiles_custom.scss"),
+  /@each \$key in sex, oral, solo \{[\s\S]*?role-badge-item--#\{\$key\}[\s\S]*?rgba\(var\(--semantic-#\{\$key\}-rgb\), 0\.12\)/,
+  "Sex/Oral/Solo tiles are tinted with their scene-type colors"
+);
+assert.match(
+  read("Studios/StudioSceneTypeTiles_custom.tsx"),
+  /counts\.sex_scene_count \+ counts\.oral_scene_count \+ counts\.solo_scene_count >\s*0 \?/,
+  "studio tiles hide when every scene type is zero"
 );
 
 const globalRoles = strip.slice(strip.indexOf("// Global context"));

@@ -75,7 +75,6 @@ import {
   usePerformerCardRoleStats,
   withExactPerformerMarkerCounts,
 } from "../performerRoleStats_custom"; // CUSTOM
-import type { IPerformerRoleStats } from "../PerformerCard"; // CUSTOM
 // CUSTOM: end
 
 interface IProps {
@@ -370,15 +369,14 @@ interface IPerformerHeaderImageProps {
   encodingImage: boolean;
   lightboxImages: ILightboxImage[];
   performer: GQL.PerformerDataFragment;
-  roleStats?: IPerformerRoleStats; // CUSTOM
   refetch: () => Promise<ApolloQueryResult<GQL.FindPerformerProfileQuery>>; // CUSTOM
 }
 
 const PerformerHeaderImage: React.FC<IPerformerHeaderImageProps> =
   PatchComponent(
     "PerformerHeaderImage",
-    // CUSTOM: begin - PerformerImageManager, currentImage state, PerformerCategoryStrip
-    ({ encodingImage, activeImage, performer, roleStats, refetch }) => {
+    // CUSTOM: begin - PerformerImageManager, currentImage state
+    ({ encodingImage, activeImage, performer, refetch }) => {
       const [currentImage, setCurrentImage] = React.useState(activeImage);
 
       React.useEffect(() => {
@@ -409,11 +407,6 @@ const PerformerHeaderImage: React.FC<IPerformerHeaderImageProps> =
                 </LightboxLink>
               </PerformerImageManager>
             )}
-            <PerformerCategoryStrip
-              performer={performer}
-              globalStatsOverride={roleStats}
-              tiles="full" // CUSTOM
-            />
           </div>
         </HeaderImage>
       );
@@ -618,15 +611,14 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
               encodingImage={encodingImage}
               lightboxImages={lightboxImages}
               performer={performer}
-              roleStats={roleStats} // CUSTOM: retain exact marker badge values
               refetch={refetch} // CUSTOM
             />
             <div
               className="row performer-header-content" // CUSTOM
             >
               <div className="performer-head col">
-                {/* CUSTOM: begin - name and ratings with his own rating
-                criteria beside them */}
+                {/* CUSTOM: begin - name and ratings with his rating criteria
+                and count tiles beside them */}
                 <div className="performer-head-top">
                   <div className="performer-head-identity">
                     <DetailTitle
@@ -673,84 +665,102 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
                     </div>
                   </div>
                   {!isEditing && (
-                    <RatingCriteriaStrip
-                      className="rating-panel rating-panel--vato"
-                      entityId={performer.id}
-                      entityType="performer"
-                      header={
-                        <h4 className="rating-panel__title">
-                          <Icon icon={faUser} />
-                          Vato rating
-                        </h4>
-                      }
-                      oCount={performer.o_counter}
-                      ratingScores={performer.rating_scores}
-                    />
+                    <>
+                      <RatingCriteriaStrip
+                        className="rating-panel rating-panel--vato"
+                        entityId={performer.id}
+                        entityType="performer"
+                        header={
+                          <h4 className="rating-panel__title">
+                            <Icon icon={faUser} />
+                            Vato rating
+                          </h4>
+                        }
+                        oCount={performer.o_counter}
+                        ratingScores={performer.rating_scores}
+                      />
+                      <PerformerCategoryStrip
+                        performer={performer}
+                        globalStatsOverride={roleStats} // retain exact marker badge values
+                        tiles="full"
+                        flushMargins
+                      />
+                    </>
                   )}
                 </div>
                 {/* CUSTOM: end */}
-                {!isEditing && (
-                  <PerformerDetailsPanel
-                    performer={performer}
-                    collapsed={collapsed}
-                    fullWidth={!collapsed && !compactExpandedDetails}
-                  />
-                )}
-                {isEditing ? (
-                  <PerformerEditPanel
-                    performer={performer}
-                    isVisible={isEditing}
-                    onSubmit={onSave}
-                    onCancel={() => toggleEditing()}
-                    setImage={setImage}
-                    setEncodingImage={setEncodingImage}
-                  />
-                ) : (
-                  <Col>
-                    <Row xs={8}>
-                      <DetailsEditNavbar
-                        objectName={
-                          performer?.name ??
-                          intl.formatMessage({ id: "performer" })
+                {/* CUSTOM: begin - details and buttons beside his versatility */}
+                <div className="performer-head-body">
+                  <div className="performer-head-details">
+                    {/* CUSTOM: end */}
+                    {!isEditing && (
+                      <PerformerDetailsPanel
+                        performer={performer}
+                        collapsed={collapsed}
+                        fullWidth={!collapsed && !compactExpandedDetails}
+                      />
+                    )}
+                    {isEditing ? (
+                      <PerformerEditPanel
+                        performer={performer}
+                        isVisible={isEditing}
+                        onSubmit={onSave}
+                        onCancel={() => toggleEditing()}
+                        setImage={setImage}
+                        setEncodingImage={setEncodingImage}
+                      />
+                    ) : (
+                      <Col>
+                        <Row xs={8}>
+                          <DetailsEditNavbar
+                            objectName={
+                              performer?.name ??
+                              intl.formatMessage({ id: "performer" })
+                            }
+                            onToggleEdit={() => toggleEditing()}
+                            onDelete={onDelete}
+                            onAutoTag={onAutoTag}
+                            autoTagDisabled={performer.ignore_auto_tag}
+                            isNew={false}
+                            isEditing={false}
+                            onSave={() => {}}
+                            onImageChange={() => {}}
+                            classNames="mb-2"
+                            customButtons={
+                              <>
+                                {renderMergeButton()}
+                                <div>
+                                  <PerformerSubmitButton
+                                    performer={performer}
+                                  />
+                                </div>
+                              </>
+                            }
+                          ></DetailsEditNavbar>
+                        </Row>
+                      </Col>
+                    )}
+                    {/* CUSTOM: begin */}
+                  </div>
+                  {!isEditing && roleStats && (
+                    <div className="performer-header-activity">
+                      <PerformerVersatility
+                        className="performer-versatility--detail"
+                        performer={performer} // partner counts link to role-filtered scenes
+                        oralBottomedPartners={roleStats.oral_with_bottom_count}
+                        oralToppedPartners={roleStats.oral_with_top_count}
+                        sexBottomedPartners={roleStats.sex_with_bottom_count}
+                        sexToppedPartners={roleStats.sex_with_top_count}
+                        facialBottomedPartners={
+                          roleStats.facial_with_bottom_count
                         }
-                        onToggleEdit={() => toggleEditing()}
-                        onDelete={onDelete}
-                        onAutoTag={onAutoTag}
-                        autoTagDisabled={performer.ignore_auto_tag}
-                        isNew={false}
-                        isEditing={false}
-                        onSave={() => {}}
-                        onImageChange={() => {}}
-                        classNames="mb-2"
-                        customButtons={
-                          <>
-                            {renderMergeButton()}
-                            <div>
-                              <PerformerSubmitButton performer={performer} />
-                            </div>
-                          </>
-                        }
-                      ></DetailsEditNavbar>
-                    </Row>
-                  </Col>
-                )}
-              </div>
-              {/* CUSTOM: begin - versatility bars beside the header details */}
-              {!isEditing && roleStats && (
-                <div className="performer-header-activity col-lg-5 col-xl-4">
-                  <PerformerVersatility
-                    className="performer-versatility--detail"
-                    performer={performer} // CUSTOM: partner counts link to role-filtered scenes
-                    oralBottomedPartners={roleStats.oral_with_bottom_count}
-                    oralToppedPartners={roleStats.oral_with_top_count}
-                    sexBottomedPartners={roleStats.sex_with_bottom_count}
-                    sexToppedPartners={roleStats.sex_with_top_count}
-                    facialBottomedPartners={roleStats.facial_with_bottom_count}
-                    facialToppedPartners={roleStats.facial_with_top_count}
-                  />
+                        facialToppedPartners={roleStats.facial_with_top_count}
+                      />
+                    </div>
+                  )}
                 </div>
-              )}
-              {/* CUSTOM: end */}
+                {/* CUSTOM: end */}
+              </div>
             </div>
           </div>
         </div>

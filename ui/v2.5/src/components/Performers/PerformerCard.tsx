@@ -619,7 +619,6 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
           // Cards show versatility strips instead of role columns; scene cards count scene partners.
           versatilityCard
           tiles="compact"
-          tilesInSceneTypesHeader
         />
         {/* CUSTOM: end */}
       </>

@@ -1,6 +1,6 @@
 import React from "react";
 import { faFilm, faUser } from "@fortawesome/free-solid-svg-icons";
-import { StudioSceneTypesBar } from "../StudioSceneTypesBar_custom";
+import { StudioSceneTypeTiles } from "../StudioSceneTypeTiles_custom";
 import { useRoleTags } from "src/hooks/useRoleTags";
 import { Icon } from "src/components/Shared/Icon";
 import * as GQL from "src/core/generated-graphql";
@@ -13,7 +13,7 @@ import {
   getStudioHeaderRatingPanelsCustom,
 } from "./studioHeaderInsights_custom";
 
-// CUSTOM: Scene Types bar and Rating Advisor averages in the studio
+// CUSTOM: Scene Types tiles and Rating Advisor averages in the studio
 // header. Scene rubrics share a blue panel; the vato strip has a gold edge.
 // Quality lives in the Scene Stats tab.
 interface IProps {
@@ -48,8 +48,10 @@ export const StudioHeaderInsights: React.FC<IProps> = ({
   return (
     <div className="studio-header-insights">
       {hasSceneTypes && (
-        <StudioSceneTypesBar
+        <StudioSceneTypeTiles
+          caption
           className="studio-header-activity"
+          size="full"
           counts={counts}
           includeChildStudios={includeChildStudios}
           studio={studio}

@@ -57,7 +57,8 @@ export const ModalComponent: React.FC<IModal> = ({
         : onHide ?? cancel?.onClick ?? accept?.onClick ?? defaultOnHide
     }
     show={show}
-    dialogClassName={dialogClassName}
+    // CUSTOM: keep modalProps.dialogClassName now that the spread comes first.
+    dialogClassName={dialogClassName ?? modalProps?.dialogClassName}
   >
     {/* CUSTOM: optional header close button */}
     <Modal.Header closeButton={!isRunning && (closeButton ?? !cancel)}>

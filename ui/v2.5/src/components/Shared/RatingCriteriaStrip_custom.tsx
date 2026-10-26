@@ -5,6 +5,7 @@ import {
   formatRatingAdvisorContributionCustom,
   getRatingAdvisorAdjustmentSummariesCustom,
   getRatingAdvisorCriterionSummariesCustom,
+  getRatingAdvisorOrgasmBonusDescriptionCustom,
   type RatingAdvisorEntityCustom,
 } from "./ratingAdvisorScales_custom";
 import type { SceneRatingModeCustom } from "./groupSceneRating_custom";
@@ -55,7 +56,9 @@ export const RatingCriteriaStrip: React.FC<IRatingCriteriaStripProps> = ({
       ).map(({ metric, summary }) => ({
         key: metric.key,
         label: metric.shortTitle ?? metric.title,
-        detail: `${metric.title}: ${summary.choice?.label ?? "Not rated"}`,
+        detail: summary.choice
+          ? `${metric.title}: ${summary.choice.label}. ${summary.choice.description}`
+          : `${metric.title}: Not rated`,
         steps: metric.choices.length - 1,
         value: summary.choiceIndex ?? 0,
         heatLevel: summary.heatLevel,
@@ -74,12 +77,16 @@ export const RatingCriteriaStrip: React.FC<IRatingCriteriaStripProps> = ({
             const value = formatRatingAdvisorContributionCustom(
               row.contribution
             );
+            const description =
+              row.key === "orgasm-count-bonus"
+                ? getRatingAdvisorOrgasmBonusDescriptionCustom(entityType)
+                : row.description;
             return {
               key: row.key,
               label,
               section: row.section,
               value,
-              detail: `${label}: ${value}`,
+              detail: `${label}: ${value}. ${description}`,
             };
           })
         : [],

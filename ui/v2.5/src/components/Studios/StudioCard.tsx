@@ -23,7 +23,7 @@ import {
   isRatingCardHomePage,
 } from "src/utils/ratingCardStyles_custom"; // CUSTOM
 // CUSTOM: begin
-import { StudioSceneTypesBar } from "./StudioSceneTypesBar_custom";
+import { StudioSceneTypeTiles } from "./StudioSceneTypeTiles_custom";
 import facialPng from "src/assets/facial.png"; // CUSTOM
 import { ActivityStatsCharts } from "../Shared/ActivityStatsCharts_custom"; // CUSTOM
 import { StudioRatingAdvisorPopover } from "./StudioRatingAdvisorPopover_custom"; // CUSTOM
@@ -570,12 +570,13 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
       }
     }
 
-    // CUSTOM: begin - scene-count bar; duration quality remains on logo hover.
-    function maybeRenderSceneTypesBar() {
+    // CUSTOM: begin - Scene Types tiles; duration quality remains on logo hover.
+    function maybeRenderSceneTypeTiles() {
       return (
-        <StudioSceneTypesBar
+        <StudioSceneTypeTiles
           activeSortBy={unscopedMetricSortBy}
           className="studio-card-activity"
+          size="compact"
           counts={sceneTypeCounts}
           studio={navigationStudio}
           roleTags={
@@ -706,7 +707,7 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
             />
             {maybeRenderParent(studio, hideParent)}
             {maybeRenderChildren(studio, activeSortBy)}
-            {maybeRenderSceneTypesBar()}
+            {maybeRenderSceneTypeTiles()}
           </div>
         }
         overlays={

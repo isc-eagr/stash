@@ -54,19 +54,27 @@
     }
   }
 
-  /* CUSTOM: begin - versatility bars beside the performer header details */
-  .performer-header-activity {
-    align-self: flex-start;
-    padding-top: 0.35rem;
-
-    .performer-versatility {
-      margin-top: 0;
-    }
+  /* CUSTOM: begin - details and buttons beside his versatility */
+  .performer-head-body {
+    align-items: flex-start;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem 2.75rem;
+    margin-top: 1.25rem;
   }
 
-  @media (max-width: 991.98px) {
-    .performer-header-activity {
-      margin-top: 0.75rem;
+  .performer-head-details {
+    flex: 1 1 26rem;
+    min-width: 0;
+  }
+
+  .performer-header-activity {
+    flex: 1 1 24rem;
+    max-width: 36rem;
+    min-width: 0;
+
+    .performer-versatility {
+      margin: 0;
     }
   }
 
@@ -892,29 +900,38 @@
 
 /* CUSTOM: end */
 
-/* CUSTOM: begin - his rating criteria beside his name and ratings */
+/* CUSTOM: begin - his Vato rating, Scene Types, Nut and Feet tiles beside
+   his name and ratings */
 #performer-page .performer-head-top {
-  align-items: flex-start;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem 1.5rem;
+  gap: 1rem 2.5rem;
+  justify-content: space-between;
+  padding-bottom: 1.25rem;
 
   .performer-head-identity {
     flex: 0 1 auto;
     min-width: 0;
   }
 
-  /* Narrow enough to sit beside most names; wraps below long ones. */
   .rating-criteria-strip.rating-panel--vato {
-    flex: 1 1 16rem;
-    margin: 0.3rem 0 0.6rem;
+    flex: 1 1 20rem;
+    margin: 0;
+    max-width: 32rem;
+  }
+
+  .performer-count-tiles {
+    flex: 0 1 28rem;
+    min-width: 18rem;
   }
 }
 
 /* CUSTOM: end */
 
-/* CUSTOM: begin - catalog cards: flag beside the name, unboxed criteria,
-   Facial/Nut/Feet beside the Scene Types label. Nothing covers the photo. */
+/* CUSTOM: begin - catalog cards: flag beside the name, unboxed criteria.
+   Nothing covers the photo. */
 .performer-card--catalog {
   .card-section-title-row {
     align-items: flex-start;
@@ -941,24 +958,6 @@
     border: 0;
     margin-top: 0.45rem;
     padding: 0;
-  }
-
-  .scene-types-bar__head {
-    align-items: center;
-    display: flex;
-    gap: 0.5rem;
-    justify-content: space-between;
-
-    .scene-activity-metrics__group-label {
-      white-space: nowrap;
-    }
-
-    .performer-role-badges {
-      display: flex !important; /* stylelint-disable-line declaration-no-important -- base strip forces grid */
-      gap: 0.25rem;
-      margin: 0;
-      width: auto;
-    }
   }
 }
 

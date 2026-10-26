@@ -28,7 +28,7 @@ import {
   type PerformerRoleTileSize,
 } from "./performerRoleTiles_custom"; // CUSTOM
 import "./performerRoleTiles_custom.scss"; // CUSTOM
-import { SceneTypesBar } from "src/components/Shared/SceneTypesBar_custom"; // CUSTOM
+import { SceneTypeTiles } from "src/components/Shared/SceneTypeTiles_custom"; // CUSTOM
 
 type PerformerCategoryStripData = Pick<PerformerListData, "id" | "name"> &
   Partial<PerformerListData>; // CUSTOM: scene-card hovers only load compact performer data
@@ -85,8 +85,6 @@ interface IPerformerCategoryStripProps {
   roleSeconds?: IScenePerformerRoleSeconds; // CUSTOM
   /** Boxed count tiles; outside scenes every configured role shows, zeros dimmed. */
   tiles?: PerformerRoleTileSize; // CUSTOM
-  /** Performer cards: the count tiles sit beside the Scene Types label. */
-  tilesInSceneTypesHeader?: boolean; // CUSTOM
 }
 
 /**
@@ -120,7 +118,6 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
   versatilityCard = false, // CUSTOM
   roleSeconds, // CUSTOM
   tiles, // CUSTOM
-  tilesInSceneTypesHeader = false, // CUSTOM
 }) => {
   const { configuration } = useConfigurationContext();
   const showZeroTiles = showsZeroRoleTiles(tiles, sceneId); // CUSTOM
@@ -621,12 +618,16 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
         )
       : url;
   // Scene cards already show sex/oral/facial in the versatility rows;
-  // totals move sex/oral/solo scene counts into the Scene Types bar.
+  // totals move sex/oral/solo scene counts into the Scene Types tiles and
+  // leave Facial to Versatility, unless cards are sorted by Facial Count.
   const stripRoles =
     versatilityCard && sceneId
       ? safeRolesToShow.filter((role) => role.category === "solo")
       : showZeroTiles
-      ? safeRolesToShow.filter((role) => role.category === "facial")
+      ? safeRolesToShow.filter(
+          (role) =>
+            role.category === "facial" && isRoleSortHighlighted("facial_count")
+        )
       : safeRolesToShow;
   const sceneTypeCounts = {
     sex_scene_count:
@@ -931,7 +932,6 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
     });
   };
 
-  // CUSTOM: performer cards fold the count tiles into the Scene Types header
   // CUSTOM: begin - consistent entity vocabulary.
   const strip = showStrip ? (
     <div
@@ -993,7 +993,27 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
     </div>
   ) : null;
   // CUSTOM: end
-  const stripInHeader = tilesInSceneTypesHeader && showZeroTiles;
+
+  // CUSTOM: totals show Scene Types as tinted tiles, apart from Nut/Feet.
+  const countTiles =
+    tiles && showZeroTiles ? (
+      <div className={`performer-count-tiles performer-count-tiles--${tiles}`}>
+        <SceneTypeTiles
+          activeSortBy={activeSortBy}
+          caption={tiles === "full"}
+          counts={sceneTypeCounts}
+          getUrl={sceneTypeUrl}
+          linkTarget={linkTarget}
+          size={tiles}
+        />
+        {strip && (
+          <>
+            <span className="performer-count-tiles__divider" aria-hidden />
+            {strip}
+          </>
+        )}
+      </div>
+    ) : null;
 
   return (
     <>
@@ -1007,18 +1027,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
           {versatilityRoles.map((role, idx) => renderRole(role, idx))}
         </div>
       )}
-      {showZeroTiles && (
-        <SceneTypesBar
-          activeSortBy={activeSortBy}
-          className={`performer-scene-types-bar performer-scene-types-bar--${tiles}`}
-          counts={sceneTypeCounts}
-          getUrl={sceneTypeUrl}
-          linkTarget={linkTarget}
-          showEmpty
-          headerAside={stripInHeader ? strip : undefined}
-        />
-      )}
-      {!stripInHeader && strip}
+      {countTiles ?? strip}
       {/* CUSTOM: end */}
     </>
   );
