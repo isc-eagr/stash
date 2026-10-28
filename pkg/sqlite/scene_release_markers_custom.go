@@ -12,10 +12,6 @@ import (
 )
 
 func (qb *SceneReleaseStore) GetMarkersCustom(ctx context.Context, releaseID int) ([]*models.SceneMarker, error) {
-	upgraded, err := releaseTransferTableExistsCustom(ctx, "scene_release_activity_upgrade_guard")
-	if err != nil || !upgraded {
-		return nil, err
-	}
 	var rows []sceneMarkerRow
 	if err := dbWrapper.Select(ctx, &rows,
 		`SELECT * FROM scene_markers WHERE release_id = ? ORDER BY seconds,id`, releaseID); err != nil {
@@ -29,13 +25,6 @@ func (qb *SceneReleaseStore) GetMarkersCustom(ctx context.Context, releaseID int
 }
 
 func (qb *SceneReleaseStore) SaveNegativeMarkerCustom(ctx context.Context, releaseID int, marker *models.SceneNegativeMarker) error {
-	upgraded, err := releaseTransferTableExistsCustom(ctx, "scene_release_activity_upgrade_guard")
-	if err != nil {
-		return err
-	}
-	if !upgraded {
-		return fmt.Errorf("scene release activity upgrade required")
-	}
 	if marker.ID == 0 {
 		result, err := dbWrapper.Exec(ctx, `INSERT INTO scene_negative_markers (scene_id,release_id,name,start_seconds,end_seconds,created_at,updated_at) VALUES (NULL,?,?,?,?,?,?)`, releaseID, marker.Name, marker.StartSeconds, marker.EndSeconds, time.Now(), time.Now())
 		if err != nil {
@@ -83,13 +72,6 @@ func (qb *SceneReleaseStore) DeleteNegativeMarkerCustom(ctx context.Context, rel
 }
 
 func (qb *SceneReleaseStore) SaveLoopPresetCustom(ctx context.Context, releaseID int, preset *models.SceneLoopPreset) error {
-	upgraded, err := releaseTransferTableExistsCustom(ctx, "scene_release_activity_upgrade_guard")
-	if err != nil {
-		return err
-	}
-	if !upgraded {
-		return fmt.Errorf("scene release activity upgrade required")
-	}
 	segments, err := json.Marshal(preset.Segments)
 	if err != nil {
 		return err
@@ -139,13 +121,6 @@ func (qb *SceneReleaseStore) DeleteLoopPresetCustom(ctx context.Context, release
 }
 
 func (qb *SceneReleaseStore) MoveMarkerToReleaseCustom(ctx context.Context, markerID, releaseID int) error {
-	upgraded, err := releaseTransferTableExistsCustom(ctx, "scene_release_activity_upgrade_guard")
-	if err != nil {
-		return err
-	}
-	if !upgraded {
-		return fmt.Errorf("scene release activity upgrade required")
-	}
 	result, err := dbWrapper.Exec(ctx, `UPDATE scene_markers SET scene_id=NULL, release_id=? WHERE id=?`, releaseID, markerID)
 	if err != nil {
 		return err
@@ -161,10 +136,6 @@ func (qb *SceneReleaseStore) MoveMarkerToReleaseCustom(ctx context.Context, mark
 }
 
 func (qb *SceneReleaseStore) GetNegativeMarkersCustom(ctx context.Context, releaseID int) ([]*models.SceneNegativeMarker, error) {
-	upgraded, err := releaseTransferTableExistsCustom(ctx, "scene_release_activity_upgrade_guard")
-	if err != nil || !upgraded {
-		return nil, err
-	}
 	var rows []sceneNegativeMarkerRow
 	if err := dbWrapper.Select(ctx, &rows,
 		`SELECT * FROM scene_negative_markers WHERE release_id = ? ORDER BY start_seconds,id`, releaseID); err != nil {
@@ -178,10 +149,6 @@ func (qb *SceneReleaseStore) GetNegativeMarkersCustom(ctx context.Context, relea
 }
 
 func (qb *SceneReleaseStore) GetLoopPresetsCustom(ctx context.Context, releaseID int) ([]*models.SceneLoopPreset, error) {
-	upgraded, err := releaseTransferTableExistsCustom(ctx, "scene_release_activity_upgrade_guard")
-	if err != nil || !upgraded {
-		return nil, err
-	}
 	var rows []sceneLoopPresetRow
 	if err := dbWrapper.Select(ctx, &rows,
 		`SELECT * FROM scene_multi_segment_loop_presets WHERE release_id = ? ORDER BY name,id`, releaseID); err != nil {

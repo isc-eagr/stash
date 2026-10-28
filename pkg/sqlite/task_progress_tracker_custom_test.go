@@ -2,8 +2,6 @@ package sqlite
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/jmoiron/sqlx"
@@ -138,28 +136,4 @@ VALUES (?, 'scene', 1, 'PENDING')`, first.ID)
 		require.NoError(t, dbWrapper.Get(ctx, &count, "SELECT COUNT(*) FROM "+tableName+" WHERE tracker_id = ?", first.ID))
 		require.Zero(t, count, "deletion removes related "+tableName)
 	}
-}
-
-func TestTaskProgressTrackerStartedOnUpgradeCustom(t *testing.T) {
-	db, err := sqlx.Open("sqlite3", ":memory:")
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, db.Close()) })
-
-	_, err = db.Exec(`
-CREATE TABLE task_progress_trackers (
-  id INTEGER PRIMARY KEY,
-  created_at DATETIME NOT NULL
-);
-INSERT INTO task_progress_trackers (id, created_at) VALUES (1, '2026-07-19 15:30:00');
-`)
-	require.NoError(t, err)
-
-	migration, err := os.ReadFile(filepath.Join("..", "..", "task_progress_trackers_started_on.up.sql"))
-	require.NoError(t, err)
-	_, err = db.Exec(string(migration))
-	require.NoError(t, err)
-
-	var startedOn string
-	require.NoError(t, db.Get(&startedOn, "SELECT started_on FROM task_progress_trackers WHERE id = 1"))
-	require.Equal(t, "2026-07-19", startedOn)
 }

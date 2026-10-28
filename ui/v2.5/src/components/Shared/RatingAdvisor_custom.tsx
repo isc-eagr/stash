@@ -16,13 +16,11 @@ import {
   calculateRatingAdvisorOrgasmBonusCustom,
   calculateRatingAdvisorRating100Custom,
   getRatingAdvisorAdjustmentTooltipLabelCustom,
-  getRatingAdvisorOrgasmBonusDescriptionCustom,
   formatRatingAdvisorContributionCustom,
   getRatingAdvisorCompletionCustom,
   getRatingAdvisorChoiceHeatLevelCustom,
   getRatingAdvisorChoiceScoreCustom,
   getRatingAdvisorTierCustom,
-  getRatingAdvisorTierLadderCustom,
   normalizeRatingAdvisorPersistedScoreValueCustom,
   ratingAdvisorSixLevelChoicesCustom,
   resolveRatingAdvisorScoresCustom,
@@ -46,6 +44,8 @@ import {
   SOLO_SCENE_RATING_KEYS_CUSTOM,
   SOLO_SCENE_WEIGHTS_CUSTOM,
 } from "./soloSceneRating_custom";
+import { RatingAdvisorOTrackCustom } from "./RatingAdvisorOTrack_custom";
+import { RatingAdvisorTierLadderCustom } from "./RatingAdvisorTierLadder_custom";
 
 type AdvisorEntity = "scene" | "performer";
 
@@ -239,14 +239,6 @@ const sceneMetrics: IAdvisorMetric[] = [
     ],
   },
   {
-    key: "goatElement",
-    title: "GOAT element",
-    max: 2,
-    section: "bonus",
-    hint: "Pick how much one GOAT act, angle, mamada, or killer moment adds.",
-    choices: SCENE_GOAT_ELEMENT_BONUS_CHOICES_CUSTOM,
-  },
-  {
     key: "unlikelyTop",
     title: "Unlikely top",
     max: 0.5,
@@ -266,6 +258,14 @@ const sceneMetrics: IAdvisorMetric[] = [
           "Looked like a vato would be taking verga, but he ended up providing it.",
       },
     ],
+  },
+  {
+    key: "goatElement",
+    title: "GOAT element",
+    max: 2,
+    section: "bonus",
+    hint: "Pick how much one GOAT act, angle, mamada, or killer moment adds.",
+    choices: SCENE_GOAT_ELEMENT_BONUS_CHOICES_CUSTOM,
   },
   {
     key: "standout",
@@ -1106,11 +1106,6 @@ const RatingAdvisorModal: React.FC<{
     previewRating100 !== undefined
       ? previewRating100 - displayRating100
       : undefined;
-  const ladder = getRatingAdvisorTierLadderCustom(thresholds);
-  const markerPercent = Math.max(
-    0,
-    Math.min(100, previewRating100 ?? displayRating100)
-  );
 
   const ledgerRows = [
     ...coreMetrics.map((metric, index) => {
@@ -1546,9 +1541,6 @@ const RatingAdvisorModal: React.FC<{
       >
         <span className="rating-advisor-switch-text">
           <strong>O Count bonus</strong>
-          <span>
-            {getRatingAdvisorOrgasmBonusDescriptionCustom(entityType)}
-          </span>
         </span>
         <span className="rating-advisor-switch-value">
           {orgasmCount === undefined
@@ -1562,6 +1554,13 @@ const RatingAdvisorModal: React.FC<{
               : `${orgasmCount ?? 0} recorded`}
           </small>
         </span>
+        {orgasmCount !== undefined && (
+          <RatingAdvisorOTrackCustom
+            count={orgasmCount}
+            entityId={entityId}
+            entityType={entityType}
+          />
+        )}
       </div>
     );
   }
@@ -1625,29 +1624,12 @@ const RatingAdvisorModal: React.FC<{
                     previewTier?.label
                   }`}
             </div>
-            <div aria-hidden="true" className="rating-advisor-ladder">
-              <div className="rating-advisor-ladder-track">
-                {ladder.map((zone) => (
-                  <span
-                    data-reached={displayRating100 >= zone.start}
-                    key={zone.tier}
-                    style={{
-                      backgroundColor: getTierColor(zone.tier),
-                      left: `${zone.start}%`,
-                      width: `${zone.width}%`,
-                    }}
-                  />
-                ))}
-                <i style={{ left: `${markerPercent}%` }} />
-              </div>
-              <div className="rating-advisor-ladder-ticks">
-                {ladder.slice(1).map((zone) => (
-                  <span key={zone.tier} style={{ left: `${zone.start}%` }}>
-                    {zone.start}
-                  </span>
-                ))}
-              </div>
-            </div>
+            <RatingAdvisorTierLadderCustom
+              rating100={displayRating100}
+              thresholds={thresholds}
+              previewRating100={previewRating100}
+              previewTier={previewTier?.tier}
+            />
             <section
               aria-labelledby="rating-advisor-breakdown-title"
               className="rating-advisor-breakdown"

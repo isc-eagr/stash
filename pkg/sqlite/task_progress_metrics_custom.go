@@ -260,15 +260,8 @@ func taskProgressEventURLCustom(ctx context.Context, e *models.TaskProgressEvent
 			ReleaseID sql.NullInt64 `db:"release_id"`
 			Seconds   float64       `db:"seconds"`
 		}
-		query := "SELECT scene_id,NULL AS release_id,seconds FROM scene_markers WHERE id=?"
-		upgraded, err := releaseTransferTableExistsCustom(ctx, "scene_release_activity_upgrade_guard")
-		if err != nil {
-			return "", err
-		}
-		if upgraded {
-			query = `SELECT COALESCE(sm.scene_id,r.scene_id) AS scene_id,sm.release_id,sm.seconds
-				FROM scene_markers sm LEFT JOIN scene_releases r ON r.id=sm.release_id WHERE sm.id=?`
-		}
+		query := `SELECT COALESCE(sm.scene_id,r.scene_id) AS scene_id,sm.release_id,sm.seconds
+			FROM scene_markers sm LEFT JOIN scene_releases r ON r.id=sm.release_id WHERE sm.id=?`
 		if err := dbWrapper.Get(ctx, &marker, query, e.ItemID); err != nil {
 			return "", err
 		}

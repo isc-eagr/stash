@@ -2,7 +2,6 @@ package sqlite
 
 import (
 	"context"
-	"os"
 	"testing"
 	"time"
 
@@ -25,11 +24,7 @@ INSERT INTO scenes VALUES (1,30,50);
 INSERT INTO scene_releases VALUES (4,1);`); err != nil {
 		t.Fatal(err)
 	}
-	upgrade, err := os.ReadFile("../../scene_releases_metadata_v2.up.sql")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.Exec(string(upgrade)); err != nil {
+	if _, err := db.Exec(sceneReleaseMetadataSchemaCustom); err != nil {
 		t.Fatal(err)
 	}
 	tx, err := db.BeginTxx(context.Background(), nil)

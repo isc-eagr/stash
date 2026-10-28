@@ -3,7 +3,6 @@ package sqlite
 import (
 	"context"
 	"database/sql"
-	"os"
 	"strings"
 	"testing"
 
@@ -42,11 +41,7 @@ CREATE TABLE files(id INTEGER PRIMARY KEY);
 CREATE TABLE galleries(id INTEGER PRIMARY KEY);`); err != nil {
 		t.Fatal(err)
 	}
-	migration, err := os.ReadFile("../../scene_releases.up.sql")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.Exec(string(migration)); err != nil {
+	if _, err := db.Exec(sceneReleasesSchemaCustom); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.Exec(`
@@ -67,34 +62,6 @@ UPDATE scenes SET cover_blob = NULL WHERE id = 1;
 	}
 	if len(content) != 3 {
 		t.Fatalf("cover length = %d, want 3", len(content))
-	}
-}
-
-func TestLegacySceneReleaseCoverGuardCustom(t *testing.T) {
-	db, err := sql.Open("sqlite3", ":memory:")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close()
-	if _, err := db.Exec(`CREATE TABLE blobs(checksum TEXT PRIMARY KEY);
-CREATE TABLE scene_releases(id INTEGER PRIMARY KEY, cover_blob TEXT);
-INSERT INTO blobs VALUES ('cover');
-INSERT INTO scene_releases VALUES (7, 'cover');`); err != nil {
-		t.Fatal(err)
-	}
-	guard, err := os.ReadFile("../../scene_releases_cover_guard.up.sql")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.Exec(string(guard)); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.Exec(`DELETE FROM blobs WHERE checksum = 'cover'`); err == nil {
-		t.Fatal("legacy migration did not protect the release cover")
-	}
-	if _, err := db.Exec(`UPDATE scene_releases SET cover_blob = NULL WHERE id = 7;
-DELETE FROM blobs WHERE checksum = 'cover'`); err != nil {
-		t.Fatal(err)
 	}
 }
 

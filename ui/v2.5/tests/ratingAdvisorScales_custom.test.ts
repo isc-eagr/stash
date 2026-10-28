@@ -8,6 +8,8 @@ import {
   getRatingAdvisorCompletionCustom,
   getRatingAdvisorCriterionSummariesCustom,
   getRatingAdvisorAdjustmentSummariesCustom,
+  getRatingAdvisorOEventsCustom,
+  getRatingAdvisorOTrackCustom,
   formatRatingAdvisorContributionCustom,
   getRatingAdvisorChoiceHeatLevelCustom,
   getRatingAdvisorChoiceScoreCustom,
@@ -44,6 +46,82 @@ assert.deepEqual(
   ),
   [0, 1, 4, 8, 11],
   "performer O bonuses award every second O using progressive doubling tiers"
+);
+
+{
+  const track = getRatingAdvisorOTrackCustom("scene", 7);
+  assert.deepEqual(
+    track.map(({ bonus, start, end }) => [bonus, start, end]),
+    [
+      [0, 1, 2],
+      [1, 3, 5],
+      [2, 6, 11],
+      [3, 12, 23],
+    ],
+    "O track always shows tiers through +3"
+  );
+  assert.equal(
+    track.flatMap((tier) => tier.dots).filter((dot) => dot.recorded).length,
+    7,
+    "O track marks recorded O's"
+  );
+}
+assert.deepEqual(
+  [23, 24, 48, 100].map((count) => {
+    const track = getRatingAdvisorOTrackCustom("scene", count);
+    return track[track.length - 1].bonus;
+  }),
+  [3, 4, 5, 6],
+  "O track adds +4 and higher tiers only once reached"
+);
+for (const entityType of ["scene", "performer"] as const) {
+  for (const count of [0, 4, 13, 50]) {
+    assert.equal(
+      getRatingAdvisorOTrackCustom(entityType, count)
+        .flatMap((tier) => tier.dots)
+        .reduce((sum, dot) => sum + (dot.recorded ? dot.earns : 0), 0),
+      calculateRatingAdvisorOrgasmBonusCustom(entityType, count),
+      `${entityType} O track earnings match the O bonus at ${count}`
+    );
+  }
+}
+{
+  // Server order is newest first.
+  const events = [
+    { id: "c", o_date: "2025-03-01T10:00:00Z", release_id: null },
+    { id: "r", o_date: "2025-02-01T10:00:00Z", release_id: "9" },
+    { id: "b", o_date: "2025-01-01T10:00:00Z", release_id: null },
+    { id: "a", o_date: "2025-01-01T10:00:00Z", release_id: null },
+  ];
+  assert.deepEqual(
+    [...getRatingAdvisorOEventsCustom("scene", events)].map(([o, event]) => [
+      o,
+      event.id,
+    ]),
+    [
+      [1, "a"],
+      [2, "b"],
+      [3, "c"],
+    ],
+    "scene O events run oldest first and skip release O's"
+  );
+  assert.deepEqual(
+    [...getRatingAdvisorOEventsCustom("performer", events)].map(
+      ([o, event]) => [o, event.id]
+    ),
+    [
+      [1, "a"],
+      [2, "b"],
+      [3, "r"],
+      [4, "c"],
+    ],
+    "performer O events include release O's"
+  );
+}
+assert.deepEqual(
+  getRatingAdvisorOTrackCustom("performer", 0)[1].dots.map((n) => n.earns),
+  [1, 0, 1],
+  "performer O track only scores every second O"
 );
 
 assert.equal(

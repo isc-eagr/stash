@@ -2,8 +2,6 @@ package sqlite
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/jmoiron/sqlx"
@@ -34,11 +32,10 @@ INSERT INTO scenes_o_dates(rowid, scene_id, o_date, video_timestamp) VALUES (40,
 INSERT INTO scene_release_o_dates(rowid, release_id, o_date) VALUES (9, 4, '2026-01-01T10:00:00Z');`)
 	require.NoError(t, err)
 
-	for _, name := range []string{"scenes_retroactive_o.up.sql", "scene_releases_retroactive_o.up.sql"} {
-		migration, err := os.ReadFile(filepath.Join("..", "..", name))
+	for _, ensure := range []func(context.Context, sqlx.ExtContext) ([]string, error){ensureSceneODatesCustom, ensureReleaseODatesCustom} {
+		rebuilt, err := ensure(context.Background(), db)
 		require.NoError(t, err)
-		_, err = db.Exec(string(migration))
-		require.NoError(t, err, name)
+		require.Len(t, rebuilt, 1)
 	}
 
 	var rowid int

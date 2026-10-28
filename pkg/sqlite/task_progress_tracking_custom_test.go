@@ -375,7 +375,6 @@ ALTER TABLE groups ADD COLUMN back_image_blob TEXT;`)
 func TestTaskProgressReleaseDeletionCompletesOnlyDeletedMarkersCustom(t *testing.T) {
 	_, ctx := newTaskProgressTrackingTestDBCustom(t)
 	_, err := dbWrapper.Exec(ctx, `
-CREATE TABLE scene_release_activity_upgrade_guard(applied_at TEXT);
 CREATE TABLE scene_releases(id INTEGER PRIMARY KEY,cover_blob TEXT);
 ALTER TABLE scene_markers ADD COLUMN release_id INTEGER;
 CREATE TRIGGER deleted_marker_tags AFTER DELETE ON scene_markers BEGIN

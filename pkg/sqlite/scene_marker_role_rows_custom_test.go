@@ -63,7 +63,6 @@ func TestTaskProgressReleaseMarkerURLCustom(t *testing.T) {
 	defer db.Close()
 	db.SetMaxOpenConns(1)
 	if _, err := db.Exec(`
-CREATE TABLE scene_release_activity_upgrade_guard(applied_at TEXT);
 CREATE TABLE scene_releases(id INTEGER PRIMARY KEY, scene_id INTEGER NOT NULL);
 CREATE TABLE scene_markers(id INTEGER PRIMARY KEY, scene_id INTEGER, release_id INTEGER, seconds REAL NOT NULL);
 INSERT INTO scene_releases VALUES (9, 5);

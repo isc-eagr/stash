@@ -50,7 +50,7 @@ func validateReleaseConversionRequestCustom(ctx context.Context, requestID strin
 		return err
 	}
 	if !exists {
-		return fmt.Errorf("scene release metadata upgrade required: run scene_releases_metadata_v2.up.sql before retryable conversions")
+		return fmt.Errorf("scene release tables are missing: restart Stash to install them before retryable conversions")
 	}
 	return nil
 }

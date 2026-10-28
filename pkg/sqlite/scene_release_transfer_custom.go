@@ -27,20 +27,7 @@ func requireReleaseMetadataUpgradeCustom(ctx context.Context) error {
 			return err
 		}
 		if !exists {
-			return fmt.Errorf("scene release metadata upgrade required: run scene_releases_metadata_v2.up.sql before converting")
-		}
-	}
-	ratingTablesExist, err := releaseTransferTableExistsCustom(ctx, ratingCriteriaScoresTable)
-	if err != nil {
-		return err
-	}
-	if ratingTablesExist {
-		ratingUpgraded, err := releaseTransferTableExistsCustom(ctx, "scene_release_rating_upgrade_guard")
-		if err != nil {
-			return err
-		}
-		if !ratingUpgraded {
-			return fmt.Errorf("scene release rating upgrade required: run scene_releases_rating_v2.up.sql before converting")
+			return fmt.Errorf("scene release tables are missing: restart Stash to install them before converting")
 		}
 	}
 	return nil
@@ -101,37 +88,6 @@ func (qb *SceneReleaseStore) updateFirstURLCustom(ctx context.Context, releaseID
 	return err
 }
 
-// ensureSceneHasNoUnownedReleaseActivityCustom prevents conversion before the
-// one-time owner upgrade when the source has marker or loop records.
-func ensureSceneHasNoUnownedReleaseActivityCustom(ctx context.Context, sceneID int) error {
-	upgraded, err := releaseTransferTableExistsCustom(ctx, "scene_release_activity_upgrade_guard")
-	if err != nil {
-		return err
-	}
-	for _, entry := range []struct{ table, label string }{
-		{"scene_markers", "markers"},
-		{"scene_negative_markers", "negative markers"},
-		{"scene_multi_segment_loop_presets", "loop presets"},
-	} {
-		exists, err := releaseTransferTableExistsCustom(ctx, entry.table)
-		if err != nil {
-			return err
-		}
-		if !exists {
-			continue
-		}
-		var count int
-		query := fmt.Sprintf(`SELECT COUNT(*) FROM %s WHERE scene_id = ?`, entry.table)
-		if err := dbWrapper.Get(ctx, &count, query, sceneID); err != nil {
-			return err
-		}
-		if count > 0 && !upgraded {
-			return fmt.Errorf("cannot convert scene %d with %d %s: run scene_releases_activity_v2.up.sql first", sceneID, count, entry.label)
-		}
-	}
-	return nil
-}
-
 // copyStashDBMatchesCustom carries the StashDB count with the Stash IDs it
 // belongs to, when both owners have a matches table.
 func copyStashDBMatchesCustom(ctx context.Context, query string, toID, fromID int) error {
@@ -151,9 +107,6 @@ func copyStashDBMatchesCustom(ctx context.Context, query string, toID, fromID in
 // copies or drops the source's. The caller owns the transaction.
 func (qb *SceneReleaseStore) TransferSceneMetadataToReleaseCustom(ctx context.Context, sceneID, releaseID int) error {
 	if err := requireReleaseMetadataUpgradeCustom(ctx); err != nil {
-		return err
-	}
-	if err := ensureSceneHasNoUnownedReleaseActivityCustom(ctx, sceneID); err != nil {
 		return err
 	}
 	statements := []string{
@@ -186,16 +139,10 @@ func (qb *SceneReleaseStore) TransferSceneMetadataToReleaseCustom(ctx context.Co
 		releaseID, sceneID); err != nil {
 		return fmt.Errorf("transferring StashDB matches: %w", err)
 	}
-	upgraded, err := releaseTransferTableExistsCustom(ctx, "scene_release_activity_upgrade_guard")
-	if err != nil {
-		return err
-	}
-	if upgraded {
-		for _, table := range []string{"scene_markers", "scene_negative_markers", "scene_multi_segment_loop_presets"} {
-			query := fmt.Sprintf(`UPDATE %s SET scene_id = NULL, release_id = ? WHERE scene_id = ?`, table)
-			if _, err := dbWrapper.Exec(ctx, query, releaseID, sceneID); err != nil {
-				return fmt.Errorf("transferring release activity: %w", err)
-			}
+	for _, table := range []string{"scene_markers", "scene_negative_markers", "scene_multi_segment_loop_presets"} {
+		query := fmt.Sprintf(`UPDATE %s SET scene_id = NULL, release_id = ? WHERE scene_id = ?`, table)
+		if _, err := dbWrapper.Exec(ctx, query, releaseID, sceneID); err != nil {
+			return fmt.Errorf("transferring release activity: %w", err)
 		}
 	}
 	return nil
@@ -320,16 +267,10 @@ func (qb *SceneReleaseStore) TransferReleaseMetadataToSceneCustom(ctx context.Co
 		sceneID, releaseID); err != nil {
 		return fmt.Errorf("restoring StashDB matches: %w", err)
 	}
-	upgraded, err := releaseTransferTableExistsCustom(ctx, "scene_release_activity_upgrade_guard")
-	if err != nil {
-		return err
-	}
-	if upgraded {
-		for _, table := range []string{"scene_markers", "scene_negative_markers", "scene_multi_segment_loop_presets"} {
-			query := fmt.Sprintf(`UPDATE %s SET release_id = NULL, scene_id = ? WHERE release_id = ?`, table)
-			if _, err := dbWrapper.Exec(ctx, query, sceneID, releaseID); err != nil {
-				return fmt.Errorf("restoring release activity: %w", err)
-			}
+	for _, table := range []string{"scene_markers", "scene_negative_markers", "scene_multi_segment_loop_presets"} {
+		query := fmt.Sprintf(`UPDATE %s SET release_id = NULL, scene_id = ? WHERE release_id = ?`, table)
+		if _, err := dbWrapper.Exec(ctx, query, sceneID, releaseID); err != nil {
+			return fmt.Errorf("restoring release activity: %w", err)
 		}
 	}
 	return nil

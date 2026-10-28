@@ -12,18 +12,17 @@ import (
 var releaseOEventsReadyCustom atomic.Bool
 
 // SetReleaseOEventsReadyCustom records whether release O history exists. The
-// database sets it at startup; the release upgrades run while Stash is stopped.
+// database sets it at startup, after installing the release tables.
 func SetReleaseOEventsReadyCustom(ready bool) {
 	releaseOEventsReadyCustom.Store(ready)
 }
 
 func (db *Database) detectReleaseOEventsCustom(ctx context.Context) error {
 	ready := true
-	// The activity upgrade gives markers their release_id column; the StashDB
-	// Matches schema runs first and adds scene_release_stashdb_matches.
+	// The StashDB Matches schema runs first and adds scene_release_stashdb_matches.
 	for _, table := range []string{
 		"scene_releases", "scene_release_o_dates", "scene_release_performers", "scene_release_groups",
-		"scene_release_activity_upgrade_guard", "scene_release_stashdb_matches",
+		"scene_release_stashdb_matches",
 	} {
 		var count int
 		if err := db.writeDB.QueryRowContext(ctx,

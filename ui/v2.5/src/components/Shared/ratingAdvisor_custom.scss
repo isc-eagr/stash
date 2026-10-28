@@ -503,6 +503,14 @@
     &[data-reached="true"] {
       opacity: 1;
     }
+
+    &[data-preview="true"] {
+      box-shadow: 0 0 0.65rem currentColor;
+      opacity: 1;
+      outline: 2px solid currentColor;
+      outline-offset: 2px;
+      z-index: 1;
+    }
   }
 
   > i {
@@ -515,6 +523,7 @@
     top: -0.35rem;
     transition: left 200ms ease;
     width: 3px;
+    z-index: 2;
   }
 }
 
@@ -881,6 +890,133 @@
 .rating-advisor-switch-readonly {
   border: 1px dashed rgba(var(--rating-advisor-bonus-rgb), 0.45);
   grid-template-columns: minmax(0, 1fr) auto;
+
+  /* Lit like an on toggle once it earns anything. */
+  &[data-active="true"] {
+    background: var(--rating-advisor-tone-soft);
+    border-color: var(--rating-advisor-tone);
+    border-style: solid;
+  }
+}
+
+/* O Count track: one dot per O, brighter in higher bonus tiers. */
+.rating-advisor-o-track {
+  /* Sized so the 23 dots through +3 (4 tiers) fit on one line. */
+  --rating-advisor-o-size: min(
+    0.85rem,
+    calc((100cqw - 19 * 3px - 3 * 0.6rem) / 23)
+  );
+
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  grid-column: 1 / -1;
+}
+
+/* Tiers through +3 share the first line; each higher tier gets its own. */
+.rating-advisor-o-row {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.rating-advisor-o-tier {
+  --rating-advisor-o-alpha: 0.6;
+
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+
+  &[data-bonus="2"] {
+    --rating-advisor-o-alpha: 0.8;
+  }
+
+  &[data-bonus="3"] {
+    --rating-advisor-o-alpha: 1;
+  }
+}
+
+.rating-advisor-o-dots {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+
+  span {
+    border: 1.5px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    height: var(--rating-advisor-o-size);
+    width: var(--rating-advisor-o-size);
+
+    &[data-earns="false"] {
+      height: calc(var(--rating-advisor-o-size) * 0.6);
+      width: calc(var(--rating-advisor-o-size) * 0.6);
+    }
+
+    &[data-recorded="true"] {
+      background: rgba(
+        var(--rating-advisor-bonus-rgb),
+        var(--rating-advisor-o-alpha)
+      );
+      border-color: transparent;
+
+      &[data-earns="false"] {
+        background: rgba(255, 255, 255, 0.35);
+      }
+    }
+
+    &[data-next="true"] {
+      border: 1.5px dashed rgb(var(--rating-advisor-bonus-rgb));
+    }
+  }
+}
+
+.rating-advisor-o-hover {
+  display: flex;
+
+  span {
+    cursor: pointer;
+  }
+}
+
+.rating-advisor-o-popover-shell {
+  max-width: none;
+}
+
+.rating-advisor-o-popover {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  max-width: 360px;
+
+  img {
+    aspect-ratio: 16 / 9;
+    border-radius: 0.4rem;
+    margin-bottom: 0.4rem;
+    object-fit: cover;
+    width: 360px;
+  }
+
+  strong {
+    font-size: 0.9rem;
+  }
+
+  span {
+    color: var(--app-muted, #{$text-muted});
+    font-size: 0.8rem;
+  }
+}
+
+.rating-advisor-o-caption {
+  color: var(--rating-advisor-muted);
+  font-size: 0.72rem;
+  white-space: nowrap;
+
+  [data-reached="true"] > & {
+    color: var(--rating-advisor-tone-text);
+    font-weight: 600;
+  }
 }
 
 .rating-advisor-levels {

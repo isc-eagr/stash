@@ -97,33 +97,92 @@ function getRatingAdvisorOrgasmMilestoneBonusCustom(count: number) {
   return bonus;
 }
 
+// Points one O earns; performers only score every 2nd O from the 3rd on.
+function getRatingAdvisorOBonusCustom(
+  entityType: RatingAdvisorEntityCustom,
+  o: number
+) {
+  const step = entityType === "scene" ? 1 : 2;
+  return o >= 3 && (o - 3) % step === 0
+    ? getRatingAdvisorOrgasmMilestoneBonusCustom(o)
+    : 0;
+}
+
+function getSafeOrgasmCount(count: number) {
+  return Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
+}
+
 export function calculateRatingAdvisorOrgasmBonusCustom(
   entityType: RatingAdvisorEntityCustom,
   count: number
 ) {
-  if (!Number.isFinite(count)) {
-    return 0;
-  }
-
-  const safeCount = Math.max(0, Math.floor(count));
-  const step = entityType === "scene" ? 1 : 2;
+  const safeCount = getSafeOrgasmCount(count);
   let total = 0;
 
-  for (let milestone = 3; milestone <= safeCount; milestone += step) {
-    total += getRatingAdvisorOrgasmMilestoneBonusCustom(milestone);
+  for (let o = 3; o <= safeCount; o++) {
+    total += getRatingAdvisorOBonusCustom(entityType, o);
   }
 
   return total;
+}
+
+export interface IRatingAdvisorOTrackTierCustom {
+  bonus: number;
+  start: number;
+  end: number;
+  dots: { number: number; earns: number; recorded: boolean }[];
+}
+
+// O track for the O Count bonus: tiers through +3 always show; higher tiers
+// show only once the count reaches them.
+export function getRatingAdvisorOTrackCustom(
+  entityType: RatingAdvisorEntityCustom,
+  count: number
+) {
+  const safeCount = getSafeOrgasmCount(count);
+  const tiers: IRatingAdvisorOTrackTierCustom[] = [];
+
+  for (let bonus = 0, start = 1; bonus <= 3 || start <= safeCount; bonus++) {
+    // Each tier after the first is twice as long: 3–5, 6–11, 12–23, ...
+    const end = bonus === 0 ? 2 : start * 2 - 1;
+    const dots = [];
+    for (let o = start; o <= end; o++) {
+      dots.push({
+        number: o,
+        earns: getRatingAdvisorOBonusCustom(entityType, o),
+        recorded: o <= safeCount,
+      });
+    }
+    tiers.push({ bonus, start, end, dots });
+    start = end + 1;
+  }
+
+  return tiers;
+}
+
+// Matches dated O events to o numbers, oldest first. A scene's O Count
+// leaves out its releases' O's, so those events don't take a o number.
+export function getRatingAdvisorOEventsCustom<
+  T extends { o_date: string; release_id?: string | null }
+>(entityType: RatingAdvisorEntityCustom, events: readonly T[]) {
+  const byO = new Map<number, T>();
+  events
+    .filter((event) => entityType !== "scene" || !event.release_id)
+    .map((event, index) => ({ event, index, time: Date.parse(event.o_date) }))
+    // Ties keep the server's newest-first order, reversed.
+    .sort((a, b) => a.time - b.time || b.index - a.index)
+    .forEach(({ event }, index) => byO.set(index + 1, event));
+  return byO;
 }
 
 export function getRatingAdvisorOrgasmBonusDescriptionCustom(
   entityType: RatingAdvisorEntityCustom
 ) {
   if (entityType === "scene") {
-    return "The more you nut, the more it earns: from the 3rd nut on, +1 at 3–5, +2 at 6–11, +3 at 12–23, and it keeps doubling.";
+    return "Each O past your 2nd adds points. Later O's are worth more.";
   }
 
-  return "The more you nut to him, the more it earns: every 2nd nut from the 3rd on, +1 at 3–5, +2 at 6–11, +3 at 12–23, and it keeps doubling.";
+  return "Every 2nd O to him from the 3rd on adds points. Later O's are worth more.";
 }
 
 const RATING_ADVISOR_ADJUSTMENT_TOOLTIP_LABELS_CUSTOM: Record<string, string> =

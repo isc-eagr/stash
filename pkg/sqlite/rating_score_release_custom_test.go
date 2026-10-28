@@ -2,7 +2,6 @@ package sqlite
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/jmoiron/sqlx"
@@ -11,17 +10,9 @@ import (
 
 func TestClearReleaseRatingsCustom(t *testing.T) {
 	db := openRatingScriptDatabaseCustom(t)
-	if _, err := db.Exec(`CREATE TABLE scene_releases(id INTEGER PRIMARY KEY, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP);
-INSERT INTO scenes(id,rating) VALUES (1,87);
+	if _, err := db.Exec(`INSERT INTO scenes(id,rating) VALUES (1,87);
 INSERT INTO scene_releases(id) VALUES (5);`); err != nil {
 		t.Fatal(err)
-	}
-	upgrade, err := os.ReadFile("../../scene_releases_rating_v2.up.sql")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.Exec(string(upgrade)); err != nil {
-		t.Fatalf("rating upgrade SQL: %v", err)
 	}
 	if _, err := db.Exec(`CREATE TABLE scene_release_metadata(release_id INTEGER PRIMARY KEY, rating INTEGER);
 INSERT INTO scene_release_metadata VALUES (5, 60);

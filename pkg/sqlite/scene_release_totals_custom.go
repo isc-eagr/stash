@@ -68,7 +68,7 @@ func (qb *SceneReleaseStore) GetSceneTotalsCustom(ctx context.Context, sceneIDs 
 }
 
 // ReleaseODatesReadyCustom reports whether release O history exists on this
-// database (scene_releases_metadata_v2.up.sql).
+// database (installed at startup by fork_schema_custom.go).
 func ReleaseODatesReadyCustom(ctx context.Context) (bool, error) {
 	return releaseTransferTableExistsCustom(ctx, "scene_release_o_dates")
 }

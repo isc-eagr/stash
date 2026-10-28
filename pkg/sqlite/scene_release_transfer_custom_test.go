@@ -2,8 +2,6 @@ package sqlite
 
 import (
 	"context"
-	"os"
-	"strings"
 	"testing"
 
 	"github.com/jmoiron/sqlx"
@@ -42,7 +40,6 @@ CREATE TABLE scene_multi_segment_loop_presets(id INTEGER PRIMARY KEY, scene_id I
 CREATE TABLE rating_criteria_scores(entity_type TEXT, entity_id INTEGER, key TEXT, raw_value REAL);
 CREATE TABLE rating_bonus_scores(entity_type TEXT, entity_id INTEGER, key TEXT, raw_value REAL);
 CREATE TABLE rating_penalty_scores(entity_type TEXT, entity_id INTEGER, key TEXT, raw_value REAL);
-CREATE TABLE scene_release_rating_upgrade_guard(applied_at TEXT);
 INSERT INTO scenes VALUES (1, 87, 1, 14.5, 123.25), (2, NULL, 0, 0, 0);
 INSERT INTO performers VALUES (11), (12);
 INSERT INTO groups VALUES (31);
@@ -62,12 +59,8 @@ INSERT INTO rating_penalty_scores VALUES ('scene', 1, 'penalty', 1);`
 	if _, err := db.Exec(base); err != nil {
 		t.Fatal(err)
 	}
-	upgrade, err := os.ReadFile("../../scene_releases_metadata_v2.up.sql")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.Exec(string(upgrade)); err != nil {
-		t.Fatalf("metadata upgrade SQL: %v", err)
+	if _, err := db.Exec(sceneReleaseMetadataSchemaCustom); err != nil {
+		t.Fatalf("metadata schema: %v", err)
 	}
 	tx, err := db.BeginTxx(context.Background(), nil)
 	if err != nil {
@@ -147,25 +140,11 @@ INSERT INTO scene_multi_segment_loop_presets VALUES (66, 4, 'loop', '[]', 1, 0, 
 	if err != nil || len(legacyLoops) != 1 || legacyLoops[0].ID != 66 || legacyLoops[0].ReleaseID != nil {
 		t.Fatalf("legacy loop presets = %v, err = %v", legacyLoops, err)
 	}
-	if err := store.TransferSceneMetadataToReleaseCustom(ctx, 4, 9); err == nil || !strings.Contains(err.Error(), "markers") {
-		t.Fatalf("expected marker ownership guard, got %v", err)
-	}
-	var guardedRows int
-	if err := tx.Get(&guardedRows, `SELECT COUNT(*) FROM scene_release_metadata WHERE release_id = 9`); err != nil {
-		t.Fatal(err)
-	}
-	if guardedRows != 0 {
-		t.Fatal("marker guard left a partial transfer")
-	}
 	if err := tx.Commit(); err != nil {
 		t.Fatal(err)
 	}
-	activityUpgrade, err := os.ReadFile("../../scene_releases_activity_v2.up.sql")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.Exec(string(activityUpgrade)); err != nil {
-		t.Fatalf("activity upgrade SQL: %v", err)
+	if _, err := ensureReleaseActivitySchemaCustom(context.Background(), db); err != nil {
+		t.Fatalf("activity upgrade: %v", err)
 	}
 	var foreignKeyIssues int
 	if err := db.Get(&foreignKeyIssues, `SELECT COUNT(*) FROM pragma_foreign_key_check`); err != nil {

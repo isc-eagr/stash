@@ -275,6 +275,11 @@ func (db *Database) open(disableForeignKeys bool, writable bool) (*sqlx.DB, erro
 }
 
 func (db *Database) initialise() error {
+	// CUSTOM: Fork tables and fork changes to upstream tables, after upstream migrations.
+	if err := db.ensureForkSchemaCustom(context.Background()); err != nil {
+		return fmt.Errorf("initializing custom database schema: %w", err)
+	}
+
 	if err := db.openReadDB(); err != nil {
 		return fmt.Errorf("opening read database: %w", err)
 	}
