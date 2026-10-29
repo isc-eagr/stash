@@ -10,7 +10,7 @@ Stash is a fork of upstream Stash. Keep upstream code recognizable and isolate c
 | Standalone TypeScript utilities | A `_custom.ts` file |
 | New React page or component with no upstream counterpart | Its own file; `_custom` suffix is optional |
 | New GraphQL fields or types | A `_custom.graphql` file using `extend type`, `extend input`, or `extend enum` |
-| Custom database migration | A startup step in `pkg/sqlite/fork_schema_custom.go`, outside the upstream migration system |
+| Custom database schema change | A startup step in `pkg/sqlite/fork_schema_custom.go` (see "Database schema changes" in `Agents.md`); never a `.sql` file or an upstream migration |
 
 Go methods may be defined in a separate `_custom.go` file from their receiver type. Prefer extraction for standalone code; retain only necessary hookups and changes to upstream functions inline.
 

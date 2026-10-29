@@ -16,13 +16,16 @@ func TestSceneStatsActivityTimeQueryCustom(t *testing.T) {
 
 	statements := []string{
 		`CREATE TABLE scenes (id INTEGER PRIMARY KEY)`,
-		`CREATE TABLE scenes_files (scene_id INTEGER, file_id INTEGER)`,
+		`CREATE TABLE scenes_files (scene_id INTEGER, file_id INTEGER, "primary" BOOLEAN DEFAULT 1)`,
 		`CREATE TABLE video_files (file_id INTEGER, duration FLOAT)`,
 		`CREATE TABLE scene_markers (id INTEGER PRIMARY KEY, scene_id INTEGER, primary_tag_id INTEGER, seconds FLOAT, end_seconds FLOAT)`,
 		`CREATE TABLE scene_marker_performers (scene_marker_id INTEGER, performer_id INTEGER, role TEXT)`,
 		`INSERT INTO scenes(id) VALUES (1), (2), (3)`,
 		`INSERT INTO scenes_files(scene_id, file_id) VALUES (1, 101), (2, 102)`,
 		`INSERT INTO video_files(file_id, duration) VALUES (101, 100), (102, 100)`,
+		// A longer secondary file must not extend the primary video's markers.
+		`INSERT INTO scenes_files VALUES (1, 103, 0)`,
+		`INSERT INTO video_files VALUES (103, 300)`,
 		`INSERT INTO scene_markers(id, scene_id, primary_tag_id, seconds, end_seconds) VALUES
       (1, 1, 11, 10, 40),
       (2, 1, 11, 20, 50),

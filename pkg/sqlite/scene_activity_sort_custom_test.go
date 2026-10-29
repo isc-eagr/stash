@@ -30,7 +30,7 @@ func sceneActivityFixtureCustom(t *testing.T) *sql.DB {
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
 	_, err = db.Exec(`
 CREATE TABLE scenes(id INTEGER PRIMARY KEY, title TEXT);
-CREATE TABLE scenes_files(scene_id INTEGER, file_id INTEGER);
+CREATE TABLE scenes_files(scene_id INTEGER, file_id INTEGER, "primary" BOOLEAN DEFAULT 1);
 CREATE TABLE video_files(file_id INTEGER, duration REAL);
 CREATE TABLE scene_markers(id INTEGER PRIMARY KEY, scene_id INTEGER, primary_tag_id INTEGER, seconds REAL, end_seconds REAL);
 CREATE TABLE scene_markers_tags(scene_marker_id INTEGER, tag_id INTEGER);
@@ -38,7 +38,7 @@ CREATE TABLE scene_negative_markers(scene_id INTEGER, start_seconds REAL, end_se
 CREATE TABLE tags_relations(parent_id INTEGER, child_id INTEGER);
 INSERT INTO tags_relations VALUES(50, 51), (51, 52), (60, 61), (70, 71);
 INSERT INTO scenes VALUES(1, 'One'), (2, 'Two'), (3, 'Three'), (4, 'Four'), (5, 'Five');
-INSERT INTO scenes_files VALUES(1, 1), (1, 2), (2, 3), (3, 4), (5, 5);
+INSERT INTO scenes_files VALUES(1, 1, 1), (1, 2, 0), (2, 3, 1), (3, 4, 1), (5, 5, 1);
 INSERT INTO video_files VALUES(1, 100), (2, 80), (3, 200), (4, 0), (5, NULL);
 INSERT INTO scene_markers VALUES(1, 1, 10, 0, 25), (2, 1, 20, 25, 70),
  (3, 1, 30, 50, 80), (4, 1, 99, 10, 30), (5, 1, 10, 70, 130),
@@ -70,7 +70,7 @@ func TestSceneActivityPercentCustomScene9836(t *testing.T) {
 	})
 	_, err := db.Exec(`
 INSERT INTO scenes VALUES (9836, 'Regression');
-INSERT INTO scenes_files VALUES (9836, 9836);
+INSERT INTO scenes_files(scene_id, file_id) VALUES (9836, 9836);
 INSERT INTO video_files VALUES (9836, 561.45);
 INSERT INTO scene_markers VALUES
   (30710, 9836, 24, 65.521034, 480.17501),

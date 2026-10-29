@@ -40,9 +40,8 @@ func openMarkerEventStatsDBCustom(t *testing.T) *sql.DB {
 	db, err := sql.Open("sqlite3", ":memory:")
 	require.NoError(t, err)
 	t.Cleanup(func() { db.Close() })
-	_, err = db.Exec(`
+	_, err = db.Exec(oStatsReleaseTablesSchemaCustom + `
 CREATE TABLE scenes (id INTEGER PRIMARY KEY, studio_id INTEGER, title TEXT, rating INTEGER, date TEXT, created_at TEXT);
-CREATE TABLE scene_releases (scene_id INTEGER, date TEXT);
 CREATE TABLE tags (id INTEGER PRIMARY KEY, name TEXT);
 CREATE TABLE tags_relations (parent_id INTEGER, child_id INTEGER);
 CREATE TABLE scene_markers (id INTEGER PRIMARY KEY, scene_id INTEGER, primary_tag_id INTEGER, seconds REAL, end_seconds REAL);

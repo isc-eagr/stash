@@ -939,31 +939,6 @@ $font-family-monospace: sfmono-regular, menlo, monaco, consolas,
   padding-right: 15px;
 }
 
-/* CUSTOM: begin – scene facial overlay */
-
-/* CUSTOM: semantic event colors, with a static glow only. */
-.scene-player-container .scene-facial-overlay {
-  background-color: var(--semantic-regular);
-  filter: none;
-  height: 3rem;
-  mask-position: center;
-  mask-repeat: no-repeat;
-  mask-size: contain;
-  width: 3rem;
-}
-
-.scene-player-container .scene-facial-overlay--gold {
-  background-color: var(--semantic-really-hot);
-  filter: drop-shadow(0 0 8px rgba(var(--semantic-really-hot-rgb), 0.7));
-}
-
-.scene-player-container .scene-facial-overlay--sapphire {
-  background-color: var(--semantic-goat);
-  filter: drop-shadow(0 0 8px rgba(var(--semantic-goat-rgb), 0.7));
-}
-
-/* CUSTOM: end */
-
 .scrubber-wrapper {
   display: flex;
   flex-shrink: 0;

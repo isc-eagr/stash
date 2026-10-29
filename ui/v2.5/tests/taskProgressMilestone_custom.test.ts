@@ -4,9 +4,10 @@ import {
   milestoneFromSearch,
   milestoneItemProgress,
   milestoneSearch,
+  milestonesRemaining,
   milestoneTargetProgress,
-  milestoneTrackerIdle,
 } from "../src/components/TaskProgress/milestoneView_custom.ts";
+import { readFinishCalculatorPlan } from "../src/components/TaskProgress/TaskProgressFinishCalculator.tsx";
 import { taskProgressCheckpoints } from "../src/components/TaskProgress/taskProgressCheckpoints_custom.ts";
 
 assert.equal(milestoneFromSearch("?view=milestones&milestone=12"), "12");
@@ -121,12 +122,53 @@ assert.deepEqual(
   ]
 );
 
-const recentHistory = {
-  history: [{ date: "2026-09-02", completed: 3, incoming: 0, remaining: 5 }],
-} as Parameters<typeof milestoneTrackerIdle>[0];
 assert.equal(
-  milestoneTrackerIdle(recentHistory, "2026-10-01"),
-  false,
-  "completions in the last 30 days keep a tracker active across month boundaries"
+  milestonesRemaining([
+    {
+      trackers: [
+        { id: "1", current_count: 5 },
+        { id: "2", current_count: 3 },
+      ],
+    },
+    {
+      trackers: [
+        { id: "2", current_count: 3 },
+        { id: "3", current_count: 4 },
+      ],
+    },
+  ]),
+  12,
+  "a tracker shared by two milestones counts once"
 );
-assert.equal(milestoneTrackerIdle(recentHistory, "2026-10-02"), true);
+assert.equal(milestonesRemaining([]), 0);
+
+const calculatorStorage = new Map<string, string>();
+Object.assign(globalThis, {
+  localStorage: {
+    getItem: (key: string) => calculatorStorage.get(key) ?? null,
+    setItem: (key: string, value: string) => calculatorStorage.set(key, value),
+  },
+});
+const calculatorMilestones = [
+  { id: "1", current_count: 4 },
+  { id: "2", current_count: 0 },
+  { id: "3", current_count: 7 },
+];
+assert.deepEqual(
+  readFinishCalculatorPlan(calculatorMilestones),
+  { ids: ["1", "3"], rate: 10 },
+  "defaults to every unfinished milestone at 10/day"
+);
+calculatorStorage.set(
+  "task-progress-milestone-finish-calculator",
+  JSON.stringify({ ids: [2], rate: 25 })
+);
+assert.deepEqual(readFinishCalculatorPlan(calculatorMilestones), {
+  ids: ["2"],
+  rate: 25,
+});
+calculatorStorage.set("task-progress-milestone-finish-calculator", "{bad");
+assert.deepEqual(readFinishCalculatorPlan(calculatorMilestones), {
+  ids: ["1", "3"],
+  rate: 10,
+});

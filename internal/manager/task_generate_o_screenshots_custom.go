@@ -13,7 +13,6 @@ import (
 	"github.com/stashapp/stash/pkg/logger"
 	"github.com/stashapp/stash/pkg/models"
 	"github.com/stashapp/stash/pkg/scene/generate"
-	"github.com/stashapp/stash/pkg/sqlite"
 )
 
 type sceneOEventScreenshot struct {
@@ -192,7 +191,7 @@ func oScreenshotSceneFilterCustom(column string, sceneIDs []int) (string, []inte
 // oScreenshotEventsQueryCustom selects timestamped O's as (rowid, scene_id,
 // release_id or 0, video_timestamp), optionally limited to scenes and paths.
 // Release O's count for their parent scene.
-func oScreenshotEventsQueryCustom(sceneIDs []int, paths []string, releaseReady bool) (string, []interface{}) {
+func oScreenshotEventsQueryCustom(sceneIDs []int, paths []string) (string, []interface{}) {
 	query := `
 SELECT od.rowid, od.scene_id, 0, od.video_timestamp
 FROM scenes_o_dates od
@@ -203,27 +202,21 @@ WHERE od.video_timestamp IS NOT NULL`
 	query += sceneFilter + pathFilter
 	args = append(args, pathArgs...)
 
-	if releaseReady {
-		releaseSceneFilter, releaseArgs := oScreenshotSceneFilterCustom("rel.scene_id", sceneIDs)
-		releasePathFilter, releasePathArgs := oScreenshotPathFilterCustom("SELECT rf.file_id FROM scene_release_files rf WHERE rf.release_id = rel.id", paths)
-		query += `
+	releaseSceneFilter, releaseArgs := oScreenshotSceneFilterCustom("rel.scene_id", sceneIDs)
+	releasePathFilter, releasePathArgs := oScreenshotPathFilterCustom("SELECT rf.file_id FROM scene_release_files rf WHERE rf.release_id = rel.id", paths)
+	query += `
 UNION ALL
 SELECT rod.rowid, rel.scene_id, rod.release_id, rod.video_timestamp
 FROM scene_release_o_dates rod
 JOIN scene_releases rel ON rel.id = rod.release_id
 WHERE rod.video_timestamp IS NOT NULL` + releaseSceneFilter + releasePathFilter
-		args = append(append(args, releaseArgs...), releasePathArgs...)
-	}
+	args = append(append(args, releaseArgs...), releasePathArgs...)
 
 	return query + " ORDER BY 3, 1", args
 }
 
 func (j *GenerateJob) findOScreenshotEvents(ctx context.Context, sceneIDs []int, paths []string) ([]sceneOEventScreenshot, error) {
-	releaseReady, err := sqlite.ReleaseODatesReadyCustom(ctx)
-	if err != nil {
-		return nil, err
-	}
-	query, args := oScreenshotEventsQueryCustom(sceneIDs, paths, releaseReady)
+	query, args := oScreenshotEventsQueryCustom(sceneIDs, paths)
 	_, rows, err := instance.Database.QuerySQL(ctx, query, args)
 	if err != nil {
 		return nil, err

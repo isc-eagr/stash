@@ -15,6 +15,7 @@ export type SceneStatsFacialScene = {
 export type SceneStatsFacialRoleTagIDs = {
   facial?: Set<string>;
   reallyHot?: Set<string>;
+  secondCamera?: Set<string>;
 };
 
 export function tagMatches(
@@ -35,13 +36,24 @@ export function markerHasTag(
   return marker.tags?.some((tag) => tagMatches(tag, targetIds)) ?? false;
 }
 
+// 2nd Camera markers repeat a moment from another angle, so they never count
+// as facials, matching Nut Stats and the Facial Count filters.
+export function isFacialMarker(
+  marker: SceneStatsFacialMarker,
+  roleTagIDs: SceneStatsFacialRoleTagIDs
+) {
+  return (
+    markerHasTag(marker, roleTagIDs.facial) &&
+    !markerHasTag(marker, roleTagIDs.secondCamera)
+  );
+}
+
 export function facialCount(
   scene: SceneStatsFacialScene,
-  facialTagIDs?: Set<string>
+  roleTagIDs: SceneStatsFacialRoleTagIDs
 ) {
-  if (!facialTagIDs) return 0;
   return (
-    scene.scene_markers?.filter((marker) => markerHasTag(marker, facialTagIDs))
+    scene.scene_markers?.filter((marker) => isFacialMarker(marker, roleTagIDs))
       .length ?? 0
   );
 }
@@ -50,13 +62,13 @@ export function reallyHotFacialCount(
   scene: SceneStatsFacialScene,
   roleTagIDs: SceneStatsFacialRoleTagIDs
 ) {
-  const { facial, reallyHot } = roleTagIDs;
-  if (!facial || !reallyHot) return 0;
+  if (!roleTagIDs.reallyHot) return 0;
 
   return (
     scene.scene_markers?.filter(
       (marker) =>
-        markerHasTag(marker, facial) && markerHasTag(marker, reallyHot)
+        isFacialMarker(marker, roleTagIDs) &&
+        markerHasTag(marker, roleTagIDs.reallyHot)
     ).length ?? 0
   );
 }

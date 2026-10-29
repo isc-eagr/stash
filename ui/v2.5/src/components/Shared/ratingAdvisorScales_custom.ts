@@ -71,7 +71,7 @@ export const SCENE_ORGASM_QUALITY_CHOICES_CUSTOM: IRatingAdvisorChoiceCustom[] =
       value: 4,
       label: "Outstanding nuts",
       description:
-        "You thought this kind of nut was only possible in dreams. The amount of mecos and the way the bright white looks on screen, the pulsing, the way the vato squirms. DAMN!!!",
+        "You thought this kind of nut was only possible in dreams. The amount of mecos and the way the bright white looks on screen, the pulsing, or the way the vato squirms. DAMN!!!",
     },
   ];
 

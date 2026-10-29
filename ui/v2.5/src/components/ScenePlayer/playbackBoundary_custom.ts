@@ -1,3 +1,5 @@
+import { mergeActivityIntervalsCustom } from "src/utils/activityIntervals_custom";
+
 // CUSTOM: begin - precise scene-player playback boundary helpers
 export const PLAYBACK_BOUNDARY_TOLERANCE_SECONDS = 0.004;
 
@@ -37,26 +39,12 @@ export function isPlaybackBoundaryDue(
 export function mergePlaybackRanges(
   ranges: readonly IPlaybackRange[]
 ): IPlaybackRange[] {
-  const sortedRanges = ranges
-    .filter(
+  return mergeActivityIntervalsCustom(
+    ranges.filter(
       ({ start, end }) =>
         Number.isFinite(start) && Number.isFinite(end) && end > start
     )
-    .map(({ start, end }) => ({ start, end }))
-    .sort((a, b) => a.start - b.start || a.end - b.end);
-
-  const mergedRanges: IPlaybackRange[] = [];
-
-  for (const range of sortedRanges) {
-    const previous = mergedRanges[mergedRanges.length - 1];
-    if (previous && range.start <= previous.end) {
-      previous.end = Math.max(previous.end, range.end);
-    } else {
-      mergedRanges.push(range);
-    }
-  }
-
-  return mergedRanges;
+  );
 }
 
 export function findContainingOrNextPlaybackRange(

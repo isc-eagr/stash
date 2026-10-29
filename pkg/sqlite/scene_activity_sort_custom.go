@@ -40,7 +40,7 @@ func sceneActivityPercentExpressionCustom(query *queryBuilder, category activity
 	query.addWith(false, `scene_sort_duration_custom AS MATERIALIZED (
   SELECT c.id AS scene_id, COALESCE(MAX(v.duration), 0) AS duration
   FROM scene_sort_candidates_custom c
-  LEFT JOIN scenes_files f ON f.scene_id = c.id
+  LEFT JOIN scenes_files f ON f.scene_id = c.id AND f."primary" = 1
   LEFT JOIN video_files v ON v.file_id = f.file_id
   GROUP BY c.id
 )`)

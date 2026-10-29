@@ -1,4 +1,7 @@
-import { getAppLocaleCustom } from "src/utils/appLocale_custom"; // CUSTOM
+import {
+  formatAppDateTimeCustom as formatODate,
+  getAppLocaleCustom,
+} from "src/utils/appLocale_custom";
 import React from "react";
 import { Link } from "react-router-dom";
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
@@ -25,16 +28,6 @@ import {
   O_STATS_TIMELINE_PATH_CUSTOM,
   oStatsTimelinePageURLCustom,
 } from "./oStatsTimelinePaging_custom";
-
-function formatODate(value: string) {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return value;
-
-  return parsed.toLocaleString(getAppLocaleCustom(), {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
 
 const OStatsTimestampImage: React.FC<{
   event: SceneOEvent;

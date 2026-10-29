@@ -24,16 +24,11 @@ func (s *RatingScoreStore) AdjustRatingsForSceneOCountChangeCustom(ctx context.C
 	}
 
 	// Performer O counts include their release O's, like countOrgasmRatingBonus.
-	releasePerformerOCount := ""
-	if ready, err := ReleaseODatesReadyCustom(ctx); err != nil {
-		return err
-	} else if ready {
-		releasePerformerOCount = ` + (
+	releasePerformerOCount := ` + (
 					SELECT COUNT(*) FROM scene_release_performers rp
 					JOIN scene_release_o_dates rod ON rod.release_id = rp.release_id
 					WHERE rp.performer_id = target.` + performerIDColumn + `
 				)`
-	}
 
 	query := fmt.Sprintf(`
 		WITH affected(entity_type, entity_id, o_count, rating) AS (

@@ -1,4 +1,5 @@
 import type { ILoopSegmentInput } from "src/components/ScenePlayer/multi-segment-loop";
+import { mergeActivityIntervalsCustom as mergeLoopIntervals } from "src/utils/activityIntervals_custom";
 
 // CUSTOM: begin - shared scene stats loop segment helpers
 export interface ISceneStatsLoopInterval {
@@ -7,23 +8,6 @@ export interface ISceneStatsLoopInterval {
 }
 
 const minimumLoopSegmentMilliseconds = 1;
-
-function mergeLoopIntervals(intervals: ISceneStatsLoopInterval[]) {
-  const sorted = [...intervals].sort((a, b) => a.start - b.start);
-  const merged: ISceneStatsLoopInterval[] = [];
-
-  sorted.forEach((interval) => {
-    const last = merged[merged.length - 1];
-    if (!last || interval.start > last.end) {
-      merged.push({ ...interval });
-      return;
-    }
-
-    last.end = Math.max(last.end, interval.end);
-  });
-
-  return merged;
-}
 
 export function isSelectableLoopSegmentInterval(
   interval: ISceneStatsLoopInterval

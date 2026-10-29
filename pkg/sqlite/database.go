@@ -292,7 +292,6 @@ func (db *Database) initialise() error {
 		db.ensureTaskProgressSchemaCustom,
 		db.ensureSceneStashDBMatchesSchemaCustom,
 		db.ensureStashDBChangesSchemaCustom,
-		db.detectReleaseOEventsCustom,
 		db.clearReleaseRatingsCustom,
 	} {
 		if err := ensure(context.Background()); err != nil {

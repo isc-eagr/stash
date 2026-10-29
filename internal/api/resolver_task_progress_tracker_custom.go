@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -67,14 +66,11 @@ func taskProgressStartedOnCustom(value string) (string, error) {
 }
 
 type legacyTaskProgressTrackerCustom struct {
-	Title        string      `json:"title"`
-	Name         string      `json:"name"`
-	Description  string      `json:"description"`
-	Goal         interface{} `json:"goal"`
-	InitialValue interface{} `json:"initialValue"`
-	TagID        string      `json:"tagId"`
-	TagName      string      `json:"tagName"`
-	IsWorkingOn  bool        `json:"isWorkingOn"`
+	Title       string `json:"title"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	TagID       string `json:"tagId"`
+	IsWorkingOn bool   `json:"isWorkingOn"`
 }
 
 func legacyTaskProgressTrackersCustom(uiConfig map[string]interface{}) ([]legacyTaskProgressTrackerCustom, error) {
@@ -93,31 +89,6 @@ func legacyTaskProgressTrackersCustom(uiConfig map[string]interface{}) ([]legacy
 		return nil, fmt.Errorf("decoding legacy task progress trackers: %w", err)
 	}
 	return trackers, nil
-}
-
-func legacyTaskProgressGoalCustom(tracker legacyTaskProgressTrackerCustom) int {
-	if goal, ok := legacyTaskProgressIntCustom(tracker.Goal); ok {
-		return goal
-	}
-	if goal, ok := legacyTaskProgressIntCustom(tracker.InitialValue); ok {
-		return goal
-	}
-	return 0
-}
-
-func legacyTaskProgressIntCustom(value interface{}) (int, bool) {
-	switch typed := value.(type) {
-	case float64:
-		if typed >= 0 && typed <= math.MaxInt && math.Trunc(typed) == typed {
-			return int(typed), true
-		}
-	case string:
-		parsed, err := strconv.Atoi(strings.TrimSpace(typed))
-		if err == nil && parsed >= 0 {
-			return parsed, true
-		}
-	}
-	return 0, false
 }
 
 func (r *queryResolver) FindTaskProgressTrackers(ctx context.Context) (ret []*models.TaskProgressTracker, err error) {
@@ -173,7 +144,6 @@ func (r *queryResolver) FindTaskProgressTrackers(ctx context.Context) (ret []*mo
 			tracker := models.TaskProgressTracker{
 				Title:            title,
 				Description:      strings.TrimSpace(stored.Description),
-				Goal:             legacyTaskProgressGoalCustom(stored),
 				TagID:            tagID,
 				Position:         position,
 				IsWorkingOn:      stored.IsWorkingOn,

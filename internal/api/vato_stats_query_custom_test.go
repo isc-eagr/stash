@@ -17,6 +17,7 @@ func TestVatoStatsPerformersQueryCustomAggregatesSceneOsAndCareerOnce(t *testing
 	defer db.Close()
 
 	statements := []string{
+		oStatsReleaseTablesSchemaCustom,
 		`CREATE TABLE studios (id INTEGER PRIMARY KEY, parent_id INTEGER)`,
 		`CREATE TABLE performers (
       id INTEGER PRIMARY KEY,

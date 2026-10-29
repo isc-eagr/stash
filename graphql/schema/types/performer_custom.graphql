@@ -140,10 +140,4 @@ extend type Query {
   performerCoPerformersByRole(performer_id: ID!): PerformerCoPerformersByRole!
   "Get the exact unique co-performer count across all marker-role relationships" # CUSTOM
   performerCoPerformerCount(performer_id: ID!): Int! # CUSTOM
-  "Get co-performers grouped by role relationship within a specific studio scope" # CUSTOM
-  studioPerformerCoPerformersByRole(
-    performer_id: ID!
-    studio_id: ID!
-    depth: Int
-  ): PerformerCoPerformersByRole! # CUSTOM
 }

@@ -580,27 +580,21 @@ func queryActivityStatsCustom(ctx context.Context, studioID *int, depth *int, da
 	durationQuery := sceneScope + `
 SELECT sc.id, COALESCE(MAX(video_files.duration), 0)
 FROM scenes sc
-LEFT JOIN scenes_files ON scenes_files.scene_id = sc.id
+LEFT JOIN scenes_files ON scenes_files.scene_id = sc.id AND scenes_files."primary" = 1
 LEFT JOIN video_files ON video_files.file_id = scenes_files.file_id
-WHERE sc.id IN (SELECT id FROM selected_scenes)
-GROUP BY sc.id`
+WHERE sc.id IN (SELECT id FROM selected_scenes)`
 
 	durationArgs := append([]interface{}{}, sceneScopeArgs...)
 	if performerID != nil {
-		durationQuery = sceneScope + `
-SELECT sc.id, COALESCE(MAX(video_files.duration), 0)
-FROM scenes sc
-LEFT JOIN scenes_files ON scenes_files.scene_id = sc.id
-LEFT JOIN video_files ON video_files.file_id = scenes_files.file_id
-WHERE sc.id IN (SELECT id FROM selected_scenes)
+		durationQuery += `
   AND EXISTS (
     SELECT 1 FROM performers_scenes ps
     WHERE ps.scene_id = sc.id
       AND ps.performer_id = ?
-  )
-GROUP BY sc.id`
+  )`
 		durationArgs = append(durationArgs, *performerID)
 	}
+	durationQuery += "\nGROUP BY sc.id"
 
 	_, durationRows, err := manager.GetInstance().Database.QuerySQL(ctx, durationQuery, durationArgs)
 	if err != nil {

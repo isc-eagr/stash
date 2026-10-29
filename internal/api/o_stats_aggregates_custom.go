@@ -63,7 +63,7 @@ func (r *queryResolver) SceneOCalendarDayCounts(ctx context.Context, year int, s
 // sceneOCountsBySceneQueryCustom counts O events per scene and carries the
 // scene fields the UI needs to derive rating and metallic buckets. Ties go to
 // the scene that reached its count most recently.
-func sceneOCountsBySceneQueryCustom(scope string) string {
+func sceneOCountsBySceneQueryCustom(scope string, royalSapphireClause string) string {
 	return `
 WITH scene_counts AS (
   SELECT od.scene_id, COUNT(*) AS cnt, MAX(datetime(od.o_date)) AS last_o
@@ -73,13 +73,7 @@ WITH scene_counts AS (
 )
 SELECT s.id, s.title, s.rating, sc.cnt,
   (SELECT GROUP_CONCAT(st.tag_id) FROM scenes_tags st WHERE st.scene_id = s.id) AS tag_ids,
-  CASE WHEN EXISTS (
-    SELECT 1 FROM rating_bonus_scores rbs
-    WHERE rbs.entity_type = 'scene'
-      AND rbs.entity_id = s.id
-      AND ((rbs.key = 'goatElement' AND rbs.raw_value IN (0.5, 1, 1.5, 2))
-        OR (rbs.key = 'godTierOrgasm' AND rbs.raw_value = 1))
-  ) THEN 1 ELSE 0 END AS has_royal_sapphire_bonus
+  CASE WHEN (` + royalSapphireClause + `) THEN 1 ELSE 0 END AS has_royal_sapphire_bonus
 FROM scene_counts sc
 JOIN scenes s ON s.id = sc.scene_id
 ORDER BY sc.cnt DESC, sc.last_o DESC, s.title COLLATE NOCASE ASC, s.id ASC`
@@ -100,9 +94,12 @@ func (r *queryResolver) SceneOCountsByScene(ctx context.Context, studioID *strin
 		return nil, err
 	}
 
+	royalSapphireClause, royalSapphireArgs := sqlite.SceneRoyalSapphirePromotionClauseCustom("s")
+	args := append(append([]interface{}{}, scopeArgs...), royalSapphireArgs...)
+
 	baseURL, _ := ctx.Value(BaseURLCtxKey).(string)
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		_, rows, err := manager.GetInstance().Database.QuerySQL(ctx, sceneOCountsBySceneQueryCustom(scope), scopeArgs)
+		_, rows, err := manager.GetInstance().Database.QuerySQL(ctx, sceneOCountsBySceneQueryCustom(scope, royalSapphireClause), args)
 		if err != nil {
 			return err
 		}

@@ -2,7 +2,7 @@ import { useConfirmActionCustom } from "./useConfirmAction_custom";
 import { gql, useQuery } from "@apollo/client";
 import React, { useEffect, useRef, useState } from "react";
 import { Button } from "react-bootstrap";
-import { faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
+import { faUser, faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
 import { ModalComponent } from "src/components/Shared/Modal";
 import { RatingNumber } from "src/components/Shared/Rating/RatingNumber";
 import * as GQL from "src/core/generated-graphql";
@@ -46,6 +46,9 @@ import {
 } from "./soloSceneRating_custom";
 import { RatingAdvisorOTrackCustom } from "./RatingAdvisorOTrack_custom";
 import { RatingAdvisorTierLadderCustom } from "./RatingAdvisorTierLadder_custom";
+import type { RatingAdvisorCriterionVatosCustom } from "./ratingAdvisorVatos_custom";
+import { VatoPortraitHover } from "./VatoPortraitHover_custom";
+import { Icon } from "./Icon";
 
 type AdvisorEntity = "scene" | "performer";
 
@@ -80,6 +83,8 @@ interface IRatingAdvisorButtonProps {
   sceneRatingMode?: SceneRatingModeCustom;
   rating100?: number | null;
   ratingScores?: readonly IAdvisorPersistedScore[] | null;
+  // Scene attractiveness criteria show the rated vatos.
+  criterionVatos?: RatingAdvisorCriterionVatosCustom;
   onRatingSaved?: () => void | Promise<unknown>;
 }
 
@@ -153,28 +158,32 @@ const sceneMetrics: IAdvisorMetric[] = [
       {
         label: "No energy",
         description:
-          "These vatos are clocked out, uncomfortable, or look like they don't wanna be there.",
+          "It's technically fucking, but the vatos are uncomfortable, or look like they don't wanna be there, or the cameraman came into work on drugs.",
       },
       {
         label: "Serviceable",
-        description: "They're fucking, but sin chispa.",
+        description:
+          "They're getting the job done, but sin chispa; something about their performance looks mechanical, bored, or like they really want to collect the check and get out of there.",
       },
       {
         label: "Decent",
-        description: "Some firme stretches, nothing too crazy.",
+        description:
+          "Standard action with maybe a couple firme stretches, nothing out of the ordinary",
       },
       {
         label: "Strong",
-        description: "Good rhythm and reactions. The action really lands.",
+        description:
+          "Above average action. These vatos are into it and put in some extra effort to make the scene a hit.",
       },
       {
         label: "Excellent",
-        description: "Hot as hell, these ñeros know what they're doing.",
+        description:
+          "Hot as hell, these ñeros know what they're doing. The energy, the positions, the language, or the camera angles make this scene truly stand out.",
       },
       {
         label: "Perfect quality",
         description:
-          "The action is so perfect and hot you'd watch this even if you didn't like the vatos.",
+          "These vatos took fucking to another level. Mind-blowingly hot action that you didn't think was possible.",
       },
     ]),
   },
@@ -234,7 +243,7 @@ const sceneMetrics: IAdvisorMetric[] = [
         value: SCENE_GOD_TIER_ORGASM_BONUS_CUSTOM,
         label: "God-tier nuts",
         description:
-          "Legendary. More mecos, with more force, than you knew was real. The verga pulsing, the vato shaking through all of it, the whole screen dripping. No mames.",
+          "Legendary. More mecos, with more force, than you knew was real. The verga pulsing, the vato shaking through all of it, or the whole screen dripping. No mames.",
       },
     ],
   },
@@ -947,6 +956,7 @@ const RatingAdvisorModal: React.FC<{
   sceneRatingMode?: SceneRatingModeCustom;
   rating100?: number | null;
   ratingScores?: readonly IAdvisorPersistedScore[] | null;
+  criterionVatos?: RatingAdvisorCriterionVatosCustom;
   onRatingSaved?: () => void | Promise<unknown>;
   onClose: () => void;
 }> = ({
@@ -955,6 +965,7 @@ const RatingAdvisorModal: React.FC<{
   sceneRatingMode = "default",
   rating100,
   ratingScores,
+  criterionVatos,
   onRatingSaved,
   onClose,
 }) => {
@@ -1338,6 +1349,75 @@ const RatingAdvisorModal: React.FC<{
     }
   }
 
+  function renderCriterionVatos(metricKey: string) {
+    const vatos = criterionVatos?.[metricKey];
+    if (!vatos?.length) return;
+
+    return (
+      <ul className="rating-advisor-vatos">
+        {vatos.map((vato) => (
+          <li
+            key={vato.id}
+            title={
+              vato.percent === undefined
+                ? vato.name ?? undefined
+                : `${vato.name}: ${vato.percent}%`
+            }
+          >
+            <VatoPortraitHover imagePath={vato.image_path} name={vato.name}>
+              <span className="rating-advisor-vato-image">
+                {vato.image_path ? (
+                  <img src={vato.image_path} alt={vato.name ?? ""} />
+                ) : (
+                  <Icon icon={faUser} />
+                )}
+              </span>
+            </VatoPortraitHover>
+            {vato.percent !== undefined && (
+              <span className="rating-advisor-vato-percent">
+                {vato.percent}%
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  // Bonus rows keep their height: face crops sit on the title line.
+  function renderSwitchVatos(metricKey: string) {
+    const vatos = criterionVatos?.[metricKey];
+    if (!vatos?.length) return;
+
+    return (
+      <span className="rating-advisor-switch-vatos">
+        {vatos.map((vato) => (
+          <VatoPortraitHover
+            imagePath={vato.image_path}
+            key={vato.id}
+            name={vato.name}
+          >
+            <span
+              className="rating-advisor-switch-vato"
+              onClick={(event) => event.stopPropagation()}
+              title={
+                vato.percent === undefined
+                  ? vato.name ?? undefined
+                  : `${vato.name}: ${vato.percent}%`
+              }
+            >
+              {vato.image_path ? (
+                <img src={vato.image_path} alt={vato.name ?? ""} />
+              ) : (
+                <Icon icon={faUser} />
+              )}
+            </span>
+          </VatoPortraitHover>
+        ))}
+      </span>
+    );
+  }
+
   function renderCriterion(metric: IAdvisorMetric, index: number) {
     const score = scores[metric.key];
     const saving = savingMetricKeys.has(metric.key);
@@ -1418,6 +1498,7 @@ const RatingAdvisorModal: React.FC<{
             )}
           </p>
         </div>
+        {renderCriterionVatos(metric.key)}
       </section>
     );
   }
@@ -1460,7 +1541,10 @@ const RatingAdvisorModal: React.FC<{
         >
           <span aria-hidden="true" className="rating-advisor-switch-track" />
           <span className="rating-advisor-switch-text">
-            <strong>{metric.title}</strong>
+            <strong>
+              {metric.title}
+              {renderSwitchVatos(metric.key)}
+            </strong>
             <span>{active ? activeChoice.description : metric.hint}</span>
           </span>
           <span className="rating-advisor-switch-value">
@@ -1724,6 +1808,7 @@ export const RatingAdvisorButton: React.FC<IRatingAdvisorButtonProps> = ({
   sceneRatingMode,
   rating100,
   ratingScores,
+  criterionVatos,
   onRatingSaved,
 }) => {
   const [showAdvisor, setShowAdvisor] = useState(false);
@@ -1746,6 +1831,7 @@ export const RatingAdvisorButton: React.FC<IRatingAdvisorButtonProps> = ({
           sceneRatingMode={sceneRatingMode}
           rating100={rating100}
           ratingScores={ratingScores}
+          criterionVatos={criterionVatos}
           onRatingSaved={onRatingSaved}
           onClose={() => setShowAdvisor(false)}
         />

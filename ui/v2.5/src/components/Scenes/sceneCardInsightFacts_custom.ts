@@ -1,3 +1,4 @@
+import { activityDurationCustom } from "src/utils/activityIntervals_custom";
 import type { SceneCardInsightMarker } from "./sceneCardInsightTypes_custom";
 
 type InsightInterval = {
@@ -29,14 +30,8 @@ export function markerStats(
 
   const intervals = Array.from(uniqueMarkers.values())
     .map((marker) => markerInterval(marker, sceneDuration))
-    .filter((interval): interval is InsightInterval => !!interval)
-    .sort((a, b) => a.start - b.start || a.end - b.end);
-  let duration = 0;
-  let coveredUntil = Number.NEGATIVE_INFINITY;
-  intervals.forEach(({ start, end }) => {
-    duration += Math.max(0, end - Math.max(start, coveredUntil));
-    coveredUntil = Math.max(coveredUntil, end);
-  });
+    .filter((interval): interval is InsightInterval => !!interval);
+  const duration = activityDurationCustom(intervals);
 
   return { duration, markerCount: uniqueMarkers.size };
 }

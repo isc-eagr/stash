@@ -59,8 +59,29 @@ INSERT INTO rating_penalty_scores VALUES ('scene', 1, 'penalty', 1);`
 	if _, err := db.Exec(base); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(sceneReleaseMetadataSchemaCustom); err != nil {
-		t.Fatalf("metadata schema: %v", err)
+	if _, err := db.Exec(sceneReleaseMetadataSchemaCustom + sceneStashDBMatchesSchemaCustom + sceneReleaseStashDBMatchesSchemaCustom); err != nil {
+		t.Fatalf("release schema: %v", err)
+	}
+	// Rows written before markers, skip ranges, and loop presets had a release
+	// owner keep their IDs and marker references through the rebuild.
+	if _, err := db.Exec(`INSERT INTO scenes VALUES (4, NULL, 0, 0, 0);
+INSERT INTO scene_releases VALUES (9, 2, '');
+INSERT INTO scene_markers VALUES (99, 'marker', 12.5, 21, 4, '2024-01-01', '2024-01-02', 13.5);
+INSERT INTO scene_markers_tags VALUES (99, 21);
+INSERT INTO scene_marker_performers VALUES (99, 11, 'top');
+INSERT INTO scene_negative_markers VALUES (55, 4, 'skip', 2, 3, '2024-01-01', '2024-01-02');
+INSERT INTO scene_multi_segment_loop_presets VALUES (66, 4, 'loop', '[]', 1, 0, '2024-01-01', '2024-01-02')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ensureReleaseActivitySchemaCustom(context.Background(), db); err != nil {
+		t.Fatalf("activity upgrade: %v", err)
+	}
+	var foreignKeyIssues int
+	if err := db.Get(&foreignKeyIssues, `SELECT COUNT(*) FROM pragma_foreign_key_check`); err != nil {
+		t.Fatal(err)
+	}
+	if foreignKeyIssues != 0 {
+		t.Fatalf("activity upgrade left %d foreign-key issues", foreignKeyIssues)
 	}
 	tx, err := db.BeginTxx(context.Background(), nil)
 	if err != nil {
@@ -121,44 +142,6 @@ INSERT INTO rating_penalty_scores VALUES ('scene', 1, 'penalty', 1);`
 			t.Fatalf("%s: got %d, want %d", check.query, got, check.want)
 		}
 	}
-	if _, err := tx.Exec(`INSERT INTO scenes VALUES (4, NULL, 0, 0, 0);
-INSERT INTO scene_releases VALUES (9, 2, '');
-INSERT INTO scene_markers VALUES (99, 'marker', 12.5, 21, 4, '2024-01-01', '2024-01-02', 13.5);
-INSERT INTO scene_markers_tags VALUES (99, 21);
-INSERT INTO scene_marker_performers VALUES (99, 11, 'top');
-INSERT INTO scene_negative_markers VALUES (55, 4, 'skip', 2, 3, '2024-01-01', '2024-01-02');
-INSERT INTO scene_multi_segment_loop_presets VALUES (66, 4, 'loop', '[]', 1, 0, '2024-01-01', '2024-01-02')`); err != nil {
-		t.Fatal(err)
-	}
-	// The existing app must still read seven/eight-column tables before the
-	// standalone release-activity upgrade is applied.
-	legacySkips, err := NewSceneNegativeMarkerStore().FindByScene(ctx, 4)
-	if err != nil || len(legacySkips) != 1 || legacySkips[0].ID != 55 || legacySkips[0].ReleaseID != nil {
-		t.Fatalf("legacy negative markers = %v, err = %v", legacySkips, err)
-	}
-	legacyLoops, err := NewSceneLoopPresetStore().FindByScene(ctx, 4)
-	if err != nil || len(legacyLoops) != 1 || legacyLoops[0].ID != 66 || legacyLoops[0].ReleaseID != nil {
-		t.Fatalf("legacy loop presets = %v, err = %v", legacyLoops, err)
-	}
-	if err := tx.Commit(); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := ensureReleaseActivitySchemaCustom(context.Background(), db); err != nil {
-		t.Fatalf("activity upgrade: %v", err)
-	}
-	var foreignKeyIssues int
-	if err := db.Get(&foreignKeyIssues, `SELECT COUNT(*) FROM pragma_foreign_key_check`); err != nil {
-		t.Fatal(err)
-	}
-	if foreignKeyIssues != 0 {
-		t.Fatalf("activity upgrade left %d foreign-key issues", foreignKeyIssues)
-	}
-	tx, err = db.BeginTxx(context.Background(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer tx.Rollback()
-	ctx = context.WithValue(context.Background(), txnKey, tx)
 	if err := store.TransferSceneMetadataToReleaseCustom(ctx, 4, 9); err != nil {
 		t.Fatal(err)
 	}

@@ -986,17 +986,11 @@ func (qb *SceneStore) OCountByPerformerID(ctx context.Context, performerID int) 
 	if err := querySimple(ctx, q, &ret); err != nil {
 		return 0, err
 	}
-	exists, err := releaseTransferTableExistsCustom(ctx, "scene_release_o_dates") // CUSTOM
-	if err != nil {                                                               // CUSTOM
+	var releaseCount int                                                                                                                                                                                           // CUSTOM
+	if err := dbWrapper.Get(ctx, &releaseCount, `SELECT COUNT(*) FROM scene_release_o_dates o JOIN scene_release_performers p ON p.release_id = o.release_id WHERE p.performer_id = ?`, performerID); err != nil { // CUSTOM
 		return 0, err // CUSTOM
 	} // CUSTOM
-	if exists { // CUSTOM
-		var releaseCount int                                                                                                                                                                                           // CUSTOM
-		if err := dbWrapper.Get(ctx, &releaseCount, `SELECT COUNT(*) FROM scene_release_o_dates o JOIN scene_release_performers p ON p.release_id = o.release_id WHERE p.performer_id = ?`, performerID); err != nil { // CUSTOM
-			return 0, err // CUSTOM
-		} // CUSTOM
-		ret += releaseCount // CUSTOM
-	} // CUSTOM
+	ret += releaseCount // CUSTOM
 
 	return ret, nil
 }
@@ -1147,17 +1141,11 @@ func (qb *SceneStore) PlayDuration(ctx context.Context) (float64, error) {
 	if err := querySimple(ctx, q, &ret); err != nil {
 		return 0, err
 	}
-	exists, err := releaseTransferTableExistsCustom(ctx, "scene_release_metadata") // CUSTOM
-	if err != nil {                                                                // CUSTOM
+	var releaseDuration float64                                                                                                       // CUSTOM
+	if err := dbWrapper.Get(ctx, &releaseDuration, `SELECT COALESCE(SUM(play_duration),0) FROM scene_release_metadata`); err != nil { // CUSTOM
 		return 0, err // CUSTOM
 	} // CUSTOM
-	if exists { // CUSTOM
-		var releaseDuration float64                                                                                                       // CUSTOM
-		if err := dbWrapper.Get(ctx, &releaseDuration, `SELECT COALESCE(SUM(play_duration),0) FROM scene_release_metadata`); err != nil { // CUSTOM
-			return 0, err // CUSTOM
-		} // CUSTOM
-		ret += releaseDuration // CUSTOM
-	} // CUSTOM
+	ret += releaseDuration // CUSTOM
 
 	return ret, nil
 }

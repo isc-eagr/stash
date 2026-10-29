@@ -64,9 +64,6 @@ WHERE id = (
 			now.Add(-taskProgressOverallQuickUndoWindowCustom),
 		)
 		if err != nil {
-			if taskProgressTablesMissingCustom(err) {
-				return nil
-			}
 			return fmt.Errorf("discarding quick overall task progress undo: %w", err)
 		}
 		if removed, err := result.RowsAffected(); err != nil {
@@ -90,9 +87,6 @@ SELECT ?, ?, ?, ?, COUNT(*),
 		now.In(taskProgressTimezoneCustom).Format("2006-01-02"),
 		now,
 	); err != nil {
-		if taskProgressTablesMissingCustom(err) {
-			return nil
-		}
 		return fmt.Errorf("recording overall task progress scene change: %w", err)
 	}
 	return nil

@@ -1,4 +1,5 @@
 import type { ILoopSegmentInput } from "./multi-segment-loop";
+import { mergeActivityIntervalsCustom as mergeLoopIntervals } from "src/utils/activityIntervals_custom";
 
 // CUSTOM: begin - multi-segment loop negative marker filtering
 export interface INegativeLoopMarker {
@@ -33,23 +34,6 @@ function normalizeNegativeMarkerInterval(
     start: Math.min(marker.start_seconds, marker.end_seconds),
     end: Math.max(marker.start_seconds, marker.end_seconds),
   };
-}
-
-function mergeLoopIntervals(intervals: ILoopInterval[]) {
-  const sorted = [...intervals].sort((a, b) => a.start - b.start);
-  const merged: ILoopInterval[] = [];
-
-  sorted.forEach((interval) => {
-    const last = merged[merged.length - 1];
-    if (!last || interval.start > last.end) {
-      merged.push({ ...interval });
-      return;
-    }
-
-    last.end = Math.max(last.end, interval.end);
-  });
-
-  return merged;
 }
 
 export function filterLoopSegmentsOutsideNegativeMarkers(

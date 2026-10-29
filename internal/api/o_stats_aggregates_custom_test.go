@@ -7,6 +7,7 @@ import (
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/stashapp/stash/pkg/sqlite"
 	"github.com/stretchr/testify/require"
 )
 
@@ -16,7 +17,7 @@ func openOStatsAggregateDBCustom(t *testing.T) *sql.DB {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
 
-	_, err = db.Exec(`
+	_, err = db.Exec(oStatsReleaseTablesSchemaCustom + `
 CREATE TABLE studios (id INTEGER PRIMARY KEY, parent_id INTEGER);
 CREATE TABLE scenes (id INTEGER PRIMARY KEY, title TEXT, rating INTEGER, studio_id INTEGER);
 CREATE TABLE scenes_tags (scene_id INTEGER, tag_id INTEGER);
@@ -24,6 +25,9 @@ CREATE TABLE performers (id INTEGER PRIMARY KEY, name TEXT, image_blob TEXT, rat
 CREATE TABLE performers_scenes (performer_id INTEGER, scene_id INTEGER);
 CREATE TABLE rating_bonus_scores (entity_type TEXT, entity_id INTEGER, key TEXT, raw_value REAL);
 CREATE TABLE scenes_o_dates (scene_id INTEGER, o_date TEXT, video_timestamp REAL);
+CREATE TABLE scene_markers (id INTEGER PRIMARY KEY, scene_id INTEGER, primary_tag_id INTEGER);
+CREATE TABLE scene_markers_tags (scene_marker_id INTEGER, tag_id INTEGER);
+CREATE TABLE tags_relations (parent_id INTEGER, child_id INTEGER);
 INSERT INTO studios(id, parent_id) VALUES (1, NULL);
 INSERT INTO scenes(id, title, rating, studio_id) VALUES
   (1, 'Alpha', 90, 1),
@@ -33,6 +37,10 @@ INSERT INTO scenes_tags(scene_id, tag_id) VALUES (1, 7), (1, 8);
 INSERT INTO performers(id, name) VALUES (10, 'Uno'), (20, 'Dos');
 INSERT INTO performers_scenes(performer_id, scene_id) VALUES (10, 1), (20, 1), (20, 2);
 INSERT INTO rating_bonus_scores(entity_type, entity_id, key, raw_value) VALUES ('scene', 1, 'godTierOrgasm', 1);
+-- Bravo has no bonus score, but a marker tagged five levels below GOAT.
+INSERT INTO tags_relations(parent_id, child_id) VALUES (100, 101), (101, 102), (102, 103), (103, 104), (104, 105);
+INSERT INTO scene_markers(id, scene_id, primary_tag_id) VALUES (1, 2, 50), (2, 3, 105);
+INSERT INTO scene_markers_tags(scene_marker_id, tag_id) VALUES (1, 105);
 INSERT INTO scenes_o_dates(scene_id, o_date) VALUES
   (1, '2025-03-01T12:00:00Z'),
   (1, '2025-03-01T13:00:00Z'),
@@ -46,7 +54,8 @@ INSERT INTO scenes_o_dates(scene_id, o_date) VALUES
 
 func TestSceneOCountsBySceneQueryCustom(t *testing.T) {
 	db := openOStatsAggregateDBCustom(t)
-	rows, err := db.Query(sceneOCountsBySceneQueryCustom(""))
+	royalSapphireClause, royalSapphireArgs := sqlite.SceneRoyalSapphirePromotionClauseForGoatTagCustom("s", "100")
+	rows, err := db.Query(sceneOCountsBySceneQueryCustom("", royalSapphireClause), royalSapphireArgs...)
 	require.NoError(t, err)
 	defer rows.Close()
 
@@ -62,7 +71,7 @@ func TestSceneOCountsBySceneQueryCustom(t *testing.T) {
 	require.NoError(t, rows.Err())
 	require.Equal(t, []string{
 		"1:Alpha:90:3:[7 8]:1",
-		"2:Bravo:0:2:[]:0",
+		"2:Bravo:0:2:[]:1",
 	}, got)
 }
 
@@ -122,7 +131,7 @@ func TestSceneOMostOsInDayQueryCustomUsesLocalDays(t *testing.T) {
 	before := localMidnight.Add(-30 * time.Minute).UTC().Format(time.RFC3339)
 	after := localMidnight.Add(30 * time.Minute).UTC().Format(time.RFC3339)
 	afterAgain := localMidnight.Add(45 * time.Minute).UTC().Format(time.RFC3339)
-	_, err = db.Exec(`CREATE TABLE scenes (id INTEGER PRIMARY KEY, studio_id INTEGER);
+	_, err = db.Exec(oStatsReleaseTablesSchemaCustom + `CREATE TABLE scenes (id INTEGER PRIMARY KEY, studio_id INTEGER);
 INSERT INTO scenes(id) VALUES (1);
 CREATE TABLE scenes_o_dates (scene_id INTEGER, o_date TEXT, video_timestamp REAL)`)
 	require.NoError(t, err)
@@ -150,7 +159,7 @@ func TestSceneOTopListsBreakTiesByMostRecentO(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
 
-	_, err = db.Exec(`
+	_, err = db.Exec(oStatsReleaseTablesSchemaCustom + `
 CREATE TABLE scenes (id INTEGER PRIMARY KEY, title TEXT, rating INTEGER, studio_id INTEGER);
 CREATE TABLE scenes_tags (scene_id INTEGER, tag_id INTEGER);
 CREATE TABLE performers (id INTEGER PRIMARY KEY, name TEXT, image_blob TEXT, rating INTEGER);
@@ -174,7 +183,8 @@ INSERT INTO scenes_o_dates(scene_id, o_date) VALUES
 	var firstScene, firstVato string
 	var sceneRating sql.NullInt64
 	var tags sql.NullString
-	require.NoError(t, db.QueryRow(sceneOCountsBySceneQueryCustom("")).Scan(&sceneID, &firstScene, &sceneRating, &sceneCount, &tags, &bonus))
+	royalSapphireClause, royalSapphireArgs := sqlite.SceneRoyalSapphirePromotionClauseForGoatTagCustom("s", "")
+	require.NoError(t, db.QueryRow(sceneOCountsBySceneQueryCustom("", royalSapphireClause), royalSapphireArgs...).Scan(&sceneID, &firstScene, &sceneRating, &sceneCount, &tags, &bonus))
 	require.Equal(t, "Bravo", firstScene)
 
 	rows, err := db.Query(sceneOCountsByPerformerQueryCustom(""))

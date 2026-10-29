@@ -77,8 +77,7 @@ func activityPercentSceneDurationExprCustom(sceneIDExpr string) string {
 	SELECT vf_activity.duration
 	FROM scenes_files sf_activity
 	JOIN video_files vf_activity ON vf_activity.file_id = sf_activity.file_id
-	WHERE sf_activity.scene_id = %s
-	ORDER BY vf_activity.duration DESC
+	WHERE sf_activity.scene_id = %s AND sf_activity."primary" = 1
 	LIMIT 1
 ), 0)`, sceneIDExpr)
 }

@@ -160,60 +160,6 @@ export function getScenePerformerOverviewInteractions(
   });
 }
 
-export type ScenePerformerOverviewActivityRole = "top" | "bottom" | "solo";
-
-export interface IScenePerformerOverviewActivityMetric {
-  key: string;
-  label: string;
-  role: ScenePerformerOverviewActivityRole;
-  seconds: number;
-}
-
-interface IScenePerformerOverviewActivityStats {
-  sex_top_seconds: number;
-  sex_bottom_seconds: number;
-  oral_top_seconds: number;
-  oral_bottom_seconds: number;
-  solo_seconds: number;
-}
-
-export function getScenePerformerOverviewActivityMetrics(
-  stats: IScenePerformerOverviewActivityStats
-): IScenePerformerOverviewActivityMetric[] {
-  return [
-    {
-      key: "sex-top",
-      label: "Time Fucking",
-      role: "top",
-      seconds: stats.sex_top_seconds,
-    },
-    {
-      key: "sex-bottom",
-      label: "Time Getting Fucked",
-      role: "bottom",
-      seconds: stats.sex_bottom_seconds,
-    },
-    {
-      key: "oral-top",
-      label: "Time Getting His Pito Sucked",
-      role: "top",
-      seconds: stats.oral_top_seconds,
-    },
-    {
-      key: "oral-bottom",
-      label: "Time Mamando Rifle",
-      role: "bottom",
-      seconds: stats.oral_bottom_seconds,
-    },
-    {
-      key: "solo",
-      label: "Time Jerking",
-      role: "solo",
-      seconds: stats.solo_seconds,
-    },
-  ];
-}
-
 interface IScenePerformerOverviewPartnerCount {
   performer: IScenePerformerOverviewPartner;
 }

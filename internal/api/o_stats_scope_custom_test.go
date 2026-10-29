@@ -16,6 +16,7 @@ func TestSceneOStatsScopeCustomFiltersStudioTree(t *testing.T) {
 	defer db.Close()
 
 	statements := []string{
+		oStatsReleaseTablesSchemaCustom,
 		`CREATE TABLE studios (id INTEGER PRIMARY KEY, parent_id INTEGER)`,
 		`CREATE TABLE scenes (id INTEGER PRIMARY KEY, studio_id INTEGER)`,
 		`CREATE TABLE scenes_o_dates (scene_id INTEGER, o_date TEXT, video_timestamp REAL)`,
@@ -70,6 +71,7 @@ func TestSceneOStatsScopeCustomFiltersLocalODateRange(t *testing.T) {
 	defer db.Close()
 
 	for _, statement := range []string{
+		oStatsReleaseTablesSchemaCustom,
 		`CREATE TABLE studios (id INTEGER PRIMARY KEY, parent_id INTEGER)`,
 		`CREATE TABLE scenes (id INTEGER PRIMARY KEY, studio_id INTEGER)`,
 		`CREATE TABLE scenes_o_dates (scene_id INTEGER, o_date TEXT, video_timestamp REAL)`,

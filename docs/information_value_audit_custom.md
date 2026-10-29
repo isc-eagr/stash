@@ -2,6 +2,8 @@
 
 Date: 2026-10-01. Scope: Scenes catalog (cards, list, sorts), scene detail, Vatos catalog, vato detail, O Stats, Scene Stats, and Vato Stats.
 
+Historical snapshot: the findings below describe the UI on that date, and several have since been addressed. They are design observations, not a current defect list. See [CUSTOM_FEATURES.md](../CUSTOM_FEATURES.md) for current behavior.
+
 The largest opportunities are clearer metric definitions and filter scope, followed by reducing repeated summaries and moving secondary information behind disclosure. Useful distinctions should survive the cleanup: partners versus scenes versus time, personal O events versus on-video orgasms, and numeric ratings versus metallic tiers.
 
 This audits the current working tree, including pre-existing uncommitted performer-card and scene-overview edits. No application code was changed. Implementation review covered the catalog controls, detail tabs and their supporting panels, and dashboard/chart helpers. Browser checks used the dev UI on port 3010 with GraphQL configured for port 9998 and the testing configuration. The fixture contains 13 scenes and 30 vatos; observations establish behavior, not usage frequency or performance in a large library. The browser's default narrow viewport also exposed horizontal scrolling in tables. Populated states for every detail tab and a full desktop/mobile layout matrix were not exercised.

@@ -669,6 +669,54 @@
   }
 }
 
+/* Vato thumbnails take a third column, right of the choices. */
+.rating-advisor-criterion:has(> .rating-advisor-vatos) {
+  grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr) auto;
+}
+
+.rating-advisor-vatos {
+  align-self: start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  li {
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .rating-advisor-vato-percent {
+    color: var(--rating-advisor-muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+}
+
+.rating-advisor-vato-image {
+  align-items: center;
+  aspect-ratio: 2 / 3;
+  background-color: rgba(255, 255, 255, 0.08);
+  border-radius: 0.25rem;
+  color: var(--rating-advisor-muted);
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+  width: 3.25rem;
+
+  img {
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+    width: 100%;
+  }
+}
+
 .rating-advisor-criterion-points {
   color: var(--rating-advisor-muted);
   font-size: 0.78rem;
@@ -864,6 +912,38 @@
     color: var(--rating-advisor-muted);
     font-size: 0.78rem;
     line-height: 1.4;
+  }
+}
+
+/* Face crops on a bonus title line; no taller than the title text. */
+.rating-advisor-switch-text strong:has(.rating-advisor-switch-vatos) {
+  align-items: center;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.rating-advisor-switch-text .rating-advisor-switch-vatos {
+  display: inline-flex;
+  gap: 0.25rem;
+  line-height: 1;
+}
+
+.rating-advisor-switch-text .rating-advisor-switch-vato {
+  align-items: center;
+  background-color: rgba(255, 255, 255, 0.08);
+  border-radius: 50%;
+  display: inline-flex;
+  font-size: 0.6rem;
+  height: 1.25rem;
+  justify-content: center;
+  overflow: hidden;
+  width: 1.25rem;
+
+  img {
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+    width: 100%;
   }
 }
 
@@ -1079,8 +1159,13 @@
   }
 
   .rating-advisor-criterion,
+  .rating-advisor-criterion:has(> .rating-advisor-vatos),
   .rating-advisor-adjustments {
     gap: 0.75rem;
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rating-advisor-vatos {
+    justify-content: flex-start;
   }
 }

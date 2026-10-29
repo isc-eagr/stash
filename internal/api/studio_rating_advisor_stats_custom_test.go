@@ -87,6 +87,7 @@ func TestStudioRatingAdvisorStatsCustomAveragesOnlySetCriteria(t *testing.T) {
 	defer db.Close()
 
 	statements := []string{
+		oStatsReleaseTablesSchemaCustom,
 		`CREATE TABLE studios (id INTEGER PRIMARY KEY, parent_id INTEGER)`,
 		`CREATE TABLE scenes (id INTEGER PRIMARY KEY, studio_id INTEGER, rating INTEGER)`,
 		`CREATE TABLE performers (id INTEGER PRIMARY KEY, rating INTEGER)`,

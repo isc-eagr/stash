@@ -16,3 +16,13 @@ export function formatAppDecimalCustom(value: number, digits: number) {
     maximumFractionDigits: digits,
   });
 }
+
+export function formatAppDateTimeCustom(value: string) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+
+  return parsed.toLocaleString(applicationLocale, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}

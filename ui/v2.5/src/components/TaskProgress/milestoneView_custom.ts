@@ -58,20 +58,22 @@ export function milestoneForecast(
   };
 }
 
-/** True when the tracker completed nothing in the last `days` days. */
-export function milestoneTrackerIdle(
-  tracker: Pick<Milestone["trackers"][number], "history">,
-  today = progressToday(),
-  days = 30
-): boolean {
-  const since = new Date(
-    Date.parse(`${today}T00:00:00Z`) - (days - 1) * 86400000
-  )
-    .toISOString()
-    .slice(0, 10);
-  return !tracker.history.some(
-    (day) => day.date >= since && day.date <= today && day.completed > 0
-  );
+/** Items left across milestones; a tracker shared by several counts once. */
+export function milestonesRemaining(
+  milestones: readonly {
+    trackers: readonly Pick<
+      Milestone["trackers"][number],
+      "id" | "current_count"
+    >[];
+  }[]
+) {
+  const left = new Map<string, number>();
+  for (const milestone of milestones) {
+    for (const tracker of milestone.trackers) {
+      left.set(tracker.id, tracker.current_count);
+    }
+  }
+  return [...left.values()].reduce((sum, count) => sum + count, 0);
 }
 
 /** Completed and total items per type, skipping types with no items. */

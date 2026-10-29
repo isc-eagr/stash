@@ -7,6 +7,7 @@ import type {
   TaskProgressTrackerDataFragment as Tracker,
 } from "src/core/generated-graphql";
 import { useProgressText } from "./progressView_custom";
+import { TaskProgressFinishCalculator } from "./TaskProgressFinishCalculator";
 import { TaskProgressMilestoneForm } from "./TaskProgressMilestoneForm";
 import type { IMilestoneFormValues } from "./TaskProgressMilestoneForm";
 import { milestoneFromSearch, milestoneSearch } from "./milestoneView_custom";
@@ -37,6 +38,7 @@ export const TaskProgressMilestones: React.FC<IProps> = ({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [editor, setEditor] = useState<Milestone | "new">();
+  const [calculator, setCalculator] = useState(false);
   const milestones = query.data?.findTaskProgressMilestones ?? [];
   const detailsID = milestoneFromSearch(location.search);
   const details = milestones.find((item) => item.id === detailsID);
@@ -106,6 +108,13 @@ export const TaskProgressMilestones: React.FC<IProps> = ({
         >
           {t("Refresh")}
         </Button>
+        <Button
+          variant="secondary"
+          disabled={!milestones.length}
+          onClick={() => setCalculator(true)}
+        >
+          {t("Finish calculator")}
+        </Button>
         <Button disabled={busy} onClick={() => setEditor("new")}>
           {t("Create milestone")}
         </Button>
@@ -142,6 +151,12 @@ export const TaskProgressMilestones: React.FC<IProps> = ({
           key={details.id}
           milestone={details}
           onClose={() => openDetails()}
+        />
+      )}
+      {calculator && (
+        <TaskProgressFinishCalculator
+          milestones={milestones}
+          onClose={() => setCalculator(false)}
         />
       )}
       {editor && (

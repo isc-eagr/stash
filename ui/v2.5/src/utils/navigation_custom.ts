@@ -1517,47 +1517,7 @@ export const makePerformerOrgasmMarkersUrl = (
 };
 
 // Navigate to scene markers where performer has feet markers
-export const makePerformerFeetMarkersUrl = (
-  performer: Partial<GQL.PerformerDataFragment>,
-  tagId: string,
-  tagLabel: string
-) => {
-  if (!performer.id || !tagId) return "#";
-
-  const filter = new ListFilterModel(GQL.FilterMode.SceneMarkers, undefined);
-
-  // Add marker performers criterion with the performer as top and the tag filter
-  const criterion = new MarkerPerformersCriterion(
-    MarkerPerformersCriterionOption
-  );
-  criterion.modifier = GQL.CriterionModifier.IncludesAll;
-  criterion.value = {
-    tag_ids: [{ id: tagId, label: tagLabel }],
-    include_subtags: true,
-    require_overlap: false,
-    top_performer_ids: [
-      {
-        id: performer.id,
-        label: performer.name || `Vato ${performer.id}`,
-      },
-    ],
-    top_any_count: 0,
-    top_ethnicities: [],
-    top_countries: [],
-    top_rating: null,
-    bottom_performer_ids: [],
-    bottom_any_count: 0,
-    bottom_ethnicities: [],
-    bottom_countries: [],
-    bottom_rating: null,
-    unnamed_performers: [],
-    performer_mode: "AND",
-  };
-  filter.criteria.push(criterion);
-  filter.sortBy = "title";
-
-  return `/scenes/markers?${filter.makeQueryParameters()}`;
-};
+export const makePerformerFeetMarkersUrl = makePerformerOrgasmMarkersUrl;
 
 // Navigate to scene markers for facial/oral with role filter (goes to /scenes/markers, not /scenes)
 // Similar to orgasm markers URL but with configurable role and depth

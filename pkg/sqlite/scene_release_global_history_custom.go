@@ -9,25 +9,14 @@ func (qb *SceneStore) CountAllViews(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	exists, err := releaseTransferTableExistsCustom(ctx, "scene_release_view_dates")
-	if err != nil || !exists {
-		return mainCount, err
-	}
 	var releaseCount int
 	err = dbWrapper.Get(ctx, &releaseCount, `SELECT COUNT(*) FROM scene_release_view_dates`)
 	return mainCount + releaseCount, err
 }
 
 func (qb *SceneStore) CountUniqueViews(ctx context.Context) (int, error) {
-	exists, err := releaseTransferTableExistsCustom(ctx, "scene_release_view_dates")
-	if err != nil || !exists {
-		if err != nil {
-			return 0, err
-		}
-		return qb.viewDateManager.CountUniqueViews(ctx)
-	}
 	var count int
-	err = dbWrapper.Get(ctx, &count, `SELECT COUNT(*) FROM (
+	err := dbWrapper.Get(ctx, &count, `SELECT COUNT(*) FROM (
 		SELECT scene_id FROM scenes_view_dates
 		UNION
 		SELECT sr.scene_id FROM scene_release_view_dates rv
@@ -40,10 +29,6 @@ func (qb *SceneStore) GetAllOCount(ctx context.Context) (int, error) {
 	mainCount, err := qb.oDateManager.GetAllOCount(ctx)
 	if err != nil {
 		return 0, err
-	}
-	exists, err := releaseTransferTableExistsCustom(ctx, "scene_release_o_dates")
-	if err != nil || !exists {
-		return mainCount, err
 	}
 	var releaseCount int
 	err = dbWrapper.Get(ctx, &releaseCount, `SELECT COUNT(*) FROM scene_release_o_dates`)

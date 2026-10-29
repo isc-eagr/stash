@@ -16,7 +16,7 @@ SELECT
   sm.end_seconds,
   COALESCE(MAX(vf.duration), 0)
 FROM scene_markers sm
-LEFT JOIN scenes_files sf ON sf.scene_id = sm.scene_id
+LEFT JOIN scenes_files sf ON sf.scene_id = sm.scene_id AND sf."primary" = 1
 LEFT JOIN video_files vf ON vf.file_id = sf.file_id
 WHERE sm.scene_id IN (SELECT id FROM selected_scenes)
   AND sm.primary_tag_id = ?

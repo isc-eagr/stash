@@ -1,3 +1,10 @@
+import {
+  mergeActivityIntervalsCustom as mergeSceneStatsInteractionIntervals,
+  activityDurationCustom as mergeDuration,
+} from "src/utils/activityIntervals_custom";
+
+export { mergeSceneStatsInteractionIntervals };
+
 export type SceneStatsPartnerCategory = "sex" | "oral";
 
 export interface ISceneStatsPartnerPerformer {
@@ -92,32 +99,6 @@ function uniquePerformers(performers: ISceneStatsPartnerPerformer[]) {
       performers.map((performer) => [performer.id, performer])
     ).values(),
   ];
-}
-
-export function mergeSceneStatsInteractionIntervals(
-  intervals: ISceneStatsPartnerInterval[]
-) {
-  const sorted = [...intervals].sort((a, b) => a.start - b.start);
-  const merged: ISceneStatsPartnerInterval[] = [];
-
-  sorted.forEach((interval) => {
-    const last = merged[merged.length - 1];
-    if (!last || interval.start > last.end) {
-      merged.push({ ...interval });
-      return;
-    }
-
-    last.end = Math.max(last.end, interval.end);
-  });
-
-  return merged;
-}
-
-function mergeDuration(intervals: ISceneStatsPartnerInterval[]) {
-  return mergeSceneStatsInteractionIntervals(intervals).reduce(
-    (total, interval) => total + interval.end - interval.start,
-    0
-  );
 }
 
 function getUniquePartnerDuration(

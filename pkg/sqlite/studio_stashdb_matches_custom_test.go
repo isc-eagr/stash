@@ -34,10 +34,6 @@ func TestStudioAverageStashDBMatchesCustom(t *testing.T) {
 		}
 	}
 
-	previous := releaseOEventsReadyCustom.Load()
-	releaseOEventsReadyCustom.Store(true)
-	defer releaseOEventsReadyCustom.Store(previous)
-
 	expr, ok := StudioSortMetricExpressionCustom(studioAverageStashDBMatchesSortCustom)
 	if !ok {
 		t.Fatal("average StashDB Matches has no metric expression")

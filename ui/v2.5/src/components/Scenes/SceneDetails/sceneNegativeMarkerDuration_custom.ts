@@ -1,3 +1,5 @@
+import { activityDurationCustom } from "src/utils/activityIntervals_custom";
+
 export interface ISceneNegativeMarkerTimeRange {
   start_seconds: number;
   end_seconds: number;
@@ -33,25 +35,5 @@ export function getSceneNegativeMarkerTotalDuration(
     return end > start ? [{ start, end }] : [];
   });
 
-  intervals.sort((a, b) => a.start - b.start || a.end - b.end);
-
-  let total = 0;
-  let current = intervals[0];
-
-  for (const interval of intervals.slice(1)) {
-    if (!current) {
-      current = interval;
-      continue;
-    }
-
-    if (interval.start <= current.end) {
-      current.end = Math.max(current.end, interval.end);
-      continue;
-    }
-
-    total += current.end - current.start;
-    current = interval;
-  }
-
-  return total + (current ? current.end - current.start : 0);
+  return activityDurationCustom(intervals);
 }

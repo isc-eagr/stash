@@ -10,6 +10,7 @@ import {
 } from "src/utils/ratingCardStyles_custom";
 import { metallicRatingChartBucket } from "src/utils/metallicRatingChart_custom";
 import {
+  facialCount,
   markerHasTag,
   reallyHotFacialCount,
 } from "../SceneStats/sceneStatsFacialCounts_custom";
@@ -58,6 +59,7 @@ export interface IPlaygroundConfig {
     facialTagId?: string;
     reallyHotTagId?: string;
     goatTagId?: string;
+    secondCameraTagId?: string;
   };
   ratingCardOverrideTagIds?: IRatingCardOverrideTagIds;
   ratingCardThresholds?: IRatingCardThresholdConfig;
@@ -154,6 +156,11 @@ export function preparePlaygroundScene(
     hasMarker(roles.oralTagId),
     hasMarker(roles.soloTagId)
   );
+  const facialTagIDs = {
+    facial: tagIDsFor(roles.facialTagId),
+    reallyHot: tagIDsFor(roles.reallyHotTagId),
+    secondCamera: tagIDsFor(roles.secondCameraTagId),
+  };
   const ratingClass = getRatingCardClass({
     rating: scene.rating100,
     tags: scene.tags,
@@ -193,12 +200,9 @@ export function preparePlaygroundScene(
     metallic:
       metallicRatingChartBucket(scene.rating100, tier)?.key ?? "unrated",
     facial:
-      reallyHotFacialCount(scene, {
-        facial: tagIDsFor(roles.facialTagId),
-        reallyHot: tagIDsFor(roles.reallyHotTagId),
-      }) > 0
+      reallyHotFacialCount(scene, facialTagIDs) > 0
         ? "rh"
-        : hasMarker(roles.facialTagId)
+        : facialCount(scene, facialTagIDs) > 0
         ? "regular"
         : "no",
     scores: Object.fromEntries(

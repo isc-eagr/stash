@@ -61,6 +61,7 @@ import {
 import { FileSize } from "src/components/Shared/FileSize";
 import {
   facialCount,
+  isFacialMarker,
   markerHasTag,
   reallyHotFacialCount,
 } from "./sceneStatsFacialCounts_custom";
@@ -206,6 +207,7 @@ type RoleTagIDSets = {
   facial?: Set<string>;
   reallyHot?: Set<string>;
   goat?: Set<string>;
+  secondCamera?: Set<string>;
 };
 
 interface IRouteParams {
@@ -344,7 +346,7 @@ function metricValue(
     case "performer_count":
       return scene.performer_count;
     case "facial_count":
-      return facialCount(scene, roleTagIDs.facial);
+      return facialCount(scene, roleTagIDs);
     default:
       return 0;
   }
@@ -403,12 +405,12 @@ function roundedDurationMinutes(scene: SceneStatsScene) {
 
 // The best facial in the scene: GOAT, then Really Hot, then a regular one.
 function facialStatus(scene: SceneStatsScene, roleTagIDs: RoleTagIDSets) {
-  const hasFacial = sceneHasTag(scene, roleTagIDs.facial);
+  const hasFacial = facialCount(scene, roleTagIDs) > 0;
   const hasGoatFacial =
     !!roleTagIDs.goat &&
     scene.scene_markers.some(
       (marker) =>
-        markerHasTag(marker, roleTagIDs.facial) &&
+        isFacialMarker(marker, roleTagIDs) &&
         markerHasTag(marker, roleTagIDs.goat)
     );
 
@@ -507,7 +509,7 @@ function sceneMatchesFilter(
         releaseYear: releaseYear(scene),
         releaseMonth: releaseMonth(scene),
         releaseDay: releaseDay(scene),
-        facialCount: facialCount(scene, roleTagIDs.facial),
+        facialCount: facialCount(scene, roleTagIDs),
         sceneType: sceneType(scene, roleTagIDs),
         resolution: sceneResolutionLabel(scene),
       },
@@ -539,7 +541,7 @@ function sceneMatchesFilter(
     case "facial_status":
       return facialStatus(scene, roleTagIDs) === filter.value;
     case "facial_count":
-      return String(facialCount(scene, roleTagIDs.facial)) === filter.value;
+      return String(facialCount(scene, roleTagIDs)) === filter.value;
     case "nut_count":
       return String(nutsByScene.get(scene.id)?.count ?? 0) === filter.value;
     case "nut_status":
@@ -780,7 +782,7 @@ function buildSceneCharts(
     }
 
     // CUSTOM: one stacked column per facial count, colored by the best facial.
-    const sceneFacials = facialCount(scene, roleTagIDs.facial);
+    const sceneFacials = facialCount(scene, roleTagIDs);
     const column = facialBuckets.get(sceneFacials) ?? {
       count: sceneFacials,
       total: 0,
@@ -980,6 +982,7 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
         stringRoleTagId(roleTagIds.facialTagId),
         stringRoleTagId(roleTagIds.reallyHotTagId),
         stringRoleTagId(roleTagIds.goatTagId),
+        stringRoleTagId(roleTagIds.secondCameraTagId),
       ].filter((id): id is string => !!id),
     [roleTagIds]
   );
@@ -1014,6 +1017,9 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
     stringRoleTagId(roleTagIds.reallyHotTagId) ?? ""
   );
   const goatTag = roleTagsByID.get(stringRoleTagId(roleTagIds.goatTagId) ?? "");
+  const secondCameraTag = roleTagsByID.get(
+    stringRoleTagId(roleTagIds.secondCameraTagId) ?? ""
+  );
   const roleTagIDs = useMemo(
     () => ({
       sex: tagIDsFor(sexTag),
@@ -1022,8 +1028,17 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
       facial: tagIDsFor(facialTag),
       reallyHot: tagIDsFor(reallyHotTag),
       goat: tagIDsFor(goatTag),
+      secondCamera: tagIDsFor(secondCameraTag),
     }),
-    [facialTag, goatTag, oralTag, reallyHotTag, sexTag, soloTag]
+    [
+      facialTag,
+      goatTag,
+      oralTag,
+      reallyHotTag,
+      secondCameraTag,
+      sexTag,
+      soloTag,
+    ]
   );
   // CUSTOM: Keep the selected stats tab restorable through browser history.
   useEffect(() => {

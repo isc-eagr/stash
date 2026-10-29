@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { gql, useQuery } from "@apollo/client";
 import { formatSceneOOrdinalLabelCustom } from "src/components/OStats/oStatsEventPresentation_custom";
-import { getAppLocaleCustom } from "src/utils/appLocale_custom";
+import { formatAppDateTimeCustom as formatODate } from "src/utils/appLocale_custom";
 import { HoverPopover } from "./HoverPopover";
 import {
   getRatingAdvisorOEventsCustom,
@@ -50,16 +50,6 @@ const OTrackEventsQuery = gql`
     }
   }
 `;
-
-function formatODate(value: string) {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return value;
-
-  return parsed.toLocaleString(getAppLocaleCustom(), {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
 
 interface IRatingAdvisorOTrackProps {
   entityType: RatingAdvisorEntityCustom;

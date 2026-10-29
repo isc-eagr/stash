@@ -23,10 +23,21 @@ The developer always handles git commits manually. Never commit, push, or create
 
 - This is a custom fork of upstream Stash. Follow [CUSTOM_CODE_CONVENTIONS.md](CUSTOM_CODE_CONVENTIONS.md) when editing code: put standalone Go/TypeScript additions in `_custom.go`/`_custom.ts`, GraphQL extensions in `_custom.graphql`, and mark changes inside upstream files with `CUSTOM` comments. New React components may use normal filenames.
 - In JSX, `{/* CUSTOM */}` belongs between children, never inside an opening tag after props; use a line comment for prop edits. JSON cannot contain comments.
-- Keep custom database changes outside the upstream migration system: install them at startup in `pkg/sqlite/fork_schema_custom.go` (or a feature's own `_custom.go` bootstrap). Each step checks the current layout first so up-to-date databases are left untouched. Don't commit one-time data fixes; delete them once applied.
+- Database schema changes follow "Database schema changes" below.
 - Keep UI copy short. Add explanatory text only when it prevents a likely mistake.
 - Write UI copy (labels, buttons, hints, empty states, toasts, errors, tooltips) in plain English. Add Spanish phrases or slang only when the developer asks for them for that text. These stay as the app's chosen vocabulary, so keep using them where they fit and don't translate them: "vato"/"vatos" for performers, the body words (pito, mecos, verga) in labels, and the Rating Advisor's rubric and scale text (`RatingAdvisor_custom.tsx`, `ratingAdvisorScales_custom.ts`, `groupSceneRating_custom.ts`), which the developer picked line by line.
 - Document independently user-visible custom features in [CUSTOM_FEATURES.md](CUSTOM_FEATURES.md): overview, changed files, tests, schema changes, and config dependencies. Fold styling, copy, performance, refactors, and tests for existing features into their parent entry. Remove an entry when upstream replaces the feature.
+
+## Database schema changes
+
+Every custom schema change is built into the Go startup code, so a new install gets it on first start and an existing one only gets what it's missing. Never ship a `.sql` file or a manual database step.
+
+- This covers any table, column, index, trigger, or view the fork adds, and any change to an upstream table. Put it in `pkg/sqlite/fork_schema_custom.go`, or a feature's own `_custom.go` bootstrap that runs from `initialise()` in `pkg/sqlite/database.go`. Never add it to `pkg/sqlite/migrations` or bump `appSchemaVersion`.
+- Each step reads the current layout first (`CREATE ... IF NOT EXISTS`, `tableColumnsCustom`, the table's SQL in `sqlite_master`) and changes only what is missing, so an up-to-date database is left untouched.
+- Change a column type, nullability, or constraint with `rebuildTableCustom`. It keeps IDs and, where files are named by them, rowids. Rebuilds run with foreign keys off, so children aren't cascade-deleted.
+- Runtime code assumes the schema exists. Don't add table or column existence checks, fallbacks for older layouts, or "run X first" errors.
+- Add a test to `pkg/sqlite/fork_schema_custom_test.go` that starts from a plain upstream database (and from the old layout, when there is one) and checks the result. A second start must change nothing.
+- One-time data fixes are not schema. Run them once (on prod, through the app's GraphQL), then delete them. Don't commit them.
 
 ## Verification
 

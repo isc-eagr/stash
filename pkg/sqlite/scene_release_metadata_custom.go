@@ -13,9 +13,6 @@ import (
 )
 
 func (qb *SceneReleaseStore) UpdateExtendedCustom(ctx context.Context, releaseID int, update models.SceneReleaseExtendedUpdateCustom) error {
-	if err := requireReleaseMetadataUpgradeCustom(ctx); err != nil {
-		return err
-	}
 	if update.OrganizedSet {
 		if _, err := dbWrapper.Exec(ctx,
 			`INSERT OR IGNORE INTO scene_release_metadata(release_id) VALUES (?)`, releaseID); err != nil {
@@ -117,10 +114,6 @@ func (qb *SceneReleaseStore) UpdateExtendedCustom(ctx context.Context, releaseID
 
 func (qb *SceneReleaseStore) GetMetadataCustom(ctx context.Context, releaseID int) (models.SceneReleaseMetadataCustom, error) {
 	var ret models.SceneReleaseMetadataCustom
-	exists, err := releaseTransferTableExistsCustom(ctx, "scene_release_metadata")
-	if err != nil || !exists {
-		return ret, err
-	}
 	var row struct {
 		Organized    bool    `db:"organized"`
 		ResumeTime   float64 `db:"resume_time"`
@@ -140,54 +133,34 @@ func (qb *SceneReleaseStore) GetMetadataCustom(ctx context.Context, releaseID in
 }
 
 func (qb *SceneReleaseStore) GetURLsCustom(ctx context.Context, releaseID int) ([]string, error) {
-	exists, err := releaseTransferTableExistsCustom(ctx, "scene_release_urls")
-	if err != nil || !exists {
-		return nil, err
-	}
 	var urls []string
-	err = dbWrapper.Select(ctx, &urls,
+	err := dbWrapper.Select(ctx, &urls,
 		`SELECT url FROM scene_release_urls WHERE release_id = ? ORDER BY position,url`, releaseID)
 	return urls, err
 }
 
 func (qb *SceneReleaseStore) GetPerformerIDsCustom(ctx context.Context, releaseID int) ([]int, error) {
-	exists, err := releaseTransferTableExistsCustom(ctx, "scene_release_performers")
-	if err != nil || !exists {
-		return nil, err
-	}
 	var ids []int
-	err = dbWrapper.Select(ctx, &ids,
+	err := dbWrapper.Select(ctx, &ids,
 		`SELECT performer_id FROM scene_release_performers WHERE release_id = ? ORDER BY performer_id`, releaseID)
 	return ids, err
 }
 
 func (qb *SceneReleaseStore) GetTagIDsCustom(ctx context.Context, releaseID int) ([]int, error) {
-	exists, err := releaseTransferTableExistsCustom(ctx, "scene_release_tags")
-	if err != nil || !exists {
-		return nil, err
-	}
 	var ids []int
-	err = dbWrapper.Select(ctx, &ids,
+	err := dbWrapper.Select(ctx, &ids,
 		`SELECT tag_id FROM scene_release_tags WHERE release_id = ? ORDER BY tag_id`, releaseID)
 	return ids, err
 }
 
 // CountByTagIDCustom counts releases tagged directly with tagID.
 func (qb *SceneReleaseStore) CountByTagIDCustom(ctx context.Context, tagID int) (int, error) {
-	exists, err := releaseTransferTableExistsCustom(ctx, "scene_release_tags")
-	if err != nil || !exists {
-		return 0, err
-	}
 	var count int
-	err = dbWrapper.Get(ctx, &count, `SELECT COUNT(*) FROM scene_release_tags WHERE tag_id = ?`, tagID)
+	err := dbWrapper.Get(ctx, &count, `SELECT COUNT(*) FROM scene_release_tags WHERE tag_id = ?`, tagID)
 	return count, err
 }
 
 func (qb *SceneReleaseStore) GetGroupsCustom(ctx context.Context, releaseID int) ([]models.GroupsScenes, error) {
-	exists, err := releaseTransferTableExistsCustom(ctx, "scene_release_groups")
-	if err != nil || !exists {
-		return nil, err
-	}
 	var rows []struct {
 		GroupID    int            `db:"group_id"`
 		SceneIndex sql.NullString `db:"scene_index"`
@@ -211,21 +184,13 @@ func (qb *SceneReleaseStore) GetGroupsCustom(ctx context.Context, releaseID int)
 }
 
 func (qb *SceneReleaseStore) GetStashIDsCustom(ctx context.Context, releaseID int) ([]models.StashID, error) {
-	exists, err := releaseTransferTableExistsCustom(ctx, "scene_release_stash_ids")
-	if err != nil || !exists {
-		return nil, err
-	}
 	var ids []models.StashID
-	err = dbWrapper.Select(ctx, &ids,
+	err := dbWrapper.Select(ctx, &ids,
 		`SELECT endpoint,stash_id,updated_at FROM scene_release_stash_ids WHERE release_id = ? ORDER BY endpoint,stash_id`, releaseID)
 	return ids, err
 }
 
 func (qb *SceneReleaseStore) GetCustomFieldsCustom(ctx context.Context, releaseID int) (map[string]interface{}, error) {
-	exists, err := releaseTransferTableExistsCustom(ctx, "scene_release_custom_fields")
-	if err != nil || !exists {
-		return map[string]interface{}{}, err
-	}
 	store := customFieldsStore{
 		table: goqu.T("scene_release_custom_fields"),
 		fk:    goqu.T("scene_release_custom_fields").Col("release_id"),
@@ -234,32 +199,20 @@ func (qb *SceneReleaseStore) GetCustomFieldsCustom(ctx context.Context, releaseI
 }
 
 func (qb *SceneReleaseStore) GetViewHistoryCustom(ctx context.Context, releaseID int) ([]time.Time, error) {
-	exists, err := releaseTransferTableExistsCustom(ctx, "scene_release_view_dates")
-	if err != nil || !exists {
-		return nil, err
-	}
 	var dates []time.Time
-	err = dbWrapper.Select(ctx, &dates,
+	err := dbWrapper.Select(ctx, &dates,
 		`SELECT view_date FROM scene_release_view_dates WHERE release_id = ? ORDER BY view_date DESC,rowid DESC`, releaseID)
 	return dates, err
 }
 
 func (qb *SceneReleaseStore) GetOHistoryCustom(ctx context.Context, releaseID int) ([]time.Time, error) {
-	exists, err := releaseTransferTableExistsCustom(ctx, "scene_release_o_dates")
-	if err != nil || !exists {
-		return nil, err
-	}
 	var dates []time.Time
-	err = dbWrapper.Select(ctx, &dates,
+	err := dbWrapper.Select(ctx, &dates,
 		`SELECT o_date FROM scene_release_o_dates WHERE release_id = ? AND o_date IS NOT NULL ORDER BY o_date DESC,rowid DESC`, releaseID)
 	return dates, err
 }
 
 func (qb *SceneReleaseStore) GetOVideoTimestampsCustom(ctx context.Context, releaseID int) ([]*float64, error) {
-	exists, err := releaseTransferTableExistsCustom(ctx, "scene_release_o_dates")
-	if err != nil || !exists {
-		return nil, err
-	}
 	// sqlx scans []*float64 elements through the base type, so NULL needs NullFloat64.
 	var rows []sql.NullFloat64
 	if err := dbWrapper.Select(ctx, &rows,

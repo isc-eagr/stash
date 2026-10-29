@@ -19,6 +19,8 @@ func newStashDBMatchesDBCustom(t *testing.T) (context.Context, *sqlx.Tx) {
 
 	_, err = db.Exec(`CREATE TABLE scenes(id INTEGER PRIMARY KEY, title TEXT);
 CREATE TABLE scene_stash_ids(scene_id INTEGER, endpoint TEXT, stash_id TEXT, updated_at DATETIME);
+CREATE TABLE scene_releases(id INTEGER PRIMARY KEY, scene_id INTEGER, studio_id INTEGER);
+CREATE TABLE scene_release_stash_ids(release_id INTEGER, endpoint TEXT, stash_id TEXT, updated_at DATETIME);
 INSERT INTO scenes VALUES (1, 'One'), (2, 'Two'), (3, 'Three'), (4, 'Four');`)
 	require.NoError(t, err)
 

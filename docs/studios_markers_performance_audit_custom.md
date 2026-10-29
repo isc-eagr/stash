@@ -2,6 +2,8 @@
 
 Date: 2026-09-25. Work performed without subagents.
 
+Historical snapshot: measurements and remaining suggestions describe the code on that date. See [CUSTOM_FEATURES.md](../CUSTOM_FEATURES.md) for current behavior and [the maintenance audit](custom_maintenance_audit_custom.md) for subsequent cleanup.
+
 ## Scope and measurement limits
 
 Reviewed the studio list, studio detail/header, and all nine content tabs:
@@ -158,8 +160,8 @@ No additional rewrite was justified by those timings.
    when the two scopes are identical. Studio detail currently asks for both.
 3. Investigate a covering index for studio image O-counter sums if studio-list
    latency remains noticeable. That aggregate alone measured about 110 ms in
-   the sampled list. Any index migration should be a standalone SQL file and
-   benchmarked before applying it.
+   the sampled list. Benchmark any proposed index first, then add it through
+   the idempotent custom startup schema bootstrap; never ship a manual SQL file.
 4. For a larger dashboard redesign, move chart aggregation and filtered ranking
    to the server. The snapshots are still complete-library inputs; preserving
    every interactive filter and drill-down requires more than limiting rows.

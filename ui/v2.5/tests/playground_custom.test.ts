@@ -115,6 +115,19 @@ assert.equal(
   "rh",
   "descendant facial and hot tag must be on the same marker"
 );
+assert.equal(
+  preparePlaygroundScene(
+    {
+      ...base,
+      scene_markers: [
+        { primary_tag: { id: "facial-child" }, tags: [{ id: "cam2" }] },
+      ],
+    },
+    { roleTagIds: { ...config.roleTagIds, secondCameraTagId: "cam2" } }
+  ).facial,
+  "no",
+  "2nd Camera facial markers do not count"
+);
 assert.equal(entry.metallic, "royal_sapphire");
 const standardMetrics = playgroundMetrics("default");
 const x = standardMetrics[0];

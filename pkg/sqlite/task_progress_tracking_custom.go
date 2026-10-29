@@ -5,12 +5,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 	_ "time/tzdata"
 )
-
-const taskProgressTrackerEventTableCustom = "task_progress_tracker_events"
 
 type taskProgressTagSetCustom map[int]struct{}
 
@@ -184,9 +181,6 @@ WHERE tag_id = ?
 		itemID,
 		requiredMemberState,
 	); err != nil {
-		if taskProgressTablesMissingCustom(err) {
-			return nil
-		}
 		return fmt.Errorf("recording %s task progress event for %s %d: %w", eventType, itemType, itemID, err)
 	}
 
@@ -212,9 +206,6 @@ WHERE item_type = ?
 		tagID,
 		itemType,
 	); err != nil {
-		if taskProgressTablesMissingCustom(err) {
-			return nil
-		}
 		return fmt.Errorf("updating fixed task progress membership for %s %d: %w", itemType, itemID, err)
 	}
 
@@ -237,9 +228,6 @@ WHERE tag_id = ?
     )
   )`
 		if _, err := dbWrapper.Exec(ctx, reactivateQuery, now, tagID, itemType, itemType, itemID); err != nil {
-			if taskProgressTablesMissingCustom(err) {
-				return nil
-			}
 			return fmt.Errorf("reactivating task progress trackers for %s %d: %w", itemType, itemID, err)
 		}
 	}
@@ -248,13 +236,6 @@ WHERE tag_id = ?
 		return completeTaskProgressTrackersCustom(ctx, tagID)
 	}
 	return nil
-}
-
-func taskProgressTablesMissingCustom(err error) bool {
-	message := err.Error()
-	return strings.Contains(message, "no such table: task_progress_trackers") ||
-		strings.Contains(message, "no such table: "+taskProgressTrackerEventTableCustom) ||
-		strings.Contains(message, "no such table: task_progress_overall_events")
 }
 
 // Delete release-owned markers through the store before the release's cascade

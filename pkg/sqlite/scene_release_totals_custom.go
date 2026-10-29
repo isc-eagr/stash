@@ -24,9 +24,7 @@ func (qb *SceneReleaseStore) GetSceneTotalsCustom(ctx context.Context, sceneIDs 
 	}
 	in := getInBinding(len(sceneIDs))
 
-	if exists, err := releaseTransferTableExistsCustom(ctx, "scene_release_o_dates"); err != nil {
-		return nil, err
-	} else if exists {
+	{
 		// One row per O: retroactive O's count but have no date.
 		var rows []struct {
 			SceneID int        `db:"scene_id"`
@@ -46,9 +44,7 @@ func (qb *SceneReleaseStore) GetSceneTotalsCustom(ctx context.Context, sceneIDs 
 		}
 	}
 
-	if exists, err := releaseTransferTableExistsCustom(ctx, "scene_release_stashdb_matches"); err != nil {
-		return nil, err
-	} else if exists {
+	{
 		var rows []struct {
 			SceneID int `db:"scene_id"`
 			Matches int `db:"matches"`
@@ -67,20 +63,10 @@ func (qb *SceneReleaseStore) GetSceneTotalsCustom(ctx context.Context, sceneIDs 
 	return ret, nil
 }
 
-// ReleaseODatesReadyCustom reports whether release O history exists on this
-// database (installed at startup by fork_schema_custom.go).
-func ReleaseODatesReadyCustom(ctx context.Context) (bool, error) {
-	return releaseTransferTableExistsCustom(ctx, "scene_release_o_dates")
-}
-
 // releaseOCountByStudioCustom counts O's on releases credited to the studio
 // filter (studioWhere on alias r). A release's O's go to its own studio, never
 // the parent scene's.
 func releaseOCountByStudioCustom(ctx context.Context, studioWhere string, studioArgs []interface{}, performerID *string) (int, error) {
-	ready, err := ReleaseODatesReadyCustom(ctx)
-	if err != nil || !ready {
-		return 0, err
-	}
 	query := `SELECT COUNT(*) FROM scene_release_o_dates o JOIN scene_releases r ON r.id = o.release_id WHERE ` + studioWhere
 	args := append([]interface{}{}, studioArgs...)
 	if performerID != nil && *performerID != "" {
@@ -96,12 +82,8 @@ func releaseOCountByStudioCustom(ctx context.Context, studioWhere string, studio
 
 // sceneReleaseOCountCustom counts the O's on a scene's releases.
 func sceneReleaseOCountCustom(ctx context.Context, sceneID int) (int, error) {
-	ready, err := ReleaseODatesReadyCustom(ctx)
-	if err != nil || !ready {
-		return 0, err
-	}
 	var count int
-	err = dbWrapper.Get(ctx, &count, `SELECT COUNT(*) FROM scene_release_o_dates rod
+	err := dbWrapper.Get(ctx, &count, `SELECT COUNT(*) FROM scene_release_o_dates rod
 		JOIN scene_releases r ON r.id = rod.release_id WHERE r.scene_id = ?`, sceneID)
 	return count, err
 }

@@ -221,7 +221,7 @@ func sceneStatsStringPtrValue(value interface{}) *string {
 	return &ret
 }
 
-func sceneStatsBaseScopedQueryCustom(effectiveDateExpr string, sceneScope string, oDateWhere string) string {
+func sceneStatsBaseScopedQueryCustom(effectiveDateExpr string, sceneScope string, oDateWhere string, royalSapphireClause string) string {
 	return fmt.Sprintf(`
 %s,
 file_stats AS (
@@ -245,14 +245,6 @@ o_stats AS (
   FROM `+sqlite.SceneOEventsSQLCustom()+` od
   WHERE scene_id IN (SELECT id FROM selected_scenes)%s
   GROUP BY scene_id
-),
-royal_sapphire_bonus_scenes AS (
-  SELECT DISTINCT entity_id AS scene_id
-  FROM rating_bonus_scores
-  WHERE entity_type = 'scene'
-    AND entity_id IN (SELECT id FROM selected_scenes)
-    AND ((key = 'goatElement' AND raw_value IN (0.5, 1, 1.5, 2))
-      OR (key = 'godTierOrgasm' AND raw_value = 1))
 )
 SELECT
   s.id,
@@ -266,16 +258,15 @@ SELECT
   fs.primary_width,
   fs.primary_height,
   os.most_recent_o_date,
-  CASE WHEN rsb.scene_id IS NOT NULL THEN 1 ELSE 0 END AS has_royal_sapphire_bonus,
+  CASE WHEN (%s) THEN 1 ELSE 0 END AS has_royal_sapphire_bonus,
   CASE WHEN s.organized THEN 1 ELSE 0 END AS organized,
   %s AS stashdb_matches,
   s.studio_id
 FROM scenes s
 LEFT JOIN file_stats fs ON fs.scene_id = s.id
 LEFT JOIN o_stats os ON os.scene_id = s.id
-LEFT JOIN royal_sapphire_bonus_scenes rsb ON rsb.scene_id = s.id
 WHERE s.id IN (SELECT id FROM selected_scenes)
-ORDER BY s.date DESC, s.id DESC`, sceneScope, oDateWhere, effectiveDateExpr, sqlite.SceneTotalStashDBMatchesSQLCustom("s.id"))
+ORDER BY s.date DESC, s.id DESC`, sceneScope, oDateWhere, effectiveDateExpr, royalSapphireClause, sqlite.SceneTotalStashDBMatchesSQLCustom("s.id"))
 }
 
 func sceneStatsScopedPerformerQueryCustom(sceneScope string) string {
@@ -363,11 +354,12 @@ func (r *queryResolver) SceneStats(ctx context.Context, studioID *string, depth 
 		return nil, err
 	}
 	oDateWhere, oDateArgs := dateRange.oDateWhereSQL("od")
+	royalSapphireClause, royalSapphireArgs := sqlite.SceneRoyalSapphirePromotionClauseCustom("s")
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		db := manager.GetInstance().Database
-		baseQuery := sceneStatsBaseScopedQueryCustom(sceneOStatsEffectiveDateExpr("s"), sceneScope, oDateWhere)
-		baseArgs := append(append([]interface{}{}, sceneScopeArgs...), oDateArgs...)
+		baseQuery := sceneStatsBaseScopedQueryCustom(sceneOStatsEffectiveDateExpr("s"), sceneScope, oDateWhere, royalSapphireClause)
+		baseArgs := append(append(append([]interface{}{}, sceneScopeArgs...), oDateArgs...), royalSapphireArgs...)
 		_, rows, err := db.QuerySQL(ctx, baseQuery, baseArgs)
 		if err != nil {
 			return err
@@ -454,7 +446,7 @@ func (r *queryResolver) SceneStats(ctx context.Context, studioID *string, depth 
 		}
 
 		uiConfig := config.GetInstance().GetUIConfiguration()
-		sexTagID, oralTagID, soloTagID, facialTagID, _, _, _ := getRoleTagIDs(uiConfig)
+		sexTagID, oralTagID, soloTagID, facialTagID, _, _, secondCameraTagID := getRoleTagIDs(uiConfig)
 		markerQuery, markerArgs := sceneStatsScopedMarkerQueryCustom(sceneScope, []int{
 			sexTagID,
 			oralTagID,
@@ -463,6 +455,8 @@ func (r *queryResolver) SceneStats(ctx context.Context, studioID *string, depth 
 			configuredRoleTagIDCustom(uiConfig, "reallyHotTagId"),
 			// GOAT facials color the Scene Stats facial columns.
 			configuredRoleTagIDCustom(uiConfig, "goatTagId"),
+			// 2nd Camera markers never count as facials.
+			secondCameraTagID,
 		})
 		markerArgs = append(append([]interface{}{}, sceneScopeArgs...), markerArgs...)
 		_, markerRows, err := db.QuerySQL(ctx, markerQuery, markerArgs)

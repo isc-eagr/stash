@@ -15,6 +15,7 @@ func TestSceneOEventOrdinalsQueryRanksEventsChronologicallyPerScene(t *testing.T
 	defer db.Close()
 
 	statements := []string{
+		oStatsReleaseTablesSchemaCustom,
 		`CREATE TABLE scenes (id INTEGER PRIMARY KEY, studio_id INTEGER)`,
 		`INSERT INTO scenes(id) VALUES (1), (2), (3)`,
 		`CREATE TABLE scenes_o_dates (scene_id INTEGER, o_date TEXT, video_timestamp REAL)`,

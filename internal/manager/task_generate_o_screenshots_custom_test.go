@@ -35,9 +35,9 @@ INSERT INTO scene_release_o_dates VALUES (8, '2026-01-04', 9), (8, '2026-01-05',
 		t.Fatal(err)
 	}
 
-	count := func(sceneIDs []int, paths []string, releaseReady bool) (scene, release int) {
+	count := func(sceneIDs []int, paths []string) (scene, release int) {
 		t.Helper()
-		query, args := oScreenshotEventsQueryCustom(sceneIDs, paths, releaseReady)
+		query, args := oScreenshotEventsQueryCustom(sceneIDs, paths)
 		rows, err := db.Query(query, args...)
 		if err != nil {
 			t.Fatal(err)
@@ -58,16 +58,13 @@ INSERT INTO scene_release_o_dates VALUES (8, '2026-01-04', 9), (8, '2026-01-05',
 		return
 	}
 
-	if s, r := count(nil, nil, true); s != 2 || r != 1 {
+	if s, r := count(nil, nil); s != 2 || r != 1 {
 		t.Fatalf("all events: %d scene, %d release", s, r)
 	}
-	if s, r := count([]int{1}, nil, true); s != 1 || r != 1 {
+	if s, r := count([]int{1}, nil); s != 1 || r != 1 {
 		t.Fatalf("scene 1 cluster: %d scene, %d release", s, r)
 	}
-	if s, r := count(nil, []string{"C:" + sep + "releases"}, true); s != 0 || r != 1 {
+	if s, r := count(nil, []string{"C:" + sep + "releases"}); s != 0 || r != 1 {
 		t.Fatalf("release path: %d scene, %d release", s, r)
-	}
-	if s, r := count(nil, nil, false); s != 2 || r != 0 {
-		t.Fatalf("without release tables: %d scene, %d release", s, r)
 	}
 }

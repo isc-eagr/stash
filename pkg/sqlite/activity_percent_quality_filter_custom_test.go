@@ -30,7 +30,7 @@ func TestOralPercentFilterUsesClassifiedActivityTotalCustom(t *testing.T) {
 
 	_, err = db.Exec(`
 CREATE TABLE scenes (id INTEGER PRIMARY KEY);
-CREATE TABLE scenes_files (scene_id INTEGER, file_id INTEGER);
+CREATE TABLE scenes_files (scene_id INTEGER, file_id INTEGER, "primary" BOOLEAN DEFAULT 1);
 CREATE TABLE video_files (file_id INTEGER, duration REAL);
 CREATE TABLE scene_markers (id INTEGER PRIMARY KEY, scene_id INTEGER, primary_tag_id INTEGER, seconds REAL, end_seconds REAL);
 CREATE TABLE scene_markers_tags (scene_marker_id INTEGER, tag_id INTEGER);
@@ -66,7 +66,7 @@ func TestSceneQualityPercentExpressionsCustom(t *testing.T) {
 
 	_, err = db.Exec(`
 CREATE TABLE scenes (id INTEGER PRIMARY KEY);
-CREATE TABLE scenes_files (scene_id INTEGER, file_id INTEGER);
+CREATE TABLE scenes_files (scene_id INTEGER, file_id INTEGER, "primary" BOOLEAN DEFAULT 1);
 CREATE TABLE video_files (file_id INTEGER, duration REAL);
 CREATE TABLE scene_markers (id INTEGER PRIMARY KEY, scene_id INTEGER, primary_tag_id INTEGER, seconds REAL, end_seconds REAL);
 CREATE TABLE scene_markers_tags (scene_marker_id INTEGER, tag_id INTEGER);
@@ -143,7 +143,7 @@ CREATE TABLE scene_markers (id INTEGER PRIMARY KEY, scene_id INTEGER, primary_ta
 CREATE TABLE scene_markers_tags (scene_marker_id INTEGER, tag_id INTEGER);
 CREATE TABLE tags_relations (parent_id INTEGER, child_id INTEGER);
 CREATE TABLE scenes (id INTEGER PRIMARY KEY);
-CREATE TABLE scenes_files (scene_id INTEGER, file_id INTEGER);
+CREATE TABLE scenes_files (scene_id INTEGER, file_id INTEGER, "primary" BOOLEAN DEFAULT 1);
 CREATE TABLE video_files (file_id INTEGER, duration REAL);
 
 INSERT INTO scenes (id) VALUES (1);

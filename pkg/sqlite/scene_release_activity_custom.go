@@ -9,9 +9,6 @@ import (
 
 // SaveActivityCustom records playback against the release, never its parent scene.
 func (qb *SceneReleaseStore) SaveActivityCustom(ctx context.Context, releaseID int, resumeTime, playDuration *float64) error {
-	if err := requireReleaseMetadataUpgradeCustom(ctx); err != nil {
-		return err
-	}
 	if err := qb.requireReleaseCustom(ctx, releaseID); err != nil {
 		return err
 	}
@@ -31,9 +28,6 @@ func (qb *SceneReleaseStore) SaveActivityCustom(ctx context.Context, releaseID i
 }
 
 func (qb *SceneReleaseStore) AddPlayCustom(ctx context.Context, releaseID int) (int, error) {
-	if err := requireReleaseMetadataUpgradeCustom(ctx); err != nil {
-		return 0, err
-	}
 	if err := qb.requireReleaseCustom(ctx, releaseID); err != nil {
 		return 0, err
 	}
@@ -48,9 +42,6 @@ func (qb *SceneReleaseStore) AddPlayCustom(ctx context.Context, releaseID int) (
 func (qb *SceneReleaseStore) AddOAtTimestampCustom(ctx context.Context, releaseID int, videoTimestamp float64) (int, error) {
 	if math.IsNaN(videoTimestamp) || math.IsInf(videoTimestamp, 0) || videoTimestamp < 0 {
 		return 0, fmt.Errorf("video timestamp must be finite and non-negative")
-	}
-	if err := requireReleaseMetadataUpgradeCustom(ctx); err != nil {
-		return 0, err
 	}
 	if err := qb.requireReleaseCustom(ctx, releaseID); err != nil {
 		return 0, err
@@ -77,9 +68,6 @@ func (qb *SceneReleaseStore) requireReleaseCustom(ctx context.Context, releaseID
 // EditHistoryCustom changes only the selected release and removes one duplicate
 // at a time. Call it inside the mutation transaction.
 func (qb *SceneReleaseStore) EditHistoryCustom(ctx context.Context, releaseID int, kind, action string, at *time.Time) error {
-	if err := requireReleaseMetadataUpgradeCustom(ctx); err != nil {
-		return err
-	}
 	if err := qb.requireReleaseCustom(ctx, releaseID); err != nil {
 		return err
 	}
@@ -105,7 +93,7 @@ func (qb *SceneReleaseStore) EditHistoryCustom(ctx context.Context, releaseID in
 			query += fmt.Sprintf(` AND %s = ?`, dateColumn)
 			args = append(args, *at)
 		}
-		query += ` ORDER BY rowid DESC LIMIT 1)`
+		query += fmt.Sprintf(` ORDER BY %s DESC,rowid DESC LIMIT 1)`, dateColumn)
 		result, err := dbWrapper.Exec(ctx, query, args...)
 		if err != nil {
 			return err
@@ -127,9 +115,6 @@ func (qb *SceneReleaseStore) EditHistoryCustom(ctx context.Context, releaseID in
 }
 
 func (qb *SceneReleaseStore) ResetActivityCustom(ctx context.Context, releaseID int, resetResume, resetDuration bool) error {
-	if err := requireReleaseMetadataUpgradeCustom(ctx); err != nil {
-		return err
-	}
 	if err := qb.requireReleaseCustom(ctx, releaseID); err != nil {
 		return err
 	}

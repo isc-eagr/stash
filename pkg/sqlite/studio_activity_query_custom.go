@@ -35,7 +35,7 @@ func studioQualityPercentExpressionCustom(query *queryBuilder, category activity
 	query.addWith(false, `studio_quality_durations AS MATERIALIZED (
  SELECT s.id AS scene_id, s.studio_id, COALESCE(MAX(v.duration), 0) AS duration
  FROM studio_quality_candidates c CROSS JOIN scenes s ON s.studio_id = c.id
- LEFT JOIN scenes_files sf ON sf.scene_id = s.id
+ LEFT JOIN scenes_files sf ON sf.scene_id = s.id AND sf."primary" = 1
  LEFT JOIN video_files v ON v.file_id = sf.file_id GROUP BY s.id
 )`, `studio_quality_activity AS MATERIALIZED (
  SELECT sm.scene_id, MAX(0, sm.seconds) AS seconds, MIN(d.duration, sm.end_seconds) AS end_seconds

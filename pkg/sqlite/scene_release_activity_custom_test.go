@@ -144,3 +144,55 @@ INSERT INTO scene_release_o_dates VALUES (4,'2026-01-01',NULL), (4,'2026-01-02',
 		t.Fatalf("release O timestamps = %v", timestamps)
 	}
 }
+
+func TestReleaseHistoryDecrementRemovesLatestDateCustom(t *testing.T) {
+	db, err := sqlx.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	db.SetMaxOpenConns(1)
+	if _, err := db.Exec(`CREATE TABLE scene_releases(id INTEGER PRIMARY KEY);
+INSERT INTO scene_releases VALUES (4);
+CREATE TABLE scene_release_view_dates(release_id INTEGER, view_date DATETIME);
+CREATE TABLE scene_release_o_dates(release_id INTEGER, o_date DATETIME, video_timestamp REAL);`); err != nil {
+		t.Fatal(err)
+	}
+	tx, err := db.BeginTxx(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	ctx := context.WithValue(context.Background(), txnKey, tx)
+	store := &SceneReleaseStore{}
+	newest := time.Date(2026, 10, 28, 12, 0, 0, 0, time.UTC)
+	oldest := newest.AddDate(-1, 0, 0)
+	for _, kind := range []string{"play", "o"} {
+		for _, date := range []time.Time{newest, oldest} {
+			if err := store.EditHistoryCustom(ctx, 4, kind, "add", &date); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	// Converted scenes may also carry retroactive O's, inserted after dated O's.
+	if _, err := tx.Exec(`INSERT INTO scene_release_o_dates(release_id) VALUES (4)`); err != nil {
+		t.Fatal(err)
+	}
+	for _, kind := range []string{"play", "o"} {
+		if err := store.EditHistoryCustom(ctx, 4, kind, "delete", nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	views, err := store.GetViewHistoryCustom(ctx, 4)
+	if err != nil || len(views) != 1 || !views[0].Equal(oldest) {
+		t.Fatalf("play history after decrement = %v, %v", views, err)
+	}
+	orgasms, err := store.GetOHistoryCustom(ctx, 4)
+	if err != nil || len(orgasms) != 1 || !orgasms[0].Equal(oldest) {
+		t.Fatalf("O history after decrement = %v, %v", orgasms, err)
+	}
+	var count int
+	if err := tx.Get(&count, `SELECT COUNT(*) FROM scene_release_o_dates WHERE o_date IS NULL`); err != nil || count != 1 {
+		t.Fatalf("retroactive O's after decrement = %d, %v", count, err)
+	}
+}

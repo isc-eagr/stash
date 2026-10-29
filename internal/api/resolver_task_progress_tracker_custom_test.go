@@ -29,7 +29,6 @@ func TestLegacyTaskProgressTrackersCustom(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, trackers, 1)
 	require.Equal(t, "Legacy", trackers[0].Name)
-	require.Equal(t, 14, legacyTaskProgressGoalCustom(trackers[0]))
 	require.True(t, trackers[0].IsWorkingOn)
 }
 

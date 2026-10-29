@@ -1,4 +1,3 @@
-import { getSceneOrgasmFacialEvents } from "src/components/Scenes/sceneCardInsightsData_custom"; // CUSTOM
 import React, {
   KeyboardEvent,
   useCallback,
@@ -72,9 +71,7 @@ import chromecast from "@silvermine/videojs-chromecast";
 import abLoopPlugin from "videojs-abloop";
 import ScreenUtils from "src/utils/screen";
 import { PatchComponent } from "src/patch";
-// CUSTOM: begin - custom imports (facial overlay, multi-segment loop, performer image overlay)
-import facialPng from "src/assets/facial.png"; // CUSTOM
-
+// CUSTOM: begin - custom imports (multi-segment loop, performer image overlay)
 // Multi-segment loop plugin
 import "./multi-segment-loop";
 import type MultiSegmentLoopPlugin from "./multi-segment-loop";
@@ -1730,19 +1727,6 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
     const isPortrait =
       file && file.height && file.width && file.height > file.width;
 
-    // CUSTOM: Match the card/event quality hierarchy, including tag descendants.
-    const facialQuality = useMemo(() => {
-      const events = getSceneOrgasmFacialEvents(
-        scene,
-        configuration?.ui?.roleTagIds
-      ).filter((event) => event.category === "facial");
-      if (events.some((event) => event.quality === "GOAT")) return "GOAT";
-      if (events.some((event) => event.quality === "Really Hot"))
-        return "Really Hot";
-      return events.length > 0 ? "Regular" : undefined;
-    }, [scene, configuration?.ui?.roleTagIds]);
-    // CUSTOM: end
-
     return (
       <div
         className={cx("VideoPlayer", {
@@ -1786,22 +1770,6 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
               </div>,
               _player.el()!
             )}
-          {/* CUSTOM: one shared-quality icon; static glow avoids animation work. */}
-          {facialQuality && (
-            <span
-              className={cx("scene-facial-overlay", {
-                "scene-facial-overlay--gold": facialQuality === "Really Hot",
-                "scene-facial-overlay--sapphire": facialQuality === "GOAT",
-              })}
-              role="img"
-              aria-label={`Facial (${facialQuality})`}
-              title={`${facialQuality} facial marker present`}
-              style={{
-                maskImage: `url("${facialPng}")`,
-                WebkitMaskImage: `url("${facialPng}")`,
-              }}
-            />
-          )}
           {/* CUSTOM: end */}
         </div>
         {scene.interactive &&

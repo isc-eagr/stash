@@ -225,11 +225,13 @@ for (const counterPath of [
   );
 }
 const cardSource = source("Scenes/SceneCard.tsx");
-assert.doesNotMatch(
-  cardSource,
-  /scene-facial-overlay|facialPng/,
-  "the thumbnail facial icon moved into the rating strip"
-);
+for (const path of ["Scenes/SceneCard.tsx", "ScenePlayer/ScenePlayer.tsx"]) {
+  assert.doesNotMatch(
+    source(path),
+    /scene-facial-overlay|facialPng/,
+    `${path} keeps facial icons in the rating strip instead of over the video`
+  );
+}
 assert.doesNotMatch(
   cardSource,
   /RatingCriteriaTooltip/,

@@ -169,8 +169,6 @@ INSERT INTO rating_criteria_scores VALUES ('scene', 1, 1, 1);`
 }
 
 func TestSceneAndGroupOTotalsSQLCustom(t *testing.T) {
-	SetReleaseOEventsReadyCustom(true)
-	t.Cleanup(func() { SetReleaseOEventsReadyCustom(false) })
 	ctx := releaseTotalsTestCtxCustom(t, `
 CREATE TABLE scenes(id INTEGER PRIMARY KEY);
 CREATE TABLE groups(id INTEGER PRIMARY KEY);

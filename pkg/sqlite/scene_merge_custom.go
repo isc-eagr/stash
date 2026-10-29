@@ -56,10 +56,6 @@ func (qb *SceneStore) MergeCustomDataCustom(ctx context.Context, sourceIDs []int
 }
 
 func mergeSceneReleasesCustom(ctx context.Context, sourceID, destID int) error {
-	exists, err := releaseTransferTableExistsCustom(ctx, "scene_releases")
-	if err != nil || !exists {
-		return err
-	}
 	if err := checkSceneFamilyFileConflictsCustom(ctx, sourceID, destID); err != nil {
 		return fmt.Errorf("merging scene %d: %w", sourceID, err)
 	}
@@ -105,10 +101,6 @@ func keepMergeRowsCustom(ctx context.Context, table, label string, sourceIDs []i
 // selection it moves every range except exact duplicates of a kept one.
 func mergeSceneNegativeMarkersCustom(ctx context.Context, sourceIDs []int, destID int, keep []int) error {
 	const table = "scene_negative_markers"
-	exists, err := releaseTransferTableExistsCustom(ctx, table)
-	if err != nil || !exists {
-		return err
-	}
 
 	if keep != nil {
 		ids, err := keepMergeRowsCustom(ctx, table, "negative marker", sourceIDs, destID, keep)
@@ -142,13 +134,9 @@ func mergeSceneNegativeMarkersCustom(ctx context.Context, sourceIDs []int, destI
 // name is already used on the destination with a numeric suffix. Without a
 // selection it moves every preset and drops identical same-name presets.
 func mergeSceneLoopPresetsCustom(ctx context.Context, sourceIDs []int, destID int, keep []int) error {
-	exists, err := releaseTransferTableExistsCustom(ctx, sceneLoopPresetTable)
-	if err != nil || !exists {
-		return err
-	}
-
 	var keptIDs []int
 	if keep != nil {
+		var err error
 		if keptIDs, err = keepMergeRowsCustom(ctx, sceneLoopPresetTable, "loop preset", sourceIDs, destID, keep); err != nil {
 			return err
 		}

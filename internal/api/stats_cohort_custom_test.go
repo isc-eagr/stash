@@ -12,7 +12,7 @@ func TestStatsCohortScopesCustom(t *testing.T) {
 	db, err := sql.Open("sqlite3", ":memory:")
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
-	_, err = db.Exec(`
+	_, err = db.Exec(oStatsReleaseTablesSchemaCustom + `
 CREATE TABLE studios(id INTEGER PRIMARY KEY, parent_id INTEGER);
 CREATE TABLE scenes(id INTEGER PRIMARY KEY, studio_id INTEGER, created_at TEXT, date TEXT, rating INTEGER);
 CREATE TABLE performers(id INTEGER PRIMARY KEY, rating INTEGER);

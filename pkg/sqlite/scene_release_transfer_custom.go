@@ -8,31 +8,6 @@ import (
 	"time"
 )
 
-func releaseTransferTableExistsCustom(ctx context.Context, name string) (bool, error) {
-	var count int
-	if err := dbWrapper.Get(ctx, &count, `SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?`, name); err != nil {
-		return false, err
-	}
-	return count == 1, nil
-}
-
-func requireReleaseMetadataUpgradeCustom(ctx context.Context) error {
-	for _, table := range []string{
-		"scene_release_metadata", "scene_release_urls", "scene_release_performers",
-		"scene_release_tags", "scene_release_groups", "scene_release_stash_ids",
-		"scene_release_custom_fields", "scene_release_view_dates", "scene_release_o_dates",
-	} {
-		exists, err := releaseTransferTableExistsCustom(ctx, table)
-		if err != nil {
-			return err
-		}
-		if !exists {
-			return fmt.Errorf("scene release tables are missing: restart Stash to install them before converting")
-		}
-	}
-	return nil
-}
-
 // CheckConversionFileConflictsCustom rejects a conversion or scene merge that
 // would make the same file belong to two owners in the target family.
 func (qb *SceneReleaseStore) CheckConversionFileConflictsCustom(ctx context.Context, sourceSceneID, targetSceneID int) error {
@@ -64,10 +39,6 @@ func checkSceneFamilyFileConflictsCustom(ctx context.Context, sourceSceneID, tar
 // updateFirstURLCustom keeps the compatibility URL field in sync with the
 // ordered URL collection without replacing additional URLs.
 func (qb *SceneReleaseStore) updateFirstURLCustom(ctx context.Context, releaseID int, value string) error {
-	exists, err := releaseTransferTableExistsCustom(ctx, "scene_release_urls")
-	if err != nil || !exists {
-		return err
-	}
 	var firstPosition *int
 	if err := dbWrapper.Get(ctx, &firstPosition,
 		`SELECT MIN(position) FROM scene_release_urls WHERE release_id = ?`, releaseID); err != nil {
@@ -81,24 +52,18 @@ func (qb *SceneReleaseStore) updateFirstURLCustom(ctx context.Context, releaseID
 			return err
 		}
 	}
-	if value != "" {
-		_, err = dbWrapper.Exec(ctx,
-			`INSERT INTO scene_release_urls(release_id,position,url) VALUES (?,?,?)`, releaseID, position, value)
+	if value == "" {
+		return nil
 	}
+	_, err := dbWrapper.Exec(ctx,
+		`INSERT INTO scene_release_urls(release_id,position,url) VALUES (?,?,?)`, releaseID, position, value)
 	return err
 }
 
 // copyStashDBMatchesCustom carries the StashDB count with the Stash IDs it
-// belongs to, when both owners have a matches table.
+// belongs to.
 func copyStashDBMatchesCustom(ctx context.Context, query string, toID, fromID int) error {
-	ready, err := releaseStashDBMatchesReadyCustom(ctx)
-	if err != nil || !ready {
-		return err
-	}
-	if exists, err := releaseTransferTableExistsCustom(ctx, sceneStashDBMatchesTableCustom); err != nil || !exists {
-		return err
-	}
-	_, err = dbWrapper.Exec(ctx, query, toID, fromID)
+	_, err := dbWrapper.Exec(ctx, query, toID, fromID)
 	return err
 }
 
@@ -106,9 +71,6 @@ func copyStashDBMatchesCustom(ctx context.Context, query string, toID, fromID in
 // before the source scene row is deleted. Ratings stay with scenes: the caller
 // copies or drops the source's. The caller owns the transaction.
 func (qb *SceneReleaseStore) TransferSceneMetadataToReleaseCustom(ctx context.Context, sceneID, releaseID int) error {
-	if err := requireReleaseMetadataUpgradeCustom(ctx); err != nil {
-		return err
-	}
 	statements := []string{
 		`INSERT INTO scene_release_metadata(release_id,organized,resume_time,play_duration)
 		 SELECT ?,organized,resume_time,play_duration FROM scenes WHERE id = ?`,
@@ -156,13 +118,6 @@ func (qb *SceneReleaseStore) CopyRatingFromSceneCustom(ctx context.Context, sour
 		return fmt.Errorf("copying scene rating: %w", err)
 	}
 	for _, table := range ratingScoreTables {
-		exists, err := releaseTransferTableExistsCustom(ctx, table.table)
-		if err != nil {
-			return err
-		}
-		if !exists {
-			continue
-		}
 		if _, err := dbWrapper.Exec(ctx, fmt.Sprintf(`DELETE FROM %s WHERE entity_type = 'scene' AND entity_id = ?`, table.table), targetSceneID); err != nil {
 			return fmt.Errorf("clearing %s advisor scores: %w", table.section, err)
 		}
@@ -185,10 +140,6 @@ func (qb *SceneReleaseStore) CopyMarkersToSceneCustom(ctx context.Context, relea
 	if len(markerIDs) == 0 {
 		return nil
 	}
-	hasPerformers, err := releaseTransferTableExistsCustom(ctx, "scene_marker_performers")
-	if err != nil {
-		return err
-	}
 	now := time.Now()
 	for _, markerID := range markerIDs {
 		result, err := dbWrapper.Exec(ctx, `INSERT INTO scene_markers(title,seconds,end_seconds,primary_tag_id,scene_id,created_at,updated_at)
@@ -204,11 +155,9 @@ func (qb *SceneReleaseStore) CopyMarkersToSceneCustom(ctx context.Context, relea
 			SELECT ?,tag_id FROM scene_markers_tags WHERE scene_marker_id = ?`, copyID, markerID); err != nil {
 			return fmt.Errorf("copying marker %d tags: %w", markerID, err)
 		}
-		if hasPerformers {
-			if _, err := dbWrapper.Exec(ctx, `INSERT INTO scene_marker_performers(scene_marker_id,performer_id,role)
-				SELECT ?,performer_id,role FROM scene_marker_performers WHERE scene_marker_id = ?`, copyID, markerID); err != nil {
-				return fmt.Errorf("copying marker %d performers: %w", markerID, err)
-			}
+		if _, err := dbWrapper.Exec(ctx, `INSERT INTO scene_marker_performers(scene_marker_id,performer_id,role)
+			SELECT ?,performer_id,role FROM scene_marker_performers WHERE scene_marker_id = ?`, copyID, markerID); err != nil {
+			return fmt.Errorf("copying marker %d performers: %w", markerID, err)
 		}
 	}
 	return nil
@@ -218,9 +167,6 @@ func (qb *SceneReleaseStore) CopyMarkersToSceneCustom(ctx context.Context, relea
 // data; it never changes metadata on the parent scene. The caller gives the
 // new scene its rating, which releases inherit from their parent.
 func (qb *SceneReleaseStore) TransferReleaseMetadataToSceneCustom(ctx context.Context, releaseID, sceneID int) error {
-	if err := requireReleaseMetadataUpgradeCustom(ctx); err != nil {
-		return err
-	}
 	if _, err := dbWrapper.Exec(ctx, `UPDATE scenes SET
 		organized = COALESCE((SELECT organized FROM scene_release_metadata WHERE release_id = ?), 0),
 		resume_time = COALESCE((SELECT resume_time FROM scene_release_metadata WHERE release_id = ?), 0),

@@ -195,18 +195,13 @@ func studioListIDArgsCustom(studioIDs []int) []interface{} {
 
 func queryStudioListBasicStatsCustom(ctx context.Context, studioIDs []int, statsByID map[int]*StudioListStats) error {
 	// A release's O's go to its own studio, never the parent scene's.
-	releaseOCountsSQL := "SELECT NULL AS root_id, 0 AS value WHERE 0"
-	if ready, err := sqlite.ReleaseODatesReadyCustom(ctx); err != nil {
-		return err
-	} else if ready {
-		releaseOCountsSQL = `
+	const releaseOCountsSQL = `
   SELECT studio_scope.root_id, COUNT(*) AS value
   FROM studio_scope
   JOIN scene_releases ON scene_releases.studio_id = studio_scope.studio_id
   JOIN scene_release_o_dates ON scene_release_o_dates.release_id = scene_releases.id
   GROUP BY studio_scope.root_id
 `
-	}
 	query := fmt.Sprintf(`
 WITH RECURSIVE requested(id) AS (VALUES %s),
 studio_scope(root_id, studio_id) AS (
@@ -402,7 +397,7 @@ WITH requested(id) AS (VALUES %s)
 SELECT scenes.studio_id, scenes.id, COALESCE(MAX(video_files.duration), 0)
 FROM scenes
 JOIN requested ON requested.id = scenes.studio_id
-LEFT JOIN scenes_files ON scenes_files.scene_id = scenes.id
+LEFT JOIN scenes_files ON scenes_files.scene_id = scenes.id AND scenes_files."primary" = 1
 LEFT JOIN video_files ON video_files.file_id = scenes_files.file_id
 GROUP BY scenes.studio_id, scenes.id`, requested)
 

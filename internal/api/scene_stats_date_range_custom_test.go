@@ -7,6 +7,7 @@ import (
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/stashapp/stash/pkg/sqlite"
 	"github.com/stretchr/testify/require"
 )
 
@@ -51,7 +52,7 @@ func openSceneStatsDateRangeDBCustom(t *testing.T) *sql.DB {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
 
-	_, err = db.Exec(`
+	_, err = db.Exec(oStatsReleaseTablesSchemaCustom + `
 CREATE TABLE studios (id INTEGER PRIMARY KEY, parent_id INTEGER);
 CREATE TABLE scenes (
   id INTEGER PRIMARY KEY,
@@ -63,10 +64,10 @@ CREATE TABLE scenes (
   organized BOOLEAN NOT NULL DEFAULT 0
 );
 CREATE TABLE scene_stashdb_matches (scene_id INTEGER PRIMARY KEY, matches INTEGER NOT NULL);
+CREATE TABLE scene_release_stashdb_matches (release_id INTEGER PRIMARY KEY, matches INTEGER NOT NULL);
 CREATE TABLE scenes_files (scene_id INTEGER, file_id INTEGER, "primary" BOOLEAN);
 CREATE TABLE files (id INTEGER PRIMARY KEY, size INTEGER);
 CREATE TABLE video_files (file_id INTEGER, duration REAL, width INTEGER, height INTEGER);
-CREATE TABLE scene_releases (scene_id INTEGER, date DATETIME);
 CREATE TABLE scenes_o_dates (scene_id INTEGER, o_date DATETIME, video_timestamp REAL);
 CREATE TABLE rating_bonus_scores (entity_type TEXT, entity_id INTEGER, key TEXT, raw_value REAL);
 INSERT INTO studios(id, parent_id) VALUES (1, NULL);
@@ -135,8 +136,9 @@ func TestSceneStatsBaseQueryCustomLimitsOCountsOnlyForODateRanges(t *testing.T) 
 	oCounts := func(dateRange *statsDateRangeCustom) map[int][2]int {
 		scope, scopeArgs := activityStatsSceneScopeCustom(nil, nil, dateRange)
 		oDateWhere, oDateArgs := dateRange.oDateWhereSQL("od")
-		query := sceneStatsBaseScopedQueryCustom(sceneOStatsEffectiveDateExpr("s"), scope, oDateWhere)
-		rows, err := db.Query(query, append(scopeArgs, oDateArgs...)...)
+		royalSapphireClause, royalSapphireArgs := sqlite.SceneRoyalSapphirePromotionClauseForGoatTagCustom("s", "")
+		query := sceneStatsBaseScopedQueryCustom(sceneOStatsEffectiveDateExpr("s"), scope, oDateWhere, royalSapphireClause)
+		rows, err := db.Query(query, append(append(scopeArgs, oDateArgs...), royalSapphireArgs...)...)
 		require.NoError(t, err)
 		defer rows.Close()
 

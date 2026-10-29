@@ -203,7 +203,7 @@ func (s *SceneLoopPresetStore) getMany(ctx context.Context, q *goqu.SelectDatase
 
 	if err := queryFunc(ctx, q, single, func(rows *sqlx.Rows) error {
 		var row sceneLoopPresetRow
-		if err := rows.StructScan(&row); err != nil { // CUSTOM: legacy and upgraded tables have different columns
+		if err := rows.StructScan(&row); err != nil {
 			return fmt.Errorf("scanning %s: %w", sceneLoopPresetTable, err)
 		}
 

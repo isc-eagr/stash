@@ -1,3 +1,4 @@
+import { activityDurationCustom as mergedDuration } from "src/utils/activityIntervals_custom";
 import {
   sceneActivityMarkerCategory,
   type SceneActivityRoleTagIds,
@@ -31,20 +32,22 @@ type RoleSecondsScene = Pick<SceneActivityScene, "files"> & {
   >;
 };
 
-function mergedDuration(intervals: Interval[]) {
-  let total = 0;
-  let current: Interval | undefined;
-  [...intervals]
-    .sort((a, b) => a.start - b.start)
-    .forEach((interval) => {
-      if (current && interval.start <= current.end) {
-        current.end = Math.max(current.end, interval.end);
-        return;
-      }
-      if (current) total += current.end - current.start;
-      current = { ...interval };
-    });
-  return current ? total + current.end - current.start : total;
+function roleMarkerInterval(
+  marker: RoleSecondsScene["scene_markers"][number],
+  roleTagIds: SceneActivityRoleTagIds,
+  totalSeconds: number
+): { category: "sex" | "oral"; interval: Interval } | undefined {
+  if (marker.end_seconds === null || marker.end_seconds === undefined) return;
+  const category = sceneActivityMarkerCategory(marker, roleTagIds);
+  if (category !== "sex" && category !== "oral") return;
+
+  const interval = {
+    start: Math.max(0, Math.min(marker.seconds, totalSeconds)),
+    end: Math.max(0, Math.min(marker.end_seconds, totalSeconds)),
+  };
+  if (interval.end <= interval.start) return;
+
+  return { category, interval };
 }
 
 // CUSTOM: sex/oral top and bottom seconds per vato, measured like the scene
@@ -78,18 +81,15 @@ export function getScenePerformerRoleSeconds(
     });
 
   scene.scene_markers.forEach((marker) => {
-    if (marker.end_seconds === null || marker.end_seconds === undefined) return;
-    const category = sceneActivityMarkerCategory(marker, roleTagIds);
-    if (category !== "sex" && category !== "oral") return;
+    const role = roleMarkerInterval(marker, roleTagIds, totalSeconds);
+    if (!role) return;
 
-    const interval = {
-      start: Math.max(0, Math.min(marker.seconds, totalSeconds)),
-      end: Math.max(0, Math.min(marker.end_seconds, totalSeconds)),
-    };
-    if (interval.end <= interval.start) return;
-
-    add(marker.top_performers, `${category}TopSeconds`, interval);
-    add(marker.bottom_performers, `${category}BottomSeconds`, interval);
+    add(marker.top_performers, `${role.category}TopSeconds`, role.interval);
+    add(
+      marker.bottom_performers,
+      `${role.category}BottomSeconds`,
+      role.interval
+    );
   });
 
   return new Map(
@@ -103,4 +103,25 @@ export function getScenePerformerRoleSeconds(
       },
     ])
   );
+}
+
+// CUSTOM: total sex and oral seconds, measured like the per-vato role time, so
+// a vato's role seconds divide into his share of that activity.
+export function getSceneRoleActivitySeconds(
+  scene: RoleSecondsScene,
+  roleTagIds: SceneActivityRoleTagIds
+): Record<"sex" | "oral", number> {
+  const totalSeconds = scene.files[0]?.duration ?? 0;
+  const intervals: Record<"sex" | "oral", Interval[]> = { sex: [], oral: [] };
+  if (totalSeconds > 0) {
+    scene.scene_markers.forEach((marker) => {
+      const role = roleMarkerInterval(marker, roleTagIds, totalSeconds);
+      if (role) intervals[role.category].push(role.interval);
+    });
+  }
+
+  return {
+    sex: mergedDuration(intervals.sex),
+    oral: mergedDuration(intervals.oral),
+  };
 }

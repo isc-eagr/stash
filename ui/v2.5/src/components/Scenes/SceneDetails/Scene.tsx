@@ -68,6 +68,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { objectPath, objectTitle } from "src/core/files";
 import { RatingAdvisorButton } from "src/components/Shared/RatingAdvisor_custom"; // CUSTOM
+import { getRatingAdvisorCriterionVatosCustom } from "src/components/Shared/ratingAdvisorVatos_custom"; // CUSTOM
 import { getSceneRatingModeCustom } from "src/components/Shared/groupSceneRating_custom"; // CUSTOM
 import TextUtils from "src/utils/text";
 import {
@@ -1062,6 +1063,16 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     scene.performers.length,
     sceneTypeForRating === "hand"
   ); // CUSTOM
+  // CUSTOM: attractiveness criteria in the rating advisor show the rated vatos
+  const ratingAdvisorVatos = useMemo(
+    () =>
+      getRatingAdvisorCriterionVatosCustom(
+        scene,
+        configuration?.ui?.roleTagIds ?? {},
+        sceneRatingMode
+      ),
+    [configuration?.ui?.roleTagIds, scene, sceneRatingMode]
+  );
   // CUSTOM: the parent's O's include its releases'
   const oTotal = sceneOTotalCustom(scene);
   const oTotalHint = sceneTotalHintCustom(oTotal);
@@ -1130,6 +1141,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
                 sceneRatingMode={sceneRatingMode}
                 rating100={scene.rating100}
                 ratingScores={scene.rating_scores}
+                criterionVatos={ratingAdvisorVatos} // CUSTOM
                 onRatingSaved={props.onRefetch}
               />{" "}
               {/* CUSTOM */}

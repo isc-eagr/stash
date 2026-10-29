@@ -32,12 +32,12 @@ const roleTagIDs = {
   reallyHot: new Set(["really-hot"]),
 };
 
-assert.equal(facialCount(scene, roleTagIDs.facial), 3);
+assert.equal(facialCount(scene, roleTagIDs), 3);
 assert.equal(reallyHotFacialCount(scene, roleTagIDs), 2);
 assert.equal(
   facialCount(
     { scene_markers: [{ tag_ids: ["facial", "really-hot"] }] },
-    roleTagIDs.facial
+    roleTagIDs
   ),
   1,
   "compact SceneStats marker tag IDs support facial counts"
@@ -54,6 +54,36 @@ assert.equal(
   reallyHotFacialCount(scene, { facial: roleTagIDs.facial }),
   0,
   "really hot facial counts require the configurable really-hot tag"
+);
+
+const withSecondCamera = {
+  ...roleTagIDs,
+  secondCamera: new Set(["second-camera", "second-camera-child"]),
+};
+const secondCameraScene: SceneStatsFacialScene = {
+  scene_markers: [
+    { tag_ids: ["facial", "really-hot"] },
+    { tag_ids: ["facial", "really-hot", "second-camera"] },
+    {
+      primary_tag: { id: "facial-child" },
+      tags: [{ id: "second-camera-child" }],
+    },
+  ],
+};
+assert.equal(
+  facialCount(secondCameraScene, withSecondCamera),
+  1,
+  "2nd Camera facial markers do not count"
+);
+assert.equal(
+  reallyHotFacialCount(secondCameraScene, withSecondCamera),
+  1,
+  "2nd Camera really hot facials do not count"
+);
+assert.equal(
+  facialCount(secondCameraScene, roleTagIDs),
+  3,
+  "without a 2nd Camera tag every facial marker counts"
 );
 
 const scenesByFacialCount = [
@@ -73,10 +103,7 @@ const scenesByFacialCount = [
     title: "Two facials",
     scene_markers: [{ tag_ids: ["facial"] }, { tag_ids: ["facial-child"] }],
   },
-].sort(
-  (a, b) =>
-    facialCount(b, roleTagIDs.facial) - facialCount(a, roleTagIDs.facial)
-);
+].sort((a, b) => facialCount(b, roleTagIDs) - facialCount(a, roleTagIDs));
 
 assert.deepEqual(
   scenesByFacialCount.map(({ title }) => title),

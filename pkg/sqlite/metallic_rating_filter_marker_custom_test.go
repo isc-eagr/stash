@@ -26,11 +26,13 @@ func TestSceneMetallicRatingFilterPromotesGoatMarkersToRoyalSapphire(t *testing.
 		`INSERT INTO scenes(id, rating) VALUES
 			(1, 65), (2, 75), (3, 20), (4, 65), (5, 75),
 			(6, 85), (7, 95), (8, 65), (9, 75), (10, 85)`,
-		`INSERT INTO tags_relations(parent_id, child_id) VALUES (100, 101), (101, 102)`,
+		// Scene 3 uses a GOAT descendant six levels down; 106 -> 100 is a cycle.
+		`INSERT INTO tags_relations(parent_id, child_id) VALUES
+			(100, 101), (101, 102), (102, 103), (103, 104), (104, 105), (105, 106), (106, 100)`,
 		`INSERT INTO scene_markers(id, scene_id, primary_tag_id, seconds, end_seconds) VALUES
 			(1, 1, 100, 0, 10),
 			(2, 2, 200, 0, 10),
-			(3, 3, 102, 0, 10),
+			(3, 3, 106, 0, 10),
 			(4, 8, 200, 0, 10)`,
 		`INSERT INTO scene_markers_tags(scene_marker_id, tag_id) VALUES (2, 101)`,
 		`INSERT INTO scenes_tags(scene_id, tag_id) VALUES (3, 501), (4, 100), (5, 500)`,

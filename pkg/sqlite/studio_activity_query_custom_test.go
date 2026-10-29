@@ -25,6 +25,55 @@ INSERT INTO studio_aliases VALUES(1,'match'),(1,'match again'),(3,'match');`)
 	return db
 }
 
+func TestActivityQualityUsesPrimaryFileCustom(t *testing.T) {
+	db := studioActivityFixtureCustom(t)
+	sceneSortTestConfigCustom(t, map[string]interface{}{"sexTagId": "10", "oralTagId": "20", "soloTagId": "30"})
+	_, err := db.Exec(`DELETE FROM scene_markers;
+DELETE FROM scene_markers_tags;
+DELETE FROM scene_negative_markers;
+UPDATE video_files SET duration = 300 WHERE file_id = 2;
+INSERT INTO scene_markers VALUES(1, 1, 10, 0, 100);
+INSERT INTO scene_negative_markers VALUES(1, 20, 40);`)
+	require.NoError(t, err)
+
+	// Scene 1's primary is 100s; its 300s secondary file adds no unclassified
+	// time and cannot dilute Standard or Unusable on scenes or studio cards.
+	for category, want := range map[activityPercentCategoryCustom]float64{
+		activityPercentOtherCustom:        0,
+		activityPercentOutstandingCustom:  0,
+		activityPercentStandardCustom:     80,
+		activityPercentUnclassifiedCustom: 0,
+		activityPercentUnusableCustom:     20,
+	} {
+		t.Run(string(category), func(t *testing.T) {
+			var scalar float64
+			require.NoError(t, db.QueryRow("SELECT "+activityPercentScenePercentExprCustom(category)+" FROM scenes WHERE id = 1").Scan(&scalar))
+			require.InDelta(t, want, scalar, 1e-9)
+			sceneQuery := sceneRepository.newQuery()
+			distinctIDs(&sceneQuery, sceneTable)
+			sceneQuery.addWhere("scenes.id = 1")
+			sceneExpr := sceneActivityPercentExpressionCustom(&sceneQuery, category, true)
+			sceneQuery.columns = []string{"scenes.id", sceneExpr}
+			got := readSceneSortValuesCustom(t, db, sceneQuery.toSQL(true), sceneQuery.allArgs())
+			require.Len(t, got, 1)
+			require.InDelta(t, want, got[0].Value, 1e-9)
+
+			require.NoError(t, db.QueryRow("SELECT "+activityPercentStudioPercentExprCustom(category)+" FROM studios WHERE id = 1").Scan(&scalar))
+			require.InDelta(t, want, scalar, 1e-9)
+			if studioBatchedQualityCategoryCustom(category) {
+				studioQuery := studioRepository.newQuery()
+				distinctIDs(&studioQuery, studioTable)
+				studioQuery.addWhere("studios.id = 1")
+				studioExpr := studioQualityPercentExpressionCustom(&studioQuery, category, true)
+				studioQuery.columns = []string{"studios.id", studioExpr}
+				got = readSceneSortValuesCustom(t, db, studioQuery.toSQL(true), studioQuery.allArgs())
+				require.Len(t, got, 1)
+				require.InDelta(t, want, got[0].Value, 1e-9)
+			}
+		})
+	}
+}
+
 func TestStudioQualityQueryMatchesScalarCustom(t *testing.T) {
 	db := studioActivityFixtureCustom(t)
 	for _, profile := range []map[string]interface{}{

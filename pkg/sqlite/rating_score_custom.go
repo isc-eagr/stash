@@ -542,34 +542,22 @@ func (s *RatingScoreStore) ResetAllSceneScores(ctx context.Context) (int, error)
 
 func (s *RatingScoreStore) countOrgasmRatingBonus(ctx context.Context, entityType string, entityID int) (int, error) {
 	// CUSTOM: scenes and performers count their releases' O's too.
-	includeReleaseO, err := ReleaseODatesReadyCustom(ctx)
-	if err != nil {
-		return 0, err
-	}
-
 	var query string
 	switch entityType {
 	case models.RatingEntityScene:
-		query = fmt.Sprintf("SELECT (SELECT COUNT(*) FROM %s WHERE %s = ?)", scenesODatesTable, sceneIDColumn)
-		if includeReleaseO {
-			query += ` + (SELECT COUNT(*) FROM scene_release_o_dates rod
+		query = fmt.Sprintf("SELECT (SELECT COUNT(*) FROM %s WHERE %s = ?)", scenesODatesTable, sceneIDColumn) +
+			` + (SELECT COUNT(*) FROM scene_release_o_dates rod
 				JOIN scene_releases r ON r.id = rod.release_id WHERE r.scene_id = ?)`
-		}
 	case models.RatingEntityPerformer:
 		query = fmt.Sprintf(`SELECT (SELECT COUNT(sod.%s) FROM %s ps JOIN %s sod ON sod.%s = ps.%s WHERE ps.%s = ?)`,
-			sceneIDColumn, performersScenesTable, scenesODatesTable, sceneIDColumn, sceneIDColumn, performerIDColumn) // CUSTOM: count retroactive O's without a date
-		if includeReleaseO {
-			query += ` + (SELECT COUNT(*) FROM scene_release_performers rp
+			sceneIDColumn, performersScenesTable, scenesODatesTable, sceneIDColumn, sceneIDColumn, performerIDColumn) + // CUSTOM: count retroactive O's without a date
+			` + (SELECT COUNT(*) FROM scene_release_performers rp
 				JOIN scene_release_o_dates rod ON rod.release_id = rp.release_id WHERE rp.performer_id = ?)`
-		}
 	default:
 		return 0, fmt.Errorf("unsupported rating entity type %q", entityType)
 	}
 
-	args := []interface{}{entityID}
-	if includeReleaseO {
-		args = append(args, entityID)
-	}
+	args := []interface{}{entityID, entityID}
 	var count int
 	if err := dbWrapper.Get(ctx, &count, query, args...); err != nil {
 		return 0, fmt.Errorf("counting orgasm rating bonus for %s %d: %w", entityType, entityID, err)

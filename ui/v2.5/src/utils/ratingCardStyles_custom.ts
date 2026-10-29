@@ -277,33 +277,3 @@ export function getRatingCardClass({
   const tierClass = tier ? METALLIC_TIER_CLASSES_CUSTOM[tier] : "";
   return tierClass ? `${themeClass} ${tierClass}` : "";
 }
-
-export function isRoyalSapphireRatingCard({
-  rating,
-  tags,
-  overrideTagIds,
-  thresholds,
-  thresholdEntity,
-  ratingScores,
-  sceneHasRoyalSapphireBonus,
-}: {
-  rating?: number | null;
-  tags?: readonly IRatingCardTag[] | null;
-  overrideTagIds?: IRatingCardOverrideTagIds | null;
-  thresholds?: IRatingCardThresholdConfig | null;
-  thresholdEntity?: "scene" | "performer";
-  ratingScores?: readonly IRatingCardScore[] | null;
-  sceneHasRoyalSapphireBonus?: boolean;
-}) {
-  return (
-    getMetallicRatingTierCustom({
-      rating,
-      tags,
-      overrideTagIds,
-      thresholds,
-      thresholdEntity,
-      ratingScores,
-      sceneHasRoyalSapphireBonus,
-    }) === "royal_sapphire"
-  );
-}

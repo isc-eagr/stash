@@ -45,12 +45,5 @@ func validateReleaseConversionRequestCustom(ctx context.Context, requestID strin
 	if strings.TrimSpace(requestID) != requestID || requestID == "" || len(requestID) > 128 {
 		return fmt.Errorf("conversion request ID must be 1–128 characters without surrounding whitespace")
 	}
-	exists, err := releaseTransferTableExistsCustom(ctx, "scene_release_conversion_requests")
-	if err != nil {
-		return err
-	}
-	if !exists {
-		return fmt.Errorf("scene release tables are missing: restart Stash to install them before retryable conversions")
-	}
 	return nil
 }

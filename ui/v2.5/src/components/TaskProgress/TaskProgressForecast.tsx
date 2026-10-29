@@ -19,12 +19,15 @@ interface IFinishProps extends ITaskProgressFinishInput {
 }
 
 /** "in 12 days", "in about 5 months", "in about 7.7 years". */
-function useRelativeFinish() {
+export function useRelativeFinish() {
   const t = useProgressText();
   const intl = useIntl();
   return (days: number) => {
     if (days <= 0) return t("today");
-    if (days <= 60) return `${t("in")} ${intl.formatNumber(days)} ${t("days")}`;
+    if (days <= 60)
+      return `${t("in")} ${intl.formatNumber(days)} ${t(
+        days === 1 ? "day" : "days"
+      )}`;
     if (days <= 730)
       return `${t("in about")} ${Math.round(days / 30.44)} ${t("months")}`;
     return `${t("in about")} ${intl.formatNumber(days / 365.25, {

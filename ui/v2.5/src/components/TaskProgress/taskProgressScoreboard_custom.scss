@@ -857,6 +857,37 @@
   }
 }
 
+/* Finish calculator: pick milestones above the planner card. */
+.milestone-finish-picks {
+  display: grid;
+  gap: 0.35rem;
+
+  legend {
+    color: var(--score-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    margin: 0;
+    text-transform: uppercase;
+    width: auto;
+  }
+
+  .form-check-label {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  small {
+    color: var(--score-muted);
+  }
+}
+
+.milestone-finish-picks-heading {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
 .progress-finish-label {
   align-items: baseline;
   color: var(--score-muted);

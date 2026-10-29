@@ -56,9 +56,7 @@ export const RatingCriteriaStrip: React.FC<IRatingCriteriaStripProps> = ({
       ).map(({ metric, summary }) => ({
         key: metric.key,
         label: metric.shortTitle ?? metric.title,
-        detail: summary.choice
-          ? `${metric.title}: ${summary.choice.label}. ${summary.choice.description}`
-          : `${metric.title}: Not rated`,
+        detail: summary.choice?.description ?? "Not rated",
         steps: metric.choices.length - 1,
         value: summary.choiceIndex ?? 0,
         heatLevel: summary.heatLevel,
@@ -86,7 +84,7 @@ export const RatingCriteriaStrip: React.FC<IRatingCriteriaStripProps> = ({
               label,
               section: row.section,
               value,
-              detail: `${label}: ${value}. ${description}`,
+              detail: description,
             };
           })
         : [],

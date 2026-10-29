@@ -8,7 +8,6 @@ import {
   taskProgressISOToLocalDate,
   taskProgressLocalDateToISO,
   taskProgressCurrentGoalPeriods,
-  taskProgressCurrentPercentageChanges,
   taskProgressHistoryPercentages,
 } from "../src/components/taskProgress_custom.ts";
 
@@ -364,36 +363,6 @@ assert.ok(
   "incoming work can reduce the tracker completion percentage"
 );
 
-const currentPercentageChanges = taskProgressCurrentPercentageChanges(
-  [
-    {
-      date: "2026-09-01",
-      completed: 60,
-      incoming: 0,
-      remaining: 40,
-    },
-    {
-      date: "2026-09-21",
-      completed: 10,
-      incoming: 0,
-      remaining: 30,
-    },
-  ],
-  "2026-09-21"
-);
-assert.ok(
-  Math.abs(currentPercentageChanges.day - 10) < 0.000001,
-  "today compares the current completion percentage with yesterday's close"
-);
-assert.ok(
-  Math.abs(currentPercentageChanges.week - 10) < 0.000001,
-  "this week compares with the previous week's close"
-);
-assert.ok(
-  Math.abs(currentPercentageChanges.month - 70) < 0.000001,
-  "this month compares with the previous month's close"
-);
-
 const scopeHistory = buildTaskProgressHistorySeries(
   [
     { date: "2026-10-12", completed: 1, incoming: 0, remaining: 30 },
@@ -520,20 +489,6 @@ const overallPeriodHistory = [
     completedTotal: 48,
   },
 ];
-const overallChanges = taskProgressCurrentPercentageChanges(
-  overallPeriodHistory,
-  "2026-10-17"
-);
-for (const [period, opening] of [
-  ["day", 47 / 98],
-  ["week", 45 / 100],
-  ["month", 40 / 100],
-] as const) {
-  assert.ok(
-    Math.abs(overallChanges[period] - (48 / 96 - opening) * 100) < 0.000001,
-    `${period} percentage follows organized scenes over the actual library total, without treating deletions as organized scenes`
-  );
-}
 const overallGoals = taskProgressCurrentGoalPeriods(
   overallPeriodHistory,
   null,

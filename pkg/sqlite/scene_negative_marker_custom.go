@@ -193,7 +193,7 @@ func (s *SceneNegativeMarkerStore) getMany(ctx context.Context, q *goqu.SelectDa
 
 	if err := queryFunc(ctx, q, single, func(rows *sqlx.Rows) error {
 		var row sceneNegativeMarkerRow
-		if err := rows.StructScan(&row); err != nil { // CUSTOM: legacy and upgraded tables have different columns
+		if err := rows.StructScan(&row); err != nil {
 			return fmt.Errorf("scanning %s: %w", sceneNegativeMarkerTable, err)
 		}
 

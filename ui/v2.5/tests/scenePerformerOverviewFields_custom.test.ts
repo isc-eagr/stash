@@ -4,7 +4,6 @@ import { getHoverPopoverVerticalLayout } from "../src/components/Shared/hoverPop
 import {
   SCENE_PERFORMER_OVERVIEW_EXCLUDED_FIELDS,
   SCENE_PERFORMER_OVERVIEW_LINK_PROPS,
-  getScenePerformerOverviewActivityMetrics,
   getScenePerformerOverviewInteractions,
   getUniqueScenePerformerOverviewPartners,
   shouldOpenScenePerformerOverview,
@@ -135,27 +134,6 @@ test("scene performer overview groups this-scene partners in the fixed role orde
       { category: "oral", role: "top", partnerIds: ["2"] },
       { category: "sex", role: "bottom", partnerIds: ["3"] },
       { category: "oral", role: "bottom", partnerIds: ["3"] },
-    ]
-  );
-});
-
-test("scene performer overview activity metrics retain zero durations", () => {
-  const metrics = getScenePerformerOverviewActivityMetrics({
-    sex_top_seconds: 90,
-    sex_bottom_seconds: 0,
-    oral_top_seconds: 45,
-    oral_bottom_seconds: 0,
-    solo_seconds: 0,
-  });
-
-  assert.deepEqual(
-    metrics.map(({ role, seconds }) => ({ role, seconds })),
-    [
-      { role: "top", seconds: 90 },
-      { role: "bottom", seconds: 0 },
-      { role: "top", seconds: 45 },
-      { role: "bottom", seconds: 0 },
-      { role: "solo", seconds: 0 },
     ]
   );
 });

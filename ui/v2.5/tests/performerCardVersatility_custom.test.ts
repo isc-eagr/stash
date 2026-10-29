@@ -41,11 +41,6 @@ assert.doesNotMatch(
   /versatilityCard/,
   "the performer detail header keeps the full role strip"
 );
-assert.doesNotMatch(
-  detailSource,
-  /PerformerActivityTime/,
-  "the performer detail header shows only the versatility bars"
-);
 assert.match(
   detailSource,
   /<PerformerVersatility\s+className="performer-versatility--detail"/,
@@ -136,11 +131,6 @@ assert.match(
   overviewSource,
   /<PerformerVersatility[\s\S]*?facialToppedPartners=\{roleStats\.facial_with_top_count\}/,
   "the scene Vato Overview drawer shows the full versatility bars"
-);
-assert.doesNotMatch(
-  overviewSource,
-  /PerformerActivityTime/,
-  "the scene Vato Overview drawer no longer shows Activity Time"
 );
 assert.match(
   overviewSource,

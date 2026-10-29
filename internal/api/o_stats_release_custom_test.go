@@ -10,12 +10,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// Scene-only fixtures still need the release tables read by the shared O source.
+const oStatsReleaseTablesSchemaCustom = `
+CREATE TABLE IF NOT EXISTS scene_releases (id INTEGER PRIMARY KEY, scene_id INTEGER, studio_id INTEGER, date DATETIME);
+CREATE TABLE IF NOT EXISTS scene_release_o_dates (release_id INTEGER, o_date DATETIME, video_timestamp REAL);
+CREATE TABLE IF NOT EXISTS scene_release_performers (release_id INTEGER, performer_id INTEGER);
+`
+
 // openOStatsReleaseDBCustom: scene 1 (studio 1, cast Uno) has 2 O's; its
 // release 9 (studio 2, cast Dos) has 2 O's, one inside a release marker.
 func openOStatsReleaseDBCustom(t *testing.T) *sql.DB {
 	t.Helper()
-	sqlite.SetReleaseOEventsReadyCustom(true)
-	t.Cleanup(func() { sqlite.SetReleaseOEventsReadyCustom(false) })
 	db, err := sql.Open("sqlite3", ":memory:")
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, db.Close()) })

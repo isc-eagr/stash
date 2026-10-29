@@ -43,11 +43,6 @@ const bundle = await esbuild.build({
           <button onClick={async()=>{await document.querySelector("#root").requestFullscreen(); await confirm({header:"Fullscreen confirmation",message:"Continue?",confirmText:"Continue"});}}>Fullscreen confirm</button>
           {confirmModal}
           <Badge variant="role-top">Top</Badge><Badge variant="role-bottom">Bottom</Badge>
-          <div className="scene-player-container" style={{position:"relative",height:70}}>
-            <span data-quality="regular" className="scene-facial-overlay" />
-            <span data-quality="reallyHot" className="scene-facial-overlay scene-facial-overlay--gold" style={{left:70}} />
-            <span data-quality="goat" className="scene-facial-overlay scene-facial-overlay--sapphire" style={{left:140}} />
-          </div>
           <div className="stats-page">
             <StatsBarChart title="Activity" variant="ranked" unit={["second","seconds"]} total={60} maxValue={60}
               data={[{key:"sex",label:"Fucking",count:60},{key:"oral",label:"Mamando Rifle",count:60},{key:"solo",label:"Jerking",count:30}]} />
@@ -90,10 +85,6 @@ try {
       const fill = title => [...document.querySelectorAll(".stats-bar-chart")].find(element => element.textContent.includes(title));
       return {
         roles: [style(".badge-role-top").backgroundColor, style(".badge-role-bottom").backgroundColor],
-        overlays: ["regular", "reallyHot", "goat"].map(key => {
-          const current = style('[data-quality="'+key+'"]');
-          return {background:current.backgroundColor,filter:current.filter,animation:current.animationName};
-        }),
         activity: [...fill("Activity").querySelectorAll(".stats-bar-chart-fill")].map(element=>getComputedStyle(element).backgroundColor),
         quality: [...fill("Quality").querySelectorAll(".stats-bar-chart-fill")].map(element=>({label:element.closest(".stats-bar-chart-row").querySelector(".stats-bar-chart-label").textContent,background:getComputedStyle(element).backgroundColor,glow:getComputedStyle(element).boxShadow})),
         surface: style(".stats-bar-chart").backgroundColor,
@@ -101,12 +92,8 @@ try {
       };
     });
     assert.deepEqual(values.roles,["rgb(23, 162, 184)","rgb(40, 167, 69)"]);
-    assert.deepEqual(values.overlays.map(value=>value.background),["rgb(138, 155, 168)","rgb(255, 215, 0)","rgb(91, 141, 239)"]);
-    assert.equal(values.overlays[0].filter,"none");
-    assert(values.overlays.slice(1).every(value=>value.filter.includes("drop-shadow")));
-    assert(values.overlays.every(value=>value.animation==="none"));
     assert.deepEqual(values.activity,["rgb(217, 130, 43)","rgb(0, 179, 164)","rgb(168, 85, 247)"]);
-    assert.deepEqual(Object.fromEntries(values.quality.map(value=>[value.label,value.background])), {Regular:values.overlays[0].background,"Really Hot":values.overlays[1].background,GOAT:values.overlays[2].background});
+    assert.deepEqual(Object.fromEntries(values.quality.map(value=>[value.label,value.background])), {Regular:"rgb(138, 155, 168)","Really Hot":"rgb(255, 215, 0)",GOAT:"rgb(91, 141, 239)"});
     assert(values.quality.filter(value=>value.label!=="Regular").every(value=>value.glow!=="none"));
     assert.match(values.total,/0 events/);
     assert.equal(values.surface,theme ? "rgb(17, 19, 21)" : "rgb(48, 64, 77)");
@@ -147,7 +134,7 @@ try {
   await page.evaluate(()=>window.fixtureHistory.goBack());
   await page.locator(".stats-top-table").waitFor();
   assert.deepEqual(errors,[]);
-  console.log("PASS: both themes preserve semantic chart/badge/overlay colors and static glows; empty totals, confirmation dismissal, busy protection, and ranking refresh/back are consistent.");
+  console.log("PASS: both themes preserve semantic chart/badge colors and static glows; empty totals, confirmation dismissal, busy protection, and ranking refresh/back are consistent.");
 } finally {
   await browser.close();
 }

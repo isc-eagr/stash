@@ -20,15 +20,6 @@ const actionLabels: Record<
   },
 };
 
-export function getPerformerRolePartnerPopupText(
-  category: PerformerRolePartnerCategory,
-  type: PerformerRolePartnerType,
-  performerName?: string | null
-) {
-  const name = performerName || "Vato";
-  return `${name} ${actionLabels[category][type]}`;
-}
-
 export function getPerformerRolePartnerSectionTitle(
   category: PerformerRolePartnerCategory,
   type: PerformerRolePartnerType
