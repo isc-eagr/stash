@@ -490,7 +490,10 @@ func (qb *SceneStore) UpdatePartial(ctx context.Context, id int, partial models.
 			return nil, err
 		}
 
-		if err := scenesPerformersTableMgr.modifyJoins(ctx, id, partial.PerformerIDs.IDs, partial.PerformerIDs.Mode); err != nil {
+		// CUSTOM: clear advisor scores when the cast change switches rating modes
+		if err := resetSceneAdvisorOnModeChangeCustom(ctx, id, func() error {
+			return scenesPerformersTableMgr.modifyJoins(ctx, id, partial.PerformerIDs.IDs, partial.PerformerIDs.Mode)
+		}); err != nil {
 			return nil, err
 		}
 	}
@@ -585,7 +588,10 @@ func (qb *SceneStore) Update(ctx context.Context, updatedObject *models.Scene) e
 			return err
 		}
 
-		if err := scenesPerformersTableMgr.replaceJoins(ctx, updatedObject.ID, updatedObject.PerformerIDs.List()); err != nil {
+		// CUSTOM: clear advisor scores when the cast change switches rating modes
+		if err := resetSceneAdvisorOnModeChangeCustom(ctx, updatedObject.ID, func() error {
+			return scenesPerformersTableMgr.replaceJoins(ctx, updatedObject.ID, updatedObject.PerformerIDs.List())
+		}); err != nil {
 			return err
 		}
 	}

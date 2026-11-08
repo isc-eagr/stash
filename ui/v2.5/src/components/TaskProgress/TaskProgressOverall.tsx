@@ -1,11 +1,11 @@
 import { formatAppDecimalCustom } from "src/utils/appLocale_custom"; // CUSTOM
 import React, { useState } from "react";
 import { Alert, Button, Card } from "react-bootstrap";
-import { FormattedNumber } from "react-intl";
 import { faFire } from "@fortawesome/free-solid-svg-icons";
 import { useTaskProgressOrganizedScenesQuery } from "src/core/generated-graphql";
 import { Icon } from "../Shared/Icon";
 import { useProgressText, progressToday } from "./progressView_custom";
+import { TaskProgressCounts } from "./TaskProgressCounts";
 import { TaskProgressFinishLabel } from "./TaskProgressForecast";
 import { TaskProgressMedalBar } from "./TaskProgressMedalBar";
 import { TaskProgressPeriodTiles } from "./TaskProgressPeriodTiles";
@@ -97,23 +97,17 @@ export const TaskProgressOverall: React.FC = () => {
             <p role="status">{t("Loading…")}</p>
           ) : (
             <>
-              <div className="progress-score-hero-figure">
-                <strong>{formatAppDecimalCustom(snapshot.percent, 2)}%</strong>
-                <div className="progress-score-counts progress-score-counts-large">
-                  <span className="progress-score-done">
-                    <strong>
-                      <FormattedNumber value={done} />
-                    </strong>{" "}
-                    {t("organized")}
-                  </span>
-                  <span>
-                    <strong>
-                      <FormattedNumber value={remaining ?? 0} />
-                    </strong>{" "}
-                    {t("to go")}
-                  </span>
-                </div>
-              </div>
+              <TaskProgressCounts
+                large
+                percent={
+                  <strong className="progress-score-percent">
+                    {formatAppDecimalCustom(snapshot.percent, 2)}%
+                  </strong>
+                }
+                done={done}
+                left={remaining ?? 0}
+                leftLabel="to go"
+              />
               <TaskProgressMedalBar
                 large
                 completed={done}

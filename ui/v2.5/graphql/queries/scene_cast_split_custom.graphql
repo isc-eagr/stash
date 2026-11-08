@@ -1,0 +1,35 @@
+# CUSTOM: Scene Types sub-tiles (Standard / Threesome / Group) on Vato and
+# Studio details.
+fragment SceneCastSplitData on SceneCastSplit {
+  solo
+  standard
+  threesome
+  group
+}
+
+fragment SceneTypeCastSplitData on SceneTypeCastSplit {
+  sex {
+    ...SceneCastSplitData
+  }
+  oral {
+    ...SceneCastSplitData
+  }
+}
+
+query FindPerformerSceneTypeCastSplit($id: ID!) {
+  findPerformer(id: $id) {
+    id
+    scene_type_cast_split {
+      ...SceneTypeCastSplitData
+    }
+  }
+}
+
+query FindStudioSceneTypeCastSplit($id: ID!, $depth: Int) {
+  findStudio(id: $id) {
+    id
+    scene_type_cast_split(depth: $depth) {
+      ...SceneTypeCastSplitData
+    }
+  }
+}

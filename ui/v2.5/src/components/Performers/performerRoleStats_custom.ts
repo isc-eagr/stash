@@ -34,6 +34,7 @@ interface IPerformerCardRoleStatsQueryData {
     sex_unique_partner_count: number;
     oral_unique_partner_count: number;
     facial_unique_partner_count: number;
+    nut_type_counts: GQL.NutTypeCounts;
   }>;
 }
 
@@ -72,6 +73,18 @@ const PerformerCardRoleStatsQuery = gql`
       sex_unique_partner_count
       oral_unique_partner_count
       facial_unique_partner_count
+      nut_type_counts {
+        nut {
+          plain
+          really_hot
+          goat
+        }
+        facial {
+          plain
+          really_hot
+          goat
+        }
+      }
     }
   }
 `;
@@ -134,6 +147,7 @@ export function usePerformerCardRoleStatsState(
         orgasm_top_count: p.orgasm_top_count,
         facial_marker_count: p.facial_marker_count,
         feet_top_count: p.feet_top_count,
+        nut_type_counts: p.nut_type_counts,
       });
     });
 

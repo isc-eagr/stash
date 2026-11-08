@@ -47,12 +47,17 @@ assert.match(
 const sceneTypeTiles = read("Shared/SceneTypeTiles_custom.tsx");
 assert.match(
   sceneTypeTiles,
-  /const url = row\.count > 0 \? getUrl\(row\.key, row\.label\) : undefined;/,
+  /const baseUrl =\s*row\.count > 0 \? getUrl\(row\.key, row\.label\) : undefined;/,
   "zero scene types render without a link"
 );
 assert.match(
   sceneTypeTiles,
-  /title=\{`\$\{row\.label\}: \$\{row\.count\} scene\$\{[\s\S]*?\(\$\{Math\.round\(row\.percent\)\}%\)`\}/,
+  /n > 0\s*\? withScenePerformerCountCustom\(/,
+  "zero cast-size pips render without a link"
+);
+assert.match(
+  sceneTypeTiles,
+  /title=\{`\$\{row\.label\}: \$\{plural\(row\.count\)\} \(\$\{Math\.round\(\s*row\.percent\s*\)\}%\)`\}/,
   "each tile's tooltip carries its share of scenes"
 );
 assert.match(
@@ -79,6 +84,29 @@ assert.match(
   read("Performers/PerformerDetails/Performer.tsx"),
   /<PerformerCategoryStrip[\s\S]*?tiles="full"/,
   "Performer Detail uses full tiles"
+);
+assert.match(
+  read("Performers/PerformerDetails/Performer.tsx"),
+  /tiles="full"\s*castSplit=\{\s*castSplitData\?\.findPerformer\?\.scene_type_cast_split/,
+  "Performer Detail passes the cast-size split"
+);
+assert.match(
+  read("Studios/StudioDetails/StudioHeaderInsights.tsx"),
+  /castSplit=\{castSplitData\?\.findStudio\?\.scene_type_cast_split\}/,
+  "Studio Detail passes the cast-size split"
+);
+assert.match(
+  read("Studios/StudioDetails/StudioHeaderInsights.tsx"),
+  /<StudioNutTile[\s\S]*?counts=\{nutCounts\}/,
+  "Studio Detail shows the Nut tile beside Scene Types"
+);
+for (const path of ["Performers/PerformerCard.tsx", "Studios/StudioCard.tsx"]) {
+  assert.doesNotMatch(read(path), /castSplit=/, `${path} has no cast pips`);
+}
+assert.match(
+  read("Shared/RoleTileContent_custom.tsx"),
+  /<span className="role-tile-main">\s*\{icon\}\s*<span className="role-tile-text">/,
+  "full tiles put the icon left of the count and label"
 );
 for (const path of [
   "Performers/PerformerCard.tsx",

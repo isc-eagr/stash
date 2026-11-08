@@ -162,8 +162,8 @@ const chipSets = getSceneCardChipInsightSets(
 );
 assert.deepEqual(
   chipSets.all.map(({ key }) => key).sort(),
-  ["only-scene-only-vato", "rare-oral-top-oral-top"],
-  "scene cards keep only the Rare oral top and Only scene chip families"
+  ["only-scene-only-vato", "rare-oral-top-oral-top", "rare-sex-top-sex-top"],
+  "scene cards keep Rare sex/oral roles and Only scene chips"
 );
 
 const orgasmChipSets = getSceneCardChipInsightSets(
@@ -263,8 +263,8 @@ assert.ok(
 const performerPageSource = source("Performers/PerformerDetails/Performer.tsx");
 assert.match(
   performerPageSource,
-  /performer-head-identity[\s\S]*?<RatingCriteriaStrip\s+className="rating-panel rating-panel--vato"[\s\S]*?<PerformerCategoryStrip[\s\S]*?performer-head-body/,
-  "performer pages show his rating strip in the name row, before the count tiles"
+  /performer-head-identity[\s\S]*?<RatingCriteriaStrip\s+className="rating-panel rating-panel--vato"[\s\S]*?performer-head-body[\s\S]*?performer-header-activity[\s\S]*?<PerformerCategoryStrip[\s\S]*?<ActivityStatsCharts[\s\S]*?<PerformerVersatility/,
+  "performer pages show his rating strip in the name row, and the count tiles above Activity Type and versatility"
 );
 assert.doesNotMatch(
   performerPageSource,
@@ -323,8 +323,8 @@ assert.match(
 );
 assert.match(
   studioCardSource,
-  /<ActivityStatsCharts\s+compact\s+only="quality"/,
-  "the studio logo hover keeps the compact Quality bar"
+  /<ActivityStatsCharts compact stats=\{activityStats\} \/>/,
+  "the studio logo hover shows the compact Activity Type and Quality bars"
 );
 
 console.log("Scene rating strip tests passed.");

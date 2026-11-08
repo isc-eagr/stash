@@ -42,22 +42,6 @@ export const STATS_QUALITY_LEGEND = [
   { key: "goat", label: "GOAT", color: STATS_QUALITY_COLORS.goat },
 ];
 
-const DARK_TEXT = "#101317";
-const LIGHT_TEXT = "#ffffff";
-
-// Text on a colored segment; the copper accent takes dark text.
-export function statsSegmentInk(color: string) {
-  const token = color.match(/^var\((--semantic-[a-z-]+)\)$/)?.[1];
-  if (token) return `var(${token}-ink)`;
-  if (!color.startsWith("#")) return "var(--stats-accent-ink, #101317)";
-  const value = parseInt(color.slice(1), 16);
-  const r = (value >> 16) & 255;
-  const g = (value >> 8) & 255;
-  const b = value & 255;
-  const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
-  return luminance > 0.5 ? DARK_TEXT : LIGHT_TEXT;
-}
-
 export function statsPaletteColor(palette: readonly string[], index: number) {
   return palette[index % palette.length];
 }

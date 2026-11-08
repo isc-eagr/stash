@@ -718,9 +718,16 @@
 }
 
 .rating-advisor-criterion-points {
-  color: var(--rating-advisor-muted);
-  font-size: 0.78rem;
-  font-weight: 600;
+  align-self: flex-start;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  color: inherit;
+  display: inline-block;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  padding: 0.15rem 0.6rem;
+  width: fit-content;
 }
 
 .rating-advisor-pills {

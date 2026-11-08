@@ -6,7 +6,6 @@ import { ROLE_COLORS_CUSTOM } from "../src/utils/roleColors_custom.ts";
 import {
   STATS_QUALITY_COLORS,
   STATS_METALLIC_COLORS,
-  statsSegmentInk,
 } from "../src/utils/statsChartColors_custom.ts";
 const css = sass.compile(
   new URL(
@@ -72,9 +71,5 @@ assert.equal(STATS_QUALITY_COLORS.goat, SEMANTIC_COLORS_CUSTOM.goat);
 assert.equal(
   STATS_METALLIC_COLORS.royal_sapphire,
   SEMANTIC_COLORS_CUSTOM.royalSapphire
-);
-assert.equal(
-  statsSegmentInk(SEMANTIC_COLORS_CUSTOM.goat),
-  "var(--semantic-goat-ink)"
 );
 assert.ok(!/animation:/.test(css), "Semantic colors do not animate");

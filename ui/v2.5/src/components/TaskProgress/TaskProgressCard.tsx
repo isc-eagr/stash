@@ -1,7 +1,6 @@
 import { formatAppDecimalCustom } from "src/utils/appLocale_custom"; // CUSTOM
 import React from "react";
 import { Badge, Button, Card } from "react-bootstrap";
-import { FormattedNumber } from "react-intl";
 import {
   faArrowDown,
   faArrowUp,
@@ -10,7 +9,6 @@ import {
 import type { TaskProgressTrackerDataFragment as Tracker } from "src/core/generated-graphql";
 import { Icon } from "../Shared/Icon";
 import {
-  itemLabels,
   progressPercentage,
   taskProgressStatusLabel,
   taskProgressStatusVariant,
@@ -18,6 +16,7 @@ import {
   useProgressText,
 } from "./progressView_custom";
 import { taskProgressCompletedCount } from "./progressMath_custom";
+import { TaskProgressCounts } from "./TaskProgressCounts";
 import { TaskProgressMedalBar } from "./TaskProgressMedalBar";
 import { TaskProgressFinishLabel } from "./TaskProgressForecast";
 import { TaskProgressPeriodTiles } from "./TaskProgressPeriodTiles";
@@ -55,9 +54,6 @@ export const TaskProgressCard: React.FC<IProps> = ({
   const completedCount = taskProgressCompletedCount(tracker);
   const completed = tracker.status === "COMPLETED";
   const history = taskProgressHistoryEntries(tracker.history);
-  const types = tracker.item_types
-    .map((type) => t(itemLabels[type] ?? type))
-    .join(", ");
 
   return (
     <Card
@@ -86,23 +82,6 @@ export const TaskProgressCard: React.FC<IProps> = ({
             {t(taskProgressStatusLabel(tracker.status))}
           </Badge>
         </div>
-        <div className="progress-score-counts">
-          <span className="progress-score-done">
-            <strong>
-              <FormattedNumber value={completedCount} />
-            </strong>{" "}
-            {t("done")}
-          </span>
-          {!completed && (
-            <span>
-              <strong>
-                <FormattedNumber value={tracker.current_count} />
-              </strong>{" "}
-              {t("left")}
-            </span>
-          )}
-        </div>
-        <small>{types}</small>
         <div className="progress-score-actions">
           <Button size="sm" variant="primary" onClick={onOpen}>
             {t("Details")}
@@ -152,13 +131,19 @@ export const TaskProgressCard: React.FC<IProps> = ({
         </div>
       </div>
       <div className="progress-score-progress">
-        <strong
-          className={`progress-score-percent${
-            completed ? " progress-score-percent-complete" : ""
-          }`}
-        >
-          {formatAppDecimalCustom(percentage, 2)}%
-        </strong>
+        <TaskProgressCounts
+          percent={
+            <strong
+              className={`progress-score-percent${
+                completed ? " progress-score-percent-complete" : ""
+              }`}
+            >
+              {formatAppDecimalCustom(percentage, 2)}%
+            </strong>
+          }
+          done={completedCount}
+          left={tracker.current_count}
+        />
         <TaskProgressMedalBar
           completed={completedCount}
           total={completedCount + tracker.current_count}

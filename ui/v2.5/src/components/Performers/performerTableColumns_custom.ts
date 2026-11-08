@@ -16,11 +16,3 @@ export const PERFORMER_METRICS_COLUMNS_CUSTOM = [
   "facial_unique_partners",
 ];
 export const PERFORMER_TABLE_ASCENDING_SORTS_CUSTOM = ["name"];
-
-export function showPerformerMediaTabCustom(
-  count: number,
-  key: string,
-  activeKey?: string
-) {
-  return count > 0 || key === activeKey;
-}

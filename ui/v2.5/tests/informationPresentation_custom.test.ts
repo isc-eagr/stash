@@ -3,7 +3,6 @@ import test from "node:test";
 import {
   PERFORMER_BROWSE_COLUMNS_CUSTOM,
   PERFORMER_METRICS_COLUMNS_CUSTOM,
-  showPerformerMediaTabCustom,
 } from "../src/components/Performers/performerTableColumns_custom.ts";
 import {
   getPerformerSortMetricDefinitionCustom,
@@ -32,12 +31,6 @@ test("compact performer presets keep identity, browsing context, and partner com
     assert.equal(new Set(columns).size, columns.length);
   }
   assert.ok(!PERFORMER_BROWSE_COLUMNS_CUSTOM.includes("aliases"));
-});
-
-test("empty performer media stays accessible through direct navigation", () => {
-  assert.equal(showPerformerMediaTabCustom(0, "images", "scenes"), false);
-  assert.equal(showPerformerMediaTabCustom(2, "images", "scenes"), true);
-  assert.equal(showPerformerMediaTabCustom(0, "images", "images"), true);
 });
 
 test("table metrics share the exact backend value and format used by cards", () => {

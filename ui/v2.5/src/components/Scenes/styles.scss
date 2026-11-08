@@ -59,9 +59,8 @@
   text-transform: uppercase;
 }
 
+/* CUSTOM: segments use the shared tile tint (styles/tintedSegments_custom.scss). */
 .scene-activity-metrics__distribution {
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: 999px;
   display: flex;
   height: 0.22rem;
   margin-bottom: 0.08rem;
@@ -799,11 +798,14 @@
   }
 }
 
+/* CUSTOM: every insight chip is teal. */
 .scene-card-insight {
-  background: rgba(255, 255, 255, 0.055);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  --scene-insight-rgb: 45, 212, 191;
+
+  background: rgba(20, 184, 166, 0.13);
+  border: 1px solid rgba(45, 212, 191, 0.68);
   border-radius: 999px;
-  color: $text-color;
+  color: #99f6e4;
   cursor: help;
   display: inline-block;
   font-size: 0.78rem;
@@ -826,26 +828,6 @@
   max-width: 100%;
   min-width: 0;
 }
-
-/* CUSTOM: orgasm chips are white, history-backed vato chips teal. */
-
-.scene-card-insight-event {
-  --scene-insight-rgb: 241, 245, 249;
-
-  background: rgba(241, 245, 249, 0.1);
-  border-color: rgba(241, 245, 249, 0.62);
-  color: #f8fafc;
-}
-
-.scene-card-insight-rare {
-  --scene-insight-rgb: 45, 212, 191;
-
-  background: rgba(20, 184, 166, 0.13);
-  border-color: rgba(45, 212, 191, 0.68);
-  color: #99f6e4;
-}
-
-/* CUSTOM: end */
 
 .video-section {
   position: relative;
@@ -3999,9 +3981,8 @@ input[type="range"].blue-slider {
   grid-template-columns: minmax(0, 1fr) auto auto;
 }
 
+/* CUSTOM: segments use the shared tile tint (styles/tintedSegments_custom.scss). */
 .scene-stats-stacked-bar {
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
   display: flex;
   height: 0.75rem;
   margin-bottom: 0.8rem;

@@ -229,18 +229,16 @@
   }
 }
 
-/* Split bar: parts of one whole. */
+/* Split bar: parts of one whole. CUSTOM: segments use the shared tile tint
+   (styles/tintedSegments_custom.scss). */
 .stats-split-bar {
-  border-radius: 8px;
   display: flex;
-  gap: 2px;
   height: 2.1rem;
-  overflow: hidden;
 }
 
 .stats-split-segment {
   align-items: center;
-  border: 0;
+  color: #fff;
   cursor: pointer;
   display: flex;
   flex-basis: 0;

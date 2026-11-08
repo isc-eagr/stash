@@ -58,6 +58,12 @@ export const EditScenesDialog: React.FC<IListOperationProps> = (
   });
 
   const unsetDisabled = props.selected.length < 2;
+  // CUSTOM: cast edits can switch rubrics, which clears the Rating Advisor
+  const ratingResetHintCustom =
+    !!performerIds.ids &&
+    (performerIds.ids.length > 0 ||
+      performerIds.mode === GQL.BulkUpdateIdMode.Set) &&
+    props.selected.some((scene) => (scene.rating_scores?.length ?? 0) > 0);
 
   const [updateScenes] = useBulkSceneUpdate();
 
@@ -208,6 +214,13 @@ export const EditScenesDialog: React.FC<IListOperationProps> = (
               mode={performerIds.mode}
               menuPortalTarget={document.body}
             />
+            {/* CUSTOM */}
+            {ratingResetHintCustom && (
+              <Form.Text className="text-warning">
+                Scenes that switch between solo, standard, and group rating lose
+                their Rating Advisor scores and rating.
+              </Form.Text>
+            )}
           </BulkUpdateFormGroup>
 
           <BulkUpdateFormGroup name="groups" inline={false}>

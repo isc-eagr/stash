@@ -6,6 +6,7 @@ import { getAppLocaleCustom } from "src/utils/appLocale_custom"; // CUSTOM
 import { StatsChartHeading } from "./StatsChartHeading_custom"; // CUSTOM
 import cx from "classnames";
 import React, { useEffect, useMemo, useState } from "react";
+import { tintedSegmentStyleCustom } from "src/components/Shared/tintedSegment_custom"; // CUSTOM
 import { Link } from "react-router-dom";
 import {
   formatStatsBarPercent,
@@ -77,6 +78,8 @@ interface IProps {
   variant?: "columns" | "ranked";
   // Stacked columns explain their colors once under the title.
   legend?: IStatsLegendItem[];
+  // CUSTOM: colored fills take the shared tile tint, like the activity bars.
+  tinted?: boolean;
   className?: string;
 }
 
@@ -180,6 +183,7 @@ export const StatsBarChart: React.FC<IProps> = ({
   initialBarCount,
   variant = "columns",
   legend,
+  tinted = false,
   className,
 }) => {
   const data = useMemo(
@@ -243,9 +247,12 @@ export const StatsBarChart: React.FC<IProps> = ({
         <span
           className={cx("stats-bar-chart-fill", {
             peak: isPeak && !datum.color,
+            "tinted-segment-custom": tinted && !!datum.color,
           })}
           style={
-            datum.color
+            datum.color && tinted
+              ? tintedSegmentStyleCustom(datum.color, style)
+              : datum.color
               ? {
                   ...style,
                   background: datum.color,

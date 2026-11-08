@@ -83,6 +83,8 @@ export interface IPerformerRoleStats {
   orgasm_top_count: number;
   facial_marker_count: number; // CUSTOM
   feet_top_count: number; // CUSTOM
+  // CUSTOM: Vato Detail Nut tile pips; global batch only
+  nut_type_counts?: GQL.NutTypeCounts | null;
 }
 
 interface IPerformerStudioStats extends IPerformerRoleStats {

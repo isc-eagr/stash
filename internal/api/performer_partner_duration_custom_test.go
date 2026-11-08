@@ -10,15 +10,20 @@ import (
 func TestCalculateCoPerformerRoleStatsCustom(t *testing.T) {
 	end10 := 10.0
 	end15 := 15.0
+	end40 := 40.0
+	releaseID := 70
 	markers := []*models.SceneMarker{
 		{ID: 1, SceneID: 100, Seconds: 0, EndSeconds: &end10},
 		{ID: 2, SceneID: 100, Seconds: 5, EndSeconds: &end15},
 		{ID: 3, SceneID: 200, Seconds: 20},
 		{ID: 4, SceneID: 300, Seconds: 0, EndSeconds: &end10},
+		// Release-owned copy of scene 100's marker: no scene of its own.
+		{ID: 5, ReleaseID: &releaseID, Seconds: 30, EndSeconds: &end40},
 	}
 	performersByMarker := map[int][]*models.MarkerPerformer{
 		1: {{PerformerID: 2, Role: "bottom"}},
 		2: {{PerformerID: 2, Role: "bottom"}},
+		5: {{PerformerID: 2, Role: "bottom"}},
 		3: {
 			{PerformerID: 2, Role: "bottom"},
 			{PerformerID: 4, Role: "bottom"},

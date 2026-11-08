@@ -1,0 +1,21 @@
+/* CUSTOM: stacked-bar segments drawn like the Scene Types tiles: a 12% fill
+   and a 45% border of their color, rounded, with gaps between segments.
+   Bars set each segment's color as --segment-color
+   (tintedSegmentStyleCustom in components/Shared/tintedSegment_custom.ts). */
+.tinted-bar-custom {
+  background: none;
+  border-radius: 0;
+  gap: 4px;
+
+  .tinted-segment-custom {
+    flex-shrink: 1;
+  }
+}
+
+.tinted-segment-custom {
+  background-color: color-mix(in srgb, var(--segment-color) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--segment-color) 45%, transparent);
+  border-radius: 5px;
+  box-sizing: border-box;
+  min-width: 4px;
+}

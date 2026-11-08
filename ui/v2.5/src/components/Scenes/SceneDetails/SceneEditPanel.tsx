@@ -29,7 +29,11 @@ import { useFormik } from "formik";
 import { Prompt } from "react-router-dom";
 import { useConfigurationContext } from "src/hooks/Config";
 import { IGroupEntry, SceneGroupTable } from "./SceneGroupTable";
-import { faSearch, faPlus } from "@fortawesome/free-solid-svg-icons";
+import {
+  faSearch,
+  faPlus,
+  faExclamationTriangle, // CUSTOM
+} from "@fortawesome/free-solid-svg-icons";
 import { objectTitle } from "src/core/files";
 import { galleryTitle } from "src/core/galleries";
 import { lazyComponent } from "src/utils/lazyComponent";
@@ -57,6 +61,8 @@ import {
 import { cloneDeep } from "@apollo/client/utilities";
 import { changedSceneEditFieldsCustom } from "./sceneEditInput_custom"; // CUSTOM
 import TextUtils from "src/utils/text"; // CUSTOM
+import { getSceneRatingModeChangeCustom } from "src/components/Shared/groupSceneRating_custom"; // CUSTOM
+import { ModalComponent } from "src/components/Shared/Modal"; // CUSTOM
 
 const SceneScrapeDialog = lazyComponent(() => import("./SceneScrapeDialog"));
 const SceneQueryModal = lazyComponent(() => import("./SceneQueryModal"));
@@ -68,6 +74,7 @@ interface IProps {
   isVisible: boolean;
   onSubmit: (input: GQL.SceneCreateInput, andNew?: boolean) => Promise<void>;
   onDelete?: () => void;
+  ratingSoloCustom?: boolean; // CUSTOM: solo markers keep 2-3 vato scenes on the solo rubric
 }
 
 export const SceneEditPanel: React.FC<IProps> = ({
@@ -77,6 +84,7 @@ export const SceneEditPanel: React.FC<IProps> = ({
   isVisible,
   onSubmit,
   onDelete,
+  ratingSoloCustom = false, // CUSTOM
 }) => {
   const intl = useIntl();
   const Toast = useToast();
@@ -202,8 +210,33 @@ export const SceneEditPanel: React.FC<IProps> = ({
     return changedValues as GQL.SceneCreateInput;
   }
 
+  const [ratingResetInputCustom, setRatingResetInputCustom] =
+    useState<GQL.SceneCreateInput>();
+  const ratingResetChangeCustom = ratingResetInputCustom?.performer_ids
+    ? getSceneRatingModeChangeCustom(
+        scene.performers?.length ?? 0,
+        ratingResetInputCustom.performer_ids.length,
+        ratingSoloCustom
+      )
+    : undefined;
+
   function submit(values: InputValues) {
-    onSave(buildSubmitInputCustom(values));
+    const input = buildSubmitInputCustom(values);
+    // Confirm before a cast change wipes the scene's advisor scores.
+    if (
+      !isNew &&
+      input.performer_ids &&
+      (scene.rating_scores?.length ?? 0) > 0 &&
+      getSceneRatingModeChangeCustom(
+        scene.performers?.length ?? 0,
+        input.performer_ids.length,
+        ratingSoloCustom
+      )
+    ) {
+      setRatingResetInputCustom(input);
+      return;
+    }
+    onSave(input);
   }
   // CUSTOM: end
 
@@ -810,6 +843,29 @@ export const SceneEditPanel: React.FC<IProps> = ({
           initialQuery={scene.title ?? ""}
         />
       )}
+      {/* CUSTOM: begin - cast changes that switch rubrics clear the advisor */}
+      <ModalComponent
+        show={!!ratingResetChangeCustom}
+        icon={faExclamationTriangle}
+        header="Clear Rating Advisor?"
+        accept={{
+          variant: "danger",
+          text: "Save and clear",
+          onClick: () => {
+            const input = ratingResetInputCustom;
+            setRatingResetInputCustom(undefined);
+            if (input) onSave(input);
+          },
+        }}
+        cancel={{ onClick: () => setRatingResetInputCustom(undefined) }}
+      >
+        <p>
+          This cast change moves the scene from {ratingResetChangeCustom?.from}{" "}
+          to {ratingResetChangeCustom?.to} rating. Saving clears its Rating
+          Advisor scores and rating.
+        </p>
+      </ModalComponent>
+      {/* CUSTOM: end */}
       <Form noValidate onSubmit={formik.handleSubmit}>
         <Row className="form-container edit-buttons-container px-3 pt-3">
           <div className="edit-buttons mb-3 pl-0">

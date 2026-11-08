@@ -14,7 +14,6 @@ import {
 } from "src/utils/ratingCardStyles_custom";
 import {
   normalizeSceneCardInsightThresholds,
-  type ISceneCardInsight,
   type SceneCardInsightThresholdKey,
 } from "src/components/Scenes/sceneCardInsightsData_custom"; // CUSTOM
 import { SceneCardInsightChip } from "src/components/Scenes/SceneCardInsights_custom"; // CUSTOM
@@ -39,15 +38,11 @@ type RoleTagKey =
   | "reallyHotTagId"
   | "goatTagId";
 
-function sceneCardInsightSettingHeading(
-  label: string,
-  chipLabel: string,
-  tone: ISceneCardInsight["tone"]
-) {
+function sceneCardInsightSettingHeading(label: string, chipLabel: string) {
   return (
     <span className="scene-card-insight-setting-heading">
       <span>{label}</span>
-      <SceneCardInsightChip label={chipLabel} tone={tone} />
+      <SceneCardInsightChip label={chipLabel} />
     </span>
   );
 }
@@ -412,8 +407,7 @@ export const SettingsCustomPanel: React.FC = () => {
             intl.formatMessage({
               id: "config.ui.scene_card_insights.rare_role_maximum.heading",
             }),
-            "Rare instance of a vato having his pito sucked",
-            "rare"
+            "Rare instance of a vato having his pito sucked"
           )}
           subHeadingID="config.ui.scene_card_insights.rare_role_maximum.description"
           value={sceneCardInsightThresholds.rareRoleMaximumPercent}

@@ -13,6 +13,8 @@ export interface IProgressLedgerSnapshot {
   total: number;
   percent: number;
   previousPercent?: number;
+  /** Completed count at the previous close, when one exists. */
+  previousCompleted?: number;
   netCompletedGain: number;
 }
 
@@ -74,6 +76,7 @@ export function progressLedgerSnapshot(
         ? (before.cumulativeCompleted / priorTotal) * 100
         : 0
       : undefined,
+    previousCompleted: before?.cumulativeCompleted,
     netCompletedGain: before
       ? Math.min(completed, Math.max(0, completed - before.cumulativeCompleted))
       : 0,

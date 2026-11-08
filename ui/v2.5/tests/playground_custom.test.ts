@@ -48,7 +48,7 @@ const base: IPlaygroundScene = {
       raw_value: 0,
       weighted_value: 0,
     },
-    { section: "criterion", key: "chemistry", raw_value: 5, weighted_value: 2 },
+    { section: "criterion", key: "chemistry", raw_value: 4, weighted_value: 2 },
     { section: "bonus", key: "theme", raw_value: 1, weighted_value: 1 },
     { section: "penalty", key: "production", raw_value: 0, weighted_value: -1 },
     { section: "penalty", key: "noOrgasm", raw_value: 0, weighted_value: 0 },
@@ -134,16 +134,16 @@ const x = standardMetrics[0];
 const y = standardMetrics.find((metric) => metric.key === "chemistry")!;
 assert.deepEqual(
   getPlaygroundPoints([entry], x, y).map((point) => [point.x, point.y]),
-  [[0, 5]],
+  [[0, 4]],
   "zero is a saved score, not a missing value"
 );
 assert.equal(
-  getPlaygroundPoints([{ ...entry, scores: { chemistry: 5 } }], x, y).length,
+  getPlaygroundPoints([{ ...entry, scores: { chemistry: 4 } }], x, y).length,
   0
 );
 assert.equal(
   getPlaygroundPoints(
-    [{ ...entry, scores: { topAttractiveness: 0.5, chemistry: 5 } }],
+    [{ ...entry, scores: { topAttractiveness: 0.5, chemistry: 4 } }],
     x,
     y
   ).length,
@@ -152,7 +152,7 @@ assert.equal(
 );
 assert.equal(
   getPlaygroundPoints(
-    [{ ...entry, scores: { topAttractiveness: NaN, chemistry: 5 } }],
+    [{ ...entry, scores: { topAttractiveness: NaN, chemistry: 4 } }],
     x,
     y
   ).length,

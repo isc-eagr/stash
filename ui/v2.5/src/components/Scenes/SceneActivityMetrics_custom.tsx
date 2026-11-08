@@ -19,6 +19,7 @@ import type {
 import TextUtils from "src/utils/text";
 import { catalogCardSortHighlightClassCustom } from "../Shared/catalogCardSortHighlight_custom";
 import cx from "classnames";
+import { tintedSegmentStyleCustom } from "../Shared/tintedSegment_custom";
 
 // CUSTOM: scene activity duration metrics and composition bars
 interface ISceneActivityMetricsProps {
@@ -30,6 +31,8 @@ interface ISceneActivityMetricsProps {
   // Just one of the two groups; both by default.
   only?: "activity" | "quality";
   activeSortBy?: string;
+  // Stats panel: the boxes become a text legend ("Sex 70% 46:23").
+  legend?: boolean;
 }
 
 interface ISceneActivityMetricBoxProps {
@@ -39,9 +42,17 @@ interface ISceneActivityMetricBoxProps {
   // Legend-sized: color dot, icon, and percentage only.
   compact?: boolean;
   activeSortBy?: string;
+  // Text legend: the label replaces the icon, the time follows the percent.
+  legend?: boolean;
 }
 
 const activityMetricKeys = new Set(["sex", "oral", "solo", "other"]);
+// The text legend names the scene types like the Scene Types tiles above it.
+const legendLabels: Record<string, string> = {
+  sex: "Sex",
+  oral: "Oral",
+  solo: "Solo",
+};
 
 function formatMetricValue(metric: SceneActivityMetric) {
   const duration = TextUtils.secondsToTimestamp(metric.duration ?? 0);
@@ -56,6 +67,7 @@ export const SceneActivityMetricBox: React.FC<ISceneActivityMetricBoxProps> = ({
   control,
   compact = false,
   activeSortBy,
+  legend = false,
 }) => {
   const isActivity = activityMetricKeys.has(metric.key);
   const tooltip =
@@ -145,11 +157,30 @@ export const SceneActivityMetricBox: React.FC<ISceneActivityMetricBoxProps> = ({
             }}
           />
         )}
-        {isActivity ? activityIcon : qualityIcon}
+        {legend ? (
+          <span className="scene-activity-metric__label">
+            {legendLabels[metric.key] ?? metric.label}
+          </span>
+        ) : isActivity ? (
+          activityIcon
+        ) : (
+          qualityIcon
+        )}
         <span className="scene-activity-metric__copy">
-          <strong>
-            {compact ? `${metric.percent}%` : formatMetricValue(metric)}
-          </strong>
+          {legend ? (
+            <>
+              {metric.showPercent !== false && (
+                <strong>{metric.percent}%</strong>
+              )}
+              <span className="scene-activity-metric__duration">
+                {TextUtils.secondsToTimestamp(metric.duration ?? 0)}
+              </span>
+            </>
+          ) : (
+            <strong>
+              {compact ? `${metric.percent}%` : formatMetricValue(metric)}
+            </strong>
+          )}
           {!compact &&
             isActivity &&
             metric.outstandingPercent !== undefined && (
@@ -201,20 +232,19 @@ function renderDistributionBar(
   return (
     <div
       aria-label={label + ": " + summary}
-      className="scene-activity-metrics__distribution"
+      className="scene-activity-metrics__distribution tinted-bar-custom"
       role="img"
     >
       {rows.map((metric) => (
         <span
           className={
-            "scene-activity-metrics__segment scene-activity-metrics__segment--" +
+            "scene-activity-metrics__segment tinted-segment-custom scene-activity-metrics__segment--" +
             metric.key
           }
           key={metric.key}
-          style={{
-            backgroundColor: getMetricColor(metric, soloColor),
+          style={tintedSegmentStyleCustom(getMetricColor(metric, soloColor), {
             width: Math.max(0, Math.min(100, metric.percent)) + "%",
-          }}
+          })}
           title={metric.label + ": " + metric.percent + "%"}
         />
       ))}
@@ -230,6 +260,7 @@ export const SceneActivityMetrics: React.FC<ISceneActivityMetricsProps> = ({
   compact = false,
   only,
   activeSortBy,
+  legend = false,
 }) => {
   const soloColor = ACTIVITY_PIE_COLORS.solo;
 
@@ -267,6 +298,7 @@ export const SceneActivityMetrics: React.FC<ISceneActivityMetricsProps> = ({
                 compact={compact}
                 activeSortBy={activeSortBy}
                 key={metric.key}
+                legend={legend}
                 metric={metric}
                 sceneId={sceneId}
               />
@@ -284,6 +316,7 @@ export const SceneActivityMetrics: React.FC<ISceneActivityMetricsProps> = ({
                 compact={compact}
                 activeSortBy={activeSortBy}
                 key={metric.key}
+                legend={legend}
                 metric={metric}
                 sceneId={sceneId}
               />

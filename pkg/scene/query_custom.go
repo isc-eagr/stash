@@ -242,6 +242,9 @@ func getScenesByPerformerMarkerRole(ctx context.Context, r models.SceneMarkerQue
 
 	sceneSet := make(map[int]bool)
 	for _, m := range markers {
+		if m.ReleaseID != nil {
+			continue // release-owned markers stay out of scene stats
+		}
 		sceneSet[m.SceneID] = true
 	}
 
@@ -337,6 +340,9 @@ func getScenesWithMarkerTag(ctx context.Context, markerQB models.SceneMarkerQuer
 	}
 
 	for _, m := range markers {
+		if m.ReleaseID != nil {
+			continue // release-owned markers stay out of scene stats
+		}
 		ret[m.SceneID] = true
 	}
 
@@ -1030,6 +1036,8 @@ type PerformerRoleStatsData struct {
 	OrgasmTopCount              int
 	FacialMarkerCount           int
 	FeetTopCount                int
+	// CUSTOM: his nuts and facials by quality, for the Nut tile pips
+	NutTypes NutTypeCountsCustom
 }
 
 // GetPerformerRoleStatsBatch computes all performer-card role stats for a page of performers.
@@ -1042,6 +1050,7 @@ func GetPerformerRoleStatsBatch(
 	tagFinder models.TagFinder,
 	performerIDs []int,
 	sexTagID, oralTagID, soloTagID, facialTagID, orgasmTagID, feetTagID, secondCameraTagID int,
+	goatTagID, reallyHotTagID int, // CUSTOM: nut qualities
 ) (map[int]*PerformerRoleStatsData, error) {
 	result := make(map[int]*PerformerRoleStatsData, len(performerIDs))
 	targets := make(map[int]bool, len(performerIDs))
@@ -1112,7 +1121,7 @@ func GetPerformerRoleStatsBatch(
 		stats.SoloSceneCount = countScenesExcluding(soloScenes[id], sexScenes[id], oralScenes[id])
 	}
 
-	if err := fillMarkerRoleStatsWithSecondary(ctx, markerQB, tagFinder, targetIDs, targets, result, facialTagID, orgasmTagID, feetTagID, secondCameraTagID); err != nil {
+	if err := fillMarkerRoleStatsWithSecondary(ctx, markerQB, tagFinder, targetIDs, targets, result, facialTagID, orgasmTagID, feetTagID, secondCameraTagID, goatTagID, reallyHotTagID); err != nil {
 		return nil, err
 	}
 	if err := fillPartnerStats(ctx, markerQB, tagFinder, targetIDs, targets, result, sexTagID, oralTagID, facialTagID); err != nil {
@@ -1182,6 +1191,7 @@ func fillMarkerRoleStatsWithSecondary(
 	targets map[int]bool,
 	result map[int]*PerformerRoleStatsData,
 	facialTagID, orgasmTagID, feetTagID, secondCameraTagID int,
+	goatTagID, reallyHotTagID int, // CUSTOM: nut qualities
 ) error {
 	facialTags, err := expandedTagSet(ctx, tagFinder, facialTagID)
 	if err != nil {
@@ -1196,6 +1206,15 @@ func fillMarkerRoleStatsWithSecondary(
 		return err
 	}
 	secondCameraTags, err := expandedTagSet(ctx, tagFinder, secondCameraTagID)
+	if err != nil {
+		return err
+	}
+	// CUSTOM: GOAT and Really Hot tags (with subtags) grade his nuts and facials.
+	goatTags, err := expandedTagSet(ctx, tagFinder, goatTagID)
+	if err != nil {
+		return err
+	}
+	reallyHotTags, err := expandedTagSet(ctx, tagFinder, reallyHotTagID)
 	if err != nil {
 		return err
 	}
@@ -1258,6 +1277,10 @@ func fillMarkerRoleStatsWithSecondary(
 		if row.Role == "top" {
 			if hasOrgasm {
 				stats.OrgasmTopCount++
+			}
+			// CUSTOM: same events as the scene card nut report
+			if hasFacial || hasOrgasm {
+				stats.NutTypes.add(hasFacial, nutQualityCustom(allTagIDs, goatTags, reallyHotTags))
 			}
 			if hasFeet {
 				stats.FeetTopCount++

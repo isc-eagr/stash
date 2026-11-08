@@ -67,3 +67,25 @@ export function getSceneRatingModeCustom(
 
   return performerCount === 1 || isSolo ? "solo" : "default";
 }
+
+const SCENE_RATING_MODE_LABELS_CUSTOM: Record<SceneRatingModeCustom, string> = {
+  default: "Standard",
+  solo: "Solo",
+  group: "Group",
+};
+
+// Saving a cast change that switches rubrics clears the Rating Advisor.
+export function getSceneRatingModeChangeCustom(
+  previousPerformerCount: number,
+  nextPerformerCount: number,
+  isSolo: boolean
+) {
+  const from = getSceneRatingModeCustom(previousPerformerCount, isSolo);
+  const to = getSceneRatingModeCustom(nextPerformerCount, isSolo);
+  return from === to
+    ? undefined
+    : {
+        from: SCENE_RATING_MODE_LABELS_CUSTOM[from],
+        to: SCENE_RATING_MODE_LABELS_CUSTOM[to],
+      };
+}

@@ -3,19 +3,43 @@ import React from "react";
 import type { ITaskProgressHistoryEntry } from "../taskProgress_custom";
 import type { IProgressLedgerSnapshot } from "./progressLedger_custom";
 import { useProgressText } from "./progressView_custom";
+import { TaskProgressCounts } from "./TaskProgressCounts";
 import { TaskProgressMedalBar } from "./TaskProgressMedalBar";
 import { taskProgressDisplayPercentChange } from "./taskProgressScoreboard_custom"; // CUSTOM
 
+/** Previous close → current percentage. */
+const TaskProgressPercentChange: React.FC<{
+  snapshot: IProgressLedgerSnapshot;
+}> = ({ snapshot: { percent, previousPercent } }) => {
+  const t = useProgressText();
+  return (
+    <div
+      className="progress-score-percent progress-score-percent-change"
+      aria-label={t("Previous close → current completion")}
+    >
+      <span>
+        {previousPercent === undefined
+          ? "—"
+          : `${formatAppDecimalCustom(previousPercent, 2)}%`}
+      </span>
+      <span aria-hidden="true">→</span>
+      <strong>{formatAppDecimalCustom(percent, 2)}%</strong>
+    </div>
+  );
+};
+
 /**
- * Previous close → current percentage with the medal bar, the period's gain
- * highlighted, and the points it added.
+ * Previous close → current percentage and the counts above the medal bar, the
+ * period's gain highlighted, and the points it added.
  */
 export const TaskProgressPeriodProgress: React.FC<{
   snapshot: IProgressLedgerSnapshot;
   history: readonly ITaskProgressHistoryEntry[];
   /** Untranslated period name, such as "this week". */
   periodLabel: string;
-}> = ({ snapshot, history, periodLabel }) => {
+  /** Current done and left counts; omitted while there is nothing to count. */
+  counts?: { done: number; left: number };
+}> = ({ snapshot, history, periodLabel, counts }) => {
   const t = useProgressText();
   const { completed, total, percent, previousPercent, netCompletedGain } =
     snapshot;
@@ -25,18 +49,16 @@ export const TaskProgressPeriodProgress: React.FC<{
   );
   return (
     <div className="progress-score-progress">
-      <div
-        className="progress-score-percent progress-score-percent-change"
-        aria-label={t("Previous close → current completion")}
-      >
-        <span>
-          {previousPercent === undefined
-            ? "—"
-            : `${formatAppDecimalCustom(previousPercent, 2)}%`}
-        </span>
-        <span aria-hidden="true">→</span>
-        <strong>{formatAppDecimalCustom(percent, 2)}%</strong>
-      </div>
+      {counts ? (
+        <TaskProgressCounts
+          percent={<TaskProgressPercentChange snapshot={snapshot} />}
+          done={counts.done}
+          previousDone={snapshot.previousCompleted}
+          left={counts.left}
+        />
+      ) : (
+        <TaskProgressPercentChange snapshot={snapshot} />
+      )}
       <TaskProgressMedalBar
         completed={completed}
         total={total}

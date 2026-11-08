@@ -109,6 +109,24 @@ func markerTagFamiliesCustom(ctx context.Context, g models.SceneMarkerTagGroupIn
 	return ret, nil
 }
 
+func markerGroupOwnTagsOnlyCustom(g models.SceneMarkerTagGroupInput) bool {
+	return g.OwnTagsOnly != nil && *g.OwnTagsOnly
+}
+
+// expandTagIDsCustom returns the tags and all of their subtags.
+func expandTagIDsCustom(ctx context.Context, tagIDs []string) ([]string, error) {
+	allDepth := -1
+	valuesClause, err := getHierarchicalValues(ctx, tagIDs, tagTable, "tags_relations", "parent_id", "child_id", &allDepth)
+	if err != nil {
+		return nil, err
+	}
+	var expanded []string
+	if err := dbWrapper.Select(ctx, &expanded, fmt.Sprintf("SELECT DISTINCT column2 FROM (%s)", valuesClause)); err != nil {
+		return nil, err
+	}
+	return uniqueStringsCustom(append(tagIDs, expanded...)), nil
+}
+
 // markerGroupAndModeCustom reports whether top and bottom requirements must
 // both hold. The UI always sends AND; OR remains for legacy API callers.
 func markerGroupAndModeCustom(g models.SceneMarkerTagGroupInput) bool {
@@ -380,7 +398,14 @@ func (b markerGroupSQLCustom) condition(g models.SceneMarkerTagGroupInput, sm st
 	}
 	parts = append(parts, tags)
 
-	if exclude := uniqueStringsCustom(g.ExcludeTagIDsOnMarker); len(exclude) > 0 {
+	exclude := uniqueStringsCustom(g.ExcludeTagIDsOnMarker)
+	if markerGroupOwnTagsOnlyCustom(g) && len(exclude) > 0 {
+		// Own-tags groups leave out the excluded tags' subtags too.
+		if exclude, err = expandTagIDsCustom(b.ctx, exclude); err != nil {
+			return sqlClause{}, err
+		}
+	}
+	if len(exclude) > 0 {
 		ph := getInBinding(len(exclude))
 		args := append(stringArgsCustom(exclude), stringArgsCustom(exclude)...)
 		parts = append(parts, makeClause(fmt.Sprintf(`NOT (

@@ -1,0 +1,27 @@
+# CUSTOM: Sex and oral-only scenes split by vato count, for the Scene Types
+# tiles on Vato and Studio details.
+
+"Scenes by vato count. Solo holds 0-1 vato scenes, an anomaly for sex/oral."
+type SceneCastSplit {
+  solo: Int!
+  "2 vatos"
+  standard: Int!
+  "3 vatos"
+  threesome: Int!
+  "4+ vatos"
+  group: Int!
+}
+
+type SceneTypeCastSplit {
+  sex: SceneCastSplit!
+  "Oral scenes without sex markers"
+  oral: SceneCastSplit!
+}
+
+extend type Performer {
+  scene_type_cast_split: SceneTypeCastSplit!
+}
+
+extend type Studio {
+  scene_type_cast_split(depth: Int): SceneTypeCastSplit!
+}

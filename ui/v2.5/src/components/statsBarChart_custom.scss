@@ -93,6 +93,11 @@
     background: var(--stats-peak);
   }
 
+  /* CUSTOM: activity charts use the shared tile tint over the accent fill. */
+  &.tinted-segment-custom {
+    background: color-mix(in srgb, var(--segment-color) 12%, transparent);
+  }
+
   &.stacked {
     background: transparent;
     display: flex;

@@ -21,6 +21,7 @@ import {
   normalizeRatingAdvisorScoreValueCustom,
   ratingAdvisorSixLevelChoicesCustom,
   resolveRatingAdvisorScoresCustom,
+  SCENE_ENERGY_MAX_CUSTOM,
   SCENE_ENERGY_WEIGHT_CUSTOM,
   SCENE_GOD_TIER_ORGASM_BONUS_CUSTOM,
   SCENE_GOAT_ELEMENT_BONUS_CHOICES_CUSTOM,
@@ -195,7 +196,7 @@ assert.equal(
   "missing orgasms subtract 20 rating points from scenes"
 );
 assert.equal(
-  5 * SCENE_ENERGY_WEIGHT_CUSTOM * 10,
+  SCENE_ENERGY_MAX_CUSTOM * SCENE_ENERGY_WEIGHT_CUSTOM * 10,
   20,
   "regular scene energy contributes at most 20 rating points"
 );

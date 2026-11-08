@@ -12,9 +12,10 @@ export type PerformerVersatility = {
 
 type RGB = [number, number, number];
 
-// Neutral in the middle, darker blue toward top, darker green toward bottom.
+// Neutral in the middle, then darker shades of the Top teal and Bottom green
+// (the semantic role colors the percentages use).
 const NEUTRAL: RGB = [206, 212, 218];
-const DARK_TOP: RGB = [13, 59, 140];
+const DARK_TOP: RGB = [13, 89, 101];
 const DARK_BOTTOM: RGB = [14, 92, 46];
 
 function mix(from: RGB, to: RGB, amount: number): RGB {

@@ -188,11 +188,13 @@ func (r *queryResolver) PerformerRoleStats(ctx context.Context, performerIDs []s
 
 	uiConfig := config.GetInstance().GetUIConfiguration()
 	sexTagID, oralTagID, soloTagID, facialTagID, orgasmTagID, feetTagID, secondCameraTagID := getRoleTagIDs(uiConfig)
+	_, _, _, goatTagID := activityStatsRoleTagIDsCustom() // CUSTOM: nut qualities
+	reallyHotTagID := reallyHotTagIDCustom(uiConfig)      // CUSTOM
 
 	var statsByPerformer map[int]*scene.PerformerRoleStatsData
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		var err error
-		statsByPerformer, err = scene.GetPerformerRoleStatsBatch(ctx, r.repository.SceneMarker, r.repository.Scene, r.repository.Tag, ids, sexTagID, oralTagID, soloTagID, facialTagID, orgasmTagID, feetTagID, secondCameraTagID)
+		statsByPerformer, err = scene.GetPerformerRoleStatsBatch(ctx, r.repository.SceneMarker, r.repository.Scene, r.repository.Tag, ids, sexTagID, oralTagID, soloTagID, facialTagID, orgasmTagID, feetTagID, secondCameraTagID, goatTagID, reallyHotTagID)
 		return err
 	}); err != nil {
 		return nil, err
@@ -238,6 +240,7 @@ func (r *queryResolver) PerformerRoleStats(ctx context.Context, performerIDs []s
 			OrgasmTopCount:              data.OrgasmTopCount,
 			FacialMarkerCount:           data.FacialMarkerCount,
 			FeetTopCount:                data.FeetTopCount,
+			NutTypeCounts:               nutTypeCountsCustom(data.NutTypes), // CUSTOM: Nut tile pips
 		})
 	}
 

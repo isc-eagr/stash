@@ -418,6 +418,14 @@ func (qb *sceneMarkerFilterHandler) markerTagsWithPerformersCriterionHandler(inp
 // shorter overlapping marker matching the whole configuration (tags and vatos)
 // hides it.
 func markerSingleConfigurationClauseCustom(ctx context.Context, g models.SceneMarkerTagGroupInput) (sqlClause, error) {
+	// CUSTOM: own-tags groups match each marker on its own, like the Nut tile pips.
+	if markerGroupOwnTagsOnlyCustom(g) {
+		current, err := markerGroupSQLCustom{ctx: ctx, direct: true}.condition(g, "scene_markers")
+		if err != nil {
+			return sqlClause{}, err
+		}
+		return joinClausesCustom([]sqlClause{current, makeClause("scene_markers.release_id IS NULL")}, " AND "), nil
+	}
 	tagIDs := uniqueStringsCustom(g.TagIDs)
 	// With one tag family a direct match is the whole tag requirement, so the
 	// inherited-tag scan is skipped.

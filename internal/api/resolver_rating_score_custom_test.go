@@ -11,20 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestUsesGroupSceneRatingCustom(t *testing.T) {
-	require.False(t, usesGroupSceneRatingCustom(3))
-	require.True(t, usesGroupSceneRatingCustom(4))
-	require.True(t, usesGroupSceneRatingCustom(8))
-}
-
-func TestCastSceneRatingModeCustom(t *testing.T) {
-	require.Equal(t, models.RatingSceneModeDefault, castSceneRatingModeCustom(0))
-	require.Equal(t, models.RatingSceneModeSolo, castSceneRatingModeCustom(1))
-	require.Equal(t, models.RatingSceneModeDefault, castSceneRatingModeCustom(2))
-	require.Equal(t, models.RatingSceneModeDefault, castSceneRatingModeCustom(3))
-	require.Equal(t, models.RatingSceneModeGroup, castSceneRatingModeCustom(4))
-}
-
 func TestHasEffectiveRatingAdvisorScoresCustom(t *testing.T) {
 	require.False(t, hasEffectiveRatingAdvisorScoresCustom([]*models.RatingScore{{
 		Section:  models.RatingScoreSectionBonus,
@@ -40,11 +26,10 @@ func TestHasEffectiveRatingAdvisorScoresCustom(t *testing.T) {
 	}}))
 }
 
-func TestSyncSceneAdvisorAfterCastChangeCustom(t *testing.T) {
+func TestSyncSceneAdvisorAfterCastChangeRecalculatesPerformersCustom(t *testing.T) {
 	db := mocks.NewDatabase()
 	resolver := newResolver(db)
 	db.Scene.On("GetPerformerIDs", mock.Anything, 1).Return([]int{2, 3, 4, 5}, nil).Once()
-	db.RatingScore.On("ResetSceneScores", mock.Anything, 1).Return(true, nil).Once()
 	for _, performerID := range []int{1, 2, 3, 4, 5} {
 		db.RatingScore.On("FindByEntity", mock.Anything, models.RatingEntityPerformer, performerID).
 			Return([]*models.RatingScore{}, nil).Once()
@@ -53,21 +38,7 @@ func TestSyncSceneAdvisorAfterCastChangeCustom(t *testing.T) {
 	err := resolver.syncSceneAdvisorAfterCastChangeCustom(context.Background(), 1, []int{1, 2, 3})
 	require.NoError(t, err)
 	db.AssertExpectations(t)
-}
-
-func TestSyncSceneAdvisorAfterCastChangeResetsAtSoloBoundaryCustom(t *testing.T) {
-	db := mocks.NewDatabase()
-	resolver := newResolver(db)
-	db.Scene.On("GetPerformerIDs", mock.Anything, 1).Return([]int{2}, nil).Once()
-	db.RatingScore.On("ResetSceneScores", mock.Anything, 1).Return(true, nil).Once()
-	for _, performerID := range []int{1, 2, 3} {
-		db.RatingScore.On("FindByEntity", mock.Anything, models.RatingEntityPerformer, performerID).
-			Return([]*models.RatingScore{}, nil).Once()
-	}
-
-	err := resolver.syncSceneAdvisorAfterCastChangeCustom(context.Background(), 1, []int{1, 3})
-	require.NoError(t, err)
-	db.AssertExpectations(t)
+	db.RatingScore.AssertNotCalled(t, "ResetSceneScores", mock.Anything, mock.Anything)
 }
 
 func TestResetSceneAdvisorsIfModeChangedCustom(t *testing.T) {

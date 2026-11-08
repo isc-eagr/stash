@@ -122,7 +122,6 @@ const energyChoices = [
   "Decent",
   "Strong",
   "Excellent",
-  "Perfect quality",
 ].map((label, value) => ({ value, label }));
 
 const groupEnergyCoordinationChoices =

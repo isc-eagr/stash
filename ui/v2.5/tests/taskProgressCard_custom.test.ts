@@ -91,9 +91,10 @@ assert.match(
 assert.match(markup, /aria-label="Edit"[^>]*btn-secondary/);
 assert.match(
   markup,
-  /progress-score-counts"><span class="progress-score-done"><strong>3<\/strong> done<\/span><span><strong>8<\/strong> left<\/span><\/div><small>Scenes<\/small>/,
-  "done and left counts stand out above the item types"
+  /progress-score-progress"><div class="progress-score-figure"><strong class="progress-score-percent">27\.27%<\/strong><div class="progress-score-counts"><strong class="progress-score-done">3<\/strong><span class="progress-score-total">\/ 11<\/span><span class="progress-score-left"><strong>8<\/strong> left<\/span>/,
+  "the percentage, done / total, and left badge sit above the medal bar"
 );
+assert.doesNotMatch(markup, /Scenes/, "the row no longer lists item types");
 assert.equal(
   (markup.match(/27\.27%/g) ?? []).length,
   1,

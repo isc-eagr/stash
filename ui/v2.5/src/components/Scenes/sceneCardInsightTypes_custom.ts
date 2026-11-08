@@ -7,13 +7,10 @@ export type SceneCardInsightThresholds = Required<
 
 export type SceneCardInsightThresholdKey = keyof SceneCardInsightThresholds;
 
-export type SceneCardInsightTone = "event" | "rare";
-
 export interface ISceneCardInsight {
   key: string;
   label: string;
   detail: string;
-  tone: SceneCardInsightTone;
   performerPreviews: SceneCardInsightPerformer[]; // CUSTOM: hover portraits.
 }
 

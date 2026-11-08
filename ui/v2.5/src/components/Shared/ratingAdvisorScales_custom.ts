@@ -7,7 +7,8 @@ export interface IRatingAdvisorChoiceCustom {
 
 export const SCENE_GOD_TIER_ORGASM_BONUS_CUSTOM = 1;
 export const SCENE_NO_ORGASM_PENALTY_CUSTOM = -2;
-export const SCENE_ENERGY_WEIGHT_CUSTOM = 0.4;
+export const SCENE_ENERGY_MAX_CUSTOM = 4;
+export const SCENE_ENERGY_WEIGHT_CUSTOM = 0.5;
 export const SCENE_USABLE_FACTOR_MAX_CUSTOM = 4;
 export const SCENE_USABLE_FACTOR_WEIGHT_CUSTOM = 0.5;
 

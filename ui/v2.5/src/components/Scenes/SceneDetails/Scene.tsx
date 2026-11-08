@@ -693,6 +693,63 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     </Dropdown>
   );
 
+  // CUSTOM: preserve the configured scene rating mode after retiring title icons.
+  const sceneTypeForRating = useMemo<"gay" | "mouth" | "hand" | null>(() => {
+    // Get role tag IDs from configuration
+    const roleTagIds = configuration?.ui?.roleTagIds ?? {};
+    const { sexTagId } = roleTagIds;
+    const { oralTagId } = roleTagIds;
+    const { soloTagId } = roleTagIds;
+
+    // Get scene marker tag IDs
+    const markerTagIds = new Set<string>();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sceneMarkers = (scene as any).scene_markers ?? [];
+    for (const marker of sceneMarkers) {
+      // Check if this is an oral marker
+      const isOralMarker =
+        (marker?.primary_tag?.id && marker.primary_tag.id === oralTagId) ||
+        (marker?.tags ?? []).some(
+          (tag: { id?: string }) => tag?.id === oralTagId
+        );
+
+      // Add oral markers to tag set
+      if (isOralMarker && oralTagId) {
+        markerTagIds.add(oralTagId);
+      }
+
+      // Add non-oral tag IDs normally
+      if (marker?.primary_tag?.id) {
+        if (marker.primary_tag.id === sexTagId)
+          markerTagIds.add(marker.primary_tag.id);
+        if (marker.primary_tag.id === soloTagId)
+          markerTagIds.add(marker.primary_tag.id);
+      }
+      const markerTags: Array<{ id?: string }> = marker?.tags ?? [];
+      for (const tag of markerTags) {
+        if (tag?.id) {
+          if (tag.id === sexTagId) markerTagIds.add(tag.id);
+          if (tag.id === soloTagId) markerTagIds.add(tag.id);
+        }
+      }
+    }
+
+    // Priority: sex > oral > solo
+    if (sexTagId && markerTagIds.has(sexTagId)) {
+      return "gay";
+    }
+
+    if (oralTagId && markerTagIds.has(oralTagId)) {
+      return "mouth";
+    }
+
+    if (soloTagId && markerTagIds.has(soloTagId)) {
+      return "hand";
+    }
+
+    return null;
+  }, [scene, configuration?.ui]);
+
   const renderTabs = () => (
     <Tab.Container
       mountOnEnter // CUSTOM: defer queries and rendering in unopened tabs, retaining state after first use.
@@ -973,6 +1030,8 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
               scene={scene}
               onSubmit={onSave}
               onDelete={() => setIsDeleteAlertOpen(true)}
+              // CUSTOM: solo markers keep 2-3 vato scenes on the solo rubric
+              ratingSoloCustom={sceneTypeForRating === "hand"}
             />
           </Tab.Pane>
           <Tab.Pane eventKey="scene-history-panel">
@@ -1003,62 +1062,6 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     [scene]
   );
 
-  // CUSTOM: preserve the configured scene rating mode after retiring title icons.
-  const sceneTypeForRating = useMemo<"gay" | "mouth" | "hand" | null>(() => {
-    // Get role tag IDs from configuration
-    const roleTagIds = configuration?.ui?.roleTagIds ?? {};
-    const { sexTagId } = roleTagIds;
-    const { oralTagId } = roleTagIds;
-    const { soloTagId } = roleTagIds;
-
-    // Get scene marker tag IDs
-    const markerTagIds = new Set<string>();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sceneMarkers = (scene as any).scene_markers ?? [];
-    for (const marker of sceneMarkers) {
-      // Check if this is an oral marker
-      const isOralMarker =
-        (marker?.primary_tag?.id && marker.primary_tag.id === oralTagId) ||
-        (marker?.tags ?? []).some(
-          (tag: { id?: string }) => tag?.id === oralTagId
-        );
-
-      // Add oral markers to tag set
-      if (isOralMarker && oralTagId) {
-        markerTagIds.add(oralTagId);
-      }
-
-      // Add non-oral tag IDs normally
-      if (marker?.primary_tag?.id) {
-        if (marker.primary_tag.id === sexTagId)
-          markerTagIds.add(marker.primary_tag.id);
-        if (marker.primary_tag.id === soloTagId)
-          markerTagIds.add(marker.primary_tag.id);
-      }
-      const markerTags: Array<{ id?: string }> = marker?.tags ?? [];
-      for (const tag of markerTags) {
-        if (tag?.id) {
-          if (tag.id === sexTagId) markerTagIds.add(tag.id);
-          if (tag.id === soloTagId) markerTagIds.add(tag.id);
-        }
-      }
-    }
-
-    // Priority: sex > oral > solo
-    if (sexTagId && markerTagIds.has(sexTagId)) {
-      return "gay";
-    }
-
-    if (oralTagId && markerTagIds.has(oralTagId)) {
-      return "mouth";
-    }
-
-    if (soloTagId && markerTagIds.has(soloTagId)) {
-      return "hand";
-    }
-
-    return null;
-  }, [scene, configuration?.ui]);
   const sceneRatingMode = getSceneRatingModeCustom(
     scene.performers.length,
     sceneTypeForRating === "hand"

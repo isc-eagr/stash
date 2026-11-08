@@ -54,6 +54,7 @@ import { OutstandingActivityMatrixTable } from "../OutstandingActivityMatrix_cus
 import { getOutstandingActivityMatrix } from "../sceneCardInsightsData_custom"; // CUSTOM
 import { SceneActivityMetricBox } from "../SceneActivityMetrics_custom"; // CUSTOM
 import { PerformerVersatilityByTime } from "src/components/Performers/PerformerDetails/PerformerVersatility_custom"; // CUSTOM
+import { tintedSegmentStyleCustom } from "src/components/Shared/tintedSegment_custom"; // CUSTOM
 import {
   getSceneActivityDataCustom,
   type SceneActivityMetric,
@@ -821,17 +822,17 @@ const SceneStatsPanel: React.FC<IProps> = ({
         {stacked && (
           <div
             aria-label={`${title} distribution`}
-            className="scene-stats-stacked-bar"
+            className="scene-stats-stacked-bar tinted-bar-custom"
             role="img"
           >
             {chartRows.map((row) => (
               <span
-                className={`scene-stats-stacked-segment scene-stats-stacked-segment--${row.key}`}
+                className={`scene-stats-stacked-segment tinted-segment-custom scene-stats-stacked-segment--${row.key}`}
                 key={row.key}
-                style={{
-                  backgroundColor: getStatsRowColor(row, soloMarkerColor),
-                  width: `${Math.max(0, Math.min(100, row.percent))}%`,
-                }}
+                style={tintedSegmentStyleCustom(
+                  getStatsRowColor(row, soloMarkerColor),
+                  { width: `${Math.max(0, Math.min(100, row.percent))}%` }
+                )}
                 title={`${row.label}: ${TextUtils.secondsToTimestamp(
                   row.seconds
                 )} (${formatPercentValue(row)})`}

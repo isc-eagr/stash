@@ -19,7 +19,8 @@ func calculateCoPerformerRoleStatsCustom(
 	intervalsByPerformer := make(map[int][]activityIntervalCustom)
 
 	for _, marker := range markers {
-		if marker == nil {
+		// Release-owned markers have no scene and stay out of scene stats.
+		if marker == nil || marker.ReleaseID != nil {
 			continue
 		}
 

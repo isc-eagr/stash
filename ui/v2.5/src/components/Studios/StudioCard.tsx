@@ -608,11 +608,7 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
           className="studio-card-image-activity-hover"
           content={
             <PopoverCard className="studio-activity-popover-card">
-              <ActivityStatsCharts
-                compact
-                only="quality"
-                stats={activityStats}
-              />
+              <ActivityStatsCharts compact stats={activityStats} />
             </PopoverCard>
           }
           placement="bottom"

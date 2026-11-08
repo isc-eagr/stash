@@ -1,7 +1,10 @@
 import React from "react";
 import { faFilm, faUser } from "@fortawesome/free-solid-svg-icons";
 import { StudioSceneTypeTiles } from "../StudioSceneTypeTiles_custom";
+import { StudioNutTile } from "../StudioNutTile_custom";
+import { ActivityStatsCharts } from "src/components/Shared/ActivityStatsCharts_custom";
 import { useRoleTags } from "src/hooks/useRoleTags";
+import "src/components/Shared/statsPanel_custom.scss";
 import { Icon } from "src/components/Shared/Icon";
 import * as GQL from "src/core/generated-graphql";
 import {
@@ -13,9 +16,10 @@ import {
   getStudioHeaderRatingPanelsCustom,
 } from "./studioHeaderInsights_custom";
 
-// CUSTOM: Scene Types tiles and Rating Advisor averages in the studio
-// header. Scene rubrics share a blue panel; the vato strip has a gold edge.
-// Quality lives in the Scene Stats tab.
+// CUSTOM: Scene Types and Nut tiles and the marker-time Activity Type bar in one
+// stats panel (shared with Vato Detail), then Rating Advisor averages in the
+// studio header. Scene rubrics share a blue panel;
+// the vato strip has a gold edge. Quality lives in the Scene Stats tab.
 interface IProps {
   studio: GQL.StudioDetailDataFragment;
   includeChildStudios: boolean;
@@ -38,25 +42,65 @@ export const StudioHeaderInsights: React.FC<IProps> = ({
   const definition = (key: string) =>
     studioRatingAdvisorSectionDefinitions.find((d) => d.key === key)!;
 
+  const { data: activityData } = GQL.useFindStudioActivityStatsQuery({
+    variables: { id: studio.id, depth: includeChildStudios ? -1 : 0 },
+  });
+  const activityStats = activityData?.findStudio?.studio_activity_stats;
+  const { data: castSplitData } = GQL.useFindStudioSceneTypeCastSplitQuery({
+    variables: { id: studio.id, depth: includeChildStudios ? -1 : 0 },
+  });
+  const { data: nutData } = GQL.useFindStudioNutTypeCountsQuery({
+    variables: { id: studio.id, depth: includeChildStudios ? -1 : 0 },
+  });
+  const nutCounts = nutData?.findStudio?.nut_type_counts;
+  const hasActivity =
+    !!activityStats &&
+    activityStats.sex_seconds +
+      activityStats.oral_seconds +
+      activityStats.solo_seconds >
+      0;
+
   const hasSceneTypes =
     !!counts &&
     counts.sex_scene_count + counts.oral_scene_count + counts.solo_scene_count >
       0;
   const hasRatings = sceneKeys.length > 0 || showVatos;
-  if (!hasSceneTypes && !hasRatings) return null;
+  if (!hasSceneTypes && !hasActivity && !hasRatings) return null;
 
   return (
     <div className="studio-header-insights">
-      {hasSceneTypes && (
-        <StudioSceneTypeTiles
-          caption
-          className="studio-header-activity"
-          size="full"
-          counts={counts}
-          includeChildStudios={includeChildStudios}
-          studio={studio}
-          roleTags={roleTags}
-        />
+      {(hasSceneTypes || hasActivity) && (
+        <div className="studio-header-types stats-panel-custom">
+          {hasSceneTypes && (
+            <div className="performer-count-tiles performer-count-tiles--full performer-count-tiles--cast-split">
+              <StudioSceneTypeTiles
+                caption
+                size="full"
+                castSplit={castSplitData?.findStudio?.scene_type_cast_split}
+                counts={counts}
+                includeChildStudios={includeChildStudios}
+                studio={studio}
+                roleTags={roleTags}
+              />
+              {nutCounts && (
+                <>
+                  <span
+                    className="performer-count-tiles__divider"
+                    aria-hidden
+                  />
+                  <StudioNutTile
+                    counts={nutCounts}
+                    depth={includeChildStudios ? -1 : 0}
+                    studio={studio}
+                  />
+                </>
+              )}
+            </div>
+          )}
+          {hasActivity && (
+            <ActivityStatsCharts legend only="activity" stats={activityStats} />
+          )}
+        </div>
       )}
       {stats && hasRatings && (
         <div className="studio-header-ratings">

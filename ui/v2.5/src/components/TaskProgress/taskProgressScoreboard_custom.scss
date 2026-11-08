@@ -365,47 +365,74 @@
   padding: 0 0.6rem;
 }
 
-.progress-score-hero-figure {
+/* Percentage first, then done / total and a left badge, as in the Overall hero. */
+.progress-score-figure {
   align-items: baseline;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem 1.75rem;
-
-  > strong {
-    font-size: clamp(2.5rem, 5vw, 3.75rem);
-    font-weight: 700;
-    letter-spacing: -0.04em;
-    line-height: 1;
-  }
+  gap: 0.35rem 2.25rem;
 }
 
-/* Done/left counts: the second thing the eye lands on after the percentage. */
 .progress-score-counts {
   align-items: baseline;
   color: var(--score-muted);
   display: flex;
   flex-wrap: wrap;
+  gap: 0.2rem 0.5rem;
+}
+
+/* Previous close → done, styled like the percentage change. */
+.progress-score-previous {
   font-size: 0.85rem;
-  gap: 0.2rem 1rem;
+  font-weight: 500;
+}
+
+.progress-score-done {
+  color: var(--score-gain);
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+
+.progress-score-total {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.progress-score-left {
+  align-self: center;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--score-border);
+  border-radius: 2px;
+  font-size: 0.78rem;
+  margin-left: 1.25rem;
+  padding: 0.05rem 0.45rem;
+  white-space: nowrap;
 
   strong {
     color: var(--score-text);
-    font-size: 1.3rem;
-    font-weight: 700;
-    letter-spacing: -0.01em;
-  }
-
-  .progress-score-done strong {
-    color: var(--score-gain);
   }
 }
 
-.progress-score-counts-large {
-  font-size: 1rem;
-  gap: 0.25rem 1.5rem;
+.progress-score-figure-large {
+  gap: 0.5rem 3rem;
 
-  strong {
+  .progress-score-percent {
+    font-size: clamp(2.5rem, 5vw, 3.75rem);
+    letter-spacing: -0.04em;
+  }
+
+  .progress-score-done {
     font-size: clamp(1.6rem, 3vw, 2.25rem);
+  }
+
+  .progress-score-total {
+    font-size: 1.35rem;
+  }
+
+  .progress-score-left {
+    font-size: 0.9rem;
   }
 }
 
@@ -457,19 +484,32 @@
   gap: 0.5rem;
 }
 
+/* Percentage sits above the bar's start so rows line up for comparison. */
 .progress-score-progress {
-  align-items: center;
+  align-items: stretch;
   display: flex;
   flex: 3 1 22rem;
-  gap: 1rem;
+  flex-direction: column;
+  gap: 0.4rem;
   min-width: 0;
+
+  /* Matches the track's coin inset so the percentage starts with the bar. */
+  > .progress-score-figure,
+  > .progress-score-percent {
+    padding-left: 0.75rem;
+  }
+
+  /* Room for 100.00% keeps every row's counts starting at the same point. */
+  > .progress-score-figure > strong.progress-score-percent {
+    min-width: 6.25rem;
+  }
 }
 
 .progress-score-percent {
-  font-size: 1.3rem;
+  font-size: 1.6rem;
   font-weight: 700;
   letter-spacing: -0.02em;
-  min-width: 5.25rem;
+  line-height: 1;
 }
 
 /* Previous close → current completion for the selected period. */
@@ -750,8 +790,12 @@
     font-size: 0.95rem;
   }
 
-  .progress-score-counts strong {
-    font-size: 1.1rem;
+  .progress-score-percent {
+    font-size: 1.3rem;
+  }
+
+  .progress-score-done {
+    font-size: 1.15rem;
   }
 }
 

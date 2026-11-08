@@ -250,36 +250,18 @@ func (r *Resolver) resetSceneAdvisorsAfterRoleTagConfigChangeCustom(ctx context.
 	})
 }
 
+// The scene store clears advisor scores when a cast change switches rating
+// modes; this only refreshes the affected performers' advisor ratings.
 func (r *Resolver) syncSceneAdvisorAfterCastChangeCustom(ctx context.Context, sceneID int, previousPerformerIDs []int) error {
 	updatedPerformerIDs, err := r.repository.Scene.GetPerformerIDs(ctx, sceneID)
 	if err != nil {
-		return fmt.Errorf("finding updated performers for scene %d rating mode: %w", sceneID, err)
-	}
-
-	if castSceneRatingModeCustom(len(previousPerformerIDs)) != castSceneRatingModeCustom(len(updatedPerformerIDs)) {
-		if _, err := r.repository.RatingScore.ResetSceneScores(ctx, sceneID); err != nil {
-			return err
-		}
+		return fmt.Errorf("finding updated performers for scene %d: %w", sceneID, err)
 	}
 
 	return r.recalculatePerformerAdvisorRatingsCustom(
 		ctx,
 		uniqueRatingEntityIDsCustom(previousPerformerIDs, updatedPerformerIDs),
 	)
-}
-
-func usesGroupSceneRatingCustom(performerCount int) bool {
-	return performerCount >= 4
-}
-
-func castSceneRatingModeCustom(performerCount int) string {
-	if usesGroupSceneRatingCustom(performerCount) {
-		return models.RatingSceneModeGroup
-	}
-	if performerCount == 1 {
-		return models.RatingSceneModeSolo
-	}
-	return models.RatingSceneModeDefault
 }
 
 func (r *mutationResolver) RatingScoreSet(ctx context.Context, input models.RatingScoreInput) (ret *models.RatingScoreUpdateResult, err error) {

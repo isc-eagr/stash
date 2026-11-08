@@ -477,9 +477,10 @@ function getOrgasmCandidates(
   if (simultaneousCount >= 2) {
     candidates.push({
       key: "orgasm-simultaneous",
-      label: `${simultaneousCount} vatos nut at the same time`,
+      label: `${joinInsightNames(
+        simultaneousPerformers.map(({ name }) => name)
+      )} nut at the same time`,
       detail: `Top vatos on one Nut marker, or on Nut markers that overlap or start within ${simultaneousOrgasmWindowSeconds}s`,
-      tone: "event",
       kind: "orgasm-event",
       score: 2_000_000 + simultaneousCount,
       performerPreviews: simultaneousPerformers,
@@ -510,7 +511,6 @@ function getOrgasmCandidates(
       key: `orgasm-repeat-${performer.id}`,
       label: `${performer.name} ${orgasmRepeatPhrase(markers.size)}`,
       detail: `${markers.size} nut markers as top, excluding 2nd camera`,
-      tone: "event",
       performerPreviews: [performer],
       kind: "orgasm-event",
       score: 1_000_000 + markers.size,
@@ -535,7 +535,6 @@ function getOnlySceneCandidates(
       key: `only-scene-${performer.id}`,
       label: `Only scene with ${performer.name}`,
       detail: `${performer.name} appears in only this scene in your library`,
-      tone: "rare",
       kind: "only-scene",
       score: 1,
       performerPreviews: [performer],
@@ -544,8 +543,25 @@ function getOnlySceneCandidates(
 
 const rareRoleMinimumScenes = 5;
 
-// A vato who usually bottoms in oral tops in this scene.
-function getRareOralTopCandidates(
+type RareRoleCategory = "sex" | "oral";
+type RareRole = "top" | "bottom";
+const rareRoleCategories: RareRoleCategory[] = ["sex", "oral"];
+const rareRoles: RareRole[] = ["top", "bottom"];
+
+function rareRoleCounts(
+  stats: SceneCardInsightPerformerRoleStats,
+  category: RareRoleCategory
+) {
+  return category === "sex"
+    ? { top: stats.sex_top_count, bottom: stats.sex_bottom_count }
+    : {
+        top: stats.oral_role_top_count ?? 0,
+        bottom: stats.oral_role_bottom_count ?? 0,
+      };
+}
+
+// A vato tops or bottoms in sex or oral, against his usual role.
+function getRareRoleCandidates(
   scene: SceneCardInsightScene,
   roleTagIds: IUIConfig["roleTagIds"],
   thresholds: SceneCardInsightThresholds,
@@ -553,62 +569,78 @@ function getRareOralTopCandidates(
 ): SceneCardInsightCandidate[] {
   if (!roleStatsByPerformer) return [];
 
-  // CUSTOM: Match the role history, which counts Oral subtags and secondary
-  // tags, so a role in a descendant marker is still current.
-  const oralTops = new Set<string>();
+  // CUSTOM: Match the role history, which counts Sex/Oral subtags and
+  // secondary tags, so a role in a descendant marker is still current.
+  const activeRoles = new Set<string>();
   scene.scene_markers.forEach((marker) => {
-    if (
-      markerHasConfiguredTag(marker, roleTagIds?.secondCameraTagId) ||
-      !markerHasConfiguredTag(marker, roleTagIds?.oralTagId)
-    )
-      return;
-    (marker.top_performers ?? []).forEach((performer) =>
-      oralTops.add(performer.id)
-    );
+    if (markerHasConfiguredTag(marker, roleTagIds?.secondCameraTagId)) return;
+    rareRoleCategories.forEach((category) => {
+      const tagID =
+        category === "sex" ? roleTagIds?.sexTagId : roleTagIds?.oralTagId;
+      if (!markerHasConfiguredTag(marker, tagID)) return;
+      (marker.top_performers ?? []).forEach((performer) =>
+        activeRoles.add(`${category}:top:${performer.id}`)
+      );
+      (marker.bottom_performers ?? []).forEach((performer) =>
+        activeRoles.add(`${category}:bottom:${performer.id}`)
+      );
+    });
   });
 
-  return scene.performers.flatMap((performer): SceneCardInsightCandidate[] => {
+  const uniquePerformers = new Map(
+    scene.performers.map((performer) => [performer.id, performer])
+  );
+  return [...uniquePerformers.values()].flatMap((performer) => {
     const stats = roleStatsByPerformer.get(performer.id);
-    if (!stats || !oralTops.has(performer.id)) return [];
-    const topCount = stats.oral_role_top_count ?? 0;
-    const bottomCount = stats.oral_role_bottom_count ?? 0;
-    const total = topCount + bottomCount;
-    const percent = total > 0 ? (topCount / total) * 100 : 0;
-    // CUSTOM: The only scene with a role is notable at any threshold.
-    const onlyTime = topCount === 1;
-    if (
-      total < rareRoleMinimumScenes ||
-      topCount <= 0 ||
-      (!onlyTime && percent > thresholds.rareRoleMaximumPercent)
-    ) {
-      return [];
-    }
+    if (!stats) return [];
+    return rareRoleCategories.flatMap((category) => {
+      const counts = rareRoleCounts(stats, category);
+      const total = counts.top + counts.bottom;
+      if (total < rareRoleMinimumScenes) return [];
 
-    return [
-      {
-        key: `rare-oral-top-${performer.id}`,
-        label: onlyTime
-          ? `Only time ${performer.name} ${getPerformerOnlyTimeRoleAction(
-              "oral",
-              "top"
-            )}`
-          : `Rare instance of ${performer.name} ${getPerformerRareRoleAction(
-              "oral",
-              "top"
+      return rareRoles.flatMap((role): SceneCardInsightCandidate[] => {
+        if (!activeRoles.has(`${category}:${role}:${performer.id}`)) return [];
+        const count = counts[role];
+        const percent = (count / total) * 100;
+        // CUSTOM: The only scene with a role is notable at any threshold.
+        const onlyTime = count === 1;
+        if (
+          count <= 0 ||
+          (!onlyTime && percent > thresholds.rareRoleMaximumPercent)
+        ) {
+          return [];
+        }
+        const usualRole: RareRole = role === "top" ? "bottom" : "top";
+        return [
+          {
+            key: `rare-${category}-${role}-${performer.id}`,
+            label: onlyTime
+              ? `Only time ${performer.name} ${getPerformerOnlyTimeRoleAction(
+                  category,
+                  role
+                )}`
+              : `Rare instance of ${
+                  performer.name
+                } ${getPerformerRareRoleAction(category, role)}`,
+            // Versatile scenes count once per role, so report both role counts.
+            detail: `${counts.top} top · ${
+              counts.bottom
+            } bottom ${category} scenes (${Math.round(
+              percent
+            )}% ${role}) · usually ${getPerformerRareRoleAction(
+              category,
+              usualRole
             )}`,
-        // Versatile scenes count once per role, so report both role counts.
-        detail: `${topCount} top · ${bottomCount} bottom oral scenes (${Math.round(
-          percent
-        )}% top) · usually ${getPerformerRareRoleAction("oral", "bottom")}`,
-        tone: "rare",
-        performerPreviews: [performer],
-        kind: "rare-role",
-        score:
-          (onlyTime ? 100_000 : 0) +
-          (thresholds.rareRoleMaximumPercent - percent) * 1000 +
-          total,
-      },
-    ];
+            performerPreviews: [performer],
+            kind: "rare-role",
+            score:
+              (onlyTime ? 100_000 : 0) +
+              (thresholds.rareRoleMaximumPercent - percent) * 1000 +
+              total,
+          },
+        ];
+      });
+    });
   });
 }
 
@@ -624,7 +656,7 @@ export function getSceneCardChipInsightSets(
   const candidates = [
     ...getOrgasmCandidates(sceneWithAncestors, roleTagIds),
     ...getOnlySceneCandidates(scene, roleStatsByPerformer),
-    ...getRareOralTopCandidates(
+    ...getRareRoleCandidates(
       sceneWithAncestors,
       roleTagIds,
       thresholds,

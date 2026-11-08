@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 import {
+  getSceneRatingModeChangeCustom,
   getSceneRatingModeCustom,
   GROUP_SCENE_BONUSES_CUSTOM,
   GROUP_SCENE_ENERGY_COORDINATION_CHOICES_CUSTOM,
@@ -16,6 +17,24 @@ assert.equal(getSceneRatingModeCustom(3, false), "default");
 assert.equal(getSceneRatingModeCustom(3, true), "solo");
 assert.equal(getSceneRatingModeCustom(4, false), "group");
 assert.equal(getSceneRatingModeCustom(4, true), "group");
+assert.deepEqual(getSceneRatingModeChangeCustom(3, 4, false), {
+  from: "Standard",
+  to: "Group",
+});
+assert.deepEqual(getSceneRatingModeChangeCustom(2, 1, false), {
+  from: "Standard",
+  to: "Solo",
+});
+assert.equal(
+  getSceneRatingModeChangeCustom(2, 3, false),
+  undefined,
+  "two to three vatos stays on the standard rubric"
+);
+assert.equal(
+  getSceneRatingModeChangeCustom(2, 3, true),
+  undefined,
+  "solo-marked scenes stay solo below the group size"
+);
 assert.equal(
   (5 * GROUP_SCENE_WEIGHTS_CUSTOM.topAttractiveness +
     5 * GROUP_SCENE_WEIGHTS_CUSTOM.energyCoordination +

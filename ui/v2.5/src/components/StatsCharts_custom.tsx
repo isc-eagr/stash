@@ -11,10 +11,9 @@ import { formatStatsBarPercent } from "src/utils/statsBarChart_custom";
 import {
   STATS_CATEGORY_COLORS,
   statsSemanticColorCustom,
-  statsQualityGlowCustom,
   statsPaletteColor,
-  statsSegmentInk,
 } from "src/utils/statsChartColors_custom";
+import { tintedSegmentStyleCustom } from "src/components/Shared/tintedSegment_custom";
 import {
   StatsBarTarget,
   StatsChartUnknown,
@@ -231,20 +230,18 @@ export const StatsSplitBar: React.FC<{
         </div>
       ) : (
         <>
-          <div className="stats-split-bar">
+          <div className="stats-split-bar tinted-bar-custom">
             {colored.map((datum) => (
               <StatsBarTarget
-                className="stats-split-segment"
+                className="stats-split-segment tinted-segment-custom"
                 key={datum.key}
                 label={label(datum)}
                 to={datum.to}
                 onSelect={datum.onSelect}
-                style={{
-                  background: datum.color,
-                  boxShadow: statsQualityGlowCustom(datum.color),
-                  color: statsSegmentInk(datum.color),
+                // CUSTOM: tile tint like every stacked bar
+                style={tintedSegmentStyleCustom(datum.color, {
                   flexGrow: datum.count,
-                }}
+                })}
               >
                 {segmentText(
                   datum.label,

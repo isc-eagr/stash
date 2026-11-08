@@ -71,6 +71,7 @@ export const SceneStatsInsights: React.FC<IProps> = ({
     >
       <StatsBarChart
         variant="ranked"
+        tinted
         total={activityTime}
         maxValue={activityTime}
         title="Activity Type"

@@ -197,6 +197,7 @@ type SceneMarkerTagGroupInput struct {
 	TagIDs                []string `json:"tag_ids"`
 	ExcludeTagIDs         []string `json:"exclude_tag_ids"`           // Tags that must NOT be present on any marker
 	ExcludeTagIDsOnMarker []string `json:"exclude_tag_ids_on_marker"` // Tags that must NOT be present on the matched marker
+	OwnTagsOnly           *bool    `json:"own_tags_only"`             // CUSTOM: Nut tile pips: own tags only, subtag exclusions, no release markers
 	Depth                 *int     `json:"depth"`
 
 	// Top criteria

@@ -1,0 +1,20 @@
+# CUSTOM: the Studio Detail Nut tile's nuts and facials by quality.
+fragment NutQualityCountsData on NutQualityCounts {
+  plain
+  really_hot
+  goat
+}
+
+query FindStudioNutTypeCounts($id: ID!, $depth: Int) {
+  findStudio(id: $id) {
+    id
+    nut_type_counts(depth: $depth) {
+      nut {
+        ...NutQualityCountsData
+      }
+      facial {
+        ...NutQualityCountsData
+      }
+    }
+  }
+}

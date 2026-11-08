@@ -59,6 +59,11 @@ export interface IMarkerPerformersGroup {
   bottom_countries: string[];
   bottom_rating: IMarkerRatingCriterion | null;
   either_performer_ids: ILabeledId[];
+  // CUSTOM: tags the matched marker must not carry (exact tags, no subtags)
+  exclude_tag_ids?: ILabeledId[];
+  // CUSTOM: Nut tile pips: only the marker's own tags count, exclusions take
+  // subtags, release markers are left out
+  own_tags_only?: boolean;
 }
 
 const defaultModifier = CriterionModifier.Equals;
@@ -93,6 +98,8 @@ type MarkerPerformersGroupRawCustom = {
   top_performer_ids?: Array<{ id: string; label: string }>;
   bottom_performer_ids?: Array<{ id: string; label: string }>;
   either_performer_ids?: Array<{ id: string; label: string }>;
+  exclude_tag_ids?: Array<{ id: string; label: string }>;
+  own_tags_only?: boolean;
 };
 
 function decodeMarkerGroupCustom(
@@ -108,6 +115,10 @@ function decodeMarkerGroupCustom(
     top_performer_ids: copyLabeledIdsCustom(g.top_performer_ids),
     bottom_performer_ids: copyLabeledIdsCustom(g.bottom_performer_ids),
     either_performer_ids: copyLabeledIdsCustom(g.either_performer_ids),
+    ...(g.exclude_tag_ids?.length
+      ? { exclude_tag_ids: copyLabeledIdsCustom(g.exclude_tag_ids) }
+      : {}),
+    ...(g.own_tags_only ? { own_tags_only: true } : {}),
   });
 }
 
@@ -121,6 +132,10 @@ function encodeMarkerGroupCustom(g: IMarkerPerformersGroup) {
     top_performer_ids: copyLabeledIdsCustom(g.top_performer_ids),
     bottom_performer_ids: copyLabeledIdsCustom(g.bottom_performer_ids),
     either_performer_ids: copyLabeledIdsCustom(g.either_performer_ids),
+    ...(g.exclude_tag_ids?.length
+      ? { exclude_tag_ids: copyLabeledIdsCustom(g.exclude_tag_ids) }
+      : {}),
+    ...(g.own_tags_only ? { own_tags_only: true } : {}),
   };
 }
 
@@ -189,6 +204,10 @@ export class MarkerPerformersCriterion extends Criterion {
         bottom_countries: [...(g.bottom_countries ?? [])],
         bottom_rating: g.bottom_rating ? { ...g.bottom_rating } : null,
         either_performer_ids: copyLabeledIdsCustom(g.either_performer_ids),
+        exclude_tag_ids: g.exclude_tag_ids
+          ? copyLabeledIdsCustom(g.exclude_tag_ids)
+          : undefined,
+        own_tags_only: g.own_tags_only,
       })),
     };
   }
@@ -265,7 +284,13 @@ export class MarkerPerformersCriterion extends Criterion {
       this.value.unnamed_performers ?? [],
       "while"
     );
-    return `${criterion}: ${sentence || "..."}`;
+    const excluded = this.getGroups().flatMap((g) =>
+      (g.exclude_tag_ids ?? []).map((t) => t.label)
+    );
+    const ownTags = this.getGroups().some((g) => g.own_tags_only);
+    return `${criterion}: ${sentence || "..."}${
+      excluded.length > 0 ? `, not ${excluded.join(", ")}` : ""
+    }${ownTags ? " (own tags only)" : ""}`;
   }
 
   public isValid(): boolean {
@@ -370,6 +395,14 @@ export class MarkerPerformersCriterion extends Criterion {
       };
       if (markerGroup.include_subtags) {
         group.depth = -1;
+      }
+      if (markerGroup.exclude_tag_ids?.length) {
+        group.exclude_tag_ids_on_marker = markerGroup.exclude_tag_ids.map(
+          (t) => t.id
+        );
+      }
+      if (markerGroup.own_tags_only) {
+        group.own_tags_only = true;
       }
       if (!input[targetKey]) {
         input[targetKey] = [];

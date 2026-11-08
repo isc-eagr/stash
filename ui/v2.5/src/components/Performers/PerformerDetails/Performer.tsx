@@ -4,14 +4,14 @@ import {
 } from "../performerDetailCounts_custom"; // CUSTOM
 import React, { useEffect, useMemo, useState } from "react";
 import type { ApolloQueryResult } from "@apollo/client"; // CUSTOM
-import { Button, Tabs, Tab, Col, Row, Dropdown } from "react-bootstrap"; // CUSTOM
-import { showPerformerMediaTabCustom } from "../performerTableColumns_custom"; // CUSTOM
+import { Button, Tabs, Tab, Col, Row } from "react-bootstrap";
 import { FormattedMessage, useIntl } from "react-intl";
 import { useHistory, Redirect, RouteComponentProps } from "react-router-dom";
 import { Helmet } from "react-helmet";
 import cx from "classnames";
 import Mousetrap from "mousetrap";
 import * as GQL from "src/core/generated-graphql";
+import "src/components/Shared/statsPanel_custom.scss"; // CUSTOM
 import {
   useFindPerformer,
   usePerformerUpdate,
@@ -68,6 +68,7 @@ import { goBackOrReplace } from "src/utils/history";
 import { OCounterButton } from "src/components/Shared/CountButton";
 // CUSTOM: begin
 import { PerformerCategoryStrip } from "./PerformerCategoryStrip";
+import { ActivityStatsCharts } from "src/components/Shared/ActivityStatsCharts_custom"; // CUSTOM
 import { Counter } from "src/components/Shared/Counter";
 import { PerformerImageManager } from "./PerformerImageManager";
 import { PerformerVersatility } from "./PerformerVersatility_custom"; // CUSTOM
@@ -162,31 +163,6 @@ const PerformerTabs: React.FC<{
 
   return (
     <>
-      {/* CUSTOM: empty media destinations remain available without crowding the tab row. */}
-      {(performer.gallery_count === 0 ||
-        performer.image_count === 0 ||
-        performer.group_count === 0) && (
-        <Dropdown className="mb-2">
-          <Dropdown.Toggle size="sm" variant="secondary">
-            More…
-          </Dropdown.Toggle>
-          <Dropdown.Menu>
-            {(
-              [
-                ["galleries", performer.gallery_count],
-                ["images", performer.image_count],
-                ["groups", performer.group_count],
-              ] as const
-            )
-              .filter(([, count]) => count === 0)
-              .map(([key]) => (
-                <Dropdown.Item key={key} onClick={() => setTabKey(key)}>
-                  <FormattedMessage id={key} />
-                </Dropdown.Item>
-              ))}
-          </Dropdown.Menu>
-        </Dropdown>
-      )}
       <Tabs
         id="performer-tabs"
         mountOnEnter
@@ -210,70 +186,51 @@ const PerformerTabs: React.FC<{
           />
         </Tab>
 
-        {/* CUSTOM: selected empty destinations still support direct URLs and keyboard shortcuts. */}
-        {showPerformerMediaTabCustom(
-          performer.gallery_count,
-          "galleries",
-          tabKey
-        ) && (
-          <Tab
-            eventKey="galleries"
-            title={
-              <TabTitleCounter
-                messageID="galleries"
-                count={performer.gallery_count}
-                abbreviateCounter={abbreviateCounter}
-              />
-            }
-          >
-            <PerformerGalleriesPanel
-              active={tabKey === "galleries"}
-              performer={performer}
+        <Tab
+          eventKey="galleries"
+          title={
+            <TabTitleCounter
+              messageID="galleries"
+              count={performer.gallery_count}
+              abbreviateCounter={abbreviateCounter}
             />
-          </Tab>
-        )}
-        {showPerformerMediaTabCustom(
-          performer.image_count,
-          "images",
-          tabKey
-        ) && (
-          <Tab
-            eventKey="images"
-            title={
-              <TabTitleCounter
-                messageID="images"
-                count={performer.image_count}
-                abbreviateCounter={abbreviateCounter}
-              />
-            }
-          >
-            <PerformerImagesPanel
-              active={tabKey === "images"}
-              performer={performer}
+          }
+        >
+          <PerformerGalleriesPanel
+            active={tabKey === "galleries"}
+            performer={performer}
+          />
+        </Tab>
+        <Tab
+          eventKey="images"
+          title={
+            <TabTitleCounter
+              messageID="images"
+              count={performer.image_count}
+              abbreviateCounter={abbreviateCounter}
             />
-          </Tab>
-        )}
-        {showPerformerMediaTabCustom(
-          performer.group_count,
-          "groups",
-          tabKey
-        ) && (
-          <Tab
-            eventKey="groups"
-            title={
-              <TabTitleCounter
-                messageID="groups"
-                count={performer.group_count}
-                abbreviateCounter={abbreviateCounter}
-              />
-            }
-          >
-            <PerformerGroupsPanel
-              active={tabKey === "groups"}
-              performer={performer}
+          }
+        >
+          <PerformerImagesPanel
+            active={tabKey === "images"}
+            performer={performer}
+          />
+        </Tab>
+        <Tab
+          eventKey="groups"
+          title={
+            <TabTitleCounter
+              messageID="groups"
+              count={performer.group_count}
+              abbreviateCounter={abbreviateCounter}
             />
-          </Tab>
-        )}
+          }
+        >
+          <PerformerGroupsPanel
+            active={tabKey === "groups"}
+            performer={performer}
+          />
+        </Tab>
         {/* CUSTOM: begin - Markers tab */}
         <Tab
           eventKey="markers"
@@ -430,6 +387,14 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
       roleStatsByPerformer.get(performer.id),
       performer
     ); // CUSTOM
+    const { data: castSplitData } = GQL.useFindPerformerSceneTypeCastSplitQuery(
+      { variables: { id: performer.id } }
+    ); // CUSTOM
+    const hasActivityStats = // CUSTOM
+      performer.activity_stats.sex_seconds +
+        performer.activity_stats.oral_seconds +
+        performer.activity_stats.solo_seconds >
+      0;
 
     // Configuration settings
     const { configuration } = useConfigurationContext();
@@ -665,27 +630,19 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
                     </div>
                   </div>
                   {!isEditing && (
-                    <>
-                      <RatingCriteriaStrip
-                        className="rating-panel rating-panel--vato"
-                        entityId={performer.id}
-                        entityType="performer"
-                        header={
-                          <h4 className="rating-panel__title">
-                            <Icon icon={faUser} />
-                            Vato rating
-                          </h4>
-                        }
-                        oCount={performer.o_counter}
-                        ratingScores={performer.rating_scores}
-                      />
-                      <PerformerCategoryStrip
-                        performer={performer}
-                        globalStatsOverride={roleStats} // retain exact marker badge values
-                        tiles="full"
-                        flushMargins
-                      />
-                    </>
+                    <RatingCriteriaStrip
+                      className="rating-panel rating-panel--vato"
+                      entityId={performer.id}
+                      entityType="performer"
+                      header={
+                        <h4 className="rating-panel__title">
+                          <Icon icon={faUser} />
+                          Vato rating
+                        </h4>
+                      }
+                      oCount={performer.o_counter}
+                      ratingScores={performer.rating_scores}
+                    />
                   )}
                 </div>
                 {/* CUSTOM: end */}
@@ -742,20 +699,42 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
                     )}
                     {/* CUSTOM: begin */}
                   </div>
-                  {!isEditing && roleStats && (
-                    <div className="performer-header-activity">
-                      <PerformerVersatility
-                        className="performer-versatility--detail"
-                        performer={performer} // partner counts link to role-filtered scenes
-                        oralBottomedPartners={roleStats.oral_with_bottom_count}
-                        oralToppedPartners={roleStats.oral_with_top_count}
-                        sexBottomedPartners={roleStats.sex_with_bottom_count}
-                        sexToppedPartners={roleStats.sex_with_top_count}
-                        facialBottomedPartners={
-                          roleStats.facial_with_bottom_count
+                  {!isEditing && (
+                    <div className="performer-header-activity stats-panel-custom">
+                      {/* Scene Types tiles, then the marker-time Activity Type bar, then his versatility */}
+                      <PerformerCategoryStrip
+                        performer={performer}
+                        globalStatsOverride={roleStats} // retain exact marker badge values
+                        tiles="full"
+                        castSplit={
+                          castSplitData?.findPerformer?.scene_type_cast_split
                         }
-                        facialToppedPartners={roleStats.facial_with_top_count}
+                        flushMargins
                       />
+                      {hasActivityStats && (
+                        <ActivityStatsCharts
+                          className="performer-header-activity-type"
+                          legend
+                          only="activity"
+                          stats={performer.activity_stats}
+                        />
+                      )}
+                      {roleStats && (
+                        <PerformerVersatility
+                          className="performer-versatility--detail"
+                          performer={performer} // partner counts link to role-filtered scenes
+                          oralBottomedPartners={
+                            roleStats.oral_with_bottom_count
+                          }
+                          oralToppedPartners={roleStats.oral_with_top_count}
+                          sexBottomedPartners={roleStats.sex_with_bottom_count}
+                          sexToppedPartners={roleStats.sex_with_top_count}
+                          facialBottomedPartners={
+                            roleStats.facial_with_bottom_count
+                          }
+                          facialToppedPartners={roleStats.facial_with_top_count}
+                        />
+                      )}
                     </div>
                   )}
                 </div>

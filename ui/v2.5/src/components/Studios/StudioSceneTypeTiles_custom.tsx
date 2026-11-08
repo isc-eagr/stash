@@ -2,7 +2,10 @@ import React from "react";
 import NavUtils from "src/utils/navigation";
 import { SceneTypeTiles } from "src/components/Shared/SceneTypeTiles_custom";
 import type { PerformerRoleTileSize } from "src/components/Performers/PerformerDetails/performerRoleTiles_custom";
-import type { IStudioSceneTypeCountsCustom } from "./studioSceneTypes_custom";
+import type {
+  ISceneTypeCastSplitCustom,
+  IStudioSceneTypeCountsCustom,
+} from "./studioSceneTypes_custom";
 import type { IRoleTags } from "./StudioCard";
 
 interface IProps {
@@ -11,6 +14,7 @@ interface IProps {
   roleTags: IRoleTags;
   size: PerformerRoleTileSize;
   caption?: boolean;
+  castSplit?: ISceneTypeCastSplitCustom | null;
   performerId?: string;
   includeChildStudios?: boolean;
   activeSortBy?: string;
@@ -24,6 +28,7 @@ export const StudioSceneTypeTiles: React.FC<IProps> = ({
   roleTags,
   size,
   caption,
+  castSplit,
   performerId,
   activeSortBy,
   className,
@@ -35,6 +40,7 @@ export const StudioSceneTypeTiles: React.FC<IProps> = ({
     <SceneTypeTiles
       activeSortBy={activeSortBy}
       caption={caption}
+      castSplit={castSplit}
       className={className}
       counts={counts}
       size={size}

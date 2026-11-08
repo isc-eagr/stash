@@ -146,22 +146,6 @@ const MilestoneRow: React.FC<{
           <small>{t("Add trackers to see this milestone's progress.")}</small>
         ) : (
           <>
-            <div className="progress-score-counts">
-              <span className="progress-score-done">
-                <strong>
-                  <FormattedNumber value={milestone.completed_count} />
-                </strong>{" "}
-                {t("done")}
-              </span>
-              {milestone.current_count > 0 && (
-                <span>
-                  <strong>
-                    <FormattedNumber value={milestone.current_count} />
-                  </strong>{" "}
-                  {t("left")}
-                </span>
-              )}
-            </div>
             <small>
               {milestone.trackers.length}{" "}
               {t(milestone.trackers.length === 1 ? "tracker" : "trackers")}
@@ -212,6 +196,14 @@ const MilestoneRow: React.FC<{
         snapshot={snapshot}
         history={taskProgressHistoryEntries(milestone.history)}
         periodLabel={taskProgressPeriodName(range, anchor, today)}
+        counts={
+          empty
+            ? undefined
+            : {
+                done: milestone.completed_count,
+                left: milestone.current_count,
+              }
+        }
       />
       <section
         className="progress-period-tiles progress-period-tiles-row"

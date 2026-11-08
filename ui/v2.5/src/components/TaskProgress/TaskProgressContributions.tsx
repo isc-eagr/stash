@@ -95,27 +95,12 @@ export const TaskProgressContributions: React.FC<{
         >
           {tracker.title}
         </Button>
-        <div className="progress-score-counts">
-          <span className="progress-score-done">
-            <strong>
-              <FormattedNumber value={completed} />
-            </strong>{" "}
-            {t("done")}
-          </span>
-          {tracker.current_count > 0 && (
-            <span>
-              <strong>
-                <FormattedNumber value={tracker.current_count} />
-              </strong>{" "}
-              {t("left")}
-            </span>
-          )}
-        </div>
       </div>
       <TaskProgressPeriodProgress
         snapshot={snapshot}
         history={taskProgressHistoryEntries(tracker.history)}
         periodLabel={periodName}
+        counts={{ done: completed, left: tracker.current_count }}
       />
       {/* CUSTOM: same markup as the parent milestone's period tile. */}
       <div className="progress-period-tile milestone-subrow-period">

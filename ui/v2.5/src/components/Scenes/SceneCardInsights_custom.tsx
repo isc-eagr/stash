@@ -38,7 +38,6 @@ interface ISceneCardInsightsProps {
 interface ISceneCardInsightChipProps
   extends React.HTMLAttributes<HTMLSpanElement> {
   label: React.ReactNode;
-  tone: ISceneCardInsight["tone"];
   ariaLabel?: string;
   tabIndex?: number;
 }
@@ -46,13 +45,11 @@ interface ISceneCardInsightChipProps
 export const SceneCardInsightChip = React.forwardRef<
   HTMLSpanElement,
   ISceneCardInsightChipProps
->(({ label, tone, ariaLabel, tabIndex, className, ...triggerProps }, ref) => (
+>(({ label, ariaLabel, tabIndex, className, ...triggerProps }, ref) => (
   <span
     {...triggerProps}
     ref={ref}
-    className={`scene-card-insight scene-card-insight-${tone}${
-      className ? ` ${className}` : ""
-    }`}
+    className={`scene-card-insight${className ? ` ${className}` : ""}`}
     aria-label={ariaLabel}
     aria-hidden={ariaLabel ? undefined : true}
     tabIndex={tabIndex}
@@ -218,7 +215,6 @@ export const SceneCardInsights: React.FC<ISceneCardInsightsProps> = ({
         ariaLabel={`${insight.label}: ${insight.detail}`}
         label={insight.label}
         tabIndex={0}
-        tone={insight.tone}
       />
     </HoverPopover>
   );

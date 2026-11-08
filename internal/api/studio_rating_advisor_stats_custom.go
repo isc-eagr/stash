@@ -90,7 +90,7 @@ var studioRatingAdvisorSexSceneConfigCustom = studioRatingAdvisorSectionConfigCu
 	criteria: map[string]studioRatingAdvisorMetricConfigCustom{
 		"topAttractiveness":    studioRatingAdvisorMetricCustom(studioRatingAdvisorRangeChoicesCustom(5), 0.6),
 		"bottomAttractiveness": studioRatingAdvisorMetricCustom(studioRatingAdvisorRangeChoicesCustom(5), 0.2),
-		"chemistry":            studioRatingAdvisorMetricCustom(studioRatingAdvisorRangeChoicesCustom(5), 0.4),
+		"chemistry":            studioRatingAdvisorMetricCustom(studioRatingAdvisorRangeChoicesCustom(4), 0.5),
 		"payoff":               studioRatingAdvisorMetricCustom(studioRatingAdvisorRangeChoicesCustom(4), 0.5),
 		"standout":             studioRatingAdvisorMetricCustom(studioRatingAdvisorRangeChoicesCustom(4), 0.5),
 	},

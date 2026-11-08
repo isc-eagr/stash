@@ -64,18 +64,15 @@
   }
 
   .performer-head-details {
-    flex: 1 1 26rem;
+    flex: 1 1 20rem;
     min-width: 0;
   }
 
+  /* The stats panel (Shared/statsPanel_custom.scss); wider than the details
+     so the Scene Types pips have room. */
   .performer-header-activity {
-    flex: 1 1 24rem;
-    max-width: 36rem;
-    min-width: 0;
-
-    .performer-versatility {
-      margin: 0;
-    }
+    flex: 1.5 1 26rem;
+    max-width: 40rem;
   }
 
   /* CUSTOM: end */
@@ -841,8 +838,7 @@
 
 /* CUSTOM: end */
 
-/* CUSTOM: begin - his Vato rating, Scene Types, Nut and Feet tiles beside
-   his name and ratings */
+/* CUSTOM: begin - his Vato rating beside his name and ratings */
 #performer-page .performer-head-top {
   align-items: center;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
@@ -861,11 +857,6 @@
     flex: 1 1 20rem;
     margin: 0;
     max-width: 32rem;
-  }
-
-  .performer-count-tiles {
-    flex: 0 1 28rem;
-    min-width: 18rem;
   }
 }
 

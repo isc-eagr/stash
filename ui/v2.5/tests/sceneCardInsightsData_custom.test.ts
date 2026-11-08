@@ -234,7 +234,10 @@ test("orgasm chips detect simultaneous top vatos and repeated top orgasms", () =
 
   assert.deepEqual(
     all.map(({ label }) => label),
-    ["2 vatos nut at the same time", "First Vato nuts 3 times"]
+    [
+      "First Vato and Second Vato nut at the same time",
+      "First Vato nuts 3 times",
+    ]
   );
   assert.deepEqual(
     all[0].performerPreviews.map(({ id }) => id),
@@ -311,7 +314,6 @@ test("Only scene needs an exact library count of one", () => {
       key: "only-scene-only-vato",
       label: "Only scene with Only Vato",
       detail: "Only Vato appears in only this scene in your library",
-      tone: "rare",
       performerPreviews: [vato],
     },
   ]);
@@ -382,15 +384,48 @@ test("oral topping is rare at five oral scenes and twenty percent or less", () =
     ),
     ["Rare instance of Chacalito Regio having his pito sucked"]
   );
+});
+
+test("rare roles cover top and bottom in both sex and oral", () => {
+  const vato = performer("chacalito", "Chacalito Regio");
+  const partner = performer("b", "B");
+  const labels = (
+    scene: ReturnType<typeof makeScene>,
+    stats: Record<string, number>
+  ) =>
+    getSceneCardChipInsightSets(
+      scene,
+      roleTagIds,
+      undefined,
+      new Map([[vato.id, roleStats(stats)]])
+    ).all.map(({ label }) => label);
+
   assert.deepEqual(
-    labels({
+    labels(oralTopScene(vato), {
       sex_top_count: 9,
       sex_bottom_count: 1,
       oral_role_top_count: 9,
       oral_role_bottom_count: 1,
     }),
-    [],
-    "rare sex roles no longer make chips"
+    ["Only time Chacalito Regio takes dick"],
+    "his usual oral top role stays quiet"
+  );
+
+  const flippedScene = makeScene([
+    marker("oral", tag("oral", "Oral"), 0, 60, [], [partner], [vato]),
+    marker("sex", tag("sex", "Sex"), 60, 120, [], [vato], [partner]),
+  ]);
+  assert.deepEqual(
+    labels(flippedScene, {
+      sex_top_count: 2,
+      sex_bottom_count: 18,
+      oral_role_top_count: 16,
+      oral_role_bottom_count: 4,
+    }),
+    [
+      "Rare instance of Chacalito Regio giving dick",
+      "Rare instance of Chacalito Regio sucking pito",
+    ]
   );
 });
 

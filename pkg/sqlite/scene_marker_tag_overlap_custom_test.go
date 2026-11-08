@@ -70,3 +70,28 @@ func TestMarkerTagsIncludesAllDoesNotUseOverlapCustom(t *testing.T) {
 		assert.NotContains(t, ids, sourceMarkerID, "ordinary INCLUDES_ALL must only inspect each marker's direct tags")
 	})
 }
+
+func TestMarkerOwnTagsOnlySkipsOverlapCustom(t *testing.T) {
+	runWithRollbackTxn(t, "own-tags marker groups ignore overlapping markers", func(t *testing.T, ctx context.Context) {
+		feetTagID := strconv.Itoa(tagIDs[tagIdxWithMarkers])
+		dickTagID := strconv.Itoa(tagIDs[tagIdx2WithMarkers])
+		recipientMarkerID := markerIDs[markerIdxWithTag]
+		sourceMarkerID := markerIDs[markerIdxWithSceneTag]
+		ownTags := true
+		query := func(tagIDs ...string) []int {
+			return markersToIDs(queryMarkers(ctx, t, db.SceneMarker, &models.SceneMarkerFilterType{
+				SceneMarkerTags: &models.SceneMarkerTagsCriterionInput{
+					Modifier:       models.CriterionModifierEquals,
+					GroupsExtended: []models.SceneMarkerTagGroupInput{{TagIDs: tagIDs, OwnTagsOnly: &ownTags}},
+				},
+			}, nil))
+		}
+
+		clearMarkerSecondaryTags(t, ctx, markerIDs[markerIdxWithDuration])
+		setMarkerRange(t, ctx, recipientMarkerID, 0, 60)
+		setMarkerRange(t, ctx, sourceMarkerID, 30, 150)
+
+		assert.NotContains(t, query(feetTagID, dickTagID), recipientMarkerID, "own-tags groups must not inherit tags from an overlapping marker")
+		assert.Contains(t, query(feetTagID), recipientMarkerID, "a marker carrying the tag matches")
+	})
+}

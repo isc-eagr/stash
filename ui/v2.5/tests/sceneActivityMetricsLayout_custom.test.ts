@@ -140,7 +140,7 @@ test("activity boxes expose named tooltips and objective distribution bars", () 
   assert.match(metricsSource, /"Activity Type"/);
   assert.match(
     metricsSource,
-    /className="scene-activity-metrics__distribution"/
+    /className="scene-activity-metrics__distribution tinted-bar-custom"/
   );
   assert.match(metricsSource, /role="img"/);
   assert.match(metricsSource, /metric\.showPercent !== false/);

@@ -2,8 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
 import { ListFilterModel } from "../src/models/list-filter/filter.ts";
-import { makeStudioMarkerScenesUrl } from "../src/utils/navigation_custom.ts";
-import { getStudioSceneTypesCustom } from "../src/components/Studios/studioSceneTypes_custom.ts";
+import {
+  makeStudioMarkerScenesUrl,
+  withScenePerformerCountCustom,
+} from "../src/utils/navigation_custom.ts";
+import {
+  applySceneTypeCastSplitCustom,
+  getStudioSceneTypesCustom,
+} from "../src/components/Studios/studioSceneTypes_custom.ts";
 
 test("studio scene types use counts as their denominator", () => {
   const rows = getStudioSceneTypesCustom({
@@ -76,7 +82,12 @@ test("studio cards and headers use scoped count bars and relocate supplemental c
     header,
     /includeChildStudios\s*\? studio\.studio_role_counts_all\s*:\s*studio\.studio_role_counts/
   );
-  assert.doesNotMatch(header, /ActivityStatsCharts/);
+  assert.match(header, /useFindStudioActivityStatsQuery/);
+  assert.match(
+    header,
+    /<ActivityStatsCharts[\s\S]*?only="activity"[\s\S]*?stats=\{activityStats\}/
+  );
+  assert.doesNotMatch(header, /only="quality"/);
   const page = source("StudioDetails/Studio.tsx");
   assert.doesNotMatch(page, /StudioCategoryStrip/);
   assert.match(page, /className="quality-group"[\s\S]*?<StudioExtraCounts/);
@@ -108,4 +119,42 @@ test("scene-type links preserve marker filters and honor child-studio scope", ()
     );
     assert.equal(exclusion.groups[0].tag_ids[0].id, "sex");
   }
+});
+
+test("cast split totals move 1-vato sex and oral scenes to Solo", () => {
+  const counts = {
+    sex_scene_count: 9,
+    oral_scene_count: 4,
+    solo_scene_count: 2,
+  };
+  assert.equal(applySceneTypeCastSplitCustom(counts, null), counts);
+  assert.deepEqual(
+    applySceneTypeCastSplitCustom(counts, {
+      sex: { solo: 1, standard: 5, threesome: 2, group: 1 },
+      oral: { solo: 1, standard: 2, threesome: 1, group: 0 },
+    }),
+    { sex_scene_count: 8, oral_scene_count: 3, solo_scene_count: 4 }
+  );
+});
+
+test("cast size links add an exact or open-ended vato count", () => {
+  const performerCount = (url?: string) =>
+    ListFilterModel.decodeParams({
+      c: new URL(url!, "http://localhost").searchParams.getAll("c"),
+    })
+      .c!.map((value) => JSON.parse(value))
+      .find((criterion) => criterion.type === "performer_count");
+
+  const base = makeStudioMarkerScenesUrl({ id: "1", name: "S" }, "sex", "Sex");
+  assert.deepEqual(performerCount(withScenePerformerCountCustom(base, 3)), {
+    type: "performer_count",
+    modifier: "EQUALS",
+    value: { value: 3 },
+  });
+  assert.deepEqual(
+    performerCount(withScenePerformerCountCustom(base, 4, true)),
+    { type: "performer_count", modifier: "GREATER_THAN", value: { value: 3 } }
+  );
+  assert.equal(withScenePerformerCountCustom(undefined, 2), undefined);
+  assert.equal(withScenePerformerCountCustom("#", 2), "#");
 });

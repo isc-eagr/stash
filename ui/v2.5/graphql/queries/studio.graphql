@@ -55,6 +55,34 @@ query FindStudioRatingAdvisorStats($id: ID!, $depth: Int) {
   }
 }
 
+query FindStudioActivityStats($id: ID!, $depth: Int) {
+  findStudio(id: $id) {
+    id
+    studio_activity_stats(depth: $depth) {
+      total_seconds
+      sex_seconds
+      oral_seconds
+      solo_seconds
+      other_seconds
+      activity_other_seconds
+      outstanding_seconds
+      standard_seconds
+      unusable_seconds
+      sex_percent
+      oral_percent
+      solo_percent
+      other_percent
+      activity_other_percent
+      outstanding_percent
+      standard_percent
+      unusable_percent
+      sex_scene_count
+      oral_scene_count
+      solo_scene_count
+    }
+  }
+}
+
 fragment StudioRatingAdvisorSectionData on StudioRatingAdvisorSectionStats {
   entity_count
   average_rating100

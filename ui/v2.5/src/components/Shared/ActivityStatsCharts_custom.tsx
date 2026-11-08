@@ -5,12 +5,26 @@ import { SceneActivityMetrics } from "src/components/Scenes/SceneActivityMetrics
 import type { StudioActivityStats } from "src/core/generated-graphql";
 import { getPartitionPercentagesCustom } from "src/components/Shared/activityTypePercentages_custom";
 
+// Performers only carry Sex/Oral/Solo time; quality fields are optional.
+export type ActivityStatsChartsData = Pick<
+  StudioActivityStats,
+  | "sex_seconds"
+  | "oral_seconds"
+  | "solo_seconds"
+  | "sex_percent"
+  | "oral_percent"
+  | "solo_percent"
+> &
+  Partial<Omit<StudioActivityStats, "__typename">>;
+
 interface IProps {
-  stats: StudioActivityStats;
+  stats: ActivityStatsChartsData;
   className?: string;
   compact?: boolean;
   only?: "activity" | "quality";
   activeSortBy?: string;
+  // Stats panel: a text legend under the bars instead of boxes.
+  legend?: boolean;
 }
 
 export const ActivityStatsCharts: React.FC<IProps> = ({
@@ -19,13 +33,14 @@ export const ActivityStatsCharts: React.FC<IProps> = ({
   compact = false,
   only,
   activeSortBy,
+  legend,
 }) => {
   const qualityPercentages = getPartitionPercentagesCustom(
     {
-      outstanding: stats.outstanding_seconds,
-      standard: stats.standard_seconds,
-      unclassified: stats.other_seconds,
-      unusable: stats.unusable_seconds,
+      outstanding: stats.outstanding_seconds ?? 0,
+      standard: stats.standard_seconds ?? 0,
+      unclassified: stats.other_seconds ?? 0,
+      unusable: stats.unusable_seconds ?? 0,
     },
     ["outstanding", "standard", "unclassified", "unusable"]
   );
@@ -52,7 +67,7 @@ export const ActivityStatsCharts: React.FC<IProps> = ({
       {
         key: "other",
         label: "Other",
-        duration: stats.activity_other_seconds,
+        duration: stats.activity_other_seconds ?? 0,
         percent: 0,
         showPercent: false,
       },
@@ -61,25 +76,25 @@ export const ActivityStatsCharts: React.FC<IProps> = ({
       {
         key: "outstanding",
         label: "Outstanding",
-        duration: stats.outstanding_seconds,
+        duration: stats.outstanding_seconds ?? 0,
         percent: qualityPercentages.outstanding,
       },
       {
         key: "standard",
         label: "Standard",
-        duration: stats.standard_seconds,
+        duration: stats.standard_seconds ?? 0,
         percent: qualityPercentages.standard,
       },
       {
         key: "unclassified",
         label: "Unclassified",
-        duration: stats.other_seconds,
+        duration: stats.other_seconds ?? 0,
         percent: qualityPercentages.unclassified,
       },
       {
         key: "unusable",
         label: "Unusable",
-        duration: stats.unusable_seconds,
+        duration: stats.unusable_seconds ?? 0,
         percent: qualityPercentages.unusable,
       },
     ],
@@ -96,6 +111,7 @@ export const ActivityStatsCharts: React.FC<IProps> = ({
         activityMetrics={activityMetrics}
         className="scene-activity-metrics--stats"
         compact={compact}
+        legend={legend}
         only={only}
         activeSortBy={activeSortBy}
         sceneId="aggregate-scene-stats"

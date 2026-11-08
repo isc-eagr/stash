@@ -28,7 +28,7 @@ var defaultSceneRatingRubricCustom = ratingScoreRubricCustom{
 	models.RatingScoreSectionCriterion: {
 		"topAttractiveness":    {choices: ratingRangeChoicesCustom(5), weight: 0.6},
 		"bottomAttractiveness": {choices: ratingRangeChoicesCustom(5), weight: 0.2},
-		"chemistry":            {choices: ratingRangeChoicesCustom(5), weight: 0.4},
+		"chemistry":            {choices: ratingRangeChoicesCustom(4), weight: 0.5},
 		"payoff":               {choices: ratingRangeChoicesCustom(4), weight: 0.5},
 		"standout":             {choices: ratingRangeChoicesCustom(4), weight: 0.5},
 	},

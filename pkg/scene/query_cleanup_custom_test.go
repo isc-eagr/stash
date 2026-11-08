@@ -20,7 +20,7 @@ func TestPerformerSceneExclusionCountsCustom(t *testing.T) {
 				group := filter.SceneMarkerTags.GroupsExtended[0]
 				return filter.Tags.Value[0] == "10" && *filter.Tags.Depth == -1 &&
 					len(group.TopPerformerIDs) == 1 && group.TopPerformerIDs[0] == "7" && len(group.BottomPerformerIDs) == 0
-			}), mock.Anything).Return([]*models.SceneMarker{{SceneID: 1}, {SceneID: 1}, {SceneID: 2}}, 3, nil).Once()
+			}), mock.Anything).Return([]*models.SceneMarker{{SceneID: 1}, {SceneID: 1}, {SceneID: 2}, releaseMarkerCustom()}, 4, nil).Once()
 			want := 2
 			if excludeTagID != 0 {
 				want = 1
@@ -35,6 +35,23 @@ func TestPerformerSceneExclusionCountsCustom(t *testing.T) {
 			reader.AssertExpectations(t)
 		})
 	}
+}
+
+// releaseMarkerCustom is a release-owned marker: it has no scene and must not count as one.
+func releaseMarkerCustom() *models.SceneMarker {
+	releaseID := 70
+	return &models.SceneMarker{ReleaseID: &releaseID}
+}
+
+func TestCountScenesWithMarkerTagSkipsReleaseMarkersCustom(t *testing.T) {
+	reader := &modelmocks.SceneMarkerReaderWriter{}
+	reader.On("Query", mock.Anything, mock.Anything, mock.Anything).
+		Return([]*models.SceneMarker{{SceneID: 1}, {SceneID: 2}, releaseMarkerCustom()}, 3, nil).Once()
+
+	got, err := CountScenesWithMarkerTag(context.Background(), reader, 10)
+	require.NoError(t, err)
+	require.Equal(t, 2, got)
+	reader.AssertExpectations(t)
 }
 
 func TestSceneCountGuardsAndErrorsCustom(t *testing.T) {

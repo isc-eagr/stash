@@ -25,6 +25,7 @@ import {
   ratingAdvisorSixLevelChoicesCustom,
   resolveRatingAdvisorScoresCustom,
   type RatingAdvisorTierCustom,
+  SCENE_ENERGY_MAX_CUSTOM,
   SCENE_ENERGY_WEIGHT_CUSTOM,
   SCENE_GOD_TIER_ORGASM_BONUS_CUSTOM,
   SCENE_GOAT_ELEMENT_BONUS_CHOICES_CUSTOM,
@@ -151,10 +152,10 @@ const sceneMetrics: IAdvisorMetric[] = [
     key: "chemistry",
     title: "Energy / sex quality",
     shortTitle: "Energy",
-    max: 5,
+    max: SCENE_ENERGY_MAX_CUSTOM,
     weight: SCENE_ENERGY_WEIGHT_CUSTOM,
     hint: "How hot the actual action feels: rhythm, reactions, chemistry, todo.",
-    choices: ratingAdvisorSixLevelChoicesCustom([
+    choices: [
       {
         label: "No energy",
         description:
@@ -180,12 +181,7 @@ const sceneMetrics: IAdvisorMetric[] = [
         description:
           "Hot as hell, these ñeros know what they're doing. The energy, the positions, the language, or the camera angles make this scene truly stand out.",
       },
-      {
-        label: "Perfect quality",
-        description:
-          "These vatos took fucking to another level. Mind-blowingly hot action that you didn't think was possible.",
-      },
-    ]),
+    ].map((choice, value) => ({ ...choice, value })),
   },
   {
     key: "theme",

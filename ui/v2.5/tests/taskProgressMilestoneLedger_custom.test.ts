@@ -85,8 +85,8 @@ assert.match(
 assert.match(markup, />40\.00%</);
 assert.match(
   markup,
-  /progress-score-done"><strong>4<\/strong> done<\/span><span><strong>6<\/strong> left/,
-  "done and left counts stand out"
+  /<\/strong><\/div><div class="progress-score-counts"><span class="progress-score-previous">0<\/span><span class="progress-score-previous" aria-hidden="true">→<\/span><strong class="progress-score-done">4<\/strong><span class="progress-score-total">\/ 10<\/span><span class="progress-score-left"><strong>6<\/strong> left/,
+  "previous close → done / total and the left badge follow the percentage"
 );
 assert.match(markup, /1 tracker · /);
 assert.match(markup, /31\/12\/2026/);
@@ -121,7 +121,7 @@ assert.doesNotMatch(
 );
 assert.match(
   markup,
-  /progress-score-percent-change"[^>]*><span>0\.00%<\/span><span aria-hidden="true">→<\/span><strong>40\.00%<\/strong>/,
+  /progress-score-progress"><div class="progress-score-figure"><div class="progress-score-percent progress-score-percent-change"[^>]*><span>0\.00%<\/span><span aria-hidden="true">→<\/span><strong>40\.00%<\/strong>/,
   "without earlier history the period opens at the first recorded day"
 );
 const roundedNegativeZero = render(
@@ -143,6 +143,26 @@ assert.match(
   "period progress does not show a negative zero percentage"
 );
 assert.doesNotMatch(roundedNegativeZero, /progress-score-loss|-0\.00%/);
+const withPreviousCount = render(
+  React.createElement(TaskProgressPeriodProgress, {
+    snapshot: {
+      completed: 30,
+      total: 50,
+      percent: 60,
+      previousPercent: 54,
+      previousCompleted: 27,
+      netCompletedGain: 3,
+    },
+    history: [],
+    periodLabel: "this week",
+    counts: { done: 30, left: 20 },
+  })
+);
+assert.match(
+  withPreviousCount,
+  /progress-score-previous">27<\/span><span class="progress-score-previous" aria-hidden="true">→<\/span><strong class="progress-score-done">30</,
+  "counts show the previous close → current done"
+);
 
 const empty = ledger([
   {

@@ -49,7 +49,7 @@ test("versatility runs from exclusive bottom to exclusive top by partners", () =
 
 test("versatility color darkens toward blue for tops and green for bottoms", () => {
   assert.deepEqual(performerVersatilityColor(1), {
-    color: "#0d3b8c",
+    color: "#0d5965",
     textColor: "#ffffff",
   });
   assert.deepEqual(performerVersatilityColor(0), {

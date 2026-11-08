@@ -1519,6 +1519,67 @@ export const makePerformerOrgasmMarkersUrl = (
 // Navigate to scene markers where performer has feet markers
 export const makePerformerFeetMarkersUrl = makePerformerOrgasmMarkersUrl;
 
+// Markers with all of `tags` (subtags included) and none of `excludeTags` or
+// their subtags, topped by every `topPerformers` vato (any when empty): the
+// Vato and Studio Detail Nut tile pips. Only each marker's own tags count and
+// release markers are left out, so the list matches the pip count.
+export const makeTopMarkersWithTagsUrlCustom = (
+  topPerformers: Array<{ id: string; label: string }>,
+  tags: Array<{ id: string; label: string }>,
+  excludeTags: Array<{ id: string; label: string }> = []
+) => {
+  if (tags.length === 0) return "#";
+
+  const filter = new ListFilterModel(GQL.FilterMode.SceneMarkers, undefined);
+  const criterion = new MarkerPerformersCriterion(
+    MarkerPerformersCriterionOption
+  );
+  criterion.modifier = GQL.CriterionModifier.IncludesAll;
+  criterion.value = {
+    ...criterion.value,
+    groups: [
+      {
+        groupId: "A",
+        tag_ids: tags,
+        include_subtags: true,
+        require_overlap: false,
+        performer_mode: "AND",
+        top_performer_ids: topPerformers,
+        top_any_count: 0,
+        top_ethnicities: [],
+        top_countries: [],
+        top_rating: null,
+        bottom_performer_ids: [],
+        bottom_any_count: 0,
+        bottom_ethnicities: [],
+        bottom_countries: [],
+        bottom_rating: null,
+        either_performer_ids: [],
+        ...(excludeTags.length > 0 ? { exclude_tag_ids: excludeTags } : {}),
+        own_tags_only: true,
+      },
+    ],
+  };
+  filter.criteria.push(criterion);
+  filter.sortBy = "title";
+
+  return `/scenes/markers?${filter.makeQueryParameters()}`;
+};
+
+// Markers he tops with all of `tags` and none of `excludeTags`.
+export const makePerformerTopMarkersWithTagsUrlCustom = (
+  performer: Partial<GQL.PerformerDataFragment>,
+  tags: Array<{ id: string; label: string }>,
+  excludeTags: Array<{ id: string; label: string }> = []
+) =>
+  performer.id
+    ? makeTopMarkersWithTagsUrlCustom(
+        [{ id: performer.id, label: performer.name || `Vato ${performer.id}` }],
+        tags,
+        excludeTags
+      )
+    : "#";
+
 // Navigate to scene markers for facial/oral with role filter (goes to /scenes/markers, not /scenes)
 // Similar to orgasm markers URL but with configurable role and depth
 export const makePerformerFacialMarkersWithRoleUrl = (
@@ -1672,6 +1733,23 @@ export const withStudioScope = (
   const base = url.slice(0, insertAt + 1);
   const rest = url.slice(insertAt + 1);
   return `${base}c=${studioCriterion}${rest ? `&${rest}` : ""}`;
+};
+
+/** Adds a scene vato-count criterion: exactly `vatos`, or `vatos`+ when `orMore`. */
+export const withScenePerformerCountCustom = (
+  url: string | undefined,
+  vatos: number,
+  orMore = false
+): string | undefined => {
+  if (!url || url === "#") return url;
+  const criterion = encodeURIComponent(
+    JSON.stringify({
+      type: "performer_count",
+      modifier: orMore ? "GREATER_THAN" : "EQUALS",
+      value: { value: orMore ? vatos - 1 : vatos },
+    })
+  );
+  return `${url}${url.includes("?") ? "&" : "?"}c=${criterion}`;
 };
 // CUSTOM: end
 

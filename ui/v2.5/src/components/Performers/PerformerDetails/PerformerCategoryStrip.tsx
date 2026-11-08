@@ -29,6 +29,15 @@ import {
 } from "./performerRoleTiles_custom"; // CUSTOM
 import "./performerRoleTiles_custom.scss"; // CUSTOM
 import { SceneTypeTiles } from "src/components/Shared/SceneTypeTiles_custom"; // CUSTOM
+import { RoleTileContent } from "src/components/Shared/RoleTileContent_custom"; // CUSTOM
+import { NutTypePips } from "./NutTypePips_custom"; // CUSTOM
+import {
+  nutTypeMarkerTagsCustom,
+  type NutQualityCustom,
+  type NutTypeRowCustom,
+} from "./nutTypes_custom"; // CUSTOM
+import { makePerformerTopMarkersWithTagsUrlCustom } from "src/utils/navigation_custom"; // CUSTOM
+import type { ISceneTypeCastSplitCustom } from "src/components/Studios/studioSceneTypes_custom"; // CUSTOM
 
 type PerformerCategoryStripData = Pick<PerformerListData, "id" | "name"> &
   Partial<PerformerListData>; // CUSTOM: scene-card hovers only load compact performer data
@@ -69,6 +78,7 @@ interface IPerformerCategoryStripProps {
     orgasm_top_count: number;
     facial_marker_count: number; // CUSTOM
     feet_top_count: number; // CUSTOM
+    nut_type_counts?: GQL.NutTypeCounts | null; // CUSTOM: Vato Detail Nut tile pips
   } | null;
   /** When set, all badge links will be scoped to this studio */
   studioContext?: { id: string; label: string; depth: number }; // CUSTOM
@@ -85,6 +95,8 @@ interface IPerformerCategoryStripProps {
   roleSeconds?: IScenePerformerRoleSeconds; // CUSTOM
   /** Boxed count tiles; outside scenes every configured role shows, zeros dimmed. */
   tiles?: PerformerRoleTileSize; // CUSTOM
+  /** Vato Detail: Standard/Threesome/Group pips on the Sex/Oral tiles. */
+  castSplit?: ISceneTypeCastSplitCustom | null; // CUSTOM
 }
 
 /**
@@ -118,6 +130,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
   versatilityCard = false, // CUSTOM
   roleSeconds, // CUSTOM
   tiles, // CUSTOM
+  castSplit, // CUSTOM
 }) => {
   const { configuration } = useConfigurationContext();
   const showZeroTiles = showsZeroRoleTiles(tiles, sceneId); // CUSTOM
@@ -681,6 +694,19 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
       p.facial_with_bottom_count ??
       0,
   };
+  // CUSTOM: Nut tile pips open the markers he tops for that row and quality.
+  const nutTypeUrl = (row: NutTypeRowCustom, quality: NutQualityCustom) => {
+    const markerTags = nutTypeMarkerTagsCustom(row, quality, roleTagIds);
+    return markerTags
+      ? scopeToStudio(
+          makePerformerTopMarkersWithTagsUrlCustom(
+            performer,
+            markerTags.tags,
+            markerTags.excludeTags
+          )
+        )
+      : "#";
+  };
   // Icon + count badge; tiles box it and dim zeros without a link.
   const renderCountBadge = (badge: {
     key: React.Key;
@@ -691,18 +717,16 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
     icon: React.ReactNode;
     count?: number;
     label: string;
+    extra?: React.ReactNode; // CUSTOM: a pip strip under the count
   }) => {
     const isZero = isZeroRoleTile(showZeroTiles, badge.count);
     const content = (
-      <>
-        {badge.icon}
-        {badge.count !== undefined && (
-          <span className="role-total-count">{badge.count}</span>
-        )}
-        {tiles === "full" && (
-          <span className="role-tile-label">{badge.label}</span>
-        )}
-      </>
+      <RoleTileContent
+        count={badge.count}
+        full={tiles === "full"}
+        icon={badge.icon}
+        label={badge.label}
+      />
     );
     return (
       <div
@@ -730,6 +754,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
           ) : (
             content
           )}
+          {badge.extra}
         </div>
       </div>
     );
@@ -968,6 +993,14 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
           icon: <img src={spermsSvg} alt="Nut" className="category-icon" />,
           count: orgasmTopCount,
           label: "Nut",
+          // CUSTOM: Vato Detail splits his nuts and facials by quality
+          extra:
+            tiles === "full" && globalStatsOverride?.nut_type_counts ? (
+              <NutTypePips
+                counts={globalStatsOverride.nut_type_counts}
+                getUrl={nutTypeUrl}
+              />
+            ) : undefined,
         })}
       {showFeetIcon &&
         feetTagId &&
@@ -997,10 +1030,17 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
   // CUSTOM: totals show Scene Types as tinted tiles, apart from Nut/Feet.
   const countTiles =
     tiles && showZeroTiles ? (
-      <div className={`performer-count-tiles performer-count-tiles--${tiles}`}>
+      <div
+        className={cx(
+          "performer-count-tiles",
+          `performer-count-tiles--${tiles}`,
+          { "performer-count-tiles--cast-split": !!castSplit }
+        )}
+      >
         <SceneTypeTiles
           activeSortBy={activeSortBy}
           caption={tiles === "full"}
+          castSplit={castSplit}
           counts={sceneTypeCounts}
           getUrl={sceneTypeUrl}
           linkTarget={linkTarget}

@@ -36,6 +36,26 @@ func TestCanonicalRatingScoreContributionUsesCurrentScales(t *testing.T) {
 			expected: 3,
 		},
 		{
+			name: "standard energy level 3",
+			row: ratingScoreRow{
+				EntityType: models.RatingEntityScene,
+				Section:    models.RatingScoreSectionCriterion,
+				Key:        "chemistry",
+				RawValue:   3,
+			},
+			expected: 1.5,
+		},
+		{
+			name: "legacy standard energy level 5 counts as level 4",
+			row: ratingScoreRow{
+				EntityType: models.RatingEntityScene,
+				Section:    models.RatingScoreSectionCriterion,
+				Key:        "chemistry",
+				RawValue:   5,
+			},
+			expected: 2,
+		},
+		{
 			name: "group top lineup attractiveness",
 			row: ratingScoreRow{
 				EntityType: models.RatingEntityScene,
@@ -296,4 +316,13 @@ func TestCalculateOrgasmRatingBonusUsesProgressiveDoublingTiers(t *testing.T) {
 			assert.Equal(t, test.expected, calculateOrgasmRatingBonus(test.entityType, test.count))
 		})
 	}
+}
+
+func TestStandardEnergyRejectsRemovedLevelFive(t *testing.T) {
+	_, weighted, err := canonicalRatingScoreInputCustom(defaultSceneRatingRubricCustom, models.RatingScoreSectionCriterion, "chemistry", 4)
+	assert.NoError(t, err)
+	assert.InDelta(t, 2, weighted, 0.0001)
+
+	_, _, err = canonicalRatingScoreInputCustom(defaultSceneRatingRubricCustom, models.RatingScoreSectionCriterion, "chemistry", 5)
+	assert.Error(t, err)
 }

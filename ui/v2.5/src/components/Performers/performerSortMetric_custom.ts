@@ -27,7 +27,7 @@ const activityValue = (
 
 const roleValue = (
   source: PerformerSortMetricSource,
-  field: keyof IPerformerRoleStats
+  field: Exclude<keyof IPerformerRoleStats, "nut_type_counts">
 ) => backendOr(source, source.roleStats?.[field]);
 
 const definitions: Record<
