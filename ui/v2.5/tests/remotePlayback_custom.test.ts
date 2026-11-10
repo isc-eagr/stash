@@ -8,6 +8,8 @@ import {
   remotePendingCustom,
   remoteCommandIdCustom,
   remotePendingRejectedCustom,
+  remoteOwnedElsewhereCustom,
+  REMOTE_OWNED_ELSEWHERE_RETRY_MS,
 } from "../src/components/RemoteO/remotePlayback_custom";
 
 const snapshot = {
@@ -176,6 +178,16 @@ for (const [returnURL, hash, expected] of [
   assert.equal(destination, expected);
   assert.equal(sent.includes(token), false);
 }
+// A remote owned by another tab is recognized for slow retries.
+assert.equal(
+  remoteOwnedElsewhereCustom(
+    "remotePlaybackUpdate another tab or panel owns this remote; close it or turn off its remote control first"
+  ),
+  true
+);
+assert.equal(remoteOwnedElsewhereCustom("invalid loop segment"), false);
+assert.ok(REMOTE_OWNED_ELSEWHERE_RETRY_MS >= 10000);
+
 console.log(
   "Remote playback validation, pairing, pending-tap and login tests passed."
 );

@@ -469,6 +469,8 @@ export const StatsPairGrid: React.FC<{
   totalNote?: string;
   unknown?: IStatsChartUnknown;
   className?: string;
+  // What selecting a cell does: "Filter by" the page or "View" its items.
+  action?: string;
 }> = ({
   title,
   rowTitle,
@@ -481,6 +483,7 @@ export const StatsPairGrid: React.FC<{
   totalNote,
   unknown,
   className,
+  action = "Filter by",
 }) => {
   const cells = rows.map((row) =>
     columns.map((column) => cell(row.key, column.key))
@@ -535,7 +538,7 @@ export const StatsPairGrid: React.FC<{
                           className={cx("stats-pair-grid-cell", {
                             strong: strength > 55,
                           })}
-                          label={`${count > 0 ? `Filter by ${subject}: ` : ""}${
+                          label={`${count > 0 ? `${action} ${subject}: ` : ""}${
                             row.label
                           } → ${column.label}: ${statsUnitLabel(count, unit)}`}
                           to={count > 0 ? value?.to : undefined}

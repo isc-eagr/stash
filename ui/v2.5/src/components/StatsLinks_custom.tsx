@@ -1,4 +1,9 @@
-import { faFilm, faSliders, faUsers } from "@fortawesome/free-solid-svg-icons";
+import {
+  faCalendar,
+  faFilm,
+  faSliders,
+  faUsers,
+} from "@fortawesome/free-solid-svg-icons";
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Icon } from "src/components/Shared/Icon";
@@ -49,6 +54,11 @@ const customStatsLinks = [
     label: "Facial Stats",
     href: "/facialstats",
     icon: <MaskIcon src={facialPng} />,
+  },
+  {
+    label: "Year in Review",
+    href: "/stats/year",
+    icon: <Icon icon={faCalendar} />,
   },
 ];
 

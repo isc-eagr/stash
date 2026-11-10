@@ -4,6 +4,10 @@ import type { SceneCardInsightScene } from "../Scenes/sceneCardInsightTypes_cust
 export type StatsScene = SceneCardInsightScene & {
   title?: string | null;
   date?: string | null;
+  o_counter?: number | null;
+  release_o_counter?: number | null;
+  stashdb_matches?: number | null;
+  release_stashdb_matches?: number | null;
   paths: { screenshot?: string | null };
   studio?: { id: string; name: string } | null;
   performers: Array<

@@ -161,19 +161,20 @@ export function getRatingAdvisorOTrackCustom(
   return tiers;
 }
 
-// Matches dated O events to o numbers, oldest first. A scene's O Count
-// leaves out its releases' O's, so those events don't take a o number.
-export function getRatingAdvisorOEventsCustom<
-  T extends { o_date: string; release_id?: string | null },
->(entityType: RatingAdvisorEntityCustom, events: readonly T[]) {
+// Matches dated O events to o numbers, oldest first. The count also holds
+// O's without a date (retroactive), which take the first numbers.
+export function getRatingAdvisorOEventsCustom<T extends { o_date: string }>(
+  events: readonly T[],
+  count: number
+) {
+  const undated = Math.max(0, getSafeOrgasmCount(count) - events.length);
   const byO = new Map<number, T>();
   events
-    .filter((event) => entityType !== "scene" || !event.release_id)
     .map((event, index) => ({ event, index, time: Date.parse(event.o_date) }))
     // Ties keep the server's newest-first order, reversed.
     .sort((a, b) => a.time - b.time || b.index - a.index)
     .forEach(({ event }, index) => {
-      byO.set(index + 1, event);
+      byO.set(undated + index + 1, event);
     });
   return byO;
 }

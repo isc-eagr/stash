@@ -1,9 +1,9 @@
+import { StatsSectionSkeleton } from "src/components/Shared/CardGridSkeleton_custom"; // CUSTOM
 import { StatsBarChart } from "src/components/StatsBarChart_custom";
 import { ACTIVITY_PIE_COLORS } from "src/components/Shared/activityColors_custom";
 import { SCENE_ACTIVITY_LABELS_CUSTOM } from "src/components/Scenes/sceneActivityMetricsData_custom";
 import React from "react";
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
-import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import {
   StatsChartGroup,
   StatsSplitBar,
@@ -50,7 +50,7 @@ export const SceneStatsInsights: React.FC<IProps> = ({
       : "every scene";
 
   if (loading) {
-    return <LoadingIndicator message="Loading activity and ratings…" />;
+    return <StatsSectionSkeleton message="Loading activity and ratings…" />;
   }
   if (error) {
     return <ErrorMessage error={error.message} />;

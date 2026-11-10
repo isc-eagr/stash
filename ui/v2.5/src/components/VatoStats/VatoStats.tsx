@@ -53,6 +53,7 @@ import {
 } from "./vatoStatsRoles_custom";
 
 import { useVatoStatsCompactQuery } from "./useVatoStatsCompactQuery_custom";
+import { VatoStatsRolePairGrids } from "./VatoStatsRolePairGrids_custom";
 import type { VatoStatsPerformer } from "./vatoStatsCompactData_custom";
 
 import "./VatoStats.scss";
@@ -181,6 +182,7 @@ const chartDefinitions: Array<{ key: ChartCategory; label: string }> = [
 // CUSTOM: page order by topic; each group fills whole rows of three small,
 // two medium or one wide chart. "scene_count" draws the combined Scenes Per
 // Vato chart (All, Sex, Oral), always wide.
+const ROLES_GROUP_TITLE = "Roles & Scenes";
 const chartGroups: Array<{ title: string; categories: ChartCategory[] }> = [
   {
     title: "The Vatos",
@@ -196,7 +198,7 @@ const chartGroups: Array<{ title: string; categories: ChartCategory[] }> = [
     ],
   },
   {
-    title: "Roles & Scenes",
+    title: ROLES_GROUP_TITLE,
     categories: ["scene_count", "role_strictness", "role"],
   },
   {
@@ -1364,6 +1366,18 @@ export const VatoStatsDashboard: React.FC<IVatoStatsDashboardProps> = ({
               title={group.title}
             >
               {group.categories.map(renderChart)}
+              {/* CUSTOM: who tops whom, by ethnicity. */}
+              {group.title === ROLES_GROUP_TITLE && (
+                <VatoStatsRolePairGrids
+                  dateRange={dateRangeVariable}
+                  depth={studioScope?.depth}
+                  selectedIds={
+                    filters.length > 0 ? cohort.performer_ids : undefined
+                  }
+                  studioId={studioScope?.id}
+                  vatos={performers}
+                />
+              )}
             </StatsChartGroup>
           ))}
           {/* CUSTOM: rating charts sit beside the rating criteria. */}

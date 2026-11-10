@@ -243,6 +243,28 @@
   }
 }
 
+/* O Count badge hover: the Rating Advisor's O dots. */
+.rating-adjustment-hover {
+  display: inline-flex;
+}
+
+.rating-adjustment-popover-shell {
+  max-width: none;
+}
+
+.rating-adjustment-o-hover {
+  --rating-advisor-bonus-rgb: 84, 189, 120;
+  --rating-advisor-muted: var(--app-muted, #{$text-muted});
+  --rating-advisor-tone-text: #6fdc95;
+
+  display: flex;
+  flex-direction: column;
+  font-size: 0.8rem;
+  gap: 0.5rem;
+  // The track sizes its dots from its own width.
+  width: min(26rem, calc(100vw - 2rem));
+}
+
 /* Framed rating panels: a vato's own criteria (gold edge) never read as
    the scene averages beside them (blue frame). */
 .rating-panel {
@@ -274,23 +296,26 @@
   }
 }
 
+/* Vato averages keep an edge and scene averages a frame, so the two never
+   read as one set. Both are neutral: gold and blue mean Really Hot, tiers and
+   GOAT elsewhere. */
 .rating-panel.rating-panel--vato {
-  border-left: 3px solid #ffd34d;
+  border-left: 3px solid var(--app-border-strong);
 
   .rating-panel__title,
   .studio-rating-advisor-section-header h3 {
-    color: #ffd34d;
+    color: var(--app-text);
   }
 }
 
 .rating-panel.rating-panel--scenes {
-  background: rgba(90, 169, 255, 0.05);
-  border: 1px solid rgba(90, 169, 255, 0.25);
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--app-border-strong);
   border-radius: 0.5rem;
   padding: 0.55rem 0.7rem 0.65rem;
 
   .rating-panel__title {
-    color: #7dbbff;
+    color: var(--app-text);
   }
 }
 

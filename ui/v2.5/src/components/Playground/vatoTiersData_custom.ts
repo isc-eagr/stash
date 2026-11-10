@@ -32,7 +32,7 @@ export const emptyVatoTierFilters: IVatoTierFilters = {
 };
 
 export function vatoTierFilterValue(
-  performer: IVatoTierPerformer,
+  performer: Pick<IVatoTierPerformer, VatoTierDimension>,
   dimension: VatoTierDimension
 ) {
   const value = performer[dimension]?.trim();

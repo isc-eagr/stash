@@ -5,7 +5,9 @@ import type { VideoJsPlayer } from "video.js";
 import { showRemoteToastCustom } from "./remoteToast_custom";
 import {
   PlaybackSnapshot,
+  REMOTE_OWNED_ELSEWHERE_RETRY_MS,
   remoteCommandMatchesCustom,
+  remoteOwnedElsewhereCustom,
   remoteIdCustom,
   remotePlayerIdCustom,
   remoteSnapshotValidCustom,
@@ -140,8 +142,12 @@ export function useRemotePlayerCustom(
           if (!disposed) setError(err.message);
         },
       });
+    // While another tab or panel owns the remote, retry rarely instead of
+    // every second; each refusal is an error in the server log.
+    let ownedElsewhereUntil = 0;
     const update = async () => {
       if (disposed || updating || currentSession.current !== sessionId) return;
+      if (Date.now() < ownedElsewhereUntil) return;
       const snapshot = readRef.current();
       if (!snapshot || !remoteSnapshotValidCustom(snapshot)) return;
       updating = true;
@@ -168,9 +174,14 @@ export function useRemotePlayerCustom(
             });
           });
         await queue.current;
+        ownedElsewhereUntil = 0;
         if (!disposed) setError("");
       } catch (err) {
-        if (!disposed) setError((err as Error).message);
+        const message = (err as Error).message;
+        if (remoteOwnedElsewhereCustom(message)) {
+          ownedElsewhereUntil = Date.now() + REMOTE_OWNED_ELSEWHERE_RETRY_MS;
+        }
+        if (!disposed) setError(message);
       } finally {
         updating = false;
       }

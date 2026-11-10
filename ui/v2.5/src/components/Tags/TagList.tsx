@@ -44,6 +44,7 @@ import cx from "classnames";
 import { FilterTags } from "../List/FilterTags";
 import { Pagination, PaginationIndex } from "../List/Pagination";
 import { LoadedContent } from "../List/PagedList";
+import { cardGridSkeletonCustom } from "../Shared/cardSkeletonLayout_custom"; // CUSTOM
 import { SidebarBooleanFilter } from "../List/Filters/BooleanFilter";
 import { FavoriteTagCriterionOption } from "src/models/list-filter/criteria/favorite";
 import { TagListTable } from "./TagListTable";
@@ -501,7 +502,12 @@ export const FilteredTagList = PatchComponent(
                 />
               </div>
 
-              <LoadedContent loading={result.loading} error={result.error}>
+              <LoadedContent
+                loading={result.loading}
+                error={result.error}
+                // CUSTOM: placeholders in the shape of the cards
+                skeleton={cardGridSkeletonCustom("tag", filter)}
+              >
                 <TagList
                   filter={effectiveFilter}
                   tags={items}

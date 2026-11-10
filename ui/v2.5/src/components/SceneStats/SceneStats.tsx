@@ -60,10 +60,10 @@ import {
 } from "src/utils/statsDrilldown_custom";
 import { FileSize } from "src/components/Shared/FileSize";
 import {
+  bestFacialStatus,
   facialCount,
-  isFacialMarker,
   markerHasTag,
-  reallyHotFacialCount,
+  type SceneStatsFacialStatus,
 } from "./sceneStatsFacialCounts_custom";
 import { durationBucketForMinutes } from "./sceneStatsDuration_custom";
 import {
@@ -403,24 +403,7 @@ function roundedDurationMinutes(scene: SceneStatsScene) {
   return Math.round(scene.duration / 60);
 }
 
-// The best facial in the scene: GOAT, then Really Hot, then a regular one.
-function facialStatus(scene: SceneStatsScene, roleTagIDs: RoleTagIDSets) {
-  const hasFacial = facialCount(scene, roleTagIDs) > 0;
-  const hasGoatFacial =
-    !!roleTagIDs.goat &&
-    scene.scene_markers.some(
-      (marker) =>
-        isFacialMarker(marker, roleTagIDs) &&
-        markerHasTag(marker, roleTagIDs.goat)
-    );
-
-  if (hasGoatFacial) return "goat";
-  if (reallyHotFacialCount(scene, roleTagIDs) > 0) return "rh";
-  if (hasFacial) return "regular";
-  return "no";
-}
-
-type FacialStatus = ReturnType<typeof facialStatus>;
+type FacialStatus = SceneStatsFacialStatus;
 
 const FACIAL_STATUS_LABELS: Record<FacialStatus, string> = {
   goat: "GOAT",
@@ -539,7 +522,7 @@ function sceneMatchesFilter(
     case "release_day":
       return releaseDate(scene)?.slice(0, 10) === filter.value;
     case "facial_status":
-      return facialStatus(scene, roleTagIDs) === filter.value;
+      return bestFacialStatus(scene, roleTagIDs) === filter.value;
     case "facial_count":
       return String(facialCount(scene, roleTagIDs)) === filter.value;
     case "nut_count":
@@ -789,7 +772,7 @@ function buildSceneCharts(
       statuses: { goat: 0, rh: 0, regular: 0, no: 0 },
     };
     column.total += 1;
-    column.statuses[facialStatus(scene, roleTagIDs)] += 1;
+    column.statuses[bestFacialStatus(scene, roleTagIDs)] += 1;
     facialBuckets.set(sceneFacials, column);
 
     // CUSTOM: nuts per scene, colored by the best nut (Nut Stats events).
@@ -1086,7 +1069,9 @@ export const SceneStatsDashboard: React.FC<ISceneStatsDashboardProps> = ({
         const bucket = sceneMetallicBucket(scene, configuration);
         return bucket ? [bucket] : [];
       },
-      best_facial: (scene) => [statusGroup(facialStatus(scene, roleTagIDs))],
+      best_facial: (scene) => [
+        statusGroup(bestFacialStatus(scene, roleTagIDs)),
+      ],
       best_nut: (scene) =>
         nutsLoaded
           ? [statusGroup(nutsByScene.get(scene.id)?.best ?? "no")]

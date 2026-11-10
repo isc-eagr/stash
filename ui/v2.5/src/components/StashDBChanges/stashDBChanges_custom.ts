@@ -7,6 +7,7 @@ export const STASHDB_SCENE_FIELDS_CUSTOM: readonly [string, string][] = [
   ["title", "title"],
   ["code", "scene_code"],
   ["date", "date"],
+  ["production_date", "production_date"],
   ["studio", "studio"],
   ["performers", "performers"],
   ["tags", "tags"],

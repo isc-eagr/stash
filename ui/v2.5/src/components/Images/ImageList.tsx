@@ -55,6 +55,7 @@ import {
 import { FilterTags } from "../List/FilterTags";
 import { Pagination, PaginationIndex } from "../List/Pagination";
 import { LoadedContent } from "../List/PagedList";
+import { cardGridSkeletonCustom } from "../Shared/cardSkeletonLayout_custom"; // CUSTOM
 import useFocus from "src/utils/focus";
 import cx from "classnames";
 import { SidebarStudiosFilter } from "../List/Filters/StudiosFilter";
@@ -796,7 +797,12 @@ export const FilteredImageList = PatchComponent(
           />
         </div>
 
-        <LoadedContent loading={result.loading} error={result.error}>
+        <LoadedContent
+          loading={result.loading}
+          error={result.error}
+          // CUSTOM: placeholders in the shape of the cards
+          skeleton={cardGridSkeletonCustom("image", filter)}
+        >
           <ImageList
             filter={filter}
             images={items}

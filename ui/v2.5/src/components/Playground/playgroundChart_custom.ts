@@ -1,7 +1,11 @@
-import type {
-  IPlaygroundMetric,
-  IPlaygroundPoint,
-} from "./playgroundData_custom";
+import type { IPlaygroundMetric } from "./playgroundData_custom";
+
+// A dot on the chart: a scene or a vato with its two axis values.
+export interface IPlaygroundChartPoint {
+  id: string;
+  x: number;
+  y: number;
+}
 
 export const playgroundPlotPadding = {
   left: 58,
@@ -14,8 +18,8 @@ export const playgroundScenesPerCoordinate = 3;
 export const playgroundSceneLimit = 250;
 export const playgroundPointSpacing = 14;
 
-export function samplePlaygroundPoints(
-  points: IPlaygroundPoint[],
+export function samplePlaygroundPoints<P extends IPlaygroundChartPoint>(
+  points: P[],
   random: () => number = Math.random,
   perCoordinate = 1
 ) {
@@ -23,10 +27,7 @@ export function samplePlaygroundPoints(
     1,
     Math.min(playgroundScenesPerCoordinate, Math.floor(perCoordinate))
   );
-  const coordinates = new Map<
-    string,
-    { count: number; points: IPlaygroundPoint[] }
-  >();
+  const coordinates = new Map<string, { count: number; points: P[] }>();
   for (const point of points) {
     const key = `${point.x}:${point.y}`;
     const group = coordinates.get(key);
@@ -42,7 +43,7 @@ export function samplePlaygroundPoints(
       }
     }
   }
-  const samples: IPlaygroundPoint[] = [];
+  const samples: P[] = [];
   let count = 0;
   for (const point of [...coordinates.values()].flatMap(
     (group) => group.points
@@ -64,6 +65,14 @@ export function createPlaygroundRandom(seed: number) {
     return state / 4294967296;
   };
 }
+
+// Where each axis starts; zero unless a metric sets a minimum.
+export interface IPlaygroundOrigin {
+  x: number;
+  y: number;
+}
+
+const playgroundZeroOrigin: IPlaygroundOrigin = { x: 0, y: 0 };
 
 interface IPlaygroundSpread {
   xMetric: IPlaygroundMetric;
@@ -105,13 +114,14 @@ function spreadPlaygroundCoordinate(
   return low + fraction * (high - low);
 }
 
-export function positionPlaygroundPoints(
-  points: IPlaygroundPoint[],
+export function positionPlaygroundPoints<P extends IPlaygroundChartPoint>(
+  points: P[],
   width: number,
   height: number,
   xMax: number,
   yMax: number,
-  spread?: IPlaygroundSpread
+  spread?: IPlaygroundSpread,
+  origin: IPlaygroundOrigin = playgroundZeroOrigin
 ) {
   const padding = playgroundPlotPadding;
   return points.map((point) => {
@@ -121,9 +131,7 @@ export function positionPlaygroundPoints(
           xMax,
           spread.xSplit,
           spread.xMetric,
-          spread.attempt
-            ? `${point.entry.scene.id}:${spread.attempt}`
-            : point.entry.scene.id
+          spread.attempt ? `${point.id}:${spread.attempt}` : point.id
         )
       : point.x;
     const displayY = spread
@@ -132,9 +140,7 @@ export function positionPlaygroundPoints(
           yMax,
           spread.ySplit,
           spread.yMetric,
-          spread.attempt
-            ? `${point.entry.scene.id}:${spread.attempt}`
-            : point.entry.scene.id
+          spread.attempt ? `${point.id}:${spread.attempt}` : point.id
         )
       : point.y;
     return {
@@ -143,41 +149,50 @@ export function positionPlaygroundPoints(
       displayY,
       cx:
         padding.left +
-        (displayX / xMax) * (width - padding.left - padding.right),
+        ((displayX - origin.x) / (xMax - origin.x)) *
+          (width - padding.left - padding.right),
       cy:
         height -
         padding.bottom -
-        (displayY / yMax) * (height - padding.top - padding.bottom),
+        ((displayY - origin.y) / (yMax - origin.y)) *
+          (height - padding.top - padding.bottom),
     };
   });
 }
 
-export function layoutPlaygroundPoints(
-  points: IPlaygroundPoint[],
+export function layoutPlaygroundPoints<P extends IPlaygroundChartPoint>(
+  points: P[],
   width: number,
   height: number,
   xMax: number,
   yMax: number,
-  spread?: IPlaygroundSpread
+  spread?: IPlaygroundSpread,
+  origin: IPlaygroundOrigin = playgroundZeroOrigin
 ) {
-  const visible: ReturnType<typeof positionPlaygroundPoints> = [];
+  const visible: ReturnType<typeof positionPlaygroundPoints<P>> = [];
   for (const point of positionPlaygroundPoints(
     points,
     width,
     height,
     xMax,
     yMax,
-    spread
+    spread,
+    origin
   )) {
     // Try a few stable offsets; omit a dot when its neighborhood is full.
     // This adapts to mobile without altering scores or quadrant membership.
     for (let attempt = 0; attempt < (spread ? 24 : 1); attempt += 1) {
       const candidate =
         attempt > 0
-          ? positionPlaygroundPoints([point], width, height, xMax, yMax, {
-              ...spread!,
-              attempt,
-            })[0]
+          ? positionPlaygroundPoints(
+              [point],
+              width,
+              height,
+              xMax,
+              yMax,
+              { ...spread!, attempt },
+              origin
+            )[0]
           : point;
       if (
         visible.every(
@@ -194,13 +209,11 @@ export function layoutPlaygroundPoints(
   return visible;
 }
 
-export function hitTestPlaygroundPoints(
-  points: ReturnType<typeof positionPlaygroundPoints>,
-  x: number,
-  y: number
-) {
+export function hitTestPlaygroundPoints<
+  P extends IPlaygroundChartPoint & { cx: number; cy: number },
+>(points: P[], x: number, y: number) {
   // Select the displayed scene, including when several share exact scores.
-  let nearest: (typeof points)[number] | undefined;
+  let nearest: P | undefined;
   let distance = 100;
   for (const point of points) {
     const candidate = (point.cx - x) ** 2 + (point.cy - y) ** 2;
@@ -213,7 +226,7 @@ export function hitTestPlaygroundPoints(
 }
 
 export function playgroundQuadrant(
-  point: Pick<IPlaygroundPoint, "x" | "y">,
+  point: Pick<IPlaygroundChartPoint, "x" | "y">,
   xSplit: number,
   ySplit: number
 ) {

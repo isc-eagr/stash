@@ -7,6 +7,7 @@ import {
   stashDBMatchesLabelRowsCustom,
   stashDBMatchesRatingBandCustom,
   stashDBMatchesRatingGapsCustom,
+  stashDBMatchesRowColorCustom,
   stashDBMatchesRowScenesURLCustom,
   stashDBMatchesSceneGroupsCustom,
   stashDBMatchesScenesCustom,
@@ -261,4 +262,21 @@ test("vato and studio rows only read their own names", () => {
     stashDBMatchesLabelRowsCustom("ethnicity", rows, names)[0].label,
     "1"
   );
+});
+
+test("metal and quality tables color their rows with their meaning", () => {
+  assert.equal(
+    stashDBMatchesRowColorCustom("metallic_rating", "bronze"),
+    "var(--semantic-bronze)"
+  );
+  assert.equal(
+    stashDBMatchesRowColorCustom("best_facial", "goat"),
+    "var(--semantic-goat)"
+  );
+  assert.equal(
+    stashDBMatchesRowColorCustom("best_nut", "rh"),
+    "var(--semantic-really-hot)"
+  );
+  assert.equal(stashDBMatchesRowColorCustom("best_nut", "no"), undefined);
+  assert.equal(stashDBMatchesRowColorCustom("ethnicity", "Latino"), undefined);
 });

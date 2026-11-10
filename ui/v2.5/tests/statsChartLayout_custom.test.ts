@@ -88,8 +88,13 @@ assert.match(
 );
 assert.match(
   vatoStatsSource,
-  /title: "The Vatos"[\s\S]*?title: "Roles & Scenes"[\s\S]*?title: "O's & Facials"[\s\S]*?title="Ratings"/,
+  /ROLES_GROUP_TITLE = "Roles & Scenes"[\s\S]*?title: "The Vatos"[\s\S]*?title: ROLES_GROUP_TITLE[\s\S]*?title: "O's & Facials"[\s\S]*?title="Ratings"/,
   "Vato Stats groups looks, roles, O's, and ratings"
+);
+assert.match(
+  vatoStatsSource,
+  /group\.title === ROLES_GROUP_TITLE && \(\s*<VatoStatsRolePairGrids/,
+  "the top → bottom ethnicity grids close the Roles & Scenes group"
 );
 assert.match(
   oStatsSource,

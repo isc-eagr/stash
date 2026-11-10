@@ -1,9 +1,12 @@
-/* CUSTOM: shared chart tokens and bar chart for every stats page. Pages set
-   their accent once; columns, ranked rows, split bars and grids follow it. */
+/* CUSTOM: shared chart tokens and bar chart for every stats page. The accent
+   marks what can be clicked (hover, active, links); bars, columns, meters and
+   grids with no meaning of their own use the steel data tokens, and data with
+   a meaning uses its semantic color. */
 .stats-page {
   /* Shared surfaces and accents follow the selected app theme. */
   --stats-accent: var(--app-accent);
-  --stats-peak: var(--app-accent);
+  --stats-data: var(--app-data);
+  --stats-peak: var(--app-data-strong);
   --stats-accent-ink: var(--app-accent-ink);
   --stats-right: var(--app-muted);
   --stats-surface: var(--app-surface);
@@ -85,7 +88,7 @@
 }
 
 .stats-bar-chart-fill {
-  background: var(--stats-accent);
+  background: var(--stats-data);
   border-radius: inherit;
   display: block;
 
@@ -93,7 +96,7 @@
     background: var(--stats-peak);
   }
 
-  /* CUSTOM: activity charts use the shared tile tint over the accent fill. */
+  /* CUSTOM: activity charts use the shared tile tint over the data fill. */
   &.tinted-segment-custom {
     background: color-mix(in srgb, var(--segment-color) 12%, transparent);
   }

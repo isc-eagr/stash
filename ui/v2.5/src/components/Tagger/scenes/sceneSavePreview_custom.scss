@@ -1,6 +1,6 @@
 .tagger-container .tagger-scene-group {
   border: 1px solid var(--black-steel-border-strong, #738796);
-  border-left: 3px solid var(--black-steel-accent, #738796);
+  border-left: 3px solid var(--black-steel-border-strong, #738796);
   border-radius: 8px;
   box-shadow: 0 4px 16px #0003;
 
@@ -10,11 +10,11 @@
   }
 
   .tagger-scene-results {
-    border-top: 1px solid var(--black-steel-accent, #738796);
+    border-top: 1px solid var(--black-steel-border-strong, #738796);
     padding-top: 0.75rem;
 
     &::before {
-      color: var(--black-steel-accent-bright, inherit);
+      color: var(--black-steel-text-muted, inherit);
       content: "Matches";
       display: block;
       font-size: 0.8rem;

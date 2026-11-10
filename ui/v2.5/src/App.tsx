@@ -77,6 +77,9 @@ const Stats = lazyComponent(() => import("./components/Stats"));
 const Playground = lazyComponent(
   () => import("./components/Playground/Playground")
 );
+const YearInReview = lazyComponent(
+  () => import("./components/YearInReview/YearInReview")
+);
 // CUSTOM: end
 const OStats = lazyComponent(() => import("./components/OStats/OStats")); // CUSTOM
 const SceneStats = lazyComponent(
@@ -297,7 +300,9 @@ export const App: React.FC = () => {
 
     return (
       <ErrorBoundary>
-        <Suspense fallback={<LoadingIndicator />}>
+        {/* CUSTOM: opening a section loads its code quietly; the page then
+            shows its own placeholders instead of the full-page overlay. */}
+        <Suspense fallback={<LoadingIndicator inline message="" />}>
           <Switch>
             <Route exact path="/" component={FrontPage} />
             {/* CUSTOM: persistent paired mobile O remote */}
@@ -312,6 +317,7 @@ export const App: React.FC = () => {
             <Route path="/groups" component={Groups} />
             {/* CUSTOM */}
             <Route path="/stats/playground" component={Playground} />
+            <Route path="/stats/year/:year?" component={YearInReview} />
             <Route path="/stats" component={Stats} />
             <Route path="/scenestats/:year?/:month?" component={SceneStats} />{" "}
             {/* CUSTOM */}

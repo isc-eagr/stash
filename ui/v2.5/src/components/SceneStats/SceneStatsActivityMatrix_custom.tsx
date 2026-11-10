@@ -1,9 +1,9 @@
+import { StatsSectionSkeleton } from "src/components/Shared/CardGridSkeleton_custom"; // CUSTOM
 import React, { useMemo, useState } from "react";
 import { Alert, Form } from "react-bootstrap";
 import { useHistory, useLocation } from "react-router-dom";
 import { OutstandingActivityMatrixTable } from "src/components/Scenes/OutstandingActivityMatrix_custom";
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
-import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { useSceneStatsActivityMatrixQuery } from "src/core/generated-graphql";
 import type {
   StatsDateRangeInput,
@@ -80,7 +80,7 @@ export const SceneStatsActivityMatrix: React.FC<IProps> = ({
 
   if (!active) return null;
   if (loading) {
-    return <LoadingIndicator message="Loading activity matrix…" />;
+    return <StatsSectionSkeleton message="Loading activity matrix…" />;
   }
   if (error) return <ErrorMessage error={error.message} />;
   if (matrix.rows.length === 0) {

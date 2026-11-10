@@ -8,8 +8,14 @@
   --app-track: #{$dark-text};
   --app-text: #{$text-color};
   --app-muted: #{$text-muted};
+
+  /* The accent marks what can be clicked or is selected. Data without a
+     meaning of its own (bars, meters, heatmaps) uses the data tokens. */
   --app-accent: #{$link-color};
   --app-accent-ink: #101317;
+  --app-data: #7f9db5;
+  --app-data-strong: #c4d6e6;
+  --app-data-ink: #101317;
   --app-control-radius: 0.25rem;
   --app-card-radius: 0.25rem;
   --app-panel-radius: 0.5rem;

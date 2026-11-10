@@ -1,4 +1,11 @@
-import { getAppLocaleCustom } from "src/utils/appLocale_custom"; // CUSTOM
+import {
+  StatsPageSkeleton,
+  StatsSectionSkeleton,
+} from "src/components/Shared/CardGridSkeleton_custom"; // CUSTOM
+import {
+  formatAppDateCustom,
+  getAppLocaleCustom,
+} from "src/utils/appLocale_custom"; // CUSTOM
 import { cleanStatsValueCustom } from "src/utils/statsValues_custom"; // CUSTOM
 import React, { useMemo } from "react";
 // CUSTOM: preview, paged history, and drilldowns share the event rows.
@@ -26,7 +33,6 @@ import {
   useHistory,
 } from "react-router-dom";
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
-import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { StatsPage } from "src/components/StatsPage_custom";
 import {
   StatsBarChart,
@@ -495,7 +501,7 @@ const OStatsTimeline: React.FC<{
     config.query,
     { variables: config.variables, skip: config.skip }
   );
-  if (loading) return <LoadingIndicator />;
+  if (loading) return <StatsSectionSkeleton />;
   if (error) return <ErrorMessage error={error.message} />;
   return (
     <OStatsEventList
@@ -1029,7 +1035,7 @@ const OStatsContent: React.FC<{
                     value: overview.mostOsInDay.count.toLocaleString(
                       getAppLocaleCustom()
                     ),
-                    detail: overview.mostOsInDay.date,
+                    detail: formatAppDateCustom(overview.mostOsInDay.date),
                   },
                 ]
               : []),
@@ -1039,7 +1045,7 @@ const OStatsContent: React.FC<{
                     key: "dry",
                     label: "Longest period without an O",
                     value: `${overview.longestPeriodWithoutO.days} days`,
-                    detail: `${overview.longestPeriodWithoutO.start_date} - ${overview.longestPeriodWithoutO.end_date}`,
+                    detail: `${formatAppDateCustom(overview.longestPeriodWithoutO.start_date)} – ${formatAppDateCustom(overview.longestPeriodWithoutO.end_date)}`,
                   },
                 ]
               : []),
@@ -1058,7 +1064,7 @@ const OStatsContent: React.FC<{
       )}
 
       {error && <ErrorMessage error={error.message} />}
-      {!error && loading && <LoadingIndicator message="Loading O stats..." />}
+      {!error && loading && <StatsPageSkeleton message="Loading O stats..." />}
 
       {!error && !loading && showTimeline && (
         <section className="ostats-chart-panel ostats-timeline-panel">

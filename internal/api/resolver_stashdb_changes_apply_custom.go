@@ -298,6 +298,8 @@ func stashDBSceneUpdateCustom(ctx context.Context, scene *models.Scene, fields [
 			u.str("code", &input.Code, *f.Remote)
 		case f.Field == "date":
 			u.str("date", &input.Date, *f.Remote)
+		case f.Field == "production_date":
+			u.str("production_date", &input.ProductionDate, *f.Remote)
 		case f.Field == "details":
 			u.str("details", &input.Details, *f.Remote)
 		case f.Field == "director":

@@ -1,0 +1,29 @@
+/* CUSTOM: Year in Review reuses the shared stats panels and tokens. */
+.year-review-page {
+  padding-bottom: 2.5rem;
+}
+
+.year-review-header {
+  align-items: flex-end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+
+  h1 {
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1.1;
+    margin: 0;
+  }
+}
+
+.year-review-years {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.year-review-months {
+  margin-bottom: 1rem;
+}

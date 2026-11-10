@@ -76,6 +76,7 @@ import {
   ViewCountButton,
 } from "src/components/Shared/CountButton";
 import { lazyComponent } from "src/utils/lazyComponent";
+import { TabPaneShow } from "src/components/Shared/TabPaneShow_custom"; // CUSTOM
 import cx from "classnames";
 import { TruncatedText } from "src/components/Shared/TruncatedText";
 import { PatchComponent, PatchContainerComponent } from "src/patch";
@@ -771,6 +772,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
   const renderTabs = () => (
     <Tab.Container
       mountOnEnter // CUSTOM: defer queries and rendering in unopened tabs, retaining state after first use.
+      transition={TabPaneShow} // CUSTOM: no fade, so a lazy panel loading on first open cannot leave its pane invisible.
       activeKey={activeTabKey}
       onSelect={(k) => k && setActiveTabKey(k)}
     >

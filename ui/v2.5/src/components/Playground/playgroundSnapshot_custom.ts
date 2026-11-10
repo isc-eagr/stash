@@ -7,7 +7,8 @@ import {
 export const playgroundCacheLifetime = 12 * 60 * 60 * 1000;
 
 export type PlaygroundSnapshot = {
-  sceneDataVersion: 2;
+  // 3 added O counts and StashDB Matches for the Scene Explorer axes.
+  sceneDataVersion: 3;
   scenes: StatsScene[];
   scannedAt: string;
 };
@@ -19,7 +20,7 @@ export function isFreshPlaygroundSnapshot(
   const snapshot = value as Partial<PlaygroundSnapshot>;
   const age = now - Date.parse(snapshot.scannedAt ?? "");
   return (
-    snapshot.sceneDataVersion === 2 &&
+    snapshot.sceneDataVersion === 3 &&
     Array.isArray(snapshot.scenes) &&
     age >= 0 &&
     age < playgroundCacheLifetime
@@ -166,7 +167,7 @@ export async function loadPlaygroundSnapshot(
   const scenes = await load(url, signal, progress);
   checkCancelled();
   const snapshot: PlaygroundSnapshot = {
-    sceneDataVersion: 2,
+    sceneDataVersion: 3,
     scenes,
     scannedAt: new Date(now()).toISOString(),
   };

@@ -33,6 +33,7 @@ import {
 } from "../List/Filters/FilterSidebar";
 import cx from "classnames";
 import { LoadedContent } from "../List/PagedList";
+import { cardGridSkeletonCustom } from "../Shared/cardSkeletonLayout_custom"; // CUSTOM
 import { Pagination, PaginationIndex } from "../List/Pagination";
 import { PatchComponent, PatchContainerComponent } from "src/patch";
 import { SidebarStudiosFilter } from "../List/Filters/StudiosFilter";
@@ -520,7 +521,12 @@ export const FilteredGalleryList = PatchComponent(
                 />
               </div>
 
-              <LoadedContent loading={result.loading} error={result.error}>
+              <LoadedContent
+                loading={result.loading}
+                error={result.error}
+                // CUSTOM: placeholders in the shape of the cards
+                skeleton={cardGridSkeletonCustom("gallery", filter)}
+              >
                 <GalleryList
                   filter={effectiveFilter}
                   galleries={items}

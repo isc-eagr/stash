@@ -41,7 +41,7 @@
   }
 
   .form-label {
-    color: #d8bf83;
+    color: var(--app-muted);
     font-size: 0.8rem;
     font-weight: 700;
   }
@@ -58,9 +58,14 @@
   }
 }
 
+/* Vato Explorer has no rating mode: two axes and Swap. */
+.playground-controls--axes {
+  grid-template-columns: 1fr 1fr auto;
+}
+
 .playground-filters {
   summary {
-    color: #d8bf83;
+    color: var(--app-accent);
     cursor: pointer;
     font-weight: 700;
   }
@@ -87,7 +92,7 @@
 }
 
 .playground-count {
-  color: #d8bf83;
+  color: var(--app-muted);
   font-size: 0.85rem;
 }
 
@@ -129,7 +134,7 @@
   }
 
   canvas:focus-visible {
-    outline: 2px solid #d8bf83;
+    outline: 2px solid var(--app-accent);
     outline-offset: 2px;
   }
 }
@@ -150,7 +155,7 @@
   z-index: 2;
 
   &.is-pinned {
-    border-color: #d8bf83;
+    border-color: var(--app-accent);
   }
 
   img {
@@ -161,6 +166,14 @@
     max-height: 130px;
     object-fit: cover;
     width: 100%;
+  }
+
+  /* Vato Explorer: a portrait keeps its shape. */
+  img.playground-vato-portrait {
+    aspect-ratio: 2 / 3;
+    max-height: 220px;
+    object-position: top;
+    width: auto;
   }
 
   dl {
@@ -178,7 +191,7 @@
 }
 
 .playground-tooltip-toolbar {
-  color: #d8bf83;
+  color: #b7c3d2;
   font-size: 0.8rem;
 }
 

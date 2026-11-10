@@ -10,7 +10,11 @@
   --score-accent: var(--black-steel-accent, #aa6337);
   --score-accent-bright: var(--black-steel-accent-bright, #ca8757);
   --score-accent-dark: var(--black-steel-accent-dark, #704025);
-  --score-gain: #e9b98f;
+
+  /* Progress itself is data: steel, so copper stays on what can be clicked. */
+  --score-data: var(--app-data, #7f9db5);
+  --score-data-strong: var(--app-data-strong, #c4d6e6);
+  --score-gain: var(--score-data-strong);
   --score-up: #91d3b0;
   --score-down: #eca2a8;
 
@@ -94,11 +98,12 @@
   top: 0;
 }
 
+/* The fill is the metal of the medal being worked toward. */
 .progress-medal-fill {
   background: linear-gradient(
     90deg,
-    var(--score-accent-dark),
-    var(--score-accent)
+    var(--checkpoint-shadow, var(--score-data)),
+    var(--checkpoint-metal, var(--score-data))
   );
 }
 
@@ -152,7 +157,7 @@
 }
 
 .progress-medal-next {
-  color: var(--score-accent-bright);
+  color: var(--checkpoint-rim, var(--score-data-strong));
   font-weight: 600;
 }
 
@@ -242,7 +247,7 @@
   overflow: hidden;
 
   > span {
-    background: var(--progress-goal-bar-start, var(--score-accent));
+    background: var(--progress-goal-bar-start, var(--score-data));
     display: block;
     height: 100%;
   }
@@ -353,8 +358,8 @@
 
 .progress-score-streak {
   align-items: center;
-  background: rgba(170, 99, 55, 0.16);
-  border: 1px solid var(--score-accent-dark);
+  background: var(--score-surface);
+  border: 1px solid var(--score-border);
   border-radius: 2px;
   color: var(--score-gain);
   display: inline-flex;
@@ -770,7 +775,7 @@
 
 /* Tracker rows nested under a milestone: indented on a copper rail, no card. */
 .milestone-subrows {
-  border-left: 2px solid var(--score-accent-dark);
+  border-left: 2px solid var(--score-border);
   display: grid;
   gap: 0.35rem;
   margin-left: 0.85rem;
@@ -942,7 +947,7 @@
 
   svg {
     align-self: center;
-    color: var(--score-accent-bright);
+    color: var(--score-data);
   }
 
   strong {
@@ -961,8 +966,8 @@
 
 .progress-score-hero-chips .progress-finish-label {
   align-items: center;
-  background: rgba(170, 99, 55, 0.12);
-  border: 1px solid var(--score-accent-dark);
+  background: var(--score-surface);
+  border: 1px solid var(--score-border);
   border-radius: 2px;
   font-size: 0.85rem;
   min-height: 2.1rem;

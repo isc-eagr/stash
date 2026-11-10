@@ -12,7 +12,6 @@ import {
 interface IOTrackEvent {
   id: string;
   o_date: string;
-  release_id?: string | null;
   screenshot_path?: string | null;
   scene: {
     id: string;
@@ -39,7 +38,6 @@ const OTrackEventsQuery = gql`
   fragment RatingAdvisorOTrackEvent on SceneOEvent {
     id
     o_date
-    release_id
     screenshot_path
     scene {
       id
@@ -55,6 +53,8 @@ interface IRatingAdvisorOTrackProps {
   entityType: RatingAdvisorEntityCustom;
   entityId: string;
   count: number;
+  // Dots only: no O dates or screenshots, for hovers on cards.
+  preview?: boolean;
 }
 
 // One dot per O, grouped by bonus tier; recorded O's fill in, and hovering
@@ -63,6 +63,7 @@ export const RatingAdvisorOTrackCustom: React.FC<IRatingAdvisorOTrackProps> = ({
   entityType,
   entityId,
   count,
+  preview = false,
 }) => {
   const tiers = getRatingAdvisorOTrackCustom(entityType, count);
   const { data } = useQuery<{
@@ -74,16 +75,16 @@ export const RatingAdvisorOTrackCustom: React.FC<IRatingAdvisorOTrackProps> = ({
       isScene: entityType === "scene",
       isPerformer: entityType === "performer",
     },
-    skip: count === 0,
+    skip: preview || count === 0,
     fetchPolicy: "cache-and-network",
   });
   const eventsByO = useMemo(
     () =>
       getRatingAdvisorOEventsCustom(
-        entityType,
-        data?.sceneEvents ?? data?.performerEvents ?? []
+        data?.sceneEvents ?? data?.performerEvents ?? [],
+        count
       ),
-    [data, entityType]
+    [data, count]
   );
 
   const renderTier = (tier: (typeof tiers)[number]) => (

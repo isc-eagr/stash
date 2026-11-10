@@ -43,6 +43,7 @@ import cx from "classnames";
 import { FilterTags } from "../List/FilterTags";
 import { Pagination, PaginationIndex } from "../List/Pagination";
 import { LoadedContent } from "../List/PagedList";
+import { cardGridSkeletonCustom } from "../Shared/cardSkeletonLayout_custom"; // CUSTOM
 import { SidebarStudiosFilter } from "../List/Filters/StudiosFilter";
 import { SidebarTagsFilter } from "../List/Filters/TagsFilter";
 import { SidebarRatingFilter } from "../List/Filters/RatingFilter";
@@ -430,7 +431,12 @@ export const FilteredGroupList = PatchComponent(
           />
         </div>
 
-        <LoadedContent loading={result.loading} error={result.error}>
+        <LoadedContent
+          loading={result.loading}
+          error={result.error}
+          // CUSTOM: placeholders in the shape of the cards
+          skeleton={cardGridSkeletonCustom("group", filter)}
+        >
           <GroupList
             filter={effectiveFilter}
             groups={items}

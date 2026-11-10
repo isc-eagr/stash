@@ -33,6 +33,9 @@ export function playgroundMetrics(
         max: Math.max(...criterion.choices.map((choice) => choice.value)),
       })),
     { key: "rating100", label: "Scene Overall Rating", max: 100 },
+    { key: "o_count", label: "O Count", max: 5, open: true },
+    { key: "stashdb_matches", label: "StashDB Matches", max: 10, open: true },
+    { key: "duration", label: "Duration (minutes)", max: 30, open: true },
   ];
 }
 
@@ -65,14 +68,15 @@ export const playgroundMetallicOptions = [
   { value: "gold", label: "Gold" },
   { value: "silver", label: "Silver" },
   { value: "bronze", label: "Bronze" },
-  { value: "none", label: "None" },
+  { value: "none", label: "No Tier" },
   { value: "unrated", label: "Unrated" },
 ];
 
 export const playgroundFacialOptions = [
   { value: "any", label: "Has facial (any)" },
-  { value: "regular", label: "Facial, no really hot facial" },
-  { value: "rh", label: "Really hot facial" },
+  { value: "regular", label: "Regular facial" },
+  { value: "rh", label: "Really Hot facial" },
+  { value: "goat", label: "GOAT facial" },
   { value: "no", label: "No facial" },
 ];
 

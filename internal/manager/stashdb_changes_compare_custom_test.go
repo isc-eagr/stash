@@ -20,11 +20,12 @@ func stashDBDateCustom(t *testing.T, s string) *models.Date {
 func TestCompareStashDBSceneCustom(t *testing.T) {
 	local := stashDBLocalSceneCustom{
 		Scene: &models.Scene{
-			Title:    "Same  title",
-			Details:  "Line one\r\nLine two",
-			Director: "Local director",
-			Date:     stashDBDateCustom(t, "2024-05-06"),
-			URLs:     models.NewRelatedStrings([]string{"http://www.studio.com/a/", "https://local-only.com"}),
+			Title:          "Same  title",
+			Details:        "Line one\r\nLine two",
+			Director:       "Local director",
+			Date:           stashDBDateCustom(t, "2024-05-06"),
+			ProductionDate: stashDBDateCustom(t, "2024-03-02"),
+			URLs:           models.NewRelatedStrings([]string{"http://www.studio.com/a/", "https://local-only.com"}),
 		},
 		Studio: &stashDBLocalEntityCustom{Name: "Studio", StashIDs: []string{"old-studio"}},
 		Performers: []stashDBLocalEntityCustom{
@@ -41,13 +42,14 @@ func TestCompareStashDBSceneCustom(t *testing.T) {
 		},
 	}
 	remote := &stashbox.StashDBSceneCustom{
-		Title:    stashDBStrCustom("Same title"),
-		Code:     stashDBStrCustom(" "),
-		Details:  stashDBStrCustom("Line one\nLine two"),
-		Director: stashDBStrCustom("New director"),
-		Date:     stashDBStrCustom("2024-05-07"),
-		URLs:     []string{"https://studio.com/a", "https://studio.com/b"},
-		Studio:   &stashbox.StashDBEntityCustom{ID: "new-studio", Name: "Other Studio"},
+		Title:          stashDBStrCustom("Same title"),
+		Code:           stashDBStrCustom(" "),
+		Details:        stashDBStrCustom("Line one\nLine two"),
+		Director:       stashDBStrCustom("New director"),
+		Date:           stashDBStrCustom("2024-05-07"),
+		ProductionDate: stashDBStrCustom("2024-03-01"),
+		URLs:           []string{"https://studio.com/a", "https://studio.com/b"},
+		Studio:         &stashbox.StashDBEntityCustom{ID: "new-studio", Name: "Other Studio"},
 		Performers: []stashbox.StashDBEntityCustom{
 			{ID: "p1", Name: "Renamed on StashDB"},
 			{ID: "p2", Name: "papi"},
@@ -64,6 +66,7 @@ func TestCompareStashDBSceneCustom(t *testing.T) {
 	require.Equal(t, []models.StashDBFieldChangeCustom{
 		{Field: "director", Local: stashDBStrCustom("Local director"), Remote: stashDBStrCustom("New director")},
 		{Field: "date", Local: stashDBStrCustom("2024-05-06"), Remote: stashDBStrCustom("2024-05-07")},
+		{Field: "production_date", Local: stashDBStrCustom("2024-03-02"), Remote: stashDBStrCustom("2024-03-01")},
 		{Field: "urls", Added: []string{"https://studio.com/b"}},
 		{Field: "studio", Local: stashDBStrCustom("Studio"), Remote: stashDBStrCustom("Other Studio"), RemoteID: stashDBStrCustom("new-studio")},
 		{Field: "performers", Added: []string{"New guy"}, AddedIDs: []string{"p3"}, Removed: []string{"Removed"}},

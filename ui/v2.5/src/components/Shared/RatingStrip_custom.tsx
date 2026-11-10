@@ -1,6 +1,7 @@
 import React from "react";
 import cx from "classnames";
 import { OverlayTrigger, Tooltip } from "react-bootstrap";
+import { HoverPopover } from "./HoverPopover";
 import { RatingCriterionMeter } from "./RatingCriterionMeter_custom";
 
 // CUSTOM: inline rating strip. Criteria sit side by side as short labels over
@@ -24,6 +25,8 @@ export interface IRatingStripAdjustment {
   section: "bonus" | "penalty";
   value: string;
   detail: string;
+  // Rich hover in place of the plain detail tooltip.
+  hover?: React.ReactElement;
 }
 
 // Content shown beside one criterion's label, such as a count.
@@ -157,21 +160,37 @@ export const RatingStrip: React.FC<{
             aria-label="Bonuses and penalties"
             className="rating-criteria-strip__adjustments"
           >
-            {adjustments.map((row) => (
-              <span
-                aria-label={row.detail}
-                className={cx("rating-adjustment", `is-${row.section}`)}
-                key={`${row.section}-${row.key}`}
-                role="img"
-                title={row.detail}
-              >
-                <span aria-hidden="true" className="rating-adjustment__mark">
-                  {row.section === "bonus" ? "✓" : "−"}
+            {adjustments.map((row) => {
+              const mark = (
+                <span
+                  aria-label={row.detail}
+                  className={cx("rating-adjustment", `is-${row.section}`)}
+                  key={`${row.section}-${row.key}`}
+                  role="img"
+                  title={row.hover ? undefined : row.detail}
+                >
+                  <span aria-hidden="true" className="rating-adjustment__mark">
+                    {row.section === "bonus" ? "✓" : "−"}
+                  </span>
+                  <span aria-hidden="true">{row.label}</span>
+                  <strong aria-hidden="true">{row.value}</strong>
                 </span>
-                <span aria-hidden="true">{row.label}</span>
-                <strong aria-hidden="true">{row.value}</strong>
-              </span>
-            ))}
+              );
+              if (!row.hover) return mark;
+              return (
+                <HoverPopover
+                  className="rating-adjustment-hover"
+                  content={row.hover}
+                  enterDelay={150}
+                  key={`${row.section}-${row.key}`}
+                  leaveDelay={100}
+                  placement="bottom"
+                  popoverClassName="rating-adjustment-popover-shell"
+                >
+                  {mark}
+                </HoverPopover>
+              );
+            })}
           </div>
           {trailing}
         </div>

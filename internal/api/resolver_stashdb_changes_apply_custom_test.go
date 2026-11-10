@@ -39,6 +39,7 @@ func TestStashDBSceneUpdateCustom(t *testing.T) {
 		{Field: "title", Local: stashDBApplyStrCustom("Old"), Remote: stashDBApplyStrCustom("New")},
 		{Field: "director", Remote: stashDBApplyStrCustom("Hidden director")},
 		{Field: "date", Remote: stashDBApplyStrCustom("2024-05-07")},
+		{Field: "production_date", Remote: stashDBApplyStrCustom("2024-03-01")},
 		{Field: "urls", Added: []string{"https://studio.com/b"}},
 		{Field: "studio", Local: stashDBApplyStrCustom("Studio"), Remote: stashDBApplyStrCustom("Other Studio"), RemoteID: stashDBApplyStrCustom("s1")},
 		{Field: "performers", Added: []string{"By ID", "By name", "Nobody", "Already here"}, AddedIDs: []string{"p1", "p2", "p3", "p4"}, Removed: []string{"Gone"}},
@@ -51,19 +52,20 @@ func TestStashDBSceneUpdateCustom(t *testing.T) {
 		"performers:Already here": 10,
 	}
 	var calls []string
-	requested := []string{"title", "date", "urls", "studio", "performers", "tags", "stale"}
+	requested := []string{"title", "date", "production_date", "urls", "studio", "performers", "tags", "stale"}
 	input, inputMap, left, err := stashDBSceneUpdateCustom(context.Background(), scene, fields, requested, stashDBFakeResolverCustom(known, &calls))
 	require.NoError(t, err)
 
 	require.Equal(t, models.SceneUpdateInput{
-		ID:           "3",
-		Title:        stashDBApplyStrCustom("New"),
-		Date:         stashDBApplyStrCustom("2024-05-07"),
-		Urls:         []string{"https://local.com", "https://studio.com/b"},
-		StudioID:     stashDBApplyStrCustom("5"),
-		PerformerIds: []string{"10", "11", "12"},
+		ID:             "3",
+		Title:          stashDBApplyStrCustom("New"),
+		Date:           stashDBApplyStrCustom("2024-05-07"),
+		ProductionDate: stashDBApplyStrCustom("2024-03-01"),
+		Urls:           []string{"https://local.com", "https://studio.com/b"},
+		StudioID:       stashDBApplyStrCustom("5"),
+		PerformerIds:   []string{"10", "11", "12"},
 	}, input, "URLs append, entities add once, and an unmatched tag writes nothing")
-	require.ElementsMatch(t, []string{"title", "date", "urls", "studio_id", "performer_ids"}, changesetTranslator{inputMap: inputMap}.getFields())
+	require.ElementsMatch(t, []string{"title", "date", "production_date", "urls", "studio_id", "performer_ids"}, changesetTranslator{inputMap: inputMap}.getFields())
 	require.Equal(t, []string{"https://local.com"}, scene.URLs.List(), "the loaded scene is not mutated")
 	require.Equal(t, []int{10}, scene.PerformerIDs.List())
 

@@ -25,6 +25,7 @@ import TextUtils from "src/utils/text";
 import { View } from "../List/views";
 import { FileSize } from "../Shared/FileSize";
 import { LoadedContent } from "../List/PagedList";
+import { cardGridSkeletonCustom } from "../Shared/cardSkeletonLayout_custom"; // CUSTOM
 import { useCloseEditDelete, useFilterOperations } from "../List/util";
 import { ListOperations } from "../List/ListOperationButtons";
 import { useFilteredItemList } from "../List/ItemList";
@@ -833,7 +834,12 @@ export const FilteredSceneList = PatchComponent(
                   />
                 </div>
 
-                <LoadedContent loading={result.loading} error={result.error}>
+                <LoadedContent
+                  loading={result.loading}
+                  error={result.error}
+                  // CUSTOM: placeholders in the shape of the cards
+                  skeleton={cardGridSkeletonCustom("scene", filter)}
+                >
                   <SceneList
                     filter={effectiveFilter}
                     scenes={items}

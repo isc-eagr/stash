@@ -22,6 +22,7 @@ import {
   stashDBMatchesAverageCustom,
   stashDBMatchesLabelRowsCustom,
   stashDBMatchesRatingGapsCustom,
+  stashDBMatchesRowColorCustom,
   stashDBMatchesRowScenesURLCustom,
   stashDBMatchesSceneGroupsCustom,
   stashDBMatchesScenesCustom,
@@ -74,7 +75,8 @@ const MatchesTable: React.FC<{
   title: string;
   rows: IStashDBMatchesRowCustom[];
   note?: string;
-}> = ({ title, rows, note }) => {
+  rowColor?: (row: IStashDBMatchesRowCustom) => string | undefined;
+}> = ({ title, rows, note, rowColor }) => {
   const [expanded, setExpanded] = useState(false);
   const [openFailed, setOpenFailed] = useState(false);
   const max = Math.max(0, ...rows.map((row) => row.average));
@@ -142,6 +144,7 @@ const MatchesTable: React.FC<{
                           peak: row.average === max && max > 0,
                         })}
                         style={{
+                          background: rowColor?.(row),
                           width: `${max > 0 ? (row.average / max) * 100 : 0}%`,
                         }}
                       />
@@ -355,6 +358,7 @@ export const SceneStatsStashDBMatches: React.FC<{
                 ? `${STASHDB_MATCHES_VATO_MIN_SCENES_CUSTOM}+ scenes`
                 : undefined
             }
+            rowColor={(row) => stashDBMatchesRowColorCustom(dimension, row.key)}
             rows={stashDBMatchesLabelRowsCustom(
               dimension,
               hideFew

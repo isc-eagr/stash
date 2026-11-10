@@ -95,6 +95,30 @@ test("calendar levels and summary", () => {
       longestStreak: 3,
     }
   );
+
+  // A run over New Year counts whole for both years it touches.
+  const newYear = new Map([
+    ["2024-12-30", 1],
+    ["2024-12-31", 2],
+    ["2025-01-01", 1],
+    ["2025-01-02", 1],
+    ["2025-06-01", 1],
+    ["2026-01-01", 1],
+    ["2026-01-02", 1],
+    ["2026-01-03", 1],
+  ]);
+  assert.deepEqual(summarizeOStatsCalendar(2025, newYear), {
+    total: 3,
+    activeDays: 3,
+    bestDay: { date: "2025-01-01", count: 1 },
+    longestStreak: 4,
+  });
+  assert.equal(summarizeOStatsCalendar(2024, newYear).longestStreak, 4);
+  assert.equal(
+    summarizeOStatsCalendar(2025, new Map([["2026-01-01", 1]])).longestStreak,
+    0,
+    "a run outside the year never counts"
+  );
 });
 
 test("O counts bucket by scene rating and metallic tier", () => {

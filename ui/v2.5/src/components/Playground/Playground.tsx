@@ -2,8 +2,10 @@ import { getAppLocaleCustom } from "src/utils/appLocale_custom"; // CUSTOM
 import React, { useMemo, useState } from "react";
 import { Alert, Button, Form, ProgressBar, Tab, Tabs } from "react-bootstrap";
 import { Helmet } from "react-helmet";
+import { Link } from "react-router-dom";
 import { useConfigurationContext } from "src/hooks/Config";
 import { useTitleProps } from "src/hooks/title";
+import TextUtils from "src/utils/text";
 import { StatsPage } from "../StatsPage_custom";
 import type { SceneRatingModeCustom } from "../Shared/groupSceneRating_custom";
 import { PlaygroundChart } from "./PlaygroundChart";
@@ -17,19 +19,62 @@ import {
   emptyPlaygroundFilters,
   getPlaygroundPoints,
   matchesPlaygroundFilters,
+  playgroundAxisMaximum,
+  playgroundAxisMinimum,
+  playgroundDefaultSplit,
   preparePlaygroundScene,
   type IPlaygroundFilters,
+  type IPlaygroundPoint,
 } from "./playgroundData_custom";
-import { playgroundMetrics } from "./playgroundCatalog_custom";
+import {
+  playgroundMetallicOptions,
+  playgroundMetrics,
+} from "./playgroundCatalog_custom";
 import { PlaygroundSceneFilters } from "./PlaygroundSceneFilters";
 import { PlaygroundSceneTiers } from "./PlaygroundSceneTiers";
 import {
   usePlaygroundScenes,
   type IPlaygroundScenesState,
 } from "./usePlaygroundScenes_custom";
+import { PlaygroundVatoExplorer } from "./PlaygroundVatoExplorer";
 import { PlaygroundVatoTiers } from "./PlaygroundVatoTiers";
 import "./Playground.scss";
 import "./VatoTiers.scss";
+
+const SCENE_NOUN: [string, string] = ["scene", "scenes"];
+
+function renderSceneDetails({ entry }: IPlaygroundPoint) {
+  const { scene } = entry;
+  return (
+    <>
+      {scene.paths.screenshot && <img src={scene.paths.screenshot} alt="" />}
+      <Link to={`/scenes/${scene.id}`} className="playground-scene-title">
+        {scene.title || `Scene ${scene.id}`}
+      </Link>
+      <div className="text-muted">
+        {[
+          scene.studio?.name,
+          scene.date,
+          TextUtils.secondsAsTimeString(scene.files[0]?.duration ?? 0),
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+      </div>
+      <div className="playground-cast">
+        {scene.performers.map((performer) => performer.name).join(", ") ||
+          "No vatos listed"}
+      </div>
+      <div className="text-muted">
+        Overall rating {scene.rating100 ?? "Unrated"} ·{" "}
+        {
+          playgroundMetallicOptions.find(
+            (option) => option.value === entry.metallic
+          )?.label
+        }
+      </div>
+    </>
+  );
+}
 
 const PlaygroundSceneExplorer: React.FC<{
   state: IPlaygroundScenesState;
@@ -51,8 +96,6 @@ const PlaygroundSceneExplorer: React.FC<{
   const metrics = useMemo(() => playgroundMetrics(mode), [mode]);
   const xMetric = metrics.find((metric) => metric.key === xKey) ?? metrics[0];
   const yMetric = metrics.find((metric) => metric.key === yKey) ?? metrics[1];
-  const xSplit = splits[`x:${xMetric.key}`] ?? xMetric.max / 2;
-  const ySplit = splits[`y:${yMetric.key}`] ?? yMetric.max / 2;
   const entries = useMemo(
     () =>
       scenes.map((scene) =>
@@ -73,6 +116,10 @@ const PlaygroundSceneExplorer: React.FC<{
     () => getPlaygroundPoints(filtered, xMetric, yMetric),
     [filtered, xMetric, yMetric]
   );
+  const xSplit =
+    splits[`x:${xMetric.key}`] ?? playgroundDefaultSplit(points, "x", xMetric);
+  const ySplit =
+    splits[`y:${yMetric.key}`] ?? playgroundDefaultSplit(points, "y", yMetric);
   const scenesPerCoordinate =
     spreadPoints && (xMetric.choices?.length || yMetric.choices?.length)
       ? playgroundScenesPerCoordinate
@@ -208,11 +255,11 @@ const PlaygroundSceneExplorer: React.FC<{
                   filtered.length - points.length
                 ).toLocaleString(
                   getAppLocaleCustom()
-                )} missing or invalid axis scores.`}
+                )} missing one of the two values.`}
               >
                 {sampledPoints.length.toLocaleString(getAppLocaleCustom())}{" "}
                 sampled · {points.length.toLocaleString(getAppLocaleCustom())}{" "}
-                rated
+                with both values
               </div>
             </div>
             <div className="playground-splits">
@@ -221,31 +268,33 @@ const PlaygroundSceneExplorer: React.FC<{
                   { axis: "x", metric: xMetric, value: xSplit },
                   { axis: "y", metric: yMetric, value: ySplit },
                 ] as const
-              ).map(({ axis, metric, value }) => (
-                <Form.Group key={axis} controlId={`playground-${axis}-split`}>
-                  <Form.Label>{axis.toUpperCase()} divide at</Form.Label>
-                  <Form.Control
-                    type="number"
-                    min={0}
-                    max={metric.max}
-                    step={0.5}
-                    value={value}
-                    onChange={(event) => {
-                      const raw = event.target.value;
-                      setSplits((previous) => ({
-                        ...previous,
-                        [`${axis}:${metric.key}`]:
-                          raw === ""
-                            ? undefined
-                            : Math.max(
-                                0,
-                                Math.min(metric.max, Number(raw) || 0)
-                              ),
-                      }));
-                    }}
-                  />
-                </Form.Group>
-              ))}
+              ).map(({ axis, metric, value }) => {
+                // Counts and lengths divide anywhere on the axis they reach.
+                const max = playgroundAxisMaximum(points, axis, metric);
+                const min = playgroundAxisMinimum(points, axis, metric);
+                return (
+                  <Form.Group key={axis} controlId={`playground-${axis}-split`}>
+                    <Form.Label>{axis.toUpperCase()} divide at</Form.Label>
+                    <Form.Control
+                      type="number"
+                      min={min}
+                      max={max}
+                      step={0.5}
+                      value={value}
+                      onChange={(event) => {
+                        const raw = event.target.value;
+                        setSplits((previous) => ({
+                          ...previous,
+                          [`${axis}:${metric.key}`]:
+                            raw === ""
+                              ? undefined
+                              : Math.max(min, Math.min(max, Number(raw) || 0)),
+                        }));
+                      }}
+                    />
+                  </Form.Group>
+                );
+              })}
             </div>
           </div>
           {points.length ? (
@@ -274,6 +323,8 @@ const PlaygroundSceneExplorer: React.FC<{
                 xSplit={xSplit}
                 ySplit={ySplit}
                 spreadPoints={spreadPoints}
+                noun={SCENE_NOUN}
+                renderDetails={renderSceneDetails}
               />
             </>
           ) : (
@@ -315,6 +366,9 @@ const Playground: React.FC = () => {
           </Tab>
           <Tab eventKey="scene-tiers" title="Scene Tiers">
             <PlaygroundSceneTiers state={sceneState} onReload={reloadScenes} />
+          </Tab>
+          <Tab eventKey="vato-explorer" title="Vato Explorer">
+            <PlaygroundVatoExplorer />
           </Tab>
           <Tab eventKey="vatos" title="Vato Tiers">
             <PlaygroundVatoTiers />

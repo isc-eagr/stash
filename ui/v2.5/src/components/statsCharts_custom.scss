@@ -405,7 +405,7 @@
 }
 
 .stats-diverging-side--left .stats-diverging-fill {
-  background: var(--stats-accent);
+  background: var(--stats-peak);
 }
 
 .stats-diverging-side--right .stats-diverging-fill {
@@ -456,7 +456,7 @@
 .stats-pair-grid-cell {
   background: color-mix(
     in srgb,
-    var(--stats-accent) var(--stats-pair-strength, 0%),
+    var(--stats-data) var(--stats-pair-strength, 0%),
     var(--stats-surface-raised)
   );
   border: 0;
@@ -531,7 +531,7 @@
 }
 
 .stats-criteria-fill {
-  background: var(--stats-accent);
+  background: var(--stats-data);
   border-radius: 5px;
   display: block;
   height: 100%;

@@ -15,6 +15,7 @@ export type SceneStatsFacialScene = {
 export type SceneStatsFacialRoleTagIDs = {
   facial?: Set<string>;
   reallyHot?: Set<string>;
+  goat?: Set<string>;
   secondCamera?: Set<string>;
 };
 
@@ -71,4 +72,23 @@ export function reallyHotFacialCount(
         markerHasTag(marker, roleTagIDs.reallyHot)
     ).length ?? 0
   );
+}
+
+export type SceneStatsFacialStatus = "goat" | "rh" | "regular" | "no";
+
+// The best facial in the scene: GOAT, then Really Hot, then a regular one.
+export function bestFacialStatus(
+  scene: SceneStatsFacialScene,
+  roleTagIDs: SceneStatsFacialRoleTagIDs
+): SceneStatsFacialStatus {
+  const facials =
+    scene.scene_markers?.filter((marker) =>
+      isFacialMarker(marker, roleTagIDs)
+    ) ?? [];
+  const has = (targetIds?: Set<string>) =>
+    !!targetIds && facials.some((marker) => markerHasTag(marker, targetIds));
+
+  if (has(roleTagIDs.goat)) return "goat";
+  if (has(roleTagIDs.reallyHot)) return "rh";
+  return facials.length > 0 ? "regular" : "no";
 }

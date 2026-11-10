@@ -1,18 +1,17 @@
 import { SEMANTIC_COLORS_CUSTOM as colors } from "./semanticColors_custom";
-// CUSTOM: shared Black Steel colors for stats split bars and stacked columns:
-// copper and steel, with lightness steps so neighbors stay distinct.
-export const STATS_ACCENT = "var(--stats-accent)";
-
-// Categories with no order; neighbors differ in lightness, not just hue.
+// CUSTOM: shared colors for stats split bars and stacked columns. The copper
+// accent is kept for actions, so categories with no meaning of their own are
+// blued steel (the data tokens' family), in lightness steps so neighbors stay
+// distinct.
 export const STATS_CATEGORY_COLORS = [
-  STATS_ACCENT,
-  "#c1c6c9",
-  "#704025",
-  "#7a8288",
-  "#f0c08f",
-  "#464d53",
-  "#9b5a32",
-  "#dfe2e3",
+  "#c4d6e6",
+  "#5f7a90",
+  "#9db7cc",
+  "#3f5466",
+  "#7f9db5",
+  "#4c6378",
+  "#e1eaf2",
+  "#6d8aa2",
 ];
 
 // Shared semantic palettes; decorative categories above have no fixed meaning.

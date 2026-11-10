@@ -25,6 +25,16 @@ const SCENE_O_CALENDAR_DAY_COUNTS = gql`
   }
 `;
 
+interface IDayCounts {
+  sceneOCalendarDayCounts: Array<{ date: string; count: number }>;
+}
+
+function dayCountMap(data?: IDayCounts) {
+  return new Map(
+    (data?.sceneOCalendarDayCounts ?? []).map((item) => [item.date, item.count])
+  );
+}
+
 const WEEKDAY_LABELS = ["Mon", "", "Wed", "", "Fri", "", "Sun"];
 
 function monthLabel(month: number) {
@@ -54,62 +64,73 @@ function longDate(date: string) {
 export const OStatsCalendarHeatmap: React.FC<{
   years: number[];
   studioScope?: IOStatsStudioScope;
-}> = ({ years, studioScope }) => {
+  // Year in Review shows one year and has its own year navigation.
+  fixedYear?: number;
+}> = ({ years, studioScope, fixedYear }) => {
   const currentYear = new Date().getFullYear();
   const defaultYear = years.includes(currentYear)
     ? currentYear
     : (years[years.length - 1] ?? currentYear);
-  const [year, setYear] = useState(defaultYear);
+  const [pickedYear, setYear] = useState(defaultYear);
+  const year = fixedYear ?? pickedYear;
 
   useEffect(() => {
-    if (!years.includes(year)) setYear(defaultYear);
-  }, [defaultYear, year, years]);
+    if (!years.includes(pickedYear)) setYear(defaultYear);
+  }, [defaultYear, pickedYear, years]);
 
-  const { data, error, loading } = useQuery<{
-    sceneOCalendarDayCounts: Array<{ date: string; count: number }>;
-  }>(SCENE_O_CALENDAR_DAY_COUNTS, {
-    variables: { year, ...getOStatsStudioScopeVariables(studioScope) },
-  });
-  const counts = useMemo(
-    () =>
-      new Map(
-        (data?.sceneOCalendarDayCounts ?? []).map((item) => [
-          item.date,
-          item.count,
-        ])
-      ),
-    [data?.sceneOCalendarDayCounts]
+  const variables = getOStatsStudioScopeVariables(studioScope);
+  const { data, error, loading } = useQuery<IDayCounts>(
+    SCENE_O_CALENDAR_DAY_COUNTS,
+    { variables: { year, ...variables } }
   );
+  // The neighbouring years complete a streak that runs over New Year.
+  const { data: before } = useQuery<IDayCounts>(SCENE_O_CALENDAR_DAY_COUNTS, {
+    variables: { year: year - 1, ...variables },
+  });
+  const { data: after } = useQuery<IDayCounts>(SCENE_O_CALENDAR_DAY_COUNTS, {
+    variables: { year: year + 1, ...variables },
+    skip: year >= currentYear,
+  });
+  const counts = useMemo(() => dayCountMap(data), [data]);
   const calendar = useMemo(
     () => buildOStatsCalendar(year, counts),
     [counts, year]
   );
   const summary = useMemo(
-    () => summarizeOStatsCalendar(year, counts),
-    [counts, year]
+    () =>
+      summarizeOStatsCalendar(
+        year,
+        new Map([...dayCountMap(before), ...counts, ...dayCountMap(after)])
+      ),
+    [after, before, counts, year]
   );
 
   return (
     <section className="ostats-section ostats-calendar">
       <div className="ostats-subheader">
         <h2>O Calendar</h2>
-        <Form.Group className="ostats-calendar-year" controlId="oCalendarYear">
-          <Form.Label className="sr-only">Calendar year</Form.Label>
-          <Form.Control
-            as="select"
-            size="sm"
-            value={year}
-            onChange={(event: React.ChangeEvent<HTMLSelectElement>) =>
-              setYear(Number(event.target.value))
-            }
+        {fixedYear === undefined && (
+          <Form.Group
+            className="ostats-calendar-year"
+            controlId="oCalendarYear"
           >
-            {(years.length > 0 ? years : [currentYear]).map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </Form.Control>
-        </Form.Group>
+            <Form.Label className="sr-only">Calendar year</Form.Label>
+            <Form.Control
+              as="select"
+              size="sm"
+              value={year}
+              onChange={(event: React.ChangeEvent<HTMLSelectElement>) =>
+                setYear(Number(event.target.value))
+              }
+            >
+              {(years.length > 0 ? years : [currentYear]).map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </Form.Control>
+          </Form.Group>
+        )}
       </div>
       {error && <ErrorMessage error={error.message} />}
       {!error && loading && <LoadingIndicator inline />}
@@ -128,7 +149,7 @@ export const OStatsCalendarHeatmap: React.FC<{
                 {longDate(summary.bestDay.date)}
               </span>
             )}
-            <span>
+            <span title="Counted whole when it runs over New Year">
               Longest streak:{" "}
               {summary.longestStreak.toLocaleString(getAppLocaleCustom())}{" "}
               {summary.longestStreak === 1 ? "day" : "days"}

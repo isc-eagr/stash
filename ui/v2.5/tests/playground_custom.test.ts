@@ -4,12 +4,16 @@ import {
   getPlaygroundPoints,
   matchesPlaygroundFilters,
   playgroundAxisMaximum,
+  playgroundDefaultSplit,
+  playgroundMetricValue,
   preparePlaygroundScene,
   updatePlaygroundFilter,
   type IPlaygroundScene,
 } from "../src/components/Playground/playgroundData_custom.ts";
 import {
   playgroundAdjustments,
+  playgroundFacialOptions,
+  playgroundMetallicOptions,
   playgroundMetrics,
 } from "../src/components/Playground/playgroundCatalog_custom.ts";
 import {
@@ -127,6 +131,30 @@ assert.equal(
   ).facial,
   "no",
   "2nd Camera facial markers do not count"
+);
+assert.equal(
+  preparePlaygroundScene(
+    {
+      ...base,
+      scene_markers: [
+        {
+          primary_tag: { id: "facial-child" },
+          tags: [{ id: "hot" }, { id: "goat" }],
+        },
+      ],
+    },
+    config
+  ).facial,
+  "goat",
+  "a GOAT facial outranks Really Hot, as in Scene Stats"
+);
+assert.deepEqual(
+  playgroundFacialOptions.map((option) => option.value),
+  ["any", "regular", "rh", "goat", "no"]
+);
+assert.equal(
+  playgroundMetallicOptions.find((option) => option.value === "none")?.label,
+  "No Tier"
 );
 assert.equal(entry.metallic, "royal_sapphire");
 const standardMetrics = playgroundMetrics("default");
@@ -478,7 +506,15 @@ assert.equal(
 );
 assert.deepEqual(
   playgroundMetrics("solo").map((metric) => metric.key),
-  ["soloPerformerAppeal", "soloPerformance", "soloUsability", "rating100"]
+  [
+    "soloPerformerAppeal",
+    "soloPerformance",
+    "soloUsability",
+    "rating100",
+    "o_count",
+    "stashdb_matches",
+    "duration",
+  ]
 );
 assert.deepEqual(
   playgroundMetrics("group").map((metric) => metric.key),
@@ -488,8 +524,71 @@ assert.deepEqual(
     "groupUsability",
     "groupPayoff",
     "rating100",
+    "o_count",
+    "stashdb_matches",
+    "duration",
   ]
 );
+
+// O Count, StashDB Matches and Duration axes.
+{
+  const metric = (key: string) =>
+    playgroundMetrics("default").find((option) => option.key === key)!;
+  const value = (scene: Partial<IPlaygroundScene>, key: string) =>
+    playgroundMetricValue(
+      { ...entry, scene: { ...entry.scene, ...scene } },
+      metric(key)
+    );
+
+  assert.equal(
+    value({ o_counter: 2, release_o_counter: 3 }, "o_count"),
+    5,
+    "O Count adds the scene's releases"
+  );
+  assert.equal(value({}, "o_count"), 0, "no O's is a real zero");
+  assert.equal(
+    value(
+      { stashdb_matches: null, release_stashdb_matches: 4 },
+      "stashdb_matches"
+    ),
+    4
+  );
+  assert.equal(value({ stashdb_matches: 0 }, "stashdb_matches"), 0);
+  assert.equal(
+    value({}, "stashdb_matches"),
+    undefined,
+    "a scene never scraped has no matches value"
+  );
+  assert.equal(value({ files: [{ duration: 1530 }] }, "duration"), 25.5);
+  assert.equal(
+    value({ files: [] }, "duration"),
+    undefined,
+    "a scene without a file has no duration"
+  );
+  assert.equal(
+    value({ rating100: 112 }, "rating100"),
+    112,
+    "bonus ratings are never clipped"
+  );
+
+  const at = (values: number[]) =>
+    values.map((x, index) => ({ id: String(index), x, y: 0 }));
+  assert.equal(
+    playgroundDefaultSplit(at([1, 2, 40]), "x", metric("o_count")),
+    2,
+    "counts divide at their median, not at half an outlier"
+  );
+  assert.equal(
+    playgroundDefaultSplit(at([1, 2, 3, 40]), "x", metric("o_count")),
+    2.5
+  );
+  assert.equal(playgroundDefaultSplit([], "x", metric("o_count")), 2.5);
+  assert.equal(
+    playgroundDefaultSplit(at([10, 90, 95]), "x", metric("rating100")),
+    50,
+    "scored axes keep dividing at half"
+  );
+}
 assert.ok(
   playgroundAdjustments("solo").some(
     (option) => option.value === "bonus:feetBonus"
@@ -547,6 +646,7 @@ const sharedScores = Array.from({ length: 80 }, (_, index) => ({
   ...points[0],
   x: 2,
   y: 3,
+  id: `shared-${index}`,
   entry: { ...entry, scene: { ...base, id: `shared-${index}` } },
 }));
 const sharedSample = samplePlaygroundPoints(
@@ -655,6 +755,7 @@ assert.equal(
   "when exact axes cannot separate a cluster, only one dot is rendered"
 );
 const grid = Array.from({ length: 36 }, (_, index) => ({
+  id: `grid-${index}`,
   entry: { ...entry, scene: { ...base, id: `grid-${index}` } },
   x: index % 6,
   y: Math.floor(index / 6),

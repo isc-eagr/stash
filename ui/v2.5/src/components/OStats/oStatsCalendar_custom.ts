@@ -74,6 +74,9 @@ export function buildOStatsCalendar(
   return { weeks, monthStarts, max };
 }
 
+// Totals cover the chosen year. The longest streak is the longest run of O
+// days that touches the year, counted whole when the counts also hold the
+// neighbouring years, so a run over New Year is not cut in two.
 export function summarizeOStatsCalendar(
   year: number,
   counts: ReadonlyMap<string, number>
@@ -83,21 +86,30 @@ export function summarizeOStatsCalendar(
   let bestDay: OStatsCalendarSummary["bestDay"];
   let longestStreak = 0;
   let streak = 0;
-  const daysInYear =
-    (Date.UTC(year + 1, 0, 1) - Date.UTC(year, 0, 1)) / 86_400_000;
+  let streakInYear = false;
+  const first = Date.UTC(year - 1, 0, 1);
+  const days = (Date.UTC(year + 2, 0, 1) - first) / 86_400_000;
 
-  for (let index = 0; index < daysInYear; index++) {
-    const date = isoDate(year, 0, index + 1);
+  for (let index = 0; index < days; index++) {
+    const date = new Date(first + index * 86_400_000)
+      .toISOString()
+      .slice(0, 10);
     const count = counts.get(date) ?? 0;
-    total += count;
-    if (count > 0) {
-      activeDays += 1;
-      streak += 1;
-      longestStreak = Math.max(longestStreak, streak);
-      if (!bestDay || count > bestDay.count) bestDay = { date, count };
-    } else {
+    const inYear = Number(date.slice(0, 4)) === year;
+    if (count <= 0) {
       streak = 0;
+      streakInYear = false;
+      continue;
     }
+
+    streak += 1;
+    streakInYear ||= inYear;
+    if (streakInYear) longestStreak = Math.max(longestStreak, streak);
+    if (!inYear) continue;
+
+    total += count;
+    activeDays += 1;
+    if (!bestDay || count > bestDay.count) bestDay = { date, count };
   }
   return { total, activeDays, bestDay, longestStreak };
 }

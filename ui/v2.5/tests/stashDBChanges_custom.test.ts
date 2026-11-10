@@ -98,6 +98,7 @@ test("every field the backend compares has a picker entry", () => {
     "details",
     "director",
     "performers",
+    "production_date",
     "studio",
     "tags",
     "title",

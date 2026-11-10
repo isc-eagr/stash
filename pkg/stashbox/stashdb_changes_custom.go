@@ -27,17 +27,19 @@ type StashDBEntityCustom struct {
 // fingerprints are left out. ID differs from the requested one when StashDB
 // redirects a merged scene.
 type StashDBSceneCustom struct {
-	ID         string
-	Deleted    bool
-	Title      *string
-	Code       *string
-	Details    *string
-	Director   *string
-	Date       *string
-	URLs       []string
-	Studio     *StashDBEntityCustom
-	Performers []StashDBEntityCustom
-	Tags       []StashDBEntityCustom
+	ID       string
+	Deleted  bool
+	Title    *string
+	Code     *string
+	Details  *string
+	Director *string
+	Date     *string
+	// Production date: when it was filmed, if StashDB knows.
+	ProductionDate *string
+	URLs           []string
+	Studio         *StashDBEntityCustom
+	Performers     []StashDBEntityCustom
+	Tags           []StashDBEntityCustom
 }
 
 type stashDBChangesEntityResponseCustom struct {
@@ -50,22 +52,23 @@ func (e stashDBChangesEntityResponseCustom) entity() StashDBEntityCustom {
 }
 
 type stashDBChangesSceneResponseCustom struct {
-	ID         string                                `graphql:"id"`
-	Deleted    bool                                  `graphql:"deleted"`
-	Title      *string                               `graphql:"title"`
-	Code       *string                               `graphql:"code"`
-	Details    *string                               `graphql:"details"`
-	Director   *string                               `graphql:"director"`
-	Date       *string                               `graphql:"date"`
-	Urls       []*graphql.URLFragment                `graphql:"urls"`
-	Studio     *stashDBChangesEntityResponseCustom   `graphql:"studio"`
-	Tags       []*stashDBChangesEntityResponseCustom `graphql:"tags"`
-	Performers []*struct {
+	ID             string                                `graphql:"id"`
+	Deleted        bool                                  `graphql:"deleted"`
+	Title          *string                               `graphql:"title"`
+	Code           *string                               `graphql:"code"`
+	Details        *string                               `graphql:"details"`
+	Director       *string                               `graphql:"director"`
+	Date           *string                               `graphql:"date"`
+	ProductionDate *string                               `graphql:"production_date"`
+	Urls           []*graphql.URLFragment                `graphql:"urls"`
+	Studio         *stashDBChangesEntityResponseCustom   `graphql:"studio"`
+	Tags           []*stashDBChangesEntityResponseCustom `graphql:"tags"`
+	Performers     []*struct {
 		Performer *stashDBChangesEntityResponseCustom `graphql:"performer"`
 	} `graphql:"performers"`
 }
 
-const stashDBChangesSceneSelectionCustom = `id deleted title code details director date urls { url type } studio { id name } tags { id name } performers { performer { id name } }`
+const stashDBChangesSceneSelectionCustom = `id deleted title code details director date production_date urls { url type } studio { id name } tags { id name } performers { performer { id name } }`
 
 // Matches PerformerFragment without images, which the report does not compare.
 const stashDBChangesPerformerSelectionCustom = `id name disambiguation aliases gender merged_ids deleted merged_into_id urls { url type } birth_date death_date ethnicity country eye_color hair_color height measurements { band_size cup_size waist hip } breast_type career_start_year career_end_year tattoos { location description } piercings { location description }`
@@ -82,13 +85,14 @@ func (c Client) FindStashDBScenesCustom(ctx context.Context, stashIDs []string) 
 	for id, v := range found {
 		s := v.(*stashDBChangesSceneResponseCustom)
 		scene := &StashDBSceneCustom{
-			ID:       s.ID,
-			Deleted:  s.Deleted,
-			Title:    s.Title,
-			Code:     s.Code,
-			Details:  s.Details,
-			Director: s.Director,
-			Date:     s.Date,
+			ID:             s.ID,
+			Deleted:        s.Deleted,
+			Title:          s.Title,
+			Code:           s.Code,
+			Details:        s.Details,
+			Director:       s.Director,
+			Date:           s.Date,
+			ProductionDate: s.ProductionDate,
 		}
 		if s.Studio != nil {
 			studio := s.Studio.entity()

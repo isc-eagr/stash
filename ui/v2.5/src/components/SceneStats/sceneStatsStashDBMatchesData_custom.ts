@@ -3,6 +3,10 @@
 // included; a scene with several values (ethnicities, countries, vato ratings)
 // counts once toward each.
 import { createInsightEntityLink } from "src/utils/insightSceneLinks_custom";
+import {
+  STATS_QUALITY_COLORS,
+  STATS_METALLIC_COLORS,
+} from "src/utils/statsChartColors_custom";
 import { statsCountryName } from "src/utils/statsCountry_custom";
 import { sceneStatsReleaseYear } from "./sceneStatsChartBuckets_custom";
 import type { SceneStatsScene } from "./sceneStatsCompactData_custom";
@@ -19,6 +23,26 @@ export interface IStashDBMatchesRowCustom extends IStashDBMatchesGroupCustom {
   average: number;
   // The row's scenes, for its Scenes drilldown.
   sceneIds: string[];
+}
+
+// Tables whose groups have a meaning color their bars with it: a Bronze row
+// is bronze, a GOAT row GOAT blue. Other tables use the plain data color.
+const STASHDB_MATCHES_QUALITY_KEYS_CUSTOM: Record<string, string> = {
+  regular: "regular",
+  rh: "really_hot",
+  goat: "goat",
+};
+
+export function stashDBMatchesRowColorCustom(
+  dimension: StashDBMatchesDimensionCustom,
+  key: string
+): string | undefined {
+  if (dimension === "metallic_rating") return STATS_METALLIC_COLORS[key];
+  if (dimension === "best_facial" || dimension === "best_nut") {
+    const quality = STASHDB_MATCHES_QUALITY_KEYS_CUSTOM[key];
+    return quality ? STATS_QUALITY_COLORS[quality] : undefined;
+  }
+  return undefined;
 }
 
 export type StashDBMatchesDimensionCustom =

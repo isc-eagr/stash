@@ -800,7 +800,8 @@
 
 /* CUSTOM: every insight chip is teal. */
 .scene-card-insight {
-  --scene-insight-rgb: 45, 212, 191;
+  /* Neutral: teal is the Oral color. */
+  --scene-insight-rgb: 193, 198, 201;
 
   background: rgba(20, 184, 166, 0.13);
   border: 1px solid rgba(45, 212, 191, 0.68);

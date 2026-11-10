@@ -37,6 +37,7 @@ func compareStashDBSceneCustom(local stashDBLocalSceneCustom, remote *stashbox.S
 	ret = appendStashDBValueChangeCustom(ret, "details", s.Details, remote.Details, false)
 	ret = appendStashDBValueChangeCustom(ret, "director", s.Director, remote.Director, false)
 	ret = appendStashDBDateChangeCustom(ret, "date", s.Date, remote.Date)
+	ret = appendStashDBDateChangeCustom(ret, "production_date", s.ProductionDate, remote.ProductionDate)
 	ret = appendStashDBURLChangeCustom(ret, s.URLs.List(), remote.URLs)
 	if remote.Studio != nil && (local.Studio == nil || !local.Studio.matchesCustom(*remote.Studio)) {
 		change := models.StashDBFieldChangeCustom{Field: "studio", Remote: &remote.Studio.Name, RemoteID: &remote.Studio.ID}

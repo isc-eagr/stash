@@ -37,7 +37,7 @@
 }
 
 .ostats-drilldown-total {
-  color: var(--stats-accent);
+  color: var(--stats-text);
   font-size: 1rem;
   font-weight: 800;
   margin-bottom: 0.85rem;
@@ -149,7 +149,7 @@
 }
 
 .ostats-event-new {
-  background: var(--stats-accent);
+  background: var(--stats-peak);
   border: 1px solid var(--stats-peak);
   border-radius: 999px;
   color: #101317;
@@ -400,20 +400,21 @@
   );
 }
 
+/* A blued-steel ramp: the heatmap is data, so it leaves the accent to links. */
 .ostats-calendar-level-1 {
-  background: #5a3320;
+  background: #26323d;
 }
 
 .ostats-calendar-level-2 {
-  background: #8a4f2c;
+  background: #3f5a70;
 }
 
 .ostats-calendar-level-3 {
-  background: #ca8757;
+  background: #6f90ab;
 }
 
 .ostats-calendar-level-4 {
-  background: #f0c08f;
+  background: #b5cde1;
 }
 
 .ostats-calendar-legend {

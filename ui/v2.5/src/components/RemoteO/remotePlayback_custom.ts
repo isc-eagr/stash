@@ -17,6 +17,14 @@ export function remoteIdCustom(): string {
   );
 }
 
+// The server refuses updates from a second tab or panel while another one
+// owns this browser's remote.
+export const REMOTE_OWNED_ELSEWHERE_RETRY_MS = 15000;
+
+export function remoteOwnedElsewhereCustom(message: string) {
+  return message.includes("owns this remote");
+}
+
 export function remotePlayerIdCustom(): string {
   const key = "stash.remoteO.player";
   const existing = localStorage.getItem(key);

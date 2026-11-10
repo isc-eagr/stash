@@ -1,0 +1,24 @@
+# CUSTOM: Vato Stats top → bottom ethnicity grids. See CUSTOM_FEATURES.md.
+
+"Marker family a role pair comes from"
+enum VatoStatsRolePairActivity {
+  SEX
+  ORAL
+}
+
+"A top and a bottom who share a Sex or Oral marker in one scene"
+type VatoStatsRolePair {
+  activity: VatoStatsRolePairActivity!
+  scene_id: ID!
+  top_id: ID!
+  bottom_id: ID!
+}
+
+extend type Query {
+  "Get each scene's top → bottom vato pairs for the Vato Stats role grids"
+  vatoStatsRolePairs(
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+  ): [VatoStatsRolePair!]!
+}

@@ -3,6 +3,8 @@ import { ApolloError, QueryResult } from "@apollo/client";
 import { ListFilterModel } from "src/models/list-filter/filter";
 import { Pagination, PaginationIndex } from "./Pagination";
 import { LoadingIndicator } from "../Shared/LoadingIndicator";
+import { CardGridSkeleton } from "../Shared/CardGridSkeleton_custom"; // CUSTOM
+import type { ICardGridSkeleton } from "../Shared/cardSkeletonLayout_custom"; // CUSTOM
 import { ErrorMessage } from "../Shared/ErrorMessage";
 import { FormattedMessage } from "react-intl";
 
@@ -10,10 +12,12 @@ export const LoadedContent: React.FC<
   PropsWithChildren<{
     loading?: boolean;
     error?: ApolloError;
+    skeleton?: ICardGridSkeleton; // CUSTOM
   }>
-> = ({ loading, error, children }) => {
+> = ({ loading, error, skeleton, children }) => {
   if (loading) {
-    return <LoadingIndicator />;
+    // CUSTOM: catalogs show placeholders shaped like their cards.
+    return skeleton ? <CardGridSkeleton {...skeleton} /> : <LoadingIndicator />;
   }
   if (error) {
     return (

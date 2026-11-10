@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { getRatingSummaryMetricsCustom } from "./RatingAdvisor_custom";
+import { RatingAdvisorOTrackCustom } from "./RatingAdvisorOTrack_custom";
 import {
   calculateRatingAdvisorOrgasmBonusCustom,
   formatRatingAdvisorContributionCustom,
@@ -75,21 +76,33 @@ export const RatingCriteriaStrip: React.FC<IRatingCriteriaStripProps> = ({
             const value = formatRatingAdvisorContributionCustom(
               row.contribution
             );
-            const description =
-              row.key === "orgasm-count-bonus"
-                ? getRatingAdvisorOrgasmBonusDescriptionCustom(entityType)
-                : row.description;
+            const isOCount = row.key === "orgasm-count-bonus";
+            const description = isOCount
+              ? getRatingAdvisorOrgasmBonusDescriptionCustom(entityType)
+              : row.description;
             return {
               key: row.key,
               label,
               section: row.section,
               value,
               detail: description,
+              // Same O dots as the Rating Advisor.
+              hover: isOCount ? (
+                <div className="rating-adjustment-o-hover">
+                  <span>{description}</span>
+                  <RatingAdvisorOTrackCustom
+                    count={oCount ?? 0}
+                    entityId={entityId}
+                    entityType={entityType}
+                    preview
+                  />
+                </div>
+              ) : undefined,
             };
           })
         : [],
     };
-  }, [entityType, oCount, ratingScores, sceneRatingMode]);
+  }, [entityId, entityType, oCount, ratingScores, sceneRatingMode]);
 
   return (
     <RatingStrip

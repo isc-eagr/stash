@@ -89,35 +89,37 @@ for (const entityType of ["scene", "performer"] as const) {
 {
   // Server order is newest first.
   const events = [
-    { id: "c", o_date: "2025-03-01T10:00:00Z", release_id: null },
-    { id: "r", o_date: "2025-02-01T10:00:00Z", release_id: "9" },
-    { id: "b", o_date: "2025-01-01T10:00:00Z", release_id: null },
-    { id: "a", o_date: "2025-01-01T10:00:00Z", release_id: null },
+    { id: "c", o_date: "2025-03-01T10:00:00Z" },
+    { id: "r", o_date: "2025-02-01T10:00:00Z" },
+    { id: "b", o_date: "2025-01-01T10:00:00Z" },
+    { id: "a", o_date: "2025-01-01T10:00:00Z" },
   ];
-  assert.deepEqual(
-    [...getRatingAdvisorOEventsCustom("scene", events)].map(([o, event]) => [
+  const numbered = (count: number) =>
+    [...getRatingAdvisorOEventsCustom(events, count)].map(([o, event]) => [
       o,
       event.id,
-    ]),
-    [
-      [1, "a"],
-      [2, "b"],
-      [3, "c"],
-    ],
-    "scene O events run oldest first and skip release O's"
-  );
+    ]);
   assert.deepEqual(
-    [...getRatingAdvisorOEventsCustom("performer", events)].map(
-      ([o, event]) => [o, event.id]
-    ),
+    numbered(4),
     [
       [1, "a"],
       [2, "b"],
       [3, "r"],
       [4, "c"],
     ],
-    "performer O events include release O's"
+    "O events run oldest first and keep release O's, which the count includes"
   );
+  assert.deepEqual(
+    numbered(6),
+    [
+      [3, "a"],
+      [4, "b"],
+      [5, "r"],
+      [6, "c"],
+    ],
+    "O's without a date take the first numbers"
+  );
+  assert.deepEqual(numbered(2)[0], [1, "a"], "a stale count never shifts back");
 }
 assert.deepEqual(
   getRatingAdvisorOTrackCustom("performer", 0)[1].dots.map((n) => n.earns),

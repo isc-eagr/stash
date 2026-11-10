@@ -62,6 +62,6 @@ assert.match(
 );
 assert.match(
   blackSteelStyles,
-  /\.scene-marker-activity-group-header\s*\{[\s\S]*?box-shadow:\s*inset 0 0\.18rem 0 var\(--black-steel-accent\)/,
-  "Black Steel section headers keep their horizontal copper top accent"
+  /\.scene-marker-activity-group-header\s*\{[\s\S]*?box-shadow:\s*inset 0 0\.18rem 0 var\(--black-steel-border-strong\)/,
+  "Black Steel section headers keep their horizontal top edge, in steel since copper is for actions"
 );

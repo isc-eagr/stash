@@ -94,8 +94,9 @@ export const PlaygroundSceneFilters: React.FC<{
             key === "facial"
               ? filterDisabled
                 ? "Set the Facial role tag in Settings."
-                : !config.roleTagIds?.reallyHotTagId
-                  ? "Set the Really Hot role tag in Settings to distinguish hot facials."
+                : !config.roleTagIds?.reallyHotTagId ||
+                    !config.roleTagIds?.goatTagId
+                  ? "Set the Really Hot and GOAT role tags in Settings to tell facials apart."
                   : undefined
               : undefined
           }

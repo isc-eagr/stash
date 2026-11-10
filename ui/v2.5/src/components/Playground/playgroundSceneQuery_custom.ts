@@ -9,6 +9,8 @@ export const PLAYGROUND_SCENES_QUERY = `
       scenes {
         id title date
         rating100
+        o_counter release_o_counter
+        stashdb_matches release_stashdb_matches
         paths { screenshot }
         studio { id name }
         rating_tier_tags: tags { id }

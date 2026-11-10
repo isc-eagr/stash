@@ -26,3 +26,14 @@ export function formatAppDateTimeCustom(value: string) {
     timeStyle: "short",
   });
 }
+
+// A date-only value (YYYY-MM-DD) keeps its calendar day in every time zone.
+export function formatAppDateCustom(value: string) {
+  const parsed = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return value;
+
+  return parsed.toLocaleDateString(applicationLocale, {
+    dateStyle: "medium",
+    timeZone: "UTC",
+  });
+}

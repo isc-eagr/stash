@@ -38,9 +38,12 @@ export const TaskProgressMedalBar: React.FC<{
   const recentWidth = total > 0 ? (recent / total) * 100 : 0;
   const earlierWidth = Math.max(0, percent - recentWidth);
   const close = !!next && next.need <= Math.max(5, total * 0.02);
+  // The fill and the next-medal note take the metal being worked toward:
+  // bronze first, then silver, gold, and Alpha Sapphire.
+  const metal = next?.threshold ?? 100;
   return (
     <div
-      className={`progress-medal-bar${
+      className={`progress-medal-bar milestone-checkpoint-${metal}${
         large ? " progress-medal-bar-large" : ""
       }${complete ? " progress-medal-bar-complete" : ""}`}
     >

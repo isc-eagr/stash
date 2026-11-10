@@ -49,7 +49,7 @@ const scene: StatsScene = {
   negative_markers: [],
 };
 const snapshot: PlaygroundSnapshot = {
-  sceneDataVersion: 2,
+  sceneDataVersion: 3,
   scannedAt: new Date(now).toISOString(),
   scenes: [scene],
 };
@@ -67,7 +67,7 @@ for (const invalid of [
   undefined,
   null,
   {},
-  { ...snapshot, sceneDataVersion: 1 },
+  { ...snapshot, sceneDataVersion: 2 },
   { ...snapshot, scannedAt: "invalid" },
   { ...snapshot, scenes: null },
   { scenes: [scene], scannedAt: snapshot.scannedAt },

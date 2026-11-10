@@ -1,0 +1,149 @@
+/* CUSTOM: loading placeholders in the shape of cards, rows and stats panels.
+   Neutral surfaces from the app theme; one slow pulse, off with reduced
+   motion. */
+.card-skeleton-block {
+  animation: card-skeleton-pulse 1.6s ease-in-out infinite;
+  background: var(--app-surface-raised);
+  border-radius: var(--app-control-radius);
+  display: block;
+}
+
+@keyframes card-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-skeleton-block {
+    animation: none;
+  }
+}
+
+.card-skeleton--grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(min(100%, var(--card-skeleton-width, 280px)), 1fr)
+  );
+  margin: 1rem 0;
+}
+
+.card-skeleton-card {
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-card-radius);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  overflow: hidden;
+  padding-bottom: 0.9rem;
+
+  .card-skeleton-media {
+    aspect-ratio: 16 / 9;
+    border-radius: 0;
+  }
+
+  .card-skeleton-line {
+    margin: 0 0.75rem;
+  }
+}
+
+.card-skeleton-card--portrait .card-skeleton-media {
+  aspect-ratio: 2 / 3;
+}
+
+.card-skeleton-line {
+  height: 0.8rem;
+  width: 70%;
+}
+
+.card-skeleton-line--short {
+  width: 40%;
+}
+
+.card-skeleton--rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.card-skeleton-row {
+  align-items: center;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-card-radius);
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 6rem minmax(0, 2fr) minmax(0, 1fr);
+  padding: 0.5rem 0.75rem;
+
+  .card-skeleton-line {
+    width: 100%;
+  }
+}
+
+.card-skeleton-row-thumb {
+  aspect-ratio: 16 / 9;
+}
+
+/* Stats pages. */
+.stats-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.stats-skeleton-kpis {
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-panel-radius);
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+  padding: 1.25rem;
+
+  > div {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+}
+
+.stats-skeleton-number {
+  height: 2.1rem;
+  width: 55%;
+}
+
+.stats-skeleton-cards {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.stats-skeleton-charts {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.stats-skeleton-chart {
+  height: 14rem;
+}
+
+@media (max-width: 991.98px) {
+  .stats-skeleton-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .stats-skeleton-charts {
+    grid-template-columns: 1fr;
+  }
+}

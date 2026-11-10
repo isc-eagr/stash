@@ -1,6 +1,6 @@
 import cx from "classnames";
 import React from "react";
-import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
+import { StatsPageSkeleton } from "src/components/Shared/CardGridSkeleton_custom";
 
 import { StatsLinks } from "./StatsLinks_custom";
 
@@ -25,7 +25,7 @@ export const StatsPage: React.FC<IStatsPageProps> = ({
     {showNavigation && <StatsLinks />}
     {loading ? (
       <div className="stats-page-loading">
-        <LoadingIndicator message={loadingMessage} />
+        <StatsPageSkeleton message={loadingMessage} />
       </div>
     ) : (
       children

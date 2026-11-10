@@ -7,48 +7,54 @@ import React, {
   useState,
 } from "react";
 import { Button } from "react-bootstrap";
-import { Link } from "react-router-dom";
 import ResizeObserver from "resize-observer-polyfill";
-import TextUtils from "src/utils/text";
-import type {
-  IPlaygroundMetric,
-  IPlaygroundPoint,
+import type { IPlaygroundMetric } from "./playgroundData_custom";
+import {
+  playgroundAxisMaximum,
+  playgroundAxisMinimum,
 } from "./playgroundData_custom";
-import { playgroundAxisMaximum } from "./playgroundData_custom";
 import {
   hitTestPlaygroundPoints,
   playgroundPlotPadding,
   playgroundQuadrant,
   playgroundQuadrants,
   layoutPlaygroundPoints,
+  type IPlaygroundChartPoint,
 } from "./playgroundChart_custom";
-import { playgroundMetallicOptions } from "./playgroundCatalog_custom";
 
-interface IProps {
-  points: IPlaygroundPoint[];
+interface IProps<P extends IPlaygroundChartPoint> {
+  points: P[];
   xMetric: IPlaygroundMetric;
   yMetric: IPlaygroundMetric;
   xSplit: number;
   ySplit: number;
   spreadPoints: boolean;
+  // What a dot is: ["scene", "scenes"] or ["vato", "vatos"].
+  noun: [string, string];
+  // Image, name and facts above the two axis values in the details card.
+  renderDetails: (point: P) => React.ReactNode;
 }
 
-export const PlaygroundChart: React.FC<IProps> = ({
+export function PlaygroundChart<P extends IPlaygroundChartPoint>({
   points,
   xMetric,
   yMetric,
   xSplit,
   ySplit,
   spreadPoints,
-}) => {
+  noun,
+  renderDetails,
+}: IProps<P>) {
   const container = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const [width, setWidth] = useState(800);
-  const [selected, setSelected] = useState<IPlaygroundPoint>();
+  const [selected, setSelected] = useState<P>();
   const [pinned, setPinned] = useState(false);
   const height = width < 600 ? 460 : 540;
   const xMax = playgroundAxisMaximum(points, "x", xMetric);
   const yMax = playgroundAxisMaximum(points, "y", yMetric);
+  const xMin = playgroundAxisMinimum(points, "x", xMetric);
+  const yMin = playgroundAxisMinimum(points, "y", yMetric);
   const positions = useMemo(
     () =>
       layoutPlaygroundPoints(
@@ -57,7 +63,8 @@ export const PlaygroundChart: React.FC<IProps> = ({
         height,
         xMax,
         yMax,
-        spreadPoints ? { xMetric, yMetric, xSplit, ySplit } : undefined
+        spreadPoints ? { xMetric, yMetric, xSplit, ySplit } : undefined,
+        { x: xMin, y: yMin }
       ),
     [
       points,
@@ -65,6 +72,8 @@ export const PlaygroundChart: React.FC<IProps> = ({
       height,
       xMax,
       yMax,
+      xMin,
+      yMin,
       spreadPoints,
       xMetric,
       yMetric,
@@ -105,9 +114,10 @@ export const PlaygroundChart: React.FC<IProps> = ({
     const padding = playgroundPlotPadding;
     const plotWidth = width - padding.left - padding.right;
     const plotHeight = height - padding.top - padding.bottom;
-    const px = (value: number) => padding.left + (value / xMax) * plotWidth;
+    const px = (value: number) =>
+      padding.left + ((value - xMin) / (xMax - xMin)) * plotWidth;
     const py = (value: number) =>
-      height - padding.bottom - (value / yMax) * plotHeight;
+      height - padding.bottom - ((value - yMin) / (yMax - yMin)) * plotHeight;
     playgroundQuadrants.forEach((quadrant, index) => {
       const left = index % 2 ? px(xSplit) : padding.left;
       const right = index % 2 ? width - padding.right : px(xSplit);
@@ -119,8 +129,8 @@ export const PlaygroundChart: React.FC<IProps> = ({
     context.font = "12px sans-serif";
     context.lineWidth = 1;
     for (let tick = 0; tick <= 5; tick += 1) {
-      const x = (xMax * tick) / 5;
-      const y = (yMax * tick) / 5;
+      const x = xMin + ((xMax - xMin) * tick) / 5;
+      const y = yMin + ((yMax - yMin) * tick) / 5;
       context.strokeStyle = "rgba(160, 175, 192, 0.16)";
       context.beginPath();
       context.moveTo(px(x), padding.top);
@@ -155,7 +165,7 @@ export const PlaygroundChart: React.FC<IProps> = ({
     context.lineTo(width - padding.right, py(ySplit));
     context.stroke();
     context.setLineDash([]);
-    context.fillStyle = "#d8bf83";
+    context.fillStyle = "#dfe2e3";
     context.textAlign = "center";
     context.fillText(xMetric.label, padding.left + plotWidth / 2, height - 8);
     context.save();
@@ -173,7 +183,7 @@ export const PlaygroundChart: React.FC<IProps> = ({
     }
     context.globalAlpha = 1;
     const selectedPosition = positions.find(
-      (point) => point.entry.scene.id === selected?.entry.scene.id
+      (point) => point.id === selected?.id
     );
     if (selectedPosition) {
       context.strokeStyle = "#fff";
@@ -188,6 +198,8 @@ export const PlaygroundChart: React.FC<IProps> = ({
     height,
     xMax,
     yMax,
+    xMin,
+    yMin,
     xMetric,
     yMetric,
     xSplit,
@@ -205,6 +217,8 @@ export const PlaygroundChart: React.FC<IProps> = ({
     setSelected(hits[0]);
     return hits.length > 0;
   }
+
+  const detailsTitle = noun[0].charAt(0).toUpperCase() + noun[0].slice(1);
 
   function metricLabel(metric: IPlaygroundMetric, value: number) {
     const choice = metric.choices?.find(
@@ -239,7 +253,7 @@ export const PlaygroundChart: React.FC<IProps> = ({
           tabIndex={0}
           role="img"
           aria-describedby="playground-chart-help"
-          aria-label={`${positions.length} scenes: ${xMetric.label} versus ${yMetric.label}. Arrow keys browse scenes; Enter pins details; Escape closes details.`}
+          aria-label={`${positions.length} ${noun[1]}: ${xMetric.label} versus ${yMetric.label}. Arrow keys browse ${noun[1]}; Enter pins details; Escape closes details.`}
           onMouseMove={(event) => {
             if (!pinned) selectAt(event);
           }}
@@ -268,7 +282,7 @@ export const PlaygroundChart: React.FC<IProps> = ({
               const direction =
                 event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 1;
               const current = positions.findIndex(
-                (point) => point.entry.scene.id === selected?.entry.scene.id
+                (point) => point.id === selected?.id
               );
               setSelected(
                 positions[
@@ -283,15 +297,15 @@ export const PlaygroundChart: React.FC<IProps> = ({
           <div
             className={`playground-tooltip${pinned ? " is-pinned" : ""}`}
             style={
-              selected.x > xMax / 2
+              selected.x > (xMin + xMax) / 2
                 ? { left: "0.75rem", right: "auto" }
                 : undefined
             }
             role={pinned ? "region" : "tooltip"}
-            aria-label="Scene details"
+            aria-label={`${detailsTitle} details`}
           >
             <div className="playground-tooltip-toolbar">
-              <span>Scene details</span>
+              <span>{detailsTitle} details</span>
               {pinned && (
                 <Button
                   size="sm"
@@ -300,51 +314,18 @@ export const PlaygroundChart: React.FC<IProps> = ({
                     setPinned(false);
                     setSelected(undefined);
                   }}
-                  aria-label="Close scene details"
+                  aria-label={`Close ${noun[0]} details`}
                 >
                   ×
                 </Button>
               )}
             </div>
-            {selected.entry.scene.paths.screenshot && (
-              <img src={selected.entry.scene.paths.screenshot} alt="" />
-            )}
-            <Link
-              to={`/scenes/${selected.entry.scene.id}`}
-              className="playground-scene-title"
-            >
-              {selected.entry.scene.title || `Scene ${selected.entry.scene.id}`}
-            </Link>
-            <div className="text-muted">
-              {[
-                selected.entry.scene.studio?.name,
-                selected.entry.scene.date,
-                TextUtils.secondsAsTimeString(
-                  selected.entry.scene.files[0]?.duration ?? 0
-                ),
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-            </div>
-            <div className="playground-cast">
-              {selected.entry.scene.performers
-                .map((performer) => performer.name)
-                .join(", ") || "No vatos listed"}
-            </div>
+            {renderDetails(selected)}
             <dl>
               <dt>{xMetric.label}</dt>
               <dd>{metricLabel(xMetric, selected.x)}</dd>
               <dt>{yMetric.label}</dt>
               <dd>{metricLabel(yMetric, selected.y)}</dd>
-              <dt>Overall rating</dt>
-              <dd>
-                {selected.entry.scene.rating100 ?? "Unrated"} ·{" "}
-                {
-                  playgroundMetallicOptions.find(
-                    (option) => option.value === selected.entry.metallic
-                  )?.label
-                }
-              </dd>
             </dl>
           </div>
         )}
@@ -368,4 +349,4 @@ export const PlaygroundChart: React.FC<IProps> = ({
       </p>
     </>
   );
-};
+}

@@ -50,6 +50,7 @@ import {
 import { FilterTags } from "../List/FilterTags";
 import { Pagination, PaginationIndex } from "../List/Pagination";
 import { LoadedContent } from "../List/PagedList";
+import { cardGridSkeletonCustom } from "../Shared/cardSkeletonLayout_custom"; // CUSTOM
 import { SidebarTagsFilter } from "../List/Filters/TagsFilter";
 import { SidebarRatingFilter } from "../List/Filters/RatingFilter";
 import { SidebarAgeFilter } from "../List/Filters/SidebarAgeFilter";
@@ -639,7 +640,12 @@ export const FilteredPerformerList = PatchComponent(
                 />
               </div>
 
-              <LoadedContent loading={result.loading} error={result.error}>
+              <LoadedContent
+                loading={result.loading}
+                error={result.error}
+                // CUSTOM: placeholders in the shape of the cards
+                skeleton={cardGridSkeletonCustom("performer", filter)}
+              >
                 <PerformerList
                   filter={effectiveFilter}
                   performers={items}

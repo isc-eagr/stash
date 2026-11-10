@@ -1,3 +1,4 @@
+import { StatsSectionSkeleton } from "src/components/Shared/CardGridSkeleton_custom"; // CUSTOM
 import {
   formatAppDateTimeCustom as formatODate,
   getAppLocaleCustom,
@@ -5,7 +6,6 @@ import {
 import React from "react";
 import { Link } from "react-router-dom";
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
-import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { useOStatsEventPageQuery } from "src/core/generated-graphql";
 import type {
   OStatsTimelineEventFragment as SceneOEvent,
@@ -241,7 +241,7 @@ export const OStatsLatest: React.FC<PageProps> = ({
         </Link>
       </div>
       {loading ? (
-        <LoadingIndicator />
+        <StatsSectionSkeleton />
       ) : error ? (
         <ErrorMessage error={error.message} />
       ) : (
@@ -273,7 +273,7 @@ export const OStatsFullTimeline: React.FC<PageProps & { page: number }> = ({
       dateRange,
     },
   });
-  if (loading) return <LoadingIndicator />;
+  if (loading) return <StatsSectionSkeleton />;
   if (error) return <ErrorMessage error={error.message} />;
   if (!data) return null;
   const result = data.sceneOEvents;
