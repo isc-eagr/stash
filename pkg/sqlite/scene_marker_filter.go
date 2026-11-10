@@ -40,13 +40,24 @@ func (qb *sceneMarkerFilterHandler) criterionHandler() criterionHandler {
 		qb.tagsCriterionHandler(sceneMarkerFilter.Tags),
 		qb.sceneTagsCriterionHandler(sceneMarkerFilter.SceneTags),
 		qb.performersCriterionHandler(sceneMarkerFilter.Performers),
+		qb.studiosCriterionHandler(sceneMarkerFilter.Studios),                       // CUSTOM
+		qb.sceneDirectorCriterionHandler(sceneMarkerFilter.SceneDirector),           // CUSTOM
+		qb.hasEndTimeCriterionHandler(sceneMarkerFilter.HasEndTime),                 // CUSTOM
+		qb.performerEthnicityCriterionHandler(sceneMarkerFilter.PerformerEthnicity), // CUSTOM
+		qb.performerCountryCriterionHandler(sceneMarkerFilter.PerformerCountry),     // CUSTOM
+		qb.performerRatingCriterionHandler(sceneMarkerFilter),                       // CUSTOM
 		qb.scenesCriterionHandler(sceneMarkerFilter.Scenes),
 		floatCriterionHandler(sceneMarkerFilter.Duration, "COALESCE(scene_markers.end_seconds - scene_markers.seconds, NULL)", nil),
+		intCriterionHandler(sceneMarkerFilter.MarkerLength, "CAST(COALESCE(scene_markers.end_seconds - scene_markers.seconds, 20) AS INTEGER)", nil), // CUSTOM
+		qb.scenePerformerCountCriterionHandler(sceneMarkerFilter.ScenePerformerCount),                                                                // CUSTOM
 		&timestampCriterionHandler{sceneMarkerFilter.CreatedAt, "scene_markers.created_at", nil},
 		&timestampCriterionHandler{sceneMarkerFilter.UpdatedAt, "scene_markers.updated_at", nil},
 		&dateCriterionHandler{sceneMarkerFilter.SceneDate, "scenes.date", qb.joinScenes},
 		&timestampCriterionHandler{sceneMarkerFilter.SceneCreatedAt, "scenes.created_at", qb.joinScenes},
 		&timestampCriterionHandler{sceneMarkerFilter.SceneUpdatedAt, "scenes.updated_at", qb.joinScenes},
+
+		qb.hasMarkerPerformersCriterionHandler(sceneMarkerFilter.HasMarkerPerformers),  // CUSTOM
+		qb.markerTagsWithPerformersCriterionHandler(sceneMarkerFilter.SceneMarkerTags), // CUSTOM
 
 		&relatedFilterHandler{
 			relatedIDCol:   "scenes.id",
@@ -56,6 +67,8 @@ func (qb *sceneMarkerFilterHandler) criterionHandler() criterionHandler {
 				qb.joinScenes(f)
 			},
 		},
+		qb.customFiltersCriterionHandler(sceneMarkerFilter.CustomFilters), // CUSTOM
+		qb.hasRolesCriterionHandler(sceneMarkerFilter.HasRoles),           // CUSTOM
 	}
 }
 
@@ -114,12 +127,10 @@ func (qb *sceneMarkerFilterHandler) tagsCriterionHandler(criterion *models.Hiera
 
 				switch tags.Modifier {
 				case models.CriterionModifierEquals:
-					// includes only the provided ids
+					// CUSTOM: ordinary marker tag criteria are direct-only. Overlap-aware
+					// matching is reserved for the explicit scene_marker_tags filter.
 					f.addWhere("marker_tags.root_tag_id IS NOT NULL")
-					tagsLen := len(tags.Value)
-					f.addHaving(fmt.Sprintf("count(distinct marker_tags.root_tag_id) IS %d", tagsLen))
-					// decrement by one to account for primary tag id
-					f.addWhere("(SELECT COUNT(*) FROM scene_markers_tags s WHERE s.scene_marker_id = scene_markers.id) = ?", tagsLen-1)
+					f.addHaving(fmt.Sprintf("count(distinct marker_tags.root_tag_id) IS %d", len(tags.Value)))
 				case models.CriterionModifierNotEquals:
 					f.setError(fmt.Errorf("not equals modifier is not supported for scene marker tags"))
 				default:

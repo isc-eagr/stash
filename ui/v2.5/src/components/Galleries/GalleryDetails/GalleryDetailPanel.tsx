@@ -7,6 +7,10 @@ import { PerformerCard } from "src/components/Performers/PerformerCard";
 import { sortPerformers } from "src/core/performers";
 import { PhotographerLink } from "src/components/Shared/Link";
 import { CustomFields } from "src/components/Shared/CustomFields";
+import {
+  usePerformerCardRoleStats,
+  withExactPerformerMarkerCounts,
+} from "src/components/Performers/performerRoleStats_custom"; // CUSTOM
 
 interface IGalleryDetailProps {
   gallery: GQL.GalleryDataFragment;
@@ -16,6 +20,7 @@ export const GalleryDetailPanel: React.FC<IGalleryDetailProps> = ({
   gallery,
 }) => {
   const intl = useIntl();
+  const roleStatsByPerformer = usePerformerCardRoleStats(gallery.performers); // CUSTOM
 
   function renderDetails() {
     if (!gallery.details) return;
@@ -55,6 +60,10 @@ export const GalleryDetailPanel: React.FC<IGalleryDetailProps> = ({
         key={performer.id}
         performer={performer}
         ageFromDate={gallery.date ?? undefined}
+        roleStats={withExactPerformerMarkerCounts(
+          roleStatsByPerformer.get(performer.id),
+          performer
+        )} // CUSTOM: keep exact marker badges
       />
     ));
 

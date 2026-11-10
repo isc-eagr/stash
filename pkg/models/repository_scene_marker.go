@@ -2,6 +2,24 @@ package models
 
 import "context"
 
+// PerformerMarkerRoleRow is a compact row for batched marker-role lookups.
+// CUSTOM
+type PerformerMarkerRoleRow struct {
+	SceneMarkerID int
+	SceneID       int
+	PrimaryTagID  int
+	PerformerID   int
+	Role          string
+}
+
+// PerformerPartnerRoleRow is a compact row for batched partner-count lookups.
+// CUSTOM
+type PerformerPartnerRoleRow struct {
+	PerformerID int
+	Role        string
+	PartnerID   int
+}
+
 // SceneMarkerGetter provides methods to get scene markers by ID.
 type SceneMarkerGetter interface {
 	// TODO - rename this to Find and remove existing method
@@ -37,6 +55,10 @@ type SceneMarkerUpdater interface {
 	Update(ctx context.Context, updatedSceneMarker *SceneMarker) error
 	UpdatePartial(ctx context.Context, id int, updatedSceneMarker SceneMarkerPartial) (*SceneMarker, error)
 	UpdateTags(ctx context.Context, markerID int, tagIDs []int) error
+	// CUSTOM: begin
+	UpdateTopPerformers(ctx context.Context, markerID int, performerIDs []int) error
+	UpdateBottomPerformers(ctx context.Context, markerID int, performerIDs []int) error
+	// CUSTOM: end
 }
 
 // SceneMarkerDestroyer provides methods to destroy scene markers.
@@ -60,6 +82,9 @@ type SceneMarkerReader interface {
 	All(ctx context.Context) ([]*SceneMarker, error)
 	Wall(ctx context.Context, q *string) ([]*SceneMarker, error)
 	GetMarkerStrings(ctx context.Context, q *string, sort *string) ([]*MarkerStringsResultType, error)
+	GetPerformers(ctx context.Context, markerID int) ([]*MarkerPerformer, error)                      // CUSTOM
+	GetPerformersForMarkers(ctx context.Context, markerIDs []int) (map[int][]*MarkerPerformer, error) // CUSTOM
+	GetTagIDsForMarkers(ctx context.Context, markerIDs []int) (map[int][]int, error)                  // CUSTOM
 }
 
 // SceneMarkerWriter provides all methods to modify scene markers.

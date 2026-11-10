@@ -2,6 +2,8 @@ import {
   faChevronDown,
   faChevronUp,
   faClock,
+  faArrowRight, // CUSTOM
+  faCopy, // CUSTOM
 } from "@fortawesome/free-solid-svg-icons";
 import React, { useMemo, useState } from "react";
 import { Button, ButtonGroup, InputGroup, Form } from "react-bootstrap";
@@ -13,6 +15,9 @@ interface IProps {
   value: number | null | undefined;
   setValue(value: number | null): void;
   onReset?(): void;
+  onSeekTo?(): void; // CUSTOM
+  onCopyFromMarker?(): void; // CUSTOM
+  copyFromMarkerActive?: boolean; // CUSTOM
   className?: string;
   placeholder?: string;
   error?: string;
@@ -26,6 +31,9 @@ export const DurationInput: React.FC<IProps> = ({
   value,
   setValue,
   onReset,
+  onSeekTo, // CUSTOM
+  onCopyFromMarker, // CUSTOM
+  copyFromMarkerActive = false, // CUSTOM
   className,
   placeholder,
   error,
@@ -98,6 +106,37 @@ export const DurationInput: React.FC<IProps> = ({
     }
   }
 
+  // CUSTOM: begin
+  function maybeRenderSeekTo() {
+    if (onSeekTo) {
+      return (
+        <Button variant="secondary" onClick={() => onSeekTo()}>
+          <Icon icon={faArrowRight} />
+        </Button>
+      );
+    }
+  }
+
+  function maybeRenderCopyFromMarker() {
+    if (onCopyFromMarker) {
+      return (
+        <Button
+          variant={copyFromMarkerActive ? "info" : "secondary"}
+          onClick={() => onCopyFromMarker()}
+          aria-pressed={copyFromMarkerActive}
+          title={
+            copyFromMarkerActive
+              ? "Cancel marker timestamp selection"
+              : "Copy from an existing marker"
+          }
+        >
+          <Icon icon={faCopy} />
+        </Button>
+      );
+    }
+  }
+  // CUSTOM: end
+
   const inputValue = useMemo(() => {
     if (tmpValue !== undefined) {
       return tmpValue;
@@ -126,7 +165,9 @@ export const DurationInput: React.FC<IProps> = ({
           placeholder={placeholder}
         />
         <InputGroup.Append>
+          {maybeRenderCopyFromMarker()} {/* CUSTOM */}
           {maybeRenderReset()}
+          {maybeRenderSeekTo()} {/* CUSTOM */}
           {renderButtons()}
         </InputGroup.Append>
         <Form.Control.Feedback type="invalid">{error}</Form.Control.Feedback>

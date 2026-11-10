@@ -57,6 +57,9 @@ func (qb *studioFilterHandler) criterionHandler() criterionHandler {
 		stringCriterionHandler(studioFilter.Details, studioTable+".details"),
 		qb.urlsCriterionHandler(studioFilter.URL),
 		intCriterionHandler(studioFilter.Rating100, studioTable+".rating", nil),
+		metallicRatingCriterionHandler(studioFilter.MetallicRating, studioTable, studioTable+".rating", "studios_tags", "studio_id", "scene"), // CUSTOM
+		studioRatingCriteriaCriterionHandlerCustom(studioFilter.RatingCriteria, studioRatingCriteriaScenesCustom),                             // CUSTOM
+		studioRatingCriteriaCriterionHandlerCustom(studioFilter.PerformerRatingCriteria, studioRatingCriteriaPerformersCustom),                // CUSTOM
 		boolCriterionHandler(studioFilter.Favorite, studioTable+".favorite", nil),
 		boolCriterionHandler(studioFilter.IgnoreAutoTag, studioTable+".ignore_auto_tag", nil),
 		boolCriterionHandler(studioFilter.Organized, studioTable+".organized", nil),
@@ -135,6 +138,7 @@ func (qb *studioFilterHandler) criterionHandler() criterionHandler {
 			c:     studioFilter.CustomFields,
 			idCol: "studios.id",
 		},
+		qb.activityPercentagesCriterionHandlerCustom(), // CUSTOM: reuse scoped quality sources
 	}
 }
 

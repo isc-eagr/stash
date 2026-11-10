@@ -22,9 +22,161 @@
   &:hover button.btn.favorite-button.not-favorite {
     opacity: 1;
   }
+
+  /* CUSTOM: keep the facial count from stretching inside the main count row. */
+  .card-popovers > .facial-marker-count {
+    flex: 0 0 auto;
+  }
+
+  /* CUSTOM: begin - scene category count buttons */
+  /* stylelint-disable declaration-no-important -- Bootstrap button and icon hover states require explicit overrides */
+  .scene-category-count {
+    align-items: center;
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    display: inline-flex;
+    gap: 0.25rem;
+
+    .category-icon {
+      display: inline-block;
+      -webkit-filter: brightness(0) invert(1);
+      filter: brightness(0) invert(1);
+      height: 1em;
+      vertical-align: -0.125em;
+      width: 1em;
+    }
+
+    .category-icon-fa {
+      color: #fff;
+      display: inline-block;
+      font-size: 1em;
+      transform: rotate(-45deg);
+    }
+
+    &:hover,
+    &:focus,
+    &:active,
+    &:focus-visible {
+      background-color: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      color: inherit !important;
+      outline: none !important;
+    }
+
+    &:disabled {
+      background-color: transparent !important;
+      border: none !important;
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+  }
+
+  // Non-sex buttons keep white icons on hover
+  .oral-scene-count,
+  .solo-scene-count {
+    &:hover:not(:disabled),
+    &:focus:not(:disabled),
+    &:active:not(:disabled) {
+      .category-icon {
+        -webkit-filter: brightness(0) invert(1) !important;
+        filter: brightness(0) invert(1) !important;
+      }
+
+      .category-icon-fa {
+        color: #fff !important;
+      }
+    }
+  }
+
+  .sex-scene-count {
+    // Gay icon - rainbow tint on hover
+    &:hover:not(:disabled),
+    &:focus:not(:disabled),
+    &:active:not(:disabled) {
+      background-color: transparent !important;
+
+      .category-icon {
+        -webkit-filter: brightness(0) invert(1) hue-rotate(180deg) saturate(3) !important;
+        filter: brightness(0) invert(1) hue-rotate(180deg) saturate(3) !important;
+      }
+    }
+  }
+
+  /* stylelint-enable declaration-no-important */
+
+  /* CUSTOM: end */
 }
 
+/* CUSTOM: begin - studio card image activity popover */
+/* stylelint-disable selector-class-pattern */
+.studio-card .thumbnail-section > a.studio-card-header {
+  align-items: center;
+  display: flex;
+  height: 150px;
+  justify-content: center;
+  line-height: normal;
+  width: 100%;
+}
+
+.studio-card-image-activity-hover {
+  align-items: center;
+  display: flex;
+  height: 100%;
+  justify-content: center;
+  width: 100%;
+
+  .studio-card-image {
+    display: block;
+    height: auto;
+    max-height: 100%;
+    max-width: 100%;
+    width: 320px;
+  }
+}
+
+/* Scene Types tiles in the card details, sized like the vato card tiles. */
+.studio-card .studio-card-activity {
+  margin-top: 0.4rem;
+  max-width: 60%;
+}
+
+.studio-activity-popover {
+  width: min(92vw, 22rem);
+
+  .studio-activity-popover-card {
+    padding: 0.7rem 0.85rem;
+  }
+}
+
+/* stylelint-enable selector-class-pattern */
+
+/* CUSTOM: end */
+
 #studio-page {
+  /* CUSTOM: begin - detail header image wrapper */
+  .detail-header-image-wrapper {
+    display: flex;
+    flex-direction: column;
+    float: left;
+    height: 100%;
+    padding: 0;
+
+    @media (max-width: 576px) {
+      float: unset;
+      height: auto;
+    }
+
+    .detail-header-image {
+      float: none;
+      height: auto;
+      padding: 0 1rem;
+    }
+  }
+
+  /* CUSTOM: end */
+
   .studio-head {
     .name-icons {
       .not-favorite {
@@ -37,12 +189,111 @@
     }
   }
 
+  /* CUSTOM: begin - supplemental studio counts */
+  /* stylelint-disable declaration-no-important -- Bootstrap button and icon hover states require explicit overrides */
+  .studio-extra-counts {
+    display: inline-flex;
+
+    .scene-category-count {
+      align-items: center;
+      background-color: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      display: inline-flex;
+      gap: 0.25rem;
+
+      .category-icon {
+        display: inline-block;
+        -webkit-filter: brightness(0) invert(1);
+        filter: brightness(0) invert(1);
+        height: 1em;
+        vertical-align: -0.125em;
+        width: 1em;
+      }
+
+      .category-icon-fa {
+        color: #fff;
+        display: inline-block;
+        font-size: 1em;
+        transform: rotate(-45deg);
+      }
+
+      &:hover,
+      &:focus,
+      &:active,
+      &:focus-visible {
+        background-color: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        color: inherit !important;
+        outline: none !important;
+      }
+
+      &:disabled {
+        background-color: transparent !important;
+        border: none !important;
+        cursor: not-allowed;
+        opacity: 0.5;
+      }
+    }
+  }
+
+  /* stylelint-enable declaration-no-important */
+
+  /* CUSTOM: end */
+
+  /* CUSTOM: begin - header activity type and rating averages */
+  .studio-head {
+    flex-basis: 24rem;
+  }
+
+  .studio-header-insights-col {
+    flex: 1 1 36rem;
+    max-width: 62rem;
+    padding-top: 0.5rem;
+  }
+
+  .studio-header-insights {
+    container-type: inline-size;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  /* Scene Types tiles and the Activity Type bar share the stats panel
+     (Shared/statsPanel_custom.scss), as wide as Vato Detail's. */
+  .studio-header-types {
+    max-width: 40rem;
+  }
+
+  /* Scene averages and the vato strip side by side when there is room. */
+  .studio-header-ratings {
+    align-items: flex-start;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+
+    .rating-panel {
+      flex: 1 1 22rem;
+    }
+
+    .rating-panel--vato .studio-rating-advisor-section-header h3 {
+      align-items: center;
+      display: inline-flex;
+      gap: 0.4rem;
+    }
+  }
+
+  /* CUSTOM: end */
+
   .rating-number .text-input {
-    width: auto;
+    width: 4.75rem;
   }
 
   .quality-group {
+    align-items: center;
     display: inline-flex;
+    gap: 0.5rem;
     margin-top: 0.25rem;
   }
 

@@ -30,6 +30,13 @@ import {
   StudioDetailsPanel,
 } from "./StudioDetailsPanel";
 import { StudioGroupsPanel } from "./StudioGroupsPanel";
+import { StudioExtraCounts } from "./StudioExtraCounts"; // CUSTOM
+import { StudioStatsPanel } from "./StudioStatsPanel"; // CUSTOM
+import { StudioVatoStatsPanel } from "./StudioVatoStatsPanel"; // CUSTOM
+import { StudioOStatsPanel } from "./StudioOStatsPanel"; // CUSTOM
+import { StudioMarkerEventStatsPanel } from "./StudioMarkerEventStatsPanel"; // CUSTOM
+import { StudioHeaderInsights } from "./StudioHeaderInsights"; // CUSTOM
+import { StudioSiteSyncButton } from "./StudioSiteSyncButton"; // CUSTOM
 import { faTrashAlt } from "@fortawesome/free-solid-svg-icons";
 import { RatingSystem } from "src/components/Shared/Rating/RatingSystem";
 import { DetailImage } from "src/components/Shared/DetailImage";
@@ -53,13 +60,17 @@ import { OCounterButton } from "src/components/Shared/CountButton";
 import { OrganizedButton } from "src/components/Scenes/SceneDetails/OrganizedButton";
 
 interface IProps {
-  studio: GQL.StudioDataFragment;
+  studio: GQL.StudioDetailDataFragment; // CUSTOM: was StudioDataFragment
   tabKey?: TabKey;
+  statsYear?: string; // CUSTOM
+  statsMonth?: string; // CUSTOM
 }
 
 interface IStudioParams {
   id: string;
   tab?: string;
+  year?: string; // CUSTOM
+  month?: string; // CUSTOM
 }
 
 const validTabs = [
@@ -70,6 +81,11 @@ const validTabs = [
   "performers",
   "groups",
   "childstudios",
+  "stats", // CUSTOM
+  "vatostats", // CUSTOM
+  "ostats", // CUSTOM
+  "nutstats", // CUSTOM
+  "facialstats", // CUSTOM
 ] as const;
 type TabKey = (typeof validTabs)[number];
 
@@ -79,10 +95,21 @@ function isTabKey(tab: string): tab is TabKey {
 
 const StudioTabs: React.FC<{
   tabKey?: TabKey;
-  studio: GQL.StudioDataFragment;
+  studio: GQL.StudioDetailDataFragment; // CUSTOM: was StudioDataFragment
   abbreviateCounter: boolean;
   showAllCounts?: boolean;
-}> = ({ tabKey, studio, abbreviateCounter, showAllCounts = false }) => {
+  statsYear?: string; // CUSTOM
+  statsMonth?: string; // CUSTOM
+}> = ({
+  tabKey,
+  studio,
+  abbreviateCounter,
+  showAllCounts = false,
+  // CUSTOM: begin
+  statsYear,
+  statsMonth,
+  // CUSTOM: end
+}) => {
   const [showAllDetails, setShowAllDetails] = useState<boolean>(
     showAllCounts && studio.child_studios.length > 0
   );
@@ -257,13 +284,61 @@ const StudioTabs: React.FC<{
           studio={studio}
         />
       </Tab>
+      {/* CUSTOM: begin */}
+      <Tab eventKey="stats" title="Scene Stats">
+        {contentSwitch}
+        <StudioStatsPanel
+          month={statsMonth}
+          studio={studio}
+          showChildStudioContent={showAllDetails}
+          year={statsYear}
+        />
+      </Tab>
+      <Tab eventKey="vatostats" title="Vato Stats">
+        {contentSwitch}
+        <StudioVatoStatsPanel
+          studio={studio}
+          showChildStudioContent={showAllDetails}
+        />
+      </Tab>
+      <Tab eventKey="ostats" title="O Stats">
+        {contentSwitch}
+        <StudioOStatsPanel
+          studio={studio}
+          showChildStudioContent={showAllDetails}
+        />
+      </Tab>
+      <Tab eventKey="nutstats" title="Nut Stats">
+        {contentSwitch}
+        <StudioMarkerEventStatsPanel
+          kind="nut"
+          studio={studio}
+          showChildStudioContent={showAllDetails}
+        />
+      </Tab>
+      <Tab eventKey="facialstats" title="Facial Stats">
+        {contentSwitch}
+        <StudioMarkerEventStatsPanel
+          kind="facial"
+          studio={studio}
+          showChildStudioContent={showAllDetails}
+        />
+      </Tab>
+      {/* CUSTOM: end */}
     </Tabs>
   );
 };
 
 const StudioPage: React.FC<IProps> = PatchComponent(
   "StudioPage",
-  ({ studio, tabKey }) => {
+  ({
+    studio,
+    tabKey,
+    // CUSTOM: begin
+    statsYear,
+    statsMonth,
+    // CUSTOM: end
+  }) => {
     const history = useHistory();
     const Toast = useToast();
     const intl = useIntl();
@@ -471,15 +546,19 @@ const StudioPage: React.FC<IProps> = PatchComponent(
             show={enableBackgroundImage && !isEditing}
           />
           <div className="detail-container">
-            <HeaderImage encodingImage={encodingImage}>
-              {studioImage && (
-                <DetailImage
-                  className="logo"
-                  alt={studio.name}
-                  src={studioImage}
-                />
-              )}
-            </HeaderImage>
+            {/* CUSTOM: begin - studio image wrapper */}
+            <div className="detail-header-image-wrapper">
+              <HeaderImage encodingImage={encodingImage}>
+                {studioImage && (
+                  <DetailImage
+                    className="logo"
+                    alt={studio.name}
+                    src={studioImage}
+                  />
+                )}
+              </HeaderImage>
+            </div>
+            {/* CUSTOM: end */}
             <div className="row">
               <div className="studio-head col">
                 <DetailTitle name={studio.name ?? ""} classNamePrefix="studio">
@@ -508,6 +587,7 @@ const StudioPage: React.FC<IProps> = PatchComponent(
                   <RatingSystem
                     value={studio.rating100}
                     onSetRating={(value) => setRating(value)}
+                    max={100} // CUSTOM
                     clickToRate
                     withoutContext
                   />
@@ -516,6 +596,15 @@ const StudioPage: React.FC<IProps> = PatchComponent(
                   ) : !showAllCounts && studio.o_counter ? (
                     <OCounterButton value={studio.o_counter} />
                   ) : null}
+                  {/* CUSTOM: supplemental counts beside the rating. */}
+                  {!isEditing && (
+                    <StudioExtraCounts
+                      studio={studio}
+                      includeChildStudios={
+                        !!showAllCounts && studio.child_studios.length > 0
+                      }
+                    />
+                  )}
                 </div>
                 {!isEditing && (
                   <StudioDetailsPanel
@@ -546,10 +635,31 @@ const StudioPage: React.FC<IProps> = PatchComponent(
                     onClearImage={() => {}}
                     onAutoTag={onAutoTag}
                     autoTagDisabled={studio.ignore_auto_tag}
+                    // CUSTOM: studio site sync
+                    customButtons={
+                      studio.site_sync ? (
+                        <StudioSiteSyncButton
+                          studioID={studio.id}
+                          site={studio.site_sync}
+                        />
+                      ) : undefined
+                    }
                     onDelete={onDelete}
                   />
                 )}
               </div>
+              {/* CUSTOM: begin - header activity/quality and rating averages */}
+              {!isEditing && (
+                <div className="studio-header-insights-col col">
+                  <StudioHeaderInsights
+                    studio={studio}
+                    includeChildStudios={
+                      !!showAllCounts && studio.child_studios.length > 0
+                    }
+                  />
+                </div>
+              )}
+              {/* CUSTOM: end */}
             </div>
           </div>
         </div>
@@ -567,6 +677,8 @@ const StudioPage: React.FC<IProps> = PatchComponent(
                   tabKey={tabKey}
                   abbreviateCounter={abbreviateCounter}
                   showAllCounts={showAllCounts}
+                  statsMonth={statsMonth} // CUSTOM
+                  statsYear={statsYear} // CUSTOM
                 />
               )}
             </div>
@@ -582,7 +694,7 @@ const StudioLoader: React.FC<RouteComponentProps<IStudioParams>> = ({
   location,
   match,
 }) => {
-  const { id, tab } = match.params;
+  const { id, tab, year, month } = match.params; // CUSTOM
   const { data, loading, error } = useFindStudio(id);
 
   useScrollToTopOnMount();
@@ -603,9 +715,16 @@ const StudioLoader: React.FC<RouteComponentProps<IStudioParams>> = ({
     );
   }
 
+  // CUSTOM: begin
   return (
-    <StudioPage studio={data.findStudio} tabKey={tab as TabKey | undefined} />
+    <StudioPage
+      statsMonth={month}
+      statsYear={year}
+      studio={data.findStudio}
+      tabKey={tab as TabKey | undefined}
+    />
   );
+  // CUSTOM: end
 };
 
 export default StudioLoader;

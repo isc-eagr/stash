@@ -1,0 +1,177 @@
+import { gql, useQuery } from "@apollo/client";
+import { useMemo } from "react";
+import type { IPerformerRoleStats } from "./PerformerCard";
+import type * as GQL from "src/core/generated-graphql";
+
+// CUSTOM: shared batched role stats loader for performer cards and scene insights.
+interface IPerformerCardRoleStatsQueryData {
+  performerRoleStats: Array<{
+    performer_id: string;
+    scene_count: number;
+    sex_scene_count: number;
+    oral_scene_count: number;
+    solo_scene_count: number;
+    facial_scene_count: number;
+    sex_top_count: number;
+    sex_bottom_count: number;
+    oral_top_count: number;
+    oral_bottom_count: number;
+    oral_role_top_count: number;
+    oral_role_bottom_count: number;
+    facial_marker_count: number;
+    facial_top_count: number;
+    facial_bottom_count: number;
+    facial_with_top_count: number;
+    facial_with_bottom_count: number;
+    facial_marker_with_top_count: number;
+    facial_marker_with_bottom_count: number;
+    orgasm_top_count: number;
+    feet_top_count: number;
+    sex_with_top_count: number;
+    sex_with_bottom_count: number;
+    oral_with_top_count: number;
+    oral_with_bottom_count: number;
+    sex_unique_partner_count: number;
+    oral_unique_partner_count: number;
+    facial_unique_partner_count: number;
+    nut_type_counts: GQL.NutTypeCounts;
+  }>;
+}
+
+interface IPerformerCardRoleStatsQueryVariables {
+  performer_ids: string[];
+}
+
+const PerformerCardRoleStatsQuery = gql`
+  query PerformerCardRoleStats($performer_ids: [ID!]!) {
+    performerRoleStats(performer_ids: $performer_ids) {
+      performer_id
+      scene_count
+      sex_scene_count
+      oral_scene_count
+      solo_scene_count
+      facial_scene_count
+      sex_top_count
+      sex_bottom_count
+      oral_top_count
+      oral_bottom_count
+      oral_role_top_count
+      oral_role_bottom_count
+      facial_marker_count
+      facial_top_count
+      facial_bottom_count
+      facial_with_top_count
+      facial_with_bottom_count
+      facial_marker_with_top_count
+      facial_marker_with_bottom_count
+      orgasm_top_count
+      feet_top_count
+      sex_with_top_count
+      sex_with_bottom_count
+      oral_with_top_count
+      oral_with_bottom_count
+      sex_unique_partner_count
+      oral_unique_partner_count
+      facial_unique_partner_count
+      nut_type_counts {
+        nut {
+          plain
+          really_hot
+          goat
+        }
+        facial {
+          plain
+          really_hot
+          goat
+        }
+      }
+    }
+  }
+`;
+
+export function usePerformerCardRoleStats(
+  performers: Array<{ id: string }>,
+  skip?: boolean
+) {
+  return usePerformerCardRoleStatsState(performers, skip).roleStatsByPerformer;
+}
+
+// CUSTOM: exposes loading so scene insights can wait for history-backed chips.
+export function usePerformerCardRoleStatsState(
+  performers: Array<{ id: string }>,
+  skip?: boolean
+) {
+  // Canonical IDs let reordered/duplicated card lists share the same cache entry.
+  // useQuery compares variable values without an extra effect-driven load cycle.
+  const performerIDs = Array.from(
+    new Set(performers.map((p) => p.id).filter((id) => id !== ""))
+  ).sort();
+  const { data: roleStatsData, loading } = useQuery<
+    IPerformerCardRoleStatsQueryData,
+    IPerformerCardRoleStatsQueryVariables
+  >(PerformerCardRoleStatsQuery, {
+    fetchPolicy: "cache-first",
+    variables: { performer_ids: performerIDs },
+    skip: skip || performerIDs.length === 0,
+  });
+
+  const roleStatsByPerformer = useMemo(() => {
+    const ret = new Map<string, IPerformerRoleStats>();
+
+    roleStatsData?.performerRoleStats.forEach((p) => {
+      ret.set(p.performer_id, {
+        scene_count: p.scene_count,
+        sex_scene_count: p.sex_scene_count,
+        sex_top_count: p.sex_top_count,
+        sex_bottom_count: p.sex_bottom_count,
+        sex_with_top_count: p.sex_with_top_count,
+        sex_with_bottom_count: p.sex_with_bottom_count,
+        sex_unique_partner_count: p.sex_unique_partner_count,
+        oral_scene_count: p.oral_scene_count,
+        oral_top_count: p.oral_top_count,
+        oral_bottom_count: p.oral_bottom_count,
+        oral_role_top_count: p.oral_role_top_count,
+        oral_role_bottom_count: p.oral_role_bottom_count,
+        oral_with_top_count: p.oral_with_top_count,
+        oral_with_bottom_count: p.oral_with_bottom_count,
+        oral_unique_partner_count: p.oral_unique_partner_count,
+        solo_scene_count: p.solo_scene_count,
+        facial_scene_count: p.facial_scene_count,
+        facial_top_count: p.facial_top_count,
+        facial_bottom_count: p.facial_bottom_count,
+        facial_with_top_count: p.facial_with_top_count,
+        facial_with_bottom_count: p.facial_with_bottom_count,
+        facial_marker_with_top_count: p.facial_marker_with_top_count,
+        facial_marker_with_bottom_count: p.facial_marker_with_bottom_count,
+        facial_unique_partner_count: p.facial_unique_partner_count,
+        orgasm_top_count: p.orgasm_top_count,
+        facial_marker_count: p.facial_marker_count,
+        feet_top_count: p.feet_top_count,
+        nut_type_counts: p.nut_type_counts,
+      });
+    });
+
+    return ret;
+  }, [roleStatsData]);
+  return { roleStatsByPerformer, loading };
+}
+
+// CUSTOM: detail, hover, and profile cards show exact marker totals for these badges.
+// The batch query intentionally exposes scene totals for the corresponding fields.
+export function withExactPerformerMarkerCounts(
+  stats: IPerformerRoleStats | undefined,
+  performer: Pick<
+    GQL.Performer,
+    | "facial_marker_top_count"
+    | "facial_marker_bottom_count"
+    | "feet_marker_count"
+  >
+): IPerformerRoleStats | undefined {
+  if (!stats) return undefined;
+  return {
+    ...stats,
+    facial_top_count: performer.facial_marker_top_count,
+    facial_bottom_count: performer.facial_marker_bottom_count,
+    feet_top_count: performer.feet_marker_count,
+  };
+}

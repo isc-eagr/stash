@@ -1,12 +1,15 @@
 import React from "react";
 import { useStats } from "src/core/StashService";
 import { FormattedMessage, FormattedNumber } from "react-intl";
-import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
+import { Helmet } from "react-helmet"; // CUSTOM
 import TextUtils from "src/utils/text";
 import { FileSize } from "./Shared/FileSize";
 import { useConfigurationContext } from "src/hooks/Config";
+import { useTitleProps } from "src/hooks/title"; // CUSTOM
+import { StatsPage } from "./StatsPage_custom"; // CUSTOM
 
 export const Stats: React.FC = () => {
+  const titleProps = useTitleProps("Stats");
   const { configuration } = useConfigurationContext();
   const { sfwContentMode } = configuration.interface;
 
@@ -16,8 +19,22 @@ export const Stats: React.FC = () => {
 
   const { data, error, loading } = useStats();
 
-  if (error) return <span>{error.message}</span>;
-  if (loading || !data) return <LoadingIndicator />;
+  if (error)
+    return (
+      <>
+        <Helmet {...titleProps} />
+        <StatsPage>
+          <span>{error.message}</span>
+        </StatsPage>
+      </>
+    );
+  if (loading || !data)
+    return (
+      <>
+        <Helmet {...titleProps} />
+        <StatsPage loading loadingMessage="Loading stats..." />
+      </>
+    );
 
   const scenesDuration = TextUtils.secondsAsTimeString(
     data.stats.scenes_duration,
@@ -30,7 +47,10 @@ export const Stats: React.FC = () => {
   );
 
   return (
-    <div className="mt-5">
+    <StatsPage>
+      {/* CUSTOM */}
+      <Helmet {...titleProps} />
+
       <div className="col col-sm-8 m-sm-auto row stats">
         <div className="stats-element">
           <p className="title">
@@ -71,6 +91,7 @@ export const Stats: React.FC = () => {
           </p>
         </div>
       </div>
+
       <div className="col col-sm-8 m-sm-auto row stats">
         <div className="stats-element">
           <p className="title">
@@ -145,7 +166,7 @@ export const Stats: React.FC = () => {
           </p>
         </div>
       </div>
-    </div>
+    </StatsPage>
   );
 };
 

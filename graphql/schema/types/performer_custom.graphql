@@ -1,0 +1,143 @@
+# CUSTOM: All custom Performer fields and types.
+# This file uses 'extend type' to add fields to the upstream Performer type
+# without modifying the upstream performer.graphql file.
+# See CUSTOM_FEATURES.md for documentation.
+
+extend type Performer {
+  # Role-based scene counts from scene_marker_performers
+  # Sex scenes: scenes with markers having the configured sex tag
+  sex_scene_count: Int! # Resolver - total sex scenes
+  sex_top_count: Int! # Resolver - sex scenes where performer is top
+  sex_bottom_count: Int! # Resolver - sex scenes where performer is bottom
+  # Oral scenes: scenes with oral markers but no sex markers
+  oral_scene_count: Int! # Resolver - total oral scenes (excludes sex scenes)
+  oral_top_count: Int! # Resolver - oral scenes where performer is top
+  oral_bottom_count: Int! # Resolver - oral scenes where performer is bottom
+  # Solo scenes: scenes with solo markers but no sex/oral markers
+  solo_scene_count: Int! # Resolver - total solo scenes
+  # Facial scenes: scenes with facial markers (independent of other markers)
+  facial_scene_count: Int! # Resolver - total facial scenes
+  facial_top_count: Int! # Resolver - facial scenes where performer is top
+  facial_bottom_count: Int! # Resolver - facial scenes where performer is bottom
+  # Facial marker counts: count of individual markers (not scenes) - no studio scoping needed
+  facial_marker_count: Int! # Resolver - total facial markers
+  facial_marker_top_count: Int! # Resolver - facial markers where performer is top
+  facial_marker_bottom_count: Int! # Resolver - facial markers where performer is bottom
+  facial_marker_with_top_count: Int! # Resolver - total facial markers where performer topped (not condensed by scene)
+  facial_marker_with_bottom_count: Int! # Resolver - total facial markers where performer bottomed (not condensed by scene)
+  # Orgasm markers: count of orgasm markers where performer is top
+  orgasm_top_count: Int! # Resolver - orgasm markers where performer is top
+  # Feet markers: count of distinct scenes with feet markers where performer is top - no studio scoping needed
+  feet_top_count: Int! # Resolver - distinct scenes with feet markers where performer is top
+  # Feet marker count: count of feet markers where performer is top (not scene count)
+  feet_marker_count: Int! # Resolver - feet markers where performer is top
+  # Partner counts: number of unique performers this performer has topped/bottomed for in each category
+  sex_with_top_count: Int! # Resolver - unique performers this performer has topped sexually
+  sex_with_bottom_count: Int! # Resolver - unique performers this performer has bottomed for sexually
+  oral_with_top_count: Int! # Resolver - unique performers this performer has topped orally
+  oral_with_bottom_count: Int! # Resolver - unique performers this performer has bottomed for orally
+  facial_with_top_count: Int! # Resolver - unique performers this performer has given facials to
+  facial_with_bottom_count: Int! # Resolver - unique performers this performer has received facials from
+  # Total unique partner counts: unique performers across both roles
+  sex_unique_partner_count: Int! # Resolver - unique performers in sex scenes (top or bottom)
+  oral_unique_partner_count: Int! # Resolver - unique performers in oral scenes (top or bottom)
+  facial_unique_partner_count: Int! # Resolver - unique performers in facial scenes (top or bottom)
+  # Additional performer images (excluding the default image_path)
+  additional_images: [PerformerImage!]!
+
+  # CUSTOM: Total marker-duration stats for configured sex/oral/solo activity tags.
+  activity_stats: PerformerActivityStats!
+}
+
+# CUSTOM: begin
+type PerformerActivityStats {
+  total_activity_seconds: Float!
+  sex_seconds: Float!
+  sex_top_seconds: Float!
+  sex_bottom_seconds: Float!
+  oral_seconds: Float!
+  oral_top_seconds: Float!
+  oral_bottom_seconds: Float!
+  solo_seconds: Float!
+  sex_percent: Float!
+  oral_percent: Float!
+  solo_percent: Float!
+  sex_top_percent: Float!
+  sex_bottom_percent: Float!
+  oral_top_percent: Float!
+  oral_bottom_percent: Float!
+}
+# CUSTOM: end
+
+type PerformerImage {
+  id: ID!
+  performer_id: ID!
+  image_path: String!
+  position: Int!
+}
+
+type PerformerRoleStats {
+  performer_id: ID!
+  scene_count: Int! # CUSTOM: all scenes attached to the performer
+  sex_scene_count: Int!
+  sex_top_count: Int!
+  sex_bottom_count: Int!
+  sex_with_top_count: Int!
+  sex_with_bottom_count: Int!
+  oral_scene_count: Int!
+  oral_top_count: Int!
+  oral_bottom_count: Int!
+  oral_role_top_count: Int! # CUSTOM: oral-top scenes without excluding mixed sex scenes
+  oral_role_bottom_count: Int! # CUSTOM: oral-bottom scenes without excluding mixed sex scenes
+  oral_with_top_count: Int!
+  oral_with_bottom_count: Int!
+  solo_scene_count: Int!
+  facial_scene_count: Int!
+  facial_top_count: Int!
+  facial_bottom_count: Int!
+  facial_with_top_count: Int!
+  facial_with_bottom_count: Int!
+  facial_marker_with_top_count: Int!
+  facial_marker_with_bottom_count: Int!
+  sex_unique_partner_count: Int!
+  oral_unique_partner_count: Int!
+  facial_unique_partner_count: Int!
+  orgasm_top_count: Int!
+  facial_marker_count: Int!
+  feet_top_count: Int!
+}
+
+"A co-performer with the number of scenes they appeared together in that role"
+type PerformerWithSceneCount {
+  performer: Performer!
+  scene_count: Int!
+  "Merged timed-marker duration shared in this role configuration, in seconds" # CUSTOM
+  duration_seconds: Float! # CUSTOM
+}
+
+"Co-performers grouped by their role relationship to a performer"
+type PerformerCoPerformersByRole {
+  "Performers who were bottoms when this performer was top in sex scenes"
+  sex_as_top: [PerformerWithSceneCount!]!
+  "Performers who were tops when this performer was bottom in sex scenes"
+  sex_as_bottom: [PerformerWithSceneCount!]!
+  "Performers who were bottoms when this performer was top in oral scenes"
+  oral_as_top: [PerformerWithSceneCount!]!
+  "Performers who were tops when this performer was bottom in oral scenes"
+  oral_as_bottom: [PerformerWithSceneCount!]!
+  "Performers who were bottoms when this performer was top in facial scenes"
+  facial_as_top: [PerformerWithSceneCount!]!
+  "Performers who were tops when this performer was bottom in facial scenes"
+  facial_as_bottom: [PerformerWithSceneCount!]!
+  "Total count of unique co-performers across all roles"
+  unique_count: Int!
+}
+
+extend type Query {
+  "Get all role stats for performer cards in one batch"
+  performerRoleStats(performer_ids: [ID!]!): [PerformerRoleStats!]!
+  "Get co-performers grouped by their role relationship to the given performer"
+  performerCoPerformersByRole(performer_id: ID!): PerformerCoPerformersByRole!
+  "Get the exact unique co-performer count across all marker-role relationships" # CUSTOM
+  performerCoPerformerCount(performer_id: ID!): Int! # CUSTOM
+}

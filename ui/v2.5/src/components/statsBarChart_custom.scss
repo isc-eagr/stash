@@ -1,0 +1,339 @@
+/* CUSTOM: shared chart tokens and bar chart for every stats page. Pages set
+   their accent once; columns, ranked rows, split bars and grids follow it. */
+.stats-page {
+  /* Shared surfaces and accents follow the selected app theme. */
+  --stats-accent: var(--app-accent);
+  --stats-peak: var(--app-accent);
+  --stats-accent-ink: var(--app-accent-ink);
+  --stats-right: var(--app-muted);
+  --stats-surface: var(--app-surface);
+  --stats-surface-raised: var(--app-surface-raised);
+  --stats-border: var(--app-border);
+  --stats-border-strong: var(--app-border-strong);
+  --stats-track: var(--app-track);
+  --stats-text: var(--app-text);
+  --stats-muted: var(--app-muted);
+}
+
+.stats-bar-chart {
+  background: var(--stats-surface);
+  border: 1px solid var(--stats-border);
+  border-radius: var(--app-panel-radius);
+  color: var(--stats-text);
+  font-variant-numeric: tabular-nums;
+  min-width: 0;
+  padding: 1rem 1.1rem;
+}
+
+.stats-bar-chart-heading {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: space-between;
+  margin-bottom: 0.85rem;
+}
+
+.stats-bar-chart-title {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.65rem;
+  min-width: 0;
+
+  h3 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1.2;
+    margin: 0;
+  }
+}
+
+.stats-bar-chart-total {
+  color: var(--stats-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.stats-bar-chart-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.stats-bar-chart-unknown {
+  background: var(--stats-surface-raised);
+  border: 1px solid var(--stats-border);
+  border-radius: 999px;
+  color: var(--stats-text);
+  cursor: pointer;
+  flex: 0 0 auto;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.2;
+  padding: 0.3rem 0.65rem;
+  text-decoration: none;
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--stats-accent);
+    color: #fff;
+    text-decoration: none;
+  }
+}
+
+.stats-bar-chart-fill {
+  background: var(--stats-accent);
+  border-radius: inherit;
+  display: block;
+
+  &.peak {
+    background: var(--stats-peak);
+  }
+
+  /* CUSTOM: activity charts use the shared tile tint over the accent fill. */
+  &.tinted-segment-custom {
+    background: color-mix(in srgb, var(--segment-color) 12%, transparent);
+  }
+
+  &.stacked {
+    background: transparent;
+    display: flex;
+    gap: 1px;
+    overflow: hidden;
+  }
+}
+
+.stats-bar-chart-segment {
+  border: 0;
+  cursor: pointer;
+  display: block;
+  flex-basis: 0;
+  min-height: 2px;
+  min-width: 2px;
+  padding: 0;
+
+  &:disabled {
+    cursor: default;
+  }
+
+  &:not(:disabled):hover,
+  &:not(:disabled):focus-visible {
+    filter: brightness(1.15);
+  }
+}
+
+.stats-bar-chart-count {
+  font-weight: 700;
+}
+
+.stats-bar-chart-percent {
+  color: var(--stats-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.stats-bar-chart-sublabel {
+  color: var(--stats-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.stats-bar-chart-empty {
+  align-items: center;
+  color: var(--stats-muted);
+  display: flex;
+  min-height: 5rem;
+}
+
+.stats-bar-chart-more {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.75rem;
+}
+
+/* Columns: ordered values such as years, ratings, counts and ages. */
+.stats-bar-chart--columns {
+  .stats-bar-chart-bars {
+    align-items: end;
+    display: flex;
+    gap: 0.35rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0.25rem 0;
+  }
+
+  .stats-bar-chart-cell {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    color: inherit;
+    cursor: pointer;
+    display: grid;
+    flex: 1 0 2.4rem;
+    gap: 0.15rem;
+    grid-template-rows: 1.2rem 0.95rem 9rem minmax(2.2rem, auto);
+    max-width: 5.5rem;
+    min-width: 2.4rem;
+    padding: 0;
+    text-align: center;
+    text-decoration: none;
+
+    &:disabled {
+      cursor: default;
+    }
+
+    &:not(:disabled):hover,
+    &:not(:disabled):focus-visible {
+      color: inherit;
+      text-decoration: none;
+
+      .stats-bar-chart-fill {
+        filter: brightness(1.15);
+      }
+    }
+  }
+
+  .stats-bar-chart-count,
+  .stats-bar-chart-percent,
+  .stats-bar-chart-sublabel {
+    min-width: 0;
+    overflow: hidden;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    width: 100%;
+  }
+
+  .stats-bar-chart-count {
+    font-size: 0.8rem;
+  }
+
+  .stats-bar-chart-track {
+    align-items: flex-end;
+    border-bottom: 1px solid var(--stats-border);
+    display: flex;
+    height: 9rem;
+    position: relative;
+    width: 100%;
+  }
+
+  .stats-bar-chart-fill {
+    border-radius: 5px 5px 1px 1px;
+    width: 100%;
+
+    &.stacked {
+      flex-direction: column-reverse;
+    }
+  }
+
+  .stats-bar-chart-label,
+  .stats-bar-chart-label-target {
+    align-self: start;
+    color: var(--stats-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.15;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    width: 100%;
+  }
+
+  .stats-bar-chart-label-target {
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    padding: 0.15rem 0 0;
+    text-decoration: none;
+
+    &:disabled {
+      cursor: default;
+    }
+
+    &:not(:disabled):hover,
+    &:not(:disabled):focus-visible {
+      color: #fff;
+      text-decoration: none;
+    }
+  }
+}
+
+/* Ranked rows: categories with no order, highest first. */
+.stats-bar-chart--ranked {
+  .stats-bar-chart-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .stats-bar-chart-row {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+    color: inherit;
+    cursor: pointer;
+    display: grid;
+    font-size: 0.85rem;
+    gap: 0.75rem;
+    grid-template-columns: minmax(6rem, 9rem) minmax(0, 1fr) 3.5rem 2.75rem;
+    min-height: 2rem;
+    padding: 0 0.35rem;
+    text-align: left;
+    text-decoration: none;
+
+    &:disabled {
+      cursor: default;
+    }
+
+    &:not(:disabled):hover,
+    &:not(:disabled):focus-visible {
+      background: var(--stats-surface-raised);
+      color: #fff;
+      text-decoration: none;
+    }
+  }
+
+  .stats-bar-chart-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .stats-bar-chart-track {
+    background: var(--stats-track);
+    border-radius: 5px;
+    display: block;
+    height: 0.6rem;
+    overflow: hidden;
+  }
+
+  .stats-bar-chart-fill {
+    height: 100%;
+
+    &.stacked {
+      flex-direction: row;
+    }
+  }
+
+  .stats-bar-chart-count,
+  .stats-bar-chart-percent {
+    text-align: right;
+  }
+}
+
+@media (max-width: 520px) {
+  .stats-bar-chart--ranked .stats-bar-chart-row {
+    grid-template-columns: minmax(5rem, 7rem) minmax(0, 1fr) 3rem;
+  }
+
+  .stats-bar-chart--ranked .stats-bar-chart-percent {
+    display: none;
+  }
+}

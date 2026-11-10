@@ -433,6 +433,7 @@ export const GalleryPage: React.FC<IProps> = ({ gallery, add }) => {
               <RatingSystem
                 value={gallery.rating100}
                 onSetRating={setRating}
+                max={100} // CUSTOM
                 clickToRate
                 withoutContext
               />

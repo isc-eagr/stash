@@ -1,0 +1,182 @@
+/* CUSTOM: outstanding-activity matrix shared by scene insights and Stats. */
+.outstanding-activity-matrix {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+
+  .outstanding-activity-heading {
+    align-items: baseline;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 0.85rem;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+
+    h4 {
+      font-size: 1.05rem;
+      margin: 0;
+    }
+  }
+
+  .outstanding-activity-table-scroll {
+    overflow-x: auto;
+  }
+
+  table {
+    border-collapse: collapse;
+    min-width: 100%;
+  }
+
+  th,
+  td {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    min-width: 8rem;
+    padding: 0.55rem 0.7rem;
+    text-align: left;
+    vertical-align: middle;
+  }
+
+  th:first-child {
+    background: #202020;
+    left: 0;
+    min-width: 10rem;
+    position: sticky;
+    z-index: 1;
+  }
+
+  .outstanding-activity-final-row > th,
+  .outstanding-activity-final-row > td {
+    border-bottom: 0;
+  }
+
+  .outstanding-activity-tag-link {
+    color: #8fc7ff;
+    text-decoration: underline;
+    text-decoration-thickness: 0.08em;
+    text-underline-offset: 0.18em;
+
+    &:focus,
+    &:hover {
+      color: #c3e1ff;
+      text-decoration-thickness: 0.13em;
+    }
+  }
+
+  .outstanding-activity-tag-tree-label {
+    align-items: center;
+    display: flex;
+    min-width: 0;
+  }
+
+  .outstanding-activity-tree-toggle {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    color: rgba(255, 255, 255, 0.72);
+    display: inline-flex;
+    flex: 0 0 1.35rem;
+    height: 1.35rem;
+    justify-content: center;
+    margin: 0 0.2rem 0 -0.2rem;
+    padding: 0;
+
+    &:focus,
+    &:hover {
+      color: #fff;
+    }
+  }
+
+  .outstanding-activity-tree-spacer {
+    flex: 0 0 1.35rem;
+    margin-right: 0.2rem;
+  }
+
+  .outstanding-activity-cell-value {
+    display: flex;
+    flex-direction: column;
+    white-space: nowrap;
+
+    small {
+      color: rgba(255, 255, 255, 0.62);
+    }
+  }
+
+  .outstanding-activity-cell-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .outstanding-activity-cell-label {
+    color: rgba(255, 255, 255, 0.72);
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.045em;
+    margin-right: 0.4rem;
+    text-transform: uppercase;
+  }
+
+  .outstanding-activity-cell-value-goat {
+    strong,
+    small,
+    .outstanding-activity-cell-label {
+      color: #f4ca64;
+    }
+  }
+
+  .outstanding-activity-percent {
+    color: rgba(255, 255, 255, 0.62);
+    display: block;
+    white-space: nowrap;
+  }
+
+  .outstanding-activity-empty {
+    color: rgba(255, 255, 255, 0.35);
+  }
+
+  .outstanding-activity-performer {
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    text-align: center;
+  }
+
+  .outstanding-activity-performer-image {
+    aspect-ratio: 2 / 3;
+    background-color: rgba(255, 255, 255, 0.08);
+    background-position: center;
+    background-size: cover;
+    border-radius: 0.25rem;
+    display: block;
+    flex: 0 0 auto;
+    width: 3rem;
+  }
+}
+
+.outstanding-activity-total-only {
+  max-width: 42rem;
+
+  table {
+    min-width: 34rem;
+    width: 100%;
+  }
+
+  th:first-child {
+    width: 65%;
+  }
+}
+
+@media (max-width: 576px) {
+  .outstanding-activity-matrix {
+    padding: 0.65rem;
+
+    th,
+    td {
+      padding: 0.45rem 0.55rem;
+    }
+  }
+}

@@ -1,0 +1,22 @@
+# CUSTOM: nuts and facials by quality for the Vato and Studio Detail Nut tiles,
+# counted like the scene card nut report.
+
+type NutQualityCounts {
+  plain: Int!
+  really_hot: Int!
+  goat: Int!
+}
+
+type NutTypeCounts {
+  nut: NutQualityCounts!
+  facial: NutQualityCounts!
+}
+
+extend type PerformerRoleStats {
+  nut_type_counts: NutTypeCounts!
+}
+
+extend type Studio {
+  "Studio Detail Nut tile"
+  nut_type_counts(depth: Int): NutTypeCounts!
+}

@@ -122,9 +122,7 @@ func (i *MarkerImporter) Create(ctx context.Context) (*int, error) {
 }
 
 func (i *MarkerImporter) Update(ctx context.Context, id int) error {
-	marker := i.marker
-	marker.ID = id
-	err := i.ReaderWriter.Update(ctx, &marker)
+	err := i.updateMarkerWithTagsCustom(ctx, id) // CUSTOM: record final tag membership atomically.
 	if err != nil {
 		return fmt.Errorf("error updating existing marker: %v", err)
 	}

@@ -47,6 +47,7 @@ type SceneCounter interface {
 	OCountByPerformerID(ctx context.Context, performerID int) (int, error)
 	OCountByGroupID(ctx context.Context, groupID int) (int, error)
 	OCountByStudioID(ctx context.Context, studioID int, depth int) (int, error)
+	OCountByStudioIDCustom(ctx context.Context, studioID int, depth *int, performerID *string) (int, error) // CUSTOM: performer scope and release O's
 }
 
 // SceneCreator provides methods to create scenes.
@@ -87,6 +88,7 @@ type ODateReader interface {
 	GetAllOCount(ctx context.Context) (int, error)
 	GetODates(ctx context.Context, relatedID int) ([]time.Time, error)
 	GetManyODates(ctx context.Context, ids []int) ([][]time.Time, error)
+	GetOVideoTimestamps(ctx context.Context, id int) ([]*float64, error) // CUSTOM
 }
 
 // SceneReader provides all methods to read scenes.
@@ -106,6 +108,7 @@ type SceneReader interface {
 	StashIDLoader
 	VideoFileLoader
 	CustomFieldsReader
+	StashDBMatchesReaderCustom // CUSTOM
 
 	All(ctx context.Context) ([]*Scene, error)
 	Wall(ctx context.Context, q *string) ([]*Scene, error)
@@ -120,6 +123,9 @@ type OHistoryWriter interface {
 	AddO(ctx context.Context, id int, dates []time.Time) ([]time.Time, error)
 	DeleteO(ctx context.Context, id int, dates []time.Time) ([]time.Time, error)
 	ResetO(ctx context.Context, id int) (int, error)
+	AddOAtVideoTimestamp(ctx context.Context, id int, videoTimestamp float64) ([]time.Time, error) // CUSTOM
+	AddRetroactiveOCustom(ctx context.Context, id int) ([]time.Time, error)                        // CUSTOM
+	DeleteRetroactiveOCustom(ctx context.Context, id int) ([]time.Time, error)                     // CUSTOM
 }
 
 type ViewHistoryWriter interface {
@@ -133,8 +139,15 @@ type SceneWriter interface {
 	SceneCreator
 	SceneUpdater
 	SceneDestroyer
+	StashDBMatchesWriterCustom // CUSTOM
 
 	AddFileID(ctx context.Context, id int, fileID FileID) error
+	RemoveFileID(ctx context.Context, sceneID int, fileID FileID) error    // CUSTOM
+	EnsurePrimaryFileCustom(ctx context.Context, sceneID int) error        // CUSTOM
+	DetachCoverForConversionCustom(ctx context.Context, sceneID int) error // CUSTOM
+
+	// CUSTOM: moves fork-owned scene data; returns the source whose advisor answers were adopted, or 0.
+	MergeCustomDataCustom(ctx context.Context, sourceIDs []int, destID int, options SceneMergeOptionsCustom) (int, error)
 	AddGalleryIDs(ctx context.Context, sceneID int, galleryIDs []int) error
 	AssignFiles(ctx context.Context, sceneID int, fileID []FileID) error
 

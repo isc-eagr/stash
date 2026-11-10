@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { Button, ButtonGroup } from "react-bootstrap";
+import { useMemo, useState } from "react";
+import { Badge, Button, ButtonGroup } from "react-bootstrap"; // CUSTOM: added Badge
 import * as GQL from "src/core/generated-graphql";
 import { Icon } from "../Shared/Icon";
 import { TagLink } from "../Shared/TagLink";
@@ -8,17 +8,46 @@ import NavUtils from "src/utils/navigation";
 import TextUtils from "src/utils/text";
 import { useConfigurationContext } from "src/hooks/Config";
 import { GridCard } from "../Shared/GridCard/GridCard";
-import { faTag } from "@fortawesome/free-solid-svg-icons";
+import {
+  faTag,
+  faArrowUp,
+  faArrowDown,
+  faUser,
+} from "@fortawesome/free-solid-svg-icons"; // CUSTOM: added faArrowUp, faArrowDown, faUser
 import { markerTitle } from "src/core/markers";
 import { Link } from "react-router-dom";
 import { objectTitle } from "src/core/files";
 import { PatchComponent } from "src/patch";
-import { PerformerPopoverButton } from "../Shared/PerformerPopoverButton";
 import { ScenePreview } from "./SceneCard";
 import { TruncatedText } from "../Shared/TruncatedText";
+import cx from "classnames"; // CUSTOM
+import {
+  getRatingCardClass,
+  isRatingCardHomePage,
+} from "src/utils/ratingCardStyles_custom"; // CUSTOM
+import { getChronologicalSceneMarkerContextDisplayTags } from "./SceneDetails/sceneMarkerChronologySearch_custom"; // CUSTOM
+import {
+  getSceneMarkerHoverGroup,
+  SceneMarkerHighlightPerformersPopover,
+  useSceneMarkerRatingCardClassGetter,
+} from "./SceneDetails/sceneMarkerHoverPopover_custom"; // CUSTOM
+import { toSceneMarkerCardContext } from "./sceneMarkerCardContext_custom"; // CUSTOM
+import { ROLE_COLORS_CUSTOM } from "src/utils/roleColors_custom"; // CUSTOM
+import {
+  SortMetricBadgeCustom,
+  type ISortMetricBadgeCustom,
+} from "../Shared/SortMetricBadge_custom"; // CUSTOM
+import { getSceneMarkerSortMetricCustom } from "./sceneMarkerSortMetric_custom"; // CUSTOM
+import {
+  catalogCardSortHighlightClassCustom,
+  isCatalogCardSortHighlightedCustom,
+} from "../Shared/catalogCardSortHighlight_custom"; // CUSTOM
+import { useScenePerformerOverview } from "./SceneDetails/ScenePerformerOverviewPanel_custom"; // CUSTOM
 
 interface ISceneMarkerCardProps {
   marker: GQL.SceneMarkerDataFragment;
+  allMarkers?: GQL.SceneMarkerCardContextDataFragment[]; // CUSTOM
+  markerContext?: GQL.SceneMarkerCardContextDataFragment; // CUSTOM
   cardWidth?: number;
   previewHeight?: number;
   index?: number;
@@ -27,19 +56,53 @@ interface ISceneMarkerCardProps {
   selected?: boolean | undefined;
   zoomIndex?: number;
   onSelectedChanged?: (selected: boolean, shiftKey: boolean) => void;
+  activeSortBy?: string; // CUSTOM
+  activeSortDirection?: GQL.SortDirectionEnum; // CUSTOM
+  sortMetric?: ISortMetricBadgeCustom; // CUSTOM: stats rankings supply their own value
 }
 
 const SceneMarkerCardPopovers = PatchComponent(
   "SceneMarkerCard.Popovers",
   (props: ISceneMarkerCardProps) => {
+    // CUSTOM: begin - marker-context performer hover
+    const { configuration } = useConfigurationContext();
+    const getMarkerRatingCardClass = useSceneMarkerRatingCardClassGetter();
+    const markerContext = useMemo(
+      () => props.markerContext ?? toSceneMarkerCardContext(props.marker),
+      [props.marker, props.markerContext]
+    );
+    const hoverGroup = useMemo(
+      () =>
+        getSceneMarkerHoverGroup(
+          markerContext,
+          props.allMarkers ?? [markerContext]
+        ),
+      [markerContext, props.allMarkers]
+    );
+    // CUSTOM: end
+
     function maybeRenderPerformerPopoverButton() {
       if (props.marker.scene.performers.length <= 0) return;
 
+      // CUSTOM: exact scene-marker containment hover popup
       return (
-        <PerformerPopoverButton
-          performers={props.marker.scene.performers}
-          linkType="scene_marker"
-        />
+        <HoverPopover
+          className="performer-count"
+          placement="bottom"
+          popoverClassName="scene-marker-highlight-popover"
+          content={
+            <SceneMarkerHighlightPerformersPopover
+              group={hoverGroup}
+              orgasmTagId={configuration?.ui?.roleTagIds?.orgasmTagId}
+              getMarkerRatingCardClass={getMarkerRatingCardClass}
+            />
+          }
+        >
+          <Button className="minimal">
+            <Icon icon={faUser} />
+            <span>{props.marker.scene.performers.length}</span>
+          </Button>
+        </HoverPopover>
       );
     }
 
@@ -93,17 +156,204 @@ const SceneMarkerCardPopovers = PatchComponent(
 const SceneMarkerCardDetails = PatchComponent(
   "SceneMarkerCard.Details",
   (props: ISceneMarkerCardProps) => {
+    // CUSTOM: begin - performer chips with role arrows
+    // Only show arrows if marker has performers in BOTH roles (top and bottom)
+    const showRoleArrows =
+      props.marker.top_performers.length > 0 &&
+      props.marker.bottom_performers.length > 0;
+    const [showParentTags, setShowParentTags] = useState(false);
+    const performerOverview = useScenePerformerOverview(); // CUSTOM
+    const markerContext = useMemo(
+      () => props.markerContext ?? toSceneMarkerCardContext(props.marker),
+      [props.marker, props.markerContext]
+    );
+
+    const renderPerformerChip = (
+      performer: (typeof props.marker.top_performers)[0],
+      variant: "role-top" | "role-bottom", // CUSTOM
+      showArrow: boolean,
+      arrowIcon: typeof faArrowUp
+    ) => (
+      <HoverPopover
+        key={performer.id}
+        className="performer-hover-popover"
+        placement="top"
+        popoverClassName="scene-marker-performer-hover-popover" // CUSTOM
+        content={
+          <div className="performer-hover-grid">
+            <div className="performer-tag-container performer-hover-row">
+              {/* CUSTOM: scene contexts open the performer overview from marker portraits. */}
+              {performerOverview ? (
+                <button
+                  type="button"
+                  aria-label={`Open ${performer.name ?? "vato"} overview`}
+                  className="performer-tag performer-hover-image-link zoom-2"
+                  onClick={() =>
+                    performerOverview.openPerformerOverview(performer.id)
+                  }
+                >
+                  <img
+                    className="image-thumbnail performer-hover-image-thumbnail"
+                    alt={performer.name ?? ""}
+                    src={performer.image_path ?? ""}
+                  />
+                </button>
+              ) : (
+                <Link
+                  to={`/performers/${performer.id}`}
+                  className="performer-tag performer-hover-image-link zoom-2"
+                >
+                  <img
+                    className="image-thumbnail performer-hover-image-thumbnail"
+                    alt={performer.name ?? ""}
+                    src={performer.image_path ?? ""}
+                  />
+                </Link>
+              )}
+            </div>
+          </div>
+        }
+      >
+        {/* CUSTOM: performer names open the same scene overview as portraits. */}
+        {performerOverview ? (
+          <button
+            type="button"
+            className="performer-chip-link scene-performer-overview-chip-button"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              performerOverview.openPerformerOverview(performer.id);
+            }}
+          >
+            <Badge variant={variant} className="performer-chip mr-1">
+              {showArrow && <Icon icon={arrowIcon} className="mr-1" />}
+              {performer.name}
+            </Badge>
+          </button>
+        ) : (
+          <Link
+            to={`/performers/${performer.id}`}
+            className="performer-chip-link"
+          >
+            <Badge variant={variant} className="performer-chip mr-1">
+              {showArrow && <Icon icon={arrowIcon} className="mr-1" />}
+              {performer.name}
+            </Badge>
+          </Link>
+        )}
+      </HoverPopover>
+    );
+
+    const displayTags = useMemo(
+      () =>
+        getChronologicalSceneMarkerContextDisplayTags(
+          markerContext,
+          props.allMarkers ?? [markerContext]
+        ),
+      [markerContext, props.allMarkers]
+    );
+    const visibleDisplayTags = useMemo(
+      () => displayTags.filter(({ kind }) => kind !== "parent"),
+      [displayTags]
+    );
+    const parentDisplayTags = useMemo(
+      () => displayTags.filter(({ kind }) => kind === "parent"),
+      [displayTags]
+    );
+    const sortDirection =
+      props.activeSortDirection ?? GQL.SortDirectionEnum.Asc; // CUSTOM
+    const sortMetric =
+      props.sortMetric ??
+      getSceneMarkerSortMetricCustom(props.activeSortBy, props.marker); // CUSTOM
+    const embeddedSortMetric =
+      isCatalogCardSortHighlightedCustom(props.activeSortBy, "seconds") ||
+      (isCatalogCardSortHighlightedCustom(props.activeSortBy, "duration") &&
+        !!props.marker.end_seconds); // CUSTOM
+    // CUSTOM: end
+
     return (
       <div className="scene-marker-card__details">
-        <span className="scene-marker-card__time">
+        <SortMetricBadgeCustom
+          metric={embeddedSortMetric ? undefined : sortMetric}
+          sortDirection={sortDirection}
+        />
+        <span
+          className={cx(
+            "scene-marker-card__time",
+            catalogCardSortHighlightClassCustom(props.activeSortBy, "seconds")
+          )}
+        >
           {TextUtils.formatTimestampRange(
             props.marker.seconds,
             props.marker.end_seconds ?? undefined
           )}
         </span>
+        {/* CUSTOM: begin - performer chips display */}
+        {(props.marker.top_performers.length > 0 ||
+          props.marker.bottom_performers.length > 0) && (
+          <div className="scene-marker-card__performers">
+            {props.marker.top_performers.map((p) =>
+              renderPerformerChip(
+                p,
+                ROLE_COLORS_CUSTOM.top.variant,
+                showRoleArrows,
+                faArrowUp
+              )
+            )}
+            {props.marker.bottom_performers.map((p) =>
+              renderPerformerChip(
+                p,
+                ROLE_COLORS_CUSTOM.bottom.variant,
+                showRoleArrows,
+                faArrowDown
+              )
+            )}
+          </div>
+        )}
+        {/* CUSTOM: end */}
+        {/* CUSTOM: begin - marker tag tiers */}
+        {displayTags.length > 0 && (
+          <div className="scene-marker-card__tags">
+            {visibleDisplayTags.map(({ kind, tag }) => (
+              <Badge
+                key={tag.id}
+                variant={kind === "primary" ? "primary" : "secondary"}
+                className={cx("tag-badge", `tag-badge-${kind}`)}
+              >
+                {tag.name}
+              </Badge>
+            ))}
+            {parentDisplayTags.length > 0 && (
+              <Button
+                className="tag-parent-toggle"
+                type="button"
+                variant="secondary"
+                title={showParentTags ? "Hide parent tags" : "Show parent tags"}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setShowParentTags((current) => !current);
+                }}
+              >
+                {showParentTags ? "-" : `+${parentDisplayTags.length}`}
+              </Button>
+            )}
+            {showParentTags &&
+              parentDisplayTags.map(({ kind, tag }) => (
+                <Badge
+                  key={tag.id}
+                  variant="secondary"
+                  className={cx("tag-badge", `tag-badge-${kind}`)}
+                >
+                  {tag.name}
+                </Badge>
+              ))}
+          </div>
+        )}
+        {/* CUSTOM: end */}
         <TruncatedText
           className="scene-marker-card__scene"
-          lineCount={3}
+          lineCount={2} // CUSTOM: was 3
           text={
             <Link to={NavUtils.makeSceneMarkersSceneUrl(props.marker.scene)}>
               {objectTitle(props.marker.scene)}
@@ -138,7 +388,15 @@ const SceneMarkerCardImage = PatchComponent(
       return (
         <div className="scene-specs-overlay">
           {props.marker.end_seconds && (
-            <span className="overlay-duration">
+            <span
+              className={cx(
+                "overlay-duration",
+                catalogCardSortHighlightClassCustom(
+                  props.activeSortBy,
+                  "duration"
+                )
+              )}
+            >
               {TextUtils.secondsToTimestamp(
                 props.marker.end_seconds - props.marker.seconds
               )}
@@ -165,6 +423,30 @@ const SceneMarkerCardImage = PatchComponent(
 export const SceneMarkerCard = PatchComponent(
   "SceneMarkerCard",
   (props: ISceneMarkerCardProps) => {
+    // CUSTOM: begin - GOAT/Royal Sapphire marker card styling
+    const { configuration } = useConfigurationContext();
+    const ratingCardTheme = configuration?.ui?.ratingCardTheme;
+    const goatTagId = configuration?.ui?.roleTagIds?.goatTagId;
+    const markerTags = useMemo(
+      () => [props.marker.primary_tag, ...props.marker.tags],
+      [props.marker.primary_tag, props.marker.tags]
+    );
+    const ratingCardClass = getRatingCardClass({
+      tags: markerTags,
+      goatTagId,
+      theme: ratingCardTheme,
+      thresholds: configuration?.ui?.ratingCardThresholds,
+      overrideTagIds: configuration?.ui?.ratingCardOverrideTagIds,
+      disabled: isRatingCardHomePage(),
+    });
+    // CUSTOM: end
+    // CUSTOM: begin - prefer the rendered marker while context query refreshes
+    const markerContext = useMemo(
+      () => toSceneMarkerCardContext(props.marker),
+      [props.marker]
+    );
+    // CUSTOM: end
+
     function zoomIndex() {
       if (!props.compact && props.zoomIndex !== undefined) {
         return `zoom-${props.zoomIndex}`;
@@ -175,7 +457,7 @@ export const SceneMarkerCard = PatchComponent(
 
     return (
       <GridCard
-        className={`scene-marker-card ${zoomIndex()}`}
+        className={cx("scene-marker-card", zoomIndex(), ratingCardClass)} // CUSTOM
         url={NavUtils.makeSceneMarkerUrl(props.marker)}
         title={markerTitle(props.marker)}
         width={props.cardWidth}
@@ -183,8 +465,12 @@ export const SceneMarkerCard = PatchComponent(
         thumbnailSectionClassName="video-section"
         resumeTime={props.marker.seconds}
         image={<SceneMarkerCardImage {...props} />}
-        details={<SceneMarkerCardDetails {...props} />}
-        popovers={<SceneMarkerCardPopovers {...props} />}
+        details={
+          <SceneMarkerCardDetails {...props} markerContext={markerContext} />
+        }
+        popovers={
+          <SceneMarkerCardPopovers {...props} markerContext={markerContext} />
+        }
         selected={props.selected}
         selecting={props.selecting}
         onSelectedChanged={props.onSelectedChanged}

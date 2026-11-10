@@ -25,7 +25,6 @@ import {
 } from "../Shared/ScrapeDialog/ScrapeDialogRow";
 import { ScrapeDialog } from "../Shared/ScrapeDialog/ScrapeDialog";
 import { clone, uniq } from "lodash-es";
-import { RatingSystem } from "src/components/Shared/Rating/RatingSystem";
 import { ModalComponent } from "../Shared/Modal";
 import {
   idToStoredID,
@@ -47,12 +46,17 @@ import {
 } from "../Shared/ScrapeDialog/ScrapedObjectsRow";
 import { Scene, SceneSelect } from "src/components/Scenes/SceneSelect";
 import { StashIDsField } from "../Shared/StashID";
+import {
+  SceneMergeCustomInput,
+  useSceneMergeCustomChoices,
+} from "./SceneMergeCustomRows"; // CUSTOM
 import { PatchComponent } from "src/patch";
 
 type MergeOptions = {
   values: GQL.SceneUpdateInput;
   includeViewHistory: boolean;
   includeOHistory: boolean;
+  custom: SceneMergeCustomInput; // CUSTOM
 };
 
 interface ISceneMergeDetailsProps {
@@ -93,9 +97,6 @@ const SceneMergeDetails: React.FC<ISceneMergeDetailsProps> = ({
     new ScrapeResult<string>(dest.production_date)
   );
 
-  const [rating, setRating] = useState(
-    new ZeroableScrapeResult<number>(dest.rating100)
-  );
   // zero values can be treated as missing for these fields
   const [oCounter, setOCounter] = useState(
     new ScrapeResult<number>(dest.o_counter)
@@ -170,6 +171,8 @@ const SceneMergeDetails: React.FC<ISceneMergeDetailsProps> = ({
   const [customFields, setCustomFields] = useState<CustomFieldScrapeResults>(
     new Map()
   );
+
+  const customChoices = useSceneMergeCustomChoices(dest, sources); // CUSTOM
 
   // calculate the values for everything
   // uses the first set value for single value fields, and combines all
@@ -265,14 +268,6 @@ const SceneMergeDetails: React.FC<ISceneMergeDetailsProps> = ({
       )
     );
 
-    setRating(
-      new ScrapeResult(
-        dest.rating100,
-        sources.find((s) => s.rating100)?.rating100,
-        !dest.rating100
-      )
-    );
-
     setOCounter(
       new ScrapeResult(
         dest.o_counter ?? 0,
@@ -353,13 +348,13 @@ const SceneMergeDetails: React.FC<ISceneMergeDetailsProps> = ({
   const hasValues = useMemo(() => {
     return (
       hasCustomFieldValues ||
+      customChoices.hasValues || // CUSTOM
       hasScrapedValues([
         title,
         code,
         url,
         date,
         productionDate,
-        rating,
         oCounter,
         galleries,
         studio,
@@ -378,7 +373,6 @@ const SceneMergeDetails: React.FC<ISceneMergeDetailsProps> = ({
     url,
     date,
     productionDate,
-    rating,
     oCounter,
     galleries,
     studio,
@@ -390,6 +384,7 @@ const SceneMergeDetails: React.FC<ISceneMergeDetailsProps> = ({
     stashIDs,
     image,
     hasCustomFieldValues,
+    customChoices.hasValues, // CUSTOM
   ]);
 
   function renderScrapeRows() {
@@ -446,14 +441,8 @@ const SceneMergeDetails: React.FC<ISceneMergeDetailsProps> = ({
           result={productionDate}
           onChange={(value) => setProductionDate(value)}
         />
-        <ScrapeDialogRow
-          field="rating"
-          title={intl.formatMessage({ id: "rating" })}
-          result={rating}
-          originalField={<RatingSystem value={rating.originalValue} disabled />}
-          newField={<RatingSystem value={rating.newValue} disabled />}
-          onChange={(value) => setRating(value)}
-        />
+        {/* CUSTOM: rating, StashDB Matches, releases, skip ranges, loop presets */}
+        {customChoices.rows}
         <ScrapeDialogRow
           field="o_count"
           title={intl.formatMessage({ id: "o_count" })}
@@ -654,7 +643,6 @@ const SceneMergeDetails: React.FC<ISceneMergeDetailsProps> = ({
         urls: url.getNewValue(),
         date: date.getNewValue(),
         production_date: productionDate.getNewValue(),
-        rating100: rating.getNewValue(),
         o_counter: oCounter.getNewValue(),
         play_count: playCount.getNewValue(),
         play_duration: playDuration.getNewValue(),
@@ -686,6 +674,7 @@ const SceneMergeDetails: React.FC<ISceneMergeDetailsProps> = ({
       },
       includeViewHistory: playCount.getNewValue() !== undefined,
       includeOHistory: oCounter.getNewValue() !== undefined,
+      custom: customChoices.getInput(), // CUSTOM
     };
   }
 
@@ -774,7 +763,7 @@ export const SceneMergeModal: React.FC<ISceneMergeModalProps> = PatchComponent(
     }
 
     async function onMerge(options: MergeOptions) {
-      const { values, includeViewHistory, includeOHistory } = options;
+      const { values, includeViewHistory, includeOHistory, custom } = options; // CUSTOM
       try {
         setRunning(true);
         const result = await mutateSceneMerge(
@@ -782,7 +771,8 @@ export const SceneMergeModal: React.FC<ISceneMergeModalProps> = PatchComponent(
           sourceScenes.map((s) => s.id),
           values,
           includeViewHistory,
-          includeOHistory
+          includeOHistory,
+          custom // CUSTOM
         );
         if (result.data?.sceneMerge) {
           Toast.success(intl.formatMessage({ id: "toast.merged_scenes" }));

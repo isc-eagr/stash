@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { Accordion, Button, Card } from "react-bootstrap";
 import {
   FormattedMessage,
@@ -12,7 +12,12 @@ import { DeleteFilesDialog } from "src/components/Shared/DeleteFilesDialog";
 import { RevealInFilesystemButton } from "src/components/Shared/RevealInFilesystemButton";
 import { ReassignFilesDialog } from "src/components/Shared/ReassignFilesDialog";
 import * as GQL from "src/core/generated-graphql";
-import { mutateSceneSetPrimaryFile } from "src/core/StashService";
+// CUSTOM: begin - release imports
+import {
+  mutateSceneSetPrimaryFile,
+  useSceneReleaseCreate,
+} from "src/core/StashService";
+// CUSTOM: end
 import { useToast } from "src/hooks/Toast";
 import NavUtils from "src/utils/navigation";
 import TextUtils from "src/utils/text";
@@ -20,6 +25,8 @@ import { TextField, URLField, URLsField } from "src/utils/field";
 import { StashIDPill } from "src/components/Shared/StashID";
 import { PatchComponent } from "../../../patch";
 import { FileSize } from "src/components/Shared/FileSize";
+import { RemotePairing } from "src/components/RemoteO/RemotePairing"; // CUSTOM
+import type { useRemotePlayerCustom } from "src/components/RemoteO/useRemotePlayer_custom"; // CUSTOM
 
 interface IFileInfoPanelProps {
   sceneID: string;
@@ -29,6 +36,7 @@ interface IFileInfoPanelProps {
   onSetPrimaryFile?: () => void;
   onDeleteFile?: () => void;
   onReassign?: () => void;
+  onSplitAsRelease?: () => void; // CUSTOM
   loading?: boolean;
 }
 
@@ -150,6 +158,17 @@ const FileInfoPanel: React.FC<IFileInfoPanelProps> = (
           <Button className="edit-button" onClick={onSplit}>
             <FormattedMessage id="actions.split" />
           </Button>
+          {/* CUSTOM: begin - split as release button */}
+          {props.onSplitAsRelease && (
+            <Button
+              className="edit-button"
+              disabled={props.loading}
+              onClick={props.onSplitAsRelease}
+            >
+              <FormattedMessage id="actions.split_as_release" />
+            </Button>
+          )}
+          {/* CUSTOM: end */}
           <Button
             variant="danger"
             disabled={props.loading}
@@ -165,6 +184,7 @@ const FileInfoPanel: React.FC<IFileInfoPanelProps> = (
 
 interface ISceneFileInfoPanelProps {
   scene: GQL.SceneDataFragment;
+  remotePlayer: ReturnType<typeof useRemotePlayerCustom>; // CUSTOM
 }
 
 const _SceneFileInfoPanel: React.FC<ISceneFileInfoPanelProps> = (
@@ -176,6 +196,32 @@ const _SceneFileInfoPanel: React.FC<ISceneFileInfoPanelProps> = (
   const [deletingFile, setDeletingFile] = useState<GQL.VideoFileDataFragment>();
   const [reassigningFile, setReassigningFile] =
     useState<GQL.VideoFileDataFragment>();
+
+  // CUSTOM: begin - release creation
+  const [createRelease] = useSceneReleaseCreate();
+
+  const onSplitAsRelease = useCallback(
+    async (file: GQL.VideoFileDataFragment) => {
+      try {
+        setLoading(true);
+        await createRelease({
+          variables: {
+            input: {
+              scene_id: props.scene.id,
+              file_ids: [file.id],
+            },
+          },
+        });
+        Toast.success("File split as release");
+      } catch (e) {
+        Toast.error(e);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [createRelease, props.scene.id, Toast]
+  );
+  // CUSTOM: end
 
   function renderStashIDs() {
     if (!props.scene.stash_ids.length) {
@@ -276,6 +322,7 @@ const _SceneFileInfoPanel: React.FC<ISceneFileInfoPanelProps> = (
                   onSetPrimaryFile={() => onSetPrimaryFile(file.id)}
                   onDeleteFile={() => setDeletingFile(file)}
                   onReassign={() => setReassigningFile(file)}
+                  onSplitAsRelease={() => onSplitAsRelease(file)} // CUSTOM
                   loading={loading}
                 />
               </Card.Body>
@@ -284,10 +331,20 @@ const _SceneFileInfoPanel: React.FC<ISceneFileInfoPanelProps> = (
         ))}
       </Accordion>
     );
-  }, [props.scene, loading, Toast, deletingFile, reassigningFile]);
+  }, [
+    props.scene,
+    loading,
+    Toast,
+    deletingFile,
+    reassigningFile,
+    onSplitAsRelease,
+  ]); // CUSTOM: release split callback dependency
 
   return (
     <>
+      <div className="mb-3">
+        <RemotePairing {...props.remotePlayer} />
+      </div>
       <dl className="container scene-file-info details-list">
         {props.scene.files.length > 0 && (
           <URLField

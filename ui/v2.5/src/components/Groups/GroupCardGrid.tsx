@@ -6,6 +6,7 @@ import {
   useContainerDimensions,
 } from "../Shared/GridCard/GridCard";
 import { PatchComponent } from "src/patch";
+import { useCatalogSortMetricValuesCustom } from "../Shared/catalogSortMetricValues_custom"; // CUSTOM
 
 interface IGroupCardGrid {
   groups: GQL.ListGroupDataFragment[];
@@ -14,15 +15,34 @@ interface IGroupCardGrid {
   onSelectChange: (id: string, selected: boolean, shiftKey: boolean) => void;
   fromGroupId?: string;
   onMove?: (srcIds: string[], targetId: string, after: boolean) => void;
+  activeSortBy?: string; // CUSTOM
+  activeSortDirection?: GQL.SortDirectionEnum; // CUSTOM
 }
 
 const zoomWidths = [210, 250, 300, 375];
 
 export const GroupCardGrid: React.FC<IGroupCardGrid> = PatchComponent(
   "GroupCardGrid",
-  ({ groups, selectedIds, zoomIndex, onSelectChange, fromGroupId, onMove }) => {
+  ({
+    groups,
+    selectedIds,
+    zoomIndex,
+    onSelectChange,
+    fromGroupId,
+    onMove,
+    activeSortBy,
+    activeSortDirection,
+  }) => {
     const [componentRef, { width: containerWidth }] = useContainerDimensions();
     const cardWidth = useCardWidth(containerWidth, zoomIndex, zoomWidths);
+    const sortDirection = activeSortDirection ?? GQL.SortDirectionEnum.Asc; // CUSTOM
+    const activeSortValues = useCatalogSortMetricValuesCustom(
+      "group",
+      groups.map((group) => group.id),
+      activeSortBy,
+      sortDirection,
+      fromGroupId
+    ); // CUSTOM
 
     return (
       <div className="row justify-content-center" ref={componentRef}>
@@ -39,6 +59,9 @@ export const GroupCardGrid: React.FC<IGroupCardGrid> = PatchComponent(
             }
             fromGroupId={fromGroupId}
             onMove={onMove}
+            activeSortBy={activeSortBy} // CUSTOM
+            activeSortDirection={sortDirection} // CUSTOM
+            activeSortValue={activeSortValues.get(p.id)} // CUSTOM
           />
         ))}
       </div>

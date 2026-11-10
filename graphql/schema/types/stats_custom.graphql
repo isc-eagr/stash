@@ -1,0 +1,511 @@
+# CUSTOM: All custom Stats fields, types, and queries.
+# This file uses 'extend type' to add fields to the upstream StatsResultType
+# without modifying the upstream stats.graphql file.
+# See CUSTOM_FEATURES.md for documentation.
+
+extend type StatsResultType {
+  sex_scene_count: Int!
+  oral_scene_count: Int!
+  solo_scene_count: Int!
+  facial_scene_count: Int!
+}
+
+"Scene date that a stats date range filters on"
+enum StatsDateField {
+  "The scene's effective release date"
+  RELEASE
+  "When the scene was added to the library"
+  ADDED
+  "When an O was recorded; O counts are limited to the range"
+  O_DATE
+}
+
+"Inclusive YYYY-MM-DD bounds for stats pages; either bound may be omitted"
+input StatsDateRangeInput {
+  from: String
+  to: String
+  "Ignored by O Stats, which always filters by O date"
+  field: StatsDateField = RELEASE
+}
+
+"Count of scene orgasm events grouped by year"
+type SceneOYearCount {
+  year: Int!
+  count: Int!
+}
+
+# CUSTOM: begin
+"Count of scene O events grouped by month within a year"
+type SceneOMonthCount {
+  year: Int!
+  month: Int!
+  count: Int!
+}
+
+"Count of scene O events grouped by day within a month"
+type SceneODayCount {
+  date: String!
+  day: Int!
+  count: Int!
+}
+
+"A single recorded scene O event for the hidden O stats timeline"
+type SceneOEvent {
+  id: ID!
+  scene_id: ID!
+  o_date: String!
+  "Whether this is the earliest dated O recorded for the scene"
+  is_first_for_scene: Boolean!
+  "This O's chronological number within its scene"
+  scene_o_number: Int!
+  video_timestamp: Float
+  "Primary and secondary marker tags associated with the O timestamp"
+  associated_tags: [Tag!]!
+  "The parent scene; release O's count with their scene"
+  scene: Scene!
+  "Set when the O was recorded on one of the scene's releases"
+  release_id: ID
+  "The O screenshot, when the O has a video timestamp"
+  screenshot_path: String
+}
+# CUSTOM: end
+
+"Highest count of scene O events on a single date"
+type SceneODayStat {
+  date: String!
+  count: Int!
+}
+
+"Longest date range between scene O events"
+type SceneODrySpell {
+  days: Int!
+  start_date: String!
+  end_date: String!
+}
+
+# CUSTOM: begin
+"Count of timestamped scene O events grouped by marker tag at that timestamp"
+type SceneOCountByTag {
+  tag_id: ID!
+  tag_name: String!
+  count: Int!
+}
+
+"Count of scene O events grouped by associated vato ethnicity"
+type SceneOCountByEthnicity {
+  ethnicity: String!
+  count: Int!
+}
+
+"Count of scene O events grouped by associated vato country"
+type SceneOCountByCountry {
+  country: String!
+  count: Int!
+}
+
+"Count of scene O events grouped by scene studio"
+type SceneOCountByStudio {
+  studio_id: ID!
+  studio_name: String!
+  count: Int!
+}
+
+"Scene-studio O counts, including O events without a studio"
+type SceneOCountsByStudio {
+  counts: [SceneOCountByStudio!]!
+  unknown_count: Int!
+}
+
+"Count of scene O events grouped by a vato's age at the scene's effective release date"
+type SceneOCountByPerformerAge {
+  age: Int!
+  count: Int!
+}
+
+"Performer-age O counts, including O events without a usable performer age"
+type SceneOCountsByPerformerAge {
+  counts: [SceneOCountByPerformerAge!]!
+  unknown_count: Int!
+}
+
+"Count of scene O events grouped by the scene's effective release year"
+type SceneOCountByReleaseYear {
+  year: Int!
+  count: Int!
+}
+
+"Scene-release-year O counts, including O events without an effective release date"
+type SceneOCountsByReleaseYear {
+  counts: [SceneOCountByReleaseYear!]!
+  unknown_count: Int!
+}
+
+"O events for one scene, with the fields O Stats needs to bucket by rating and metallic tier"
+type SceneOCountByScene {
+  scene_id: ID!
+  title: String
+  screenshot_path: String!
+  rating100: Int
+  tag_ids: [ID!]!
+  has_royal_sapphire_bonus: Boolean!
+  count: Int!
+}
+
+"O events associated with one vato's scenes"
+type SceneOCountByPerformer {
+  performer_id: ID!
+  performer_name: String!
+  image_path: String
+  rating100: Int
+  count: Int!
+}
+
+"Role-family tag IDs for one scene marker; descendant tags roll up to the configured family tag"
+type SceneStatsMarkerTagGroup {
+  tag_ids: [ID!]!
+}
+
+"Compact per-scene data used by the SceneStats page"
+type SceneStatsScene {
+  id: ID!
+  title: String
+  effective_date: String
+  rating100: Int
+  "O events for the scene; limited to the date range when it filters by O date"
+  o_counter: Int!
+  duration: Float!
+  filesize: Float!
+  performer_count: Int!
+  "Distinct performer IDs, so filtered views can count unique vatos"
+  performer_ids: [ID!]!
+  performer_ethnicities: [String!]!
+  performer_countries: [String!]!
+  "Vato ratings in performer_ids order; null when unrated"
+  performer_ratings: [Int]!
+  marker_tag_groups: [SceneStatsMarkerTagGroup!]!
+  tag_ids: [ID!]!
+  primary_width: Int
+  primary_height: Int
+  most_recent_o_date: String
+  has_royal_sapphire_bonus: Boolean!
+  "Organized scenes have their markers and tags filled in; others count as Unknown"
+  organized: Boolean!
+  "StashDB Matches of the scene plus its releases; null when never scraped"
+  stashdb_matches: Int
+  studio_id: ID
+}
+
+"Compact SceneStats dataset returned without per-scene GraphQL relationship resolution"
+type SceneStatsResult {
+  scenes: [SceneStatsScene!]!
+}
+
+"One total-only row in a global, studio, or performer Activity Matrix"
+type SceneStatsActivityMatrixRow {
+  tag_id: ID!
+  tag_name: String!
+  "Direct parents used to render the optional sub-tag tree"
+  parent_tag_ids: [ID!]!
+  duration: Float!
+  marker_count: Int!
+  percent: Float!
+}
+
+"Exact scene-age count for a vato on the Vato Stats page"
+type VatoStatsAgeCount {
+  age_range: String!
+  count: Int!
+}
+
+"Per-vato aggregate row used by the Vato Stats page"
+type VatoStatsPerformer {
+  id: ID!
+  name: String!
+  image_path: String
+  rating100: Int
+  scene_o_count: Int!
+  scene_count: Int!
+  sex_top_count: Int!
+  sex_bottom_count: Int!
+  oral_top_count: Int!
+  oral_bottom_count: Int!
+  solo_scene_count: Int!
+  facial_given_count: Int!
+  facial_received_count: Int!
+  most_recent_o_date: String
+  career_span_days: Int!
+  metallic_rating: String
+  ethnicity: String
+  country: String
+  hair_color: String
+  eye_color: String
+  height_cm: Int
+  penis_length: Float
+  circumcised: String
+  age_counts: [VatoStatsAgeCount!]!
+  unknown_scene_age_count: Int!
+}
+# CUSTOM: end
+
+extend type Query {
+  # CUSTOM: every scene-scoped stats query accepts an optional studio tree and date range.
+  "Get compact per-scene data for the SceneStats dashboard"
+  sceneStats(
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+  ): SceneStatsResult!
+  "Get activity and quality duration stats for SceneStats"
+  sceneStatsActivity(
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+    cohort: StatsCohortInput
+  ): StudioActivityStats!
+  "Get tag activity totals for the global, studio-scoped, or performer-scoped Activity Matrix"
+  sceneStatsActivityMatrix(
+    studio_id: ID
+    depth: Int
+    performer_id: ID
+    include_subtags: Boolean! = false
+    date_range: StatsDateRangeInput
+    cohort: StatsCohortInput
+  ): [SceneStatsActivityMatrixRow!]!
+  "Get scene and performer Rating Advisor averages"
+  globalRatingAdvisorStats(
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+    cohort: StatsCohortInput
+  ): StudioRatingAdvisorStats!
+  "Get scene Rating Advisor averages for scenes containing one performer"
+  performerRatingAdvisorStats(performer_id: ID!): StudioRatingAdvisorStats!
+  # CUSTOM: begin - O Stats queries; date_range always filters by O date.
+  "Get a count of scene orgasm events grouped by year (ascending by year)"
+  sceneOYearCounts(
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+  ): [SceneOYearCount!]!
+  "Get recorded scene O events grouped by month for a year"
+  sceneOMonthCounts(
+    year: Int!
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+  ): [SceneOMonthCount!]!
+  "Get recorded scene O events grouped by day for a year/month"
+  sceneODayCounts(
+    year: Int!
+    month: Int!
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+  ): [SceneODayCount!]!
+  "Get recorded scene O events grouped by day for a whole calendar year"
+  sceneOCalendarDayCounts(
+    year: Int!
+    studio_id: ID
+    depth: Int
+  ): [SceneODayCount!]!
+  "Get recorded scene O events on a date, ordered newest first"
+  sceneOEventsByDate(
+    date: String!
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+  ): [SceneOEvent!]!
+  "Get recorded scene O events covered by a marker tag, ordered newest first"
+  sceneOEventsByTag(
+    tagID: ID!
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+  ): [SceneOEvent!]!
+  "Get the count of recorded scene O events without a timestamp-covered marker tag"
+  sceneOCountWithoutMarkerTags(
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+  ): Int!
+  "Get recorded scene O events without a timestamp-covered marker tag"
+  sceneOEventsWithoutMarkerTags(
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+  ): [SceneOEvent!]!
+  "Get recorded scene O events associated with a vato, ordered newest first"
+  sceneOEventsByPerformer(
+    performerID: ID!
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+  ): [SceneOEvent!]!
+  "Get recorded O events for one scene, ordered newest first"
+  sceneOEventsByScene(
+    sceneID: ID!
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+  ): [SceneOEvent!]!
+  "Get recorded O events for a set of scenes, ordered newest first"
+  sceneOEventsByScenes(
+    sceneIDs: [ID!]!
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+  ): [SceneOEvent!]!
+  "Get O counts for every scene with at least one O, highest first"
+  sceneOCountsByScene(
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+  ): [SceneOCountByScene!]!
+  "Get O counts for every vato whose scenes have at least one O, highest first"
+  sceneOCountsByPerformer(
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+  ): [SceneOCountByPerformer!]!
+  "Get the local date with the highest number of recorded scene O events"
+  mostOsInDay(
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+  ): SceneODayStat
+  "Get the longest local-date period without a recorded scene O event"
+  longestPeriodWithoutO(
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+  ): SceneODrySpell
+  "Get timestamped scene O events grouped by marker primary and secondary tags covering the O timestamp"
+  sceneOCountsByTag(
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+  ): [SceneOCountByTag!]!
+  "Get scene O events grouped by associated vato ethnicity"
+  sceneOCountsByEthnicity(
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+  ): [SceneOCountByEthnicity!]!
+  "Get recorded scene O events associated with a vato ethnicity"
+  sceneOEventsByEthnicity(
+    ethnicity: String!
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+  ): [SceneOEvent!]!
+  "Get scene O events grouped by associated vato country"
+  sceneOCountsByCountry(
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+  ): [SceneOCountByCountry!]!
+  "Get recorded scene O events associated with a vato country"
+  sceneOEventsByCountry(
+    country: String!
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+  ): [SceneOEvent!]!
+  "Get scene O events grouped by scene studio"
+  sceneOCountsByStudio(
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+  ): SceneOCountsByStudio!
+  "Get recorded scene O events for a scene studio"
+  sceneOEventsByStudio(
+    studioID: ID!
+    scope_studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+  ): [SceneOEvent!]!
+  "Get recorded scene O events whose scene has no studio"
+  sceneOEventsWithUnknownStudio(
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+  ): [SceneOEvent!]!
+  "Get scene O events grouped by performer age at the scene's effective release date"
+  sceneOCountsByPerformerAge(
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+  ): SceneOCountsByPerformerAge!
+  "Get recorded scene O events associated with a performer age at the scene's effective release date"
+  sceneOEventsByPerformerAge(
+    age: Int!
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+  ): [SceneOEvent!]!
+  "Get scene O events without a usable performer age at the scene's effective release date"
+  sceneOEventsWithUnknownPerformerAge(
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+  ): [SceneOEvent!]!
+  "Get scene O events grouped by the scene's effective release year"
+  sceneOCountsByReleaseYear(
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+  ): SceneOCountsByReleaseYear!
+  "Get recorded scene O events for a scene effective release year"
+  sceneOEventsByReleaseYear(
+    year: Int!
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+  ): [SceneOEvent!]!
+  "Get scene O events without an effective release date"
+  sceneOEventsWithUnknownReleaseYear(
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+  ): [SceneOEvent!]!
+  "Get the count of recorded O events whose date predates reliable O-date tracking"
+  sceneOUnreliableDateCount(
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+  ): Int!
+  "Get recorded O events whose date predates reliable O-date tracking"
+  sceneOEventsBeforeTrackingStart(
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+  ): [SceneOEvent!]!
+  # CUSTOM: end
+  "Get per-vato aggregate data for the Vato Stats page"
+  vatoStatsPerformers(
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+  ): [VatoStatsPerformer!]!
+  "Get total time (in seconds) of completed sex activity markers."
+  totalSexTime(
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+    cohort: StatsCohortInput
+  ): Float!
+  "Get total time (in seconds) of completed oral activity markers."
+  totalOralTime(
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+    cohort: StatsCohortInput
+  ): Float!
+  "Get total time (in seconds) of completed solo activity markers."
+  totalSoloTime(
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+    cohort: StatsCohortInput
+  ): Float!
+}

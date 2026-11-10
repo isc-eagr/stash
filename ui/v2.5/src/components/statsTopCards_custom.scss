@@ -1,0 +1,280 @@
+/* CUSTOM: ranked cards for every stats page, in the shared Black Steel
+   stats tokens (see statsBarChart_custom.scss). */
+.stats-top {
+  background: var(--stats-surface);
+  border: 1px solid var(--stats-border);
+  border-radius: var(--app-panel-radius);
+  color: var(--stats-text);
+  margin-bottom: 1.5rem;
+  padding: 1.25rem;
+}
+
+.stats-top-heading {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.stats-top-title {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  min-width: 0;
+
+  h2 {
+    font-size: 1.25rem;
+    font-weight: 800;
+    line-height: 1.2;
+    margin: 0;
+  }
+}
+
+.stats-top-note,
+.stats-top-count {
+  color: var(--stats-muted);
+  font-size: 0.8rem;
+}
+
+.stats-top-empty {
+  align-items: center;
+  color: var(--stats-muted);
+  display: flex;
+  min-height: 5rem;
+}
+
+/* Five cards per row on desktop, fewer as the page narrows. */
+.stats-top-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+@media (max-width: 1100px) {
+  .stats-top-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .stats-top-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.stats-top-card {
+  color: var(--stats-text);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  height: 100%;
+  text-decoration: none;
+
+  &:hover,
+  &:focus-visible {
+    color: #fff;
+    text-decoration: none;
+
+    .stats-top-image {
+      border-color: var(--stats-accent);
+    }
+
+    img {
+      filter: brightness(1.08);
+    }
+  }
+}
+
+.stats-top-image {
+  aspect-ratio: 16 / 9;
+  background: var(--stats-surface-raised);
+  border: 1px solid var(--stats-border);
+  border-radius: 10px;
+  display: block;
+  overflow: hidden;
+  position: relative;
+
+  img {
+    display: block;
+    height: 100%;
+    object-fit: cover;
+    width: 100%;
+  }
+}
+
+.stats-top--vato .stats-top-image {
+  aspect-ratio: 3 / 4;
+
+  img {
+    object-position: top;
+  }
+}
+
+/* The rating star sits top-right; the rank stays top-left. */
+.stats-top-image .rating-banner.rating-banner-compact {
+  left: auto;
+  position: absolute;
+  right: 0.45rem;
+  top: 0.45rem;
+  z-index: 1;
+}
+
+.stats-top-rank,
+.stats-top-table-rank {
+  align-items: center;
+  background: var(--stats-text);
+  border-radius: 8px;
+  color: #101317;
+  display: flex;
+  font-size: 0.85rem;
+  font-weight: 800;
+  height: 1.75rem;
+  justify-content: center;
+  min-width: 1.75rem;
+  padding: 0 0.4rem;
+
+  &.rank-1 {
+    background: #d4a93a;
+  }
+
+  &.rank-2 {
+    background: #b9c2cc;
+  }
+
+  &.rank-3 {
+    background: #b07a4f;
+  }
+}
+
+.stats-top-rank {
+  left: 0.5rem;
+  position: absolute;
+  top: 0.5rem;
+}
+
+.stats-top-value {
+  background: rgba(5, 6, 7, 0.85);
+  border-radius: 6px;
+  bottom: 0.5rem;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  position: absolute;
+  right: 0.5rem;
+}
+
+.stats-top-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.stats-top-meta {
+  color: var(--stats-muted);
+  font-size: 0.78rem;
+}
+
+/* Table view: the same ranking as rows. */
+.stats-top-table {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  li + li {
+    border-top: 1px solid var(--stats-border);
+  }
+}
+
+.stats-top-table-row {
+  align-items: center;
+  color: var(--stats-text);
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: 2rem 6.5rem minmax(0, 1fr) auto;
+  min-height: 4.25rem;
+  padding: 0.4rem 0.25rem;
+  text-decoration: none;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--stats-surface-raised);
+    color: #fff;
+    text-decoration: none;
+  }
+}
+
+.stats-top-table-image {
+  aspect-ratio: 16 / 9;
+  background: var(--stats-surface-raised);
+  border-radius: 6px;
+  overflow: hidden;
+
+  img {
+    display: block;
+    height: 100%;
+    object-fit: cover;
+    width: 100%;
+  }
+}
+
+.stats-top--vato .stats-top-table-row {
+  grid-template-columns: 2rem 3rem minmax(0, 1fr) auto;
+}
+
+.stats-top--vato .stats-top-table-image {
+  aspect-ratio: 3 / 4;
+
+  img {
+    object-position: top;
+  }
+}
+
+.stats-top-table-name,
+.stats-top-table-value {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+
+  span {
+    color: var(--stats-muted);
+    font-size: 0.78rem;
+  }
+}
+
+.stats-top-table-name strong {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.stats-top-table-value {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.stats-top-more {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+@media (max-width: 520px) {
+  .stats-top-table-row {
+    grid-template-columns: 1.75rem 4.5rem minmax(0, 1fr);
+  }
+
+  .stats-top-table-value {
+    align-items: flex-start;
+    grid-column: 3;
+    text-align: left;
+  }
+}

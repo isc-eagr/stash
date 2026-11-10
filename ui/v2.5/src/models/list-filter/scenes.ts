@@ -5,7 +5,14 @@ import {
   createDateCriterionOption,
   createMandatoryTimestampCriterionOption,
   createDurationCriterionOption,
+  ModifierCriterionOption, // CUSTOM
+  StringBooleanCriterionOption, // CUSTOM
+  StringBooleanCriterion, // CUSTOM
+  createNumberCriterionOption, // CUSTOM
 } from "./criteria/criterion";
+import { CountryCriterion } from "./criteria/country"; // CUSTOM
+import { InsightChipCriterionOption } from "./criteria/insight-chip_custom"; // CUSTOM
+import { CriterionModifier } from "src/core/generated-graphql"; // CUSTOM
 import { HasMarkersCriterionOption } from "./criteria/has-markers";
 import { SceneIsMissingCriterionOption } from "./criteria/is-missing";
 import {
@@ -23,6 +30,8 @@ import {
   // StudioTagsCriterionOption,
   TagsCriterionOption,
 } from "./criteria/tags";
+import { SceneMarkersCriterionOption } from "./criteria/scene-markers"; // CUSTOM
+import { SceneMarkersExcludeCriterionOption } from "./criteria/scene-markers-exclude"; // CUSTOM
 import { ListFilterOptions, MediaSortByOptions } from "./filter-options";
 import { DisplayMode } from "./types";
 import {
@@ -32,17 +41,43 @@ import {
 import { PerformerFavoriteCriterionOption } from "./criteria/favorite";
 import { CaptionsCriterionOption } from "./criteria/captions";
 import { StashIDCriterionOption } from "./criteria/stash-ids";
-import { RatingCriterionOption } from "./criteria/rating";
+import {
+  RatingCriterionOption,
+  PerformerRatingCriterionOption, // CUSTOM
+} from "./criteria/rating";
+import { MetallicRatingCriterionOption } from "./criteria/metallic-rating_custom"; // CUSTOM
+import { SceneRatingCriteriaCriterionOption } from "./criteria/rating-criteria_custom"; // CUSTOM
 import { PathCriterionOption } from "./criteria/path";
 import { OrientationCriterionOption } from "./criteria/orientation";
 import { CustomFieldsCriterionOption } from "./criteria/custom-fields";
 import { FolderCriterionOption } from "./criteria/folder";
+import { EthnicityCriterionOption } from "./criteria/ethnicity"; // CUSTOM
+import { SceneCustomFiltersCriterionOption } from "./criteria/custom-filters"; // CUSTOM
+import { SceneSceneTypeCriterionOption } from "./criteria/scene-type"; // CUSTOM
+import { ActivityTypeCriterionOptionInstance } from "./criteria/activity-type_custom"; // CUSTOM
+import { QualityTypeCriterionOptionInstance } from "./criteria/quality-type_custom"; // CUSTOM
+
+// CUSTOM: begin - Has Marker Performers criterion option
+const HasMarkerPerformersCriterionOption = new StringBooleanCriterionOption(
+  "has_marker_performers",
+  "has_marker_performers",
+  () => new HasMarkerPerformersCriterion()
+);
+
+class HasMarkerPerformersCriterion extends StringBooleanCriterion {
+  constructor() {
+    super(HasMarkerPerformersCriterionOption);
+  }
+}
+// CUSTOM: end
 
 const defaultSortBy = "date";
 const sortByOptions = [
   "organized",
   "date",
   "production_date",
+  "effective_date", // CUSTOM
+  "stashdb_matches", // CUSTOM
   "file_count",
   "duration",
   "framerate",
@@ -83,6 +118,74 @@ const sortByOptions = [
       messageID: "scene_code",
       value: "code",
     },
+    {
+      messageID: "goat_element_bonus",
+      value: "goat_element_bonus",
+    }, // CUSTOM
+    // CUSTOM: begin - activity percentage sorts
+    {
+      messageID: "sex_activity_percent",
+      value: "sex_activity_percent",
+    },
+    {
+      messageID: "oral_activity_percent",
+      value: "oral_activity_percent",
+    },
+    {
+      messageID: "solo_activity_percent",
+      value: "solo_activity_percent",
+    },
+    {
+      messageID: "outstanding_activity_percent",
+      value: "outstanding_activity_percent",
+    },
+    {
+      messageID: "standard_activity_percent",
+      value: "standard_activity_percent",
+    },
+    {
+      messageID: "unclassified_activity_percent",
+      value: "unclassified_activity_percent",
+    },
+    {
+      messageID: "unusable_activity_percent",
+      value: "unusable_activity_percent",
+    },
+    // CUSTOM: end
+    // CUSTOM: begin - marker count sorts
+    {
+      messageID: "orgasm_count",
+      value: "orgasm_count",
+    },
+    {
+      messageID: "regular_orgasm_count",
+      value: "regular_orgasm_count",
+    },
+    {
+      messageID: "goat_orgasm_count",
+      value: "goat_orgasm_count",
+    },
+    {
+      messageID: "regular_facial_count",
+      value: "regular_facial_count",
+    },
+    {
+      messageID: "goat_facial_count",
+      value: "goat_facial_count",
+    },
+    {
+      messageID: "really_hot_orgasm_count",
+      value: "really_hot_orgasm_count",
+    },
+    {
+      messageID: "facial_count",
+      value: "facial_count",
+    },
+    {
+      messageID: "really_hot_facial_count",
+      value: "really_hot_facial_count",
+    },
+    // CUSTOM: end
   ]);
 const displayModeOptions = [
   DisplayMode.Grid,
@@ -98,6 +201,7 @@ export const DurationCriterionOption =
   createDurationCriterionOption("duration");
 
 const criterionOptions = [
+  InsightChipCriterionOption, // CUSTOM: linked coverage snapshots.
   createStringCriterionOption("title"),
   createStringCriterionOption("code", "scene_code"),
   PathCriterionOption,
@@ -110,6 +214,8 @@ const criterionOptions = [
   DuplicatedCriterionOption,
   OrganizedCriterionOption,
   RatingCriterionOption,
+  MetallicRatingCriterionOption, // CUSTOM
+  SceneRatingCriteriaCriterionOption, // CUSTOM
   createMandatoryNumberCriterionOption("o_counter", "o_count", {
     sfwMessageID: "o_count_sfw",
   }),
@@ -125,6 +231,11 @@ const criterionOptions = [
   createMandatoryNumberCriterionOption("play_count"),
   createMandatoryTimestampCriterionOption("last_played_at"),
   HasMarkersCriterionOption,
+  HasMarkerPerformersCriterionOption, // CUSTOM
+  SceneCustomFiltersCriterionOption, // CUSTOM
+  SceneSceneTypeCriterionOption, // CUSTOM
+  ActivityTypeCriterionOptionInstance, // CUSTOM
+  QualityTypeCriterionOptionInstance, // CUSTOM
   SceneIsMissingCriterionOption,
   TagsCriterionOption,
   createMandatoryNumberCriterionOption("tag_count"),
@@ -133,6 +244,31 @@ const criterionOptions = [
   createMandatoryNumberCriterionOption("performer_count"),
   PerformerAgeCriterionOption,
   PerformerFavoriteCriterionOption,
+  // CUSTOM: begin
+  EthnicityCriterionOption,
+  // Specialized country criterion using multi-select editor
+  new ModifierCriterionOption({
+    messageID: "performer_country",
+    type: "performer_country",
+    modifierOptions: [
+      // IS
+      CriterionModifier.Equals,
+      // IS NOT
+      CriterionModifier.NotEquals,
+      // INCLUDES (any one)
+      CriterionModifier.Includes,
+      // INCLUDES ALL (at least one from each selected country)
+      CriterionModifier.IncludesAll,
+    ],
+    defaultModifier: CriterionModifier.Equals,
+    inputType: "text",
+    makeCriterion: (o) =>
+      new CountryCriterion(o as unknown as ModifierCriterionOption),
+  }),
+  PerformerRatingCriterionOption,
+  SceneMarkersCriterionOption,
+  SceneMarkersExcludeCriterionOption,
+  // CUSTOM: end
   // StudioTagsCriterionOption,
   StudiosCriterionOption,
   GroupsCriterionOption,
@@ -141,12 +277,15 @@ const criterionOptions = [
   createStringCriterionOption("url"),
   StashIDCriterionOption,
   createMandatoryNumberCriterionOption("stash_id_count"),
+  createNumberCriterionOption("stashdb_matches"), // CUSTOM: null = never scraped
   InteractiveCriterionOption,
   CaptionsCriterionOption,
   createMandatoryNumberCriterionOption("interactive_speed"),
   createMandatoryNumberCriterionOption("file_count"),
+  createMandatoryNumberCriterionOption("release_count"), // CUSTOM
   createDateCriterionOption("date"),
   createDateCriterionOption("production_date"),
+  createDateCriterionOption("effective_date"), // CUSTOM
   createMandatoryTimestampCriterionOption("created_at"),
   createMandatoryTimestampCriterionOption("updated_at"),
   CustomFieldsCriterionOption,

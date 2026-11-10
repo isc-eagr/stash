@@ -138,7 +138,7 @@ func Initialize() (*Server, error) {
 		r.Use(httplog.RequestLogger(httpLogger))
 	}
 	r.Use(SecurityHeadersMiddleware)
-	r.Use(middleware.Compress(4))
+	r.Use(customCompressMiddleware()) // CUSTOM: compress GraphQL response MIME type
 	r.Use(middleware.StripSlashes)
 	r.Use(BaseURLMiddleware)
 
@@ -214,6 +214,8 @@ func Initialize() (*Server, error) {
 
 	r.Mount("/performer", server.getPerformerRoutes())
 	r.Mount("/scene", server.getSceneRoutes())
+	r.Mount("/scene-release", server.getSceneReleaseRoutes())  // CUSTOM: scene release routes
+	r.Mount("/gevi-latest-data", server.getGEVILatestRoutes()) // CUSTOM: GEVI latest scenes/vatos API
 	r.Mount("/gallery", server.getGalleryRoutes())
 	r.Mount("/image", server.getImageRoutes())
 	r.Mount("/studio", server.getStudioRoutes())
@@ -350,9 +352,11 @@ func (s *Server) Shutdown() {
 func (s *Server) getPerformerRoutes() chi.Router {
 	repo := s.manager.Repository
 	return performerRoutes{
-		routes:          routes{txnManager: repo.TxnManager},
-		performerFinder: repo.Performer,
-		sfwConfig:       s.manager.Config,
+		routes:               routes{txnManager: repo.TxnManager},
+		performerFinder:      repo.Performer,
+		performerImageFinder: repo.PerformerImage, // CUSTOM: performer additional images
+		blobStore:            repo.Blobs,          // CUSTOM: performer additional images
+		sfwConfig:            s.manager.Config,
 	}.Routes()
 }
 
@@ -367,6 +371,8 @@ func (s *Server) getSceneRoutes() chi.Router {
 		tagFinder:         repo.Tag,
 	}.Routes()
 }
+
+// CUSTOM: getSceneReleaseRoutes is in server_custom.go
 
 func (s *Server) getGalleryRoutes() chi.Router {
 	repo := s.manager.Repository

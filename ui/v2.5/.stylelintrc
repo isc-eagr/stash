@@ -45,7 +45,7 @@
     ],
     "selector-max-id": 1,
     "selector-max-type": 2,
-    "selector-class-pattern": "^(\\.*[A-Z]*[a-z]+)+(-[a-z0-9]+)*$",
+    "selector-class-pattern": "^(\\.*[A-Z]*[a-z]+)+((--|__|-)[a-z0-9]+)*$",
     "selector-max-universal": 0,
     "selector-type-case": "lower",
     "selector-pseudo-element-colon-notation": "double",

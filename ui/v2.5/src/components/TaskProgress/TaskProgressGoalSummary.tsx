@@ -1,0 +1,110 @@
+import React from "react";
+import type { ITaskProgressHistoryEntry } from "../taskProgress_custom";
+import { taskProgressCurrentGoalPeriods } from "../taskProgress_custom";
+import {
+  showTaskProgressCurrentPeriods,
+  useTaskProgressReportingDate,
+} from "./taskProgressCompletion_custom";
+import { TaskProgressItemsDelta } from "./TaskProgressDelta";
+import type {
+  ITaskProgressPeriodComparison,
+  TaskProgressComparisonPeriod,
+} from "./taskProgressReports_custom";
+import {
+  taskProgressDailyGoalState,
+  useProgressText,
+} from "./progressView_custom";
+
+interface IProps {
+  currentGoalPerDay?: number | null;
+  status?: string;
+  history: readonly ITaskProgressHistoryEntry[];
+  compact?: boolean;
+  /** Adds each period's completed-items change against the previous period. */
+  comparisons?: Record<
+    TaskProgressComparisonPeriod,
+    ITaskProgressPeriodComparison
+  >;
+}
+
+export const TaskProgressGoalSummary: React.FC<IProps> = ({
+  currentGoalPerDay,
+  status,
+  history,
+  compact = false,
+  comparisons,
+}) => {
+  const t = useProgressText();
+  const today = useTaskProgressReportingDate();
+  const goals = taskProgressCurrentGoalPeriods(
+    history,
+    currentGoalPerDay,
+    today
+  );
+  const periods = [
+    { key: "day", label: t("Today") },
+    { key: "week", label: t("This week") },
+    { key: "month", label: t("This month") },
+  ] as const;
+  const hasDailyGoal = (currentGoalPerDay ?? 0) > 0;
+  if (!showTaskProgressCurrentPeriods(status, history, today)) return null;
+
+  return (
+    <section
+      aria-label={t(hasDailyGoal ? "Goal progress" : "Completed items")}
+      className={`progress-goal-summary${
+        compact ? " progress-goal-summary-compact" : ""
+      }`}
+    >
+      {periods.map(({ key, label }) => {
+        const goal = goals[key];
+        const state = hasDailyGoal
+          ? taskProgressDailyGoalState(goal.completed, goal.goal)
+          : goal.completed > 0
+            ? "green"
+            : "neutral"; // CUSTOM: Empty periods use the default white text color.
+        const percentage =
+          goal.goal > 0 ? Math.min(100, (goal.completed / goal.goal) * 100) : 0;
+        const completed = Math.round(goal.completed);
+        const progress = hasDailyGoal
+          ? `${completed} / ${Math.round(goal.goal)}`
+          : completed;
+        const values = (
+          <span className="progress-goal-period-values">
+            {compact ? <small>{progress}</small> : <strong>{progress}</strong>}
+          </span>
+        );
+        return (
+          <div
+            className={`progress-goal-period progress-goal-period-${key} progress-goal-period-${state}`}
+            key={key}
+          >
+            {compact ? (
+              <span>
+                <strong>{label}</strong>
+                {values}
+              </span>
+            ) : (
+              <div className="progress-goal-period-heading">
+                <span className="progress-goal-period-label">{label}</span>
+                {values}
+              </div>
+            )}
+            {hasDailyGoal && (
+              <span aria-hidden="true" className="progress-goal-meter">
+                <span style={{ width: `${percentage}%` }} />
+              </span>
+            )}
+            {comparisons && (
+              <TaskProgressItemsDelta
+                current={comparisons[key].current.completed}
+                previous={comparisons[key].previous.completed}
+                label={comparisons[key].label}
+              />
+            )}
+          </div>
+        );
+      })}
+    </section>
+  );
+};

@@ -15,7 +15,9 @@
       "!src/pluginApi.d.ts",
       "!src/@types/videojs-vr.d.ts",
       "!src/locales/*.json",
-      "!public/*.svg"
+      "!public/*.svg",
+      // CUSTOM: icon assets keep their XML prolog
+      "!src/assets/*.svg"
     ]
   },
   "formatter": {
@@ -68,6 +70,15 @@
       "trailingCommas": "es5"
     }
   },
+  // CUSTOM: test fakes stand in for browser and video.js objects
+  "overrides": [
+    {
+      "includes": ["tests/**"],
+      "linter": {
+        "rules": { "suspicious": { "noExplicitAny": "off" } }
+      }
+    }
+  ],
   "assist": {
     "enabled": true,
     "actions": { "source": { "organizeImports": "off" } }

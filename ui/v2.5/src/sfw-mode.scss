@@ -7,13 +7,11 @@
     [data-value="ethnicity"],
     [data-value="hair_color"],
     [data-value="eye_color"],
-    [data-value="measurements"],
     [data-value="weight"],
     [data-value="weight_kg"],
     [data-value="penis_length"],
     [data-value="penis_length_cm"],
-    [data-value="circumcised"],
-    [data-value="fake_tits"] {
+    [data-value="circumcised"] {
       display: none;
     }
   }
@@ -25,11 +23,9 @@
       &.hair_color,
       &.eye_color,
       &.height,
-      &.measurements,
       &.weight_kg,
       &.penis_length_cm,
-      &.circumcised,
-      &.fake_tits {
+      &.circumcised {
         &-head,
         &-data {
           display: none;
@@ -43,11 +39,9 @@
     [data-field="ethnicity"],
     [data-field="hair_color"],
     [data-field="eye_color"],
-    [data-field="measurements"],
     [data-field="weight"],
     [data-field="penis_length"],
     [data-field="circumcised"],
-    [data-field="fake_tits"],
     [data-field="tattoos"],
     [data-field="piercings"] {
       display: none;
@@ -58,11 +52,9 @@
     [data-type="ethnicity"],
     [data-type="hair_color"],
     [data-type="eye_color"],
-    [data-type="measurements"],
     [data-type="weight"],
     [data-type="penis_length"],
     [data-type="circumcised"],
-    [data-type="fake_tits"],
     [data-type="tattoos"],
     [data-type="piercings"] {
       display: none;
@@ -73,11 +65,9 @@
     .detail-item.ethnicity,
     .detail-item.hair_color,
     .detail-item.eye_color,
-    .detail-item.measurements,
     .detail-item.weight,
     .detail-item.penis_length,
     .detail-item.circumcised,
-    .detail-item.fake_tits,
     .detail-item.tattoos,
     .detail-item.piercings {
       display: none;

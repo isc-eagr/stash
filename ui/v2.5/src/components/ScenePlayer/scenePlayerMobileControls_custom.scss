@@ -1,0 +1,76 @@
+// Compact mobile controls into one row, with wrapping for extra optional controls.
+@media (max-width: 768px), (pointer: coarse) and (max-height: 576px) {
+  .VideoPlayer .video-js .vjs-control-bar {
+    align-items: center;
+    flex-wrap: wrap;
+    height: auto;
+    min-height: 44px;
+    padding: 0 4px 4px;
+    z-index: 2;
+
+    .vjs-control,
+    > .vjs-button {
+      flex: 0 0 auto;
+      height: 44px;
+      width: clamp(24px, 8vw, 44px);
+    }
+
+    .vjs-progress-control {
+      bottom: 100%;
+      height: 24px;
+      left: 0;
+      width: 100%;
+    }
+
+    .vjs-time-control {
+      line-height: 44px;
+      margin: 0;
+      min-width: 0;
+      padding: 0 2px;
+      width: auto;
+    }
+
+    .vjs-duration {
+      margin-right: auto;
+    }
+
+    .vjs-playback-rate,
+    .vjs-skip-button {
+      display: none;
+    }
+
+    .vjs-fullscreen-control {
+      order: -2;
+    }
+
+    .vjs-negative-marker-skip-btn {
+      margin-right: 0;
+    }
+
+    .vjs-multi-segment-loop-control {
+      display: flex;
+      flex: none;
+      gap: 0;
+      justify-content: flex-start;
+      padding: 0;
+      width: auto;
+    }
+
+    .vjs-multi-segment-loop-btn {
+      align-items: center;
+      display: flex;
+      flex: none;
+      height: 44px;
+      justify-content: center;
+      padding: 0;
+      width: clamp(24px, 8vw, 44px);
+
+      .fa-icon {
+        flex: none;
+        height: 22px;
+        margin: 0;
+        width: 22px;
+      }
+    }
+  }
+}

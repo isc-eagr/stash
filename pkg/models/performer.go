@@ -109,9 +109,10 @@ type CircumcisionCriterionInput struct {
 
 type PerformerFilterType struct {
 	OperatorFilter[PerformerFilterType]
-	Name           *StringCriterionInput `json:"name"`
-	Disambiguation *StringCriterionInput `json:"disambiguation"`
-	Details        *StringCriterionInput `json:"details"`
+	InsightPerformerIDs []string              `json:"insight_performer_ids"` // CUSTOM: Playground tier drilldown snapshot.
+	Name                *StringCriterionInput `json:"name"`
+	Disambiguation      *StringCriterionInput `json:"disambiguation"`
+	Details             *StringCriterionInput `json:"details"`
 	// Filter by favorite
 	FilterFavorites *bool `json:"filter_favorites"`
 	// Filter by birth year
@@ -162,6 +163,8 @@ type PerformerFilterType struct {
 	MarkerCount *IntCriterionInput `json:"marker_count"`
 	// Filter by image count
 	ImageCount *IntCriterionInput `json:"image_count"`
+	// Filter by profile image count (default performer image + additional performer images)
+	ProfileImageCount *IntCriterionInput `json:"profile_image_count"` // CUSTOM
 	// Filter by gallery count
 	GalleryCount *IntCriterionInput `json:"gallery_count"`
 	// Filter by play count
@@ -176,6 +179,19 @@ type PerformerFilterType struct {
 	StashIDsEndpoint *StashIDsCriterionInput `json:"stash_ids_endpoint"`
 	// Filter by rating expressed as 1-100
 	Rating100 *IntCriterionInput `json:"rating100"`
+	// Filter by metallic card style after rating thresholds and tag overrides
+	MetallicRating *MultiCriterionInput `json:"metallic_rating"` // CUSTOM
+	// Filter by stored rating criteria, bonuses, and penalties
+	RatingCriteria *RatingCriteriaFilterInput `json:"rating_criteria"` // CUSTOM
+	// Filter by configured activity percentages
+	ActivityPercentages       *PerformerActivityPercentFilterInput `json:"activity_percentages"`         // CUSTOM
+	SexActivityPercent        *IntCriterionInput                   `json:"sex_activity_percent"`         // CUSTOM
+	OralActivityPercent       *IntCriterionInput                   `json:"oral_activity_percent"`        // CUSTOM
+	SoloActivityPercent       *IntCriterionInput                   `json:"solo_activity_percent"`        // CUSTOM
+	SexTopActivityPercent     *IntCriterionInput                   `json:"sex_top_activity_percent"`     // CUSTOM
+	SexBottomActivityPercent  *IntCriterionInput                   `json:"sex_bottom_activity_percent"`  // CUSTOM
+	OralTopActivityPercent    *IntCriterionInput                   `json:"oral_top_activity_percent"`    // CUSTOM
+	OralBottomActivityPercent *IntCriterionInput                   `json:"oral_bottom_activity_percent"` // CUSTOM
 	// Filter by url
 	URL *StringCriterionInput `json:"url"`
 	// Filter by hair color
@@ -198,6 +214,14 @@ type PerformerFilterType struct {
 	DeathDate *DateCriterionInput `json:"death_date"`
 	// Filter by related scenes that meet this criteria
 	ScenesFilter *SceneFilterType `json:"scenes_filter"`
+	// CUSTOM: begin
+	// Filter to only include performers that have scene markers where they are top/bottom
+	HasMarkers *string `json:"has_markers"`
+	// Filter by partner counts (topped/bottomed/unique × sex/oral/facial)
+	Partners *PerformerPartnersFilterInput `json:"partners"`
+	// Filter by scene type based on marker tags
+	SceneType *SceneTypeFilterInput `json:"scene_type"`
+	// CUSTOM: end
 	// Filter by related images that meet this criteria
 	ImagesFilter *ImageFilterType `json:"images_filter"`
 	// Filter by related galleries that meet this criteria
@@ -213,7 +237,64 @@ type PerformerFilterType struct {
 
 	// Filter by custom fields
 	CustomFields []CustomFieldCriterionInput `json:"custom_fields"`
+
+	// CUSTOM: begin
+	// Filter by scene marker participation with tag + role + partner attributes
+	PerformerMarkers *PerformerMarkersCriterionInput `json:"performer_markers"`
 }
+
+// PerformerPartnersFilterInput filters performers by partner counts across role/category combinations.
+// Metrics within a row are combined with that row's operator (AND/OR). Rows are always AND-ed.
+type PerformerPartnersFilterInput struct { // CUSTOM: begin
+	SexTopped        *IntCriterionInput `json:"sex_topped"`
+	OralTopped       *IntCriterionInput `json:"oral_topped"`
+	FacialTopped     *IntCriterionInput `json:"facial_topped"`
+	ToppedOperator   *string            `json:"topped_operator"` // "AND" (default) or "OR"
+	SexBottomed      *IntCriterionInput `json:"sex_bottomed"`
+	OralBottomed     *IntCriterionInput `json:"oral_bottomed"`
+	FacialBottomed   *IntCriterionInput `json:"facial_bottomed"`
+	BottomedOperator *string            `json:"bottomed_operator"` // "AND" (default) or "OR"
+	SexUnique        *IntCriterionInput `json:"sex_unique"`
+	OralUnique       *IntCriterionInput `json:"oral_unique"`
+	FacialUnique     *IntCriterionInput `json:"facial_unique"`
+	UniqueOperator   *string            `json:"unique_operator"` // "AND" (default) or "OR"
+} // CUSTOM: end
+
+// PerformerMarkersCriterionInput filters performers by their scene marker participation
+type PerformerMarkersCriterionInput struct {
+	// Conditions that must all be satisfied (performer must have markers matching ALL of these)
+	Include []PerformerMarkerConditionInput `json:"include"`
+	// Conditions that must not be satisfied (performer must NOT have markers matching ANY of these)
+	Exclude []PerformerMarkerConditionInput `json:"exclude"`
+}
+
+// PerformerMarkerConditionInput defines a single condition for performer marker filtering
+type PerformerMarkerConditionInput struct {
+	// Tag IDs to match on the marker (marker must have at least one of these tags)
+	TagIDs []string `json:"tag_ids"`
+	// Depth for hierarchical tag matching (0 = exact tags only, -1 = all sub-tags, positive = depth limit)
+	Depth *int `json:"depth"`
+	// This performer's role on the marker: "top", "bottom", or "any" (default: "any")
+	Role *string `json:"role"`
+	// Filter by the performer's own ethnicities (OR match)
+	SelfEthnicities []string `json:"self_ethnicities"`
+	// Filter by the performer's own countries (OR match)
+	SelfCountries []string `json:"self_countries"`
+	// Filter by the performer's own rating criterion
+	SelfRating *IntCriterionInput `json:"self_rating"`
+	// Specific partner performer IDs to filter by (OR match - must have marker with one of these partners)
+	PartnerPerformerIDs []string `json:"partner_performer_ids"`
+	// Partner's role on the marker: "top", "bottom", or "any" (default: "any")
+	PartnerRole *string `json:"partner_role"`
+	// Partner's ethnicities to filter by (OR match)
+	PartnerEthnicities []string `json:"partner_ethnicities"`
+	// Partner's countries to filter by (OR match)
+	PartnerCountries []string `json:"partner_countries"`
+	// Partner's rating criterion
+	PartnerRating *IntCriterionInput `json:"partner_rating"`
+}
+
+// CUSTOM: end
 
 type PerformerCreateInput struct {
 	Name           string           `json:"name"`

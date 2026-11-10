@@ -6,12 +6,20 @@ import {
   useContainerDimensions,
 } from "../Shared/GridCard/GridCard";
 import { PatchComponent } from "src/patch";
+import { useSceneMarkerCardContextMap } from "./sceneMarkerCardContext_custom"; // CUSTOM
+import type { ISortMetricBadgeCustom } from "../Shared/SortMetricBadge_custom"; // CUSTOM
 
 interface ISceneMarkerCardGrid {
   markers: GQL.SceneMarkerDataFragment[];
   selectedIds: Set<string>;
   zoomIndex: number;
   onSelectChange: (id: string, selected: boolean, shiftKey: boolean) => void;
+  activeSortBy?: string; // CUSTOM
+  activeSortDirection?: GQL.SortDirectionEnum; // CUSTOM
+  // CUSTOM: per-card ranked value for stats pages
+  sortMetricFor?: (
+    marker: GQL.SceneMarkerDataFragment
+  ) => ISortMetricBadgeCustom | undefined;
 }
 
 const zoomWidths = [240, 340, 480, 640];
@@ -19,10 +27,19 @@ const zoomWidths = [240, 340, 480, 640];
 export const SceneMarkerCardGrid: React.FC<ISceneMarkerCardGrid> =
   PatchComponent(
     "SceneMarkerCardGrid",
-    ({ markers, selectedIds, zoomIndex, onSelectChange }) => {
+    ({
+      markers,
+      selectedIds,
+      zoomIndex,
+      onSelectChange,
+      activeSortBy,
+      activeSortDirection,
+      sortMetricFor, // CUSTOM
+    }) => {
       const [componentRef, { width: containerWidth }] =
         useContainerDimensions();
       const cardWidth = useCardWidth(containerWidth, zoomIndex, zoomWidths);
+      const markerContextsBySceneID = useSceneMarkerCardContextMap(markers); // CUSTOM
 
       return (
         <div className="row justify-content-center" ref={componentRef}>
@@ -31,6 +48,7 @@ export const SceneMarkerCardGrid: React.FC<ISceneMarkerCardGrid> =
               key={marker.id}
               cardWidth={cardWidth}
               marker={marker}
+              allMarkers={markerContextsBySceneID.get(marker.scene.id)} // CUSTOM
               index={index}
               zoomIndex={zoomIndex}
               selecting={selectedIds.size > 0}
@@ -38,6 +56,9 @@ export const SceneMarkerCardGrid: React.FC<ISceneMarkerCardGrid> =
               onSelectedChanged={(selected: boolean, shiftKey: boolean) =>
                 onSelectChange(marker.id, selected, shiftKey)
               }
+              activeSortBy={activeSortBy} // CUSTOM
+              activeSortDirection={activeSortDirection} // CUSTOM
+              sortMetric={sortMetricFor?.(marker)} // CUSTOM
             />
           ))}
         </div>

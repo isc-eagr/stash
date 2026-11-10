@@ -1,3 +1,84 @@
+# CUSTOM: begin
+# Lean fragment used only by studio lists/cards. Aggregate statistics are
+# returned once per page through StudioListStatsData.
+fragment StudioListData on Studio {
+  id
+  name
+  parent_studio {
+    id
+    name
+    image_path
+  }
+  child_studios {
+    id
+    name
+    image_path
+  }
+  ignore_auto_tag
+  organized
+  image_path
+  details
+  rating100
+  favorite
+  aliases
+  stash_ids {
+    stash_id
+    endpoint
+    updated_at
+  }
+  tags {
+    id
+    name
+  }
+}
+
+fragment StudioListStatsData on StudioListStats {
+  studio_id
+  active_sort_value
+  scene_count
+  scene_count_all
+  image_count
+  gallery_count
+  performer_count
+  performer_count_all
+  group_count
+  scene_marker_count
+  o_counter
+  o_counter_all
+  unique_performer_count
+  facial_count # CUSTOM
+  studio_role_counts {
+    sex_scene_count
+    oral_scene_count
+    solo_scene_count
+    facial_scene_count
+  }
+  studio_activity_stats {
+    total_seconds
+    sex_seconds
+    oral_seconds
+    solo_seconds
+    other_seconds
+    activity_other_seconds
+    outstanding_seconds
+    standard_seconds
+    unusable_seconds
+    sex_percent
+    oral_percent
+    solo_percent
+    other_percent
+    activity_other_percent
+    outstanding_percent
+    standard_percent
+    unusable_percent
+    sex_scene_count
+    oral_scene_count
+    solo_scene_count
+  }
+}
+# CUSTOM: end
+
+# Full fragment used by detail/edit operations. # CUSTOM
 fragment StudioData on Studio {
   id
   name
@@ -19,15 +100,45 @@ fragment StudioData on Studio {
   organized
   image_path
   scene_count
-  scene_count_all: scene_count(depth: -1)
+  # CUSTOM: begin
+  studio_role_counts {
+    # CUSTOM: batched - replaces individual sex/oral/solo/facial_scene_count fields
+    sex_scene_count
+    oral_scene_count
+    solo_scene_count
+    facial_scene_count
+  }
+  studio_activity_stats {
+    # CUSTOM: duration percentages for configured sex/oral/solo activity tags
+    total_seconds
+    sex_seconds
+    oral_seconds
+    solo_seconds
+    other_seconds
+    activity_other_seconds
+    outstanding_seconds
+    standard_seconds
+    unusable_seconds
+    sex_percent
+    oral_percent
+    solo_percent
+    other_percent
+    activity_other_percent
+    outstanding_percent
+    standard_percent
+    unusable_percent
+    sex_scene_count
+    oral_scene_count
+    solo_scene_count
+  }
+  unique_performer_count
+  facial_count
+  average_stashdb_matches
+  # CUSTOM: end
   image_count
-  image_count_all: image_count(depth: -1)
   gallery_count
-  gallery_count_all: gallery_count(depth: -1)
   performer_count
-  performer_count_all: performer_count(depth: -1)
   group_count
-  group_count_all: group_count(depth: -1)
   scene_marker_count
   stash_ids {
     stash_id
@@ -45,6 +156,54 @@ fragment StudioData on Studio {
   o_counter_all: o_counter(depth: -1)
   custom_fields
 }
+
+# CUSTOM: begin
+# Full fragment used by studio detail page (includes depth/child-studio counts)
+fragment StudioDetailData on Studio {
+  ...StudioData
+  scene_count_all: scene_count(depth: -1)
+  studio_role_counts_all: studio_role_counts(depth: -1) {
+    # CUSTOM: batched depth=-1 counts
+    sex_scene_count
+    oral_scene_count
+    solo_scene_count
+    facial_scene_count
+  }
+  studio_activity_stats_all: studio_activity_stats(depth: -1) {
+    # CUSTOM: duration percentages including child studios
+    total_seconds
+    sex_seconds
+    oral_seconds
+    solo_seconds
+    other_seconds
+    activity_other_seconds
+    outstanding_seconds
+    standard_seconds
+    unusable_seconds
+    sex_percent
+    oral_percent
+    solo_percent
+    other_percent
+    activity_other_percent
+    outstanding_percent
+    standard_percent
+    unusable_percent
+    sex_scene_count
+    oral_scene_count
+    solo_scene_count
+  }
+  unique_performer_count_all: unique_performer_count(depth: -1)
+  average_stashdb_matches_all: average_stashdb_matches(depth: -1)
+  image_count_all: image_count(depth: -1)
+  gallery_count_all: gallery_count(depth: -1)
+  performer_count_all: performer_count(depth: -1)
+  group_count_all: group_count(depth: -1)
+  site_sync {
+    name
+    pictures
+  }
+}
+# CUSTOM: end
 
 fragment SelectStudioData on Studio {
   id

@@ -885,6 +885,7 @@ func (t *viewHistoryTable) getDates(ctx context.Context, id int) ([]time.Time, e
 		t.dateColumn,
 	).From(table).Where(
 		t.idColumn.Eq(id),
+		t.dateColumn.IsNotNull(), // CUSTOM: retroactive O's have no date
 	).Order(t.dateColumn.Desc())
 
 	const single = false
@@ -911,6 +912,7 @@ func (t *viewHistoryTable) getManyDates(ctx context.Context, ids []int) ([][]tim
 		t.dateColumn,
 	).From(table).Where(
 		t.idColumn.In(ids),
+		t.dateColumn.IsNotNull(), // CUSTOM: retroactive O's have no date
 	).Order(t.dateColumn.Desc())
 
 	ret := make([][]time.Time, len(ids))
@@ -956,6 +958,7 @@ func (t *viewHistoryTable) getManyLastDate(ctx context.Context, ids []int) ([]*t
 		goqu.MAX(t.dateColumn),
 	).From(table).Where(
 		t.idColumn.In(ids),
+		t.dateColumn.IsNotNull(), // CUSTOM: retroactive O's have no date
 	).GroupBy(t.idColumn)
 
 	ret := make([]*time.Time, len(ids))
@@ -1010,7 +1013,7 @@ func (t *viewHistoryTable) getManyCount(ctx context.Context, ids []int) ([]int, 
 
 	q := dialect.Select(
 		t.idColumn,
-		goqu.COUNT(t.dateColumn),
+		goqu.COUNT("*"), // CUSTOM: count retroactive O's without a date
 	).From(table).Where(
 		t.idColumn.In(ids),
 	).GroupBy(t.idColumn)
@@ -1090,7 +1093,7 @@ func (t *viewHistoryTable) addDates(ctx context.Context, id int, dates []time.Ti
 		}
 	}
 
-	return t.getDates(ctx, id)
+	return t.resultDatesCustom(ctx, id) // CUSTOM: count-only GraphQL callers skip loading every date
 }
 
 func (t *viewHistoryTable) deleteDates(ctx context.Context, id int, dates []time.Time) ([]time.Time, error) {
@@ -1123,7 +1126,7 @@ func (t *viewHistoryTable) deleteDates(ctx context.Context, id int, dates []time
 		}
 	}
 
-	return t.getDates(ctx, id)
+	return t.resultDatesCustom(ctx, id) // CUSTOM: count-only GraphQL callers skip loading every date
 }
 
 func (t *viewHistoryTable) deleteAllDates(ctx context.Context, id int) (int, error) {

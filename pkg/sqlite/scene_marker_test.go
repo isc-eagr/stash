@@ -11,6 +11,7 @@ import (
 
 	"github.com/stashapp/stash/pkg/models"
 	"github.com/stashapp/stash/pkg/sliceutil/stringslice"
+	"github.com/stashapp/stash/pkg/sqlite"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -267,6 +268,789 @@ func TestMarkerQueryTags(t *testing.T) {
 	})
 }
 
+func TestMarkerQuerySceneMarkerTagsIncludesOverlappingMarkerTags(t *testing.T) {
+	runWithRollbackTxn(t, "overlap marker tags", func(t *testing.T, ctx context.Context) {
+		feetTagID := strconv.Itoa(tagIDs[tagIdxWithMarkers])
+		dickTagID := strconv.Itoa(tagIDs[tagIdx2WithMarkers])
+
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithScene], 70, 90)
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithTag], 60, 120)
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithSceneTag], 30, 300)
+		clearMarkerSecondaryTags(t, ctx, markerIDs[markerIdxWithDuration])
+
+		markers := queryMarkers(ctx, t, db.SceneMarker, &models.SceneMarkerFilterType{
+			SceneMarkerTags: &models.SceneMarkerTagsCriterionInput{
+				Modifier: models.CriterionModifierEquals,
+				GroupsExtended: []models.SceneMarkerTagGroupInput{
+					{
+						TagIDs: []string{feetTagID, dickTagID},
+					},
+				},
+			},
+		}, nil)
+
+		ids := markersToIDs(markers)
+		assert.Contains(t, ids, markerIDs[markerIdxWithTag])
+		assert.NotContains(t, ids, markerIDs[markerIdxWithScene])
+		assert.NotContains(t, ids, markerIDs[markerIdxWithSceneTag])
+		assert.NotContains(t, ids, markerIDs[markerIdxWithDuration])
+	})
+}
+
+func TestMarkerQuerySceneMarkerTagsRequiresDirectMarkerPerformers(t *testing.T) {
+	runWithRollbackTxn(t, "overlap marker tags direct performers", func(t *testing.T, ctx context.Context) {
+		feetTagID := strconv.Itoa(tagIDs[tagIdxWithMarkers])
+		dickTagID := strconv.Itoa(tagIDs[tagIdx2WithMarkers])
+		topPerformerID := performerIDs[performerIdxWithScene]
+		performerMode := "OR"
+
+		_, err := sqlite.DBWrapper.Exec(ctx, `CREATE TABLE IF NOT EXISTS scene_marker_performers (
+scene_marker_id integer NOT NULL,
+performer_id integer NOT NULL,
+role text NOT NULL DEFAULT 'top',
+UNIQUE(scene_marker_id, performer_id, role)
+)`)
+		if err != nil {
+			t.Fatalf("Error creating scene_marker_performers table: %s", err.Error())
+		}
+
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithScene], 70, 90)
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithTag], 60, 120)
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithSceneTag], 30, 300)
+		clearMarkerSecondaryTags(t, ctx, markerIDs[markerIdxWithDuration])
+
+		_, err = sqlite.DBWrapper.Exec(ctx, `DELETE FROM scene_marker_performers WHERE scene_marker_id IN (?, ?, ?)`, markerIDs[markerIdxWithScene], markerIDs[markerIdxWithTag], markerIDs[markerIdxWithSceneTag])
+		if err != nil {
+			t.Fatalf("Error clearing scene marker performers: %s", err.Error())
+		}
+		if err := db.SceneMarker.UpdateTopPerformers(ctx, markerIDs[markerIdxWithScene], []int{topPerformerID}); err != nil {
+			t.Fatalf("Error setting overlapping top marker performer: %s", err.Error())
+		}
+
+		markers := queryMarkers(ctx, t, db.SceneMarker, &models.SceneMarkerFilterType{
+			SceneMarkerTags: &models.SceneMarkerTagsCriterionInput{
+				Modifier: models.CriterionModifierEquals,
+				GroupsExtended: []models.SceneMarkerTagGroupInput{
+					{
+						TagIDs:          []string{feetTagID, dickTagID},
+						TopPerformerIDs: []string{strconv.Itoa(topPerformerID)},
+						PerformerMode:   &performerMode,
+					},
+				},
+			},
+		}, nil)
+
+		ids := markersToIDs(markers)
+		assert.NotContains(t, ids, markerIDs[markerIdxWithScene])
+		assert.NotContains(t, ids, markerIDs[markerIdxWithTag])
+		assert.NotContains(t, ids, markerIDs[markerIdxWithSceneTag])
+		assert.NotContains(t, ids, markerIDs[markerIdxWithDuration])
+	})
+}
+
+func TestMarkerQuerySceneMarkerTagsCorrelatesSameMarkerUnnamedPerformerRoles(t *testing.T) {
+	runWithRollbackTxn(t, "marker tags same marker unnamed performer role correlation", func(t *testing.T, ctx context.Context) {
+		feetTagID := strconv.Itoa(tagIDs[tagIdxWithMarkers])
+		performerID := performerIDs[performerIdxWithScene]
+		unnamedID := "unnamed-A"
+		performerMode := "AND" // a vato listed as top and bottom holds both roles
+
+		ensureSceneMarkerPerformersTable(t, ctx)
+
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithTag], 60, 120)
+		clearMarkerSecondaryTags(t, ctx, markerIDs[markerIdxWithDuration])
+
+		_, err := sqlite.DBWrapper.Exec(ctx, `DELETE FROM scene_marker_performers WHERE scene_marker_id = ?`, markerIDs[markerIdxWithTag])
+		if err != nil {
+			t.Fatalf("Error clearing scene marker performers: %s", err.Error())
+		}
+		if err := db.SceneMarker.UpdateTopPerformers(ctx, markerIDs[markerIdxWithTag], []int{performerID}); err != nil {
+			t.Fatalf("Error setting top marker performer: %s", err.Error())
+		}
+
+		markerFilter := &models.SceneMarkerFilterType{
+			SceneMarkerTags: &models.SceneMarkerTagsCriterionInput{
+				Modifier: models.CriterionModifierEquals,
+				GroupsExtended: []models.SceneMarkerTagGroupInput{
+					{
+						TagIDs:        []string{feetTagID},
+						PerformerMode: &performerMode,
+						TopUnnamedPerformers: []models.UnnamedPerformerCriterionInput{
+							{ID: &unnamedID},
+						},
+						BottomUnnamedPerformers: []models.UnnamedPerformerCriterionInput{
+							{ID: &unnamedID},
+						},
+					},
+				},
+			},
+		}
+
+		markers := queryMarkers(ctx, t, db.SceneMarker, markerFilter, nil)
+		assert.NotContains(t, markersToIDs(markers), markerIDs[markerIdxWithTag])
+
+		if err := db.SceneMarker.UpdateBottomPerformers(ctx, markerIDs[markerIdxWithTag], []int{performerID}); err != nil {
+			t.Fatalf("Error setting bottom marker performer: %s", err.Error())
+		}
+
+		markers = queryMarkers(ctx, t, db.SceneMarker, markerFilter, nil)
+		assert.Contains(t, markersToIDs(markers), markerIDs[markerIdxWithTag])
+	})
+}
+
+func TestMarkerQuerySceneMarkerTagsOrModeRequiresAllNamedTopPerformers(t *testing.T) {
+	runWithRollbackTxn(t, "marker tags OR mode all named top performers", func(t *testing.T, ctx context.Context) {
+		feetTagID := strconv.Itoa(tagIDs[tagIdxWithMarkers])
+		topPerformerID := performerIDs[performerIdxWithScene]
+		otherTopPerformerID := performerIDs[performerIdx1WithScene]
+		performerMode := "OR"
+
+		ensureSceneMarkerPerformersTable(t, ctx)
+
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithTag], 60, 120)
+		clearMarkerSecondaryTags(t, ctx, markerIDs[markerIdxWithDuration])
+
+		_, err := sqlite.DBWrapper.Exec(ctx, `DELETE FROM scene_marker_performers WHERE scene_marker_id IN (?, ?)`, markerIDs[markerIdxWithTag], markerIDs[markerIdxWithDuration])
+		if err != nil {
+			t.Fatalf("Error clearing scene marker performers: %s", err.Error())
+		}
+		if err := db.SceneMarker.UpdateTopPerformers(ctx, markerIDs[markerIdxWithTag], []int{topPerformerID}); err != nil {
+			t.Fatalf("Error setting top marker performer: %s", err.Error())
+		}
+
+		markerFilter := &models.SceneMarkerFilterType{
+			SceneMarkerTags: &models.SceneMarkerTagsCriterionInput{
+				Modifier: models.CriterionModifierEquals,
+				GroupsExtended: []models.SceneMarkerTagGroupInput{
+					{
+						TagIDs:          []string{feetTagID},
+						TopPerformerIDs: []string{strconv.Itoa(topPerformerID), strconv.Itoa(otherTopPerformerID)},
+						PerformerMode:   &performerMode,
+					},
+				},
+			},
+		}
+
+		markers := queryMarkers(ctx, t, db.SceneMarker, markerFilter, nil)
+		assert.NotContains(t, markersToIDs(markers), markerIDs[markerIdxWithTag])
+
+		if err := db.SceneMarker.UpdateTopPerformers(ctx, markerIDs[markerIdxWithTag], []int{topPerformerID, otherTopPerformerID}); err != nil {
+			t.Fatalf("Error setting all top marker performers: %s", err.Error())
+		}
+
+		markers = queryMarkers(ctx, t, db.SceneMarker, markerFilter, nil)
+		assert.Contains(t, markersToIDs(markers), markerIDs[markerIdxWithTag])
+	})
+}
+
+func TestMarkerQuerySceneMarkerTagsOverlapGroupsWithUnnamedPerformers(t *testing.T) {
+	runWithRollbackTxn(t, "overlap marker groups with unnamed performers", func(t *testing.T, ctx context.Context) {
+		feetTagID := strconv.Itoa(tagIDs[tagIdxWithMarkers])
+		dickTagID := strconv.Itoa(tagIDs[tagIdx2WithMarkers])
+		topPerformerID := performerIDs[performerIdxWithScene]
+		bottomPerformerID := performerIDs[performerIdx1WithScene]
+
+		_, err := sqlite.DBWrapper.Exec(ctx, `CREATE TABLE IF NOT EXISTS scene_marker_performers (
+scene_marker_id integer NOT NULL,
+performer_id integer NOT NULL,
+role text NOT NULL DEFAULT 'top',
+UNIQUE(scene_marker_id, performer_id, role)
+)`)
+		if err != nil {
+			t.Fatalf("Error creating scene_marker_performers table: %s", err.Error())
+		}
+
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithScene], 70, 90)
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithTag], 60, 120)
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithSceneTag], 30, 300)
+		clearMarkerSecondaryTags(t, ctx, markerIDs[markerIdxWithDuration])
+
+		_, err = sqlite.DBWrapper.Exec(ctx, `DELETE FROM scene_marker_performers WHERE scene_marker_id IN (?, ?)`, markerIDs[markerIdxWithTag], markerIDs[markerIdxWithSceneTag])
+		if err != nil {
+			t.Fatalf("Error clearing scene marker performers: %s", err.Error())
+		}
+		if err := db.SceneMarker.UpdateTopPerformers(ctx, markerIDs[markerIdxWithTag], []int{topPerformerID}); err != nil {
+			t.Fatalf("Error setting top marker performer: %s", err.Error())
+		}
+		if err := db.SceneMarker.UpdateBottomPerformers(ctx, markerIDs[markerIdxWithSceneTag], []int{bottomPerformerID}); err != nil {
+			t.Fatalf("Error setting bottom marker performer: %s", err.Error())
+		}
+
+		markers := queryMarkers(ctx, t, db.SceneMarker, &models.SceneMarkerFilterType{
+			SceneMarkerTags: &models.SceneMarkerTagsCriterionInput{
+				Modifier: models.CriterionModifierEquals,
+				OverlapGroups: []models.SceneMarkerTagGroupInput{
+					{
+						TagIDs: []string{feetTagID},
+						TopUnnamedPerformers: []models.UnnamedPerformerCriterionInput{
+							{},
+						},
+					},
+					{
+						TagIDs: []string{dickTagID},
+						BottomUnnamedPerformers: []models.UnnamedPerformerCriterionInput{
+							{},
+						},
+					},
+				},
+			},
+		}, nil)
+
+		ids := markersToIDs(markers)
+		assert.Contains(t, ids, markerIDs[markerIdxWithTag])
+		assert.NotContains(t, ids, markerIDs[markerIdxWithSceneTag])
+		assert.NotContains(t, ids, markerIDs[markerIdxWithScene])
+		assert.NotContains(t, ids, markerIDs[markerIdxWithDuration])
+	})
+}
+
+func TestMarkerQuerySceneMarkerTagsOverlapGroupsCorrelatesUnnamedPerformerRoles(t *testing.T) {
+	runWithRollbackTxn(t, "overlap marker groups same unnamed performer role correlation", func(t *testing.T, ctx context.Context) {
+		feetTagID := strconv.Itoa(tagIDs[tagIdxWithMarkers])
+		dickTagID := strconv.Itoa(tagIDs[tagIdx2WithMarkers])
+		performerID := performerIDs[performerIdxWithScene]
+		unnamedID := "unnamed-A"
+
+		ensureSceneMarkerPerformersTable(t, ctx)
+
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithTag], 60, 120)
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithSceneTag], 30, 300)
+		clearMarkerSecondaryTags(t, ctx, markerIDs[markerIdxWithDuration])
+
+		_, err := sqlite.DBWrapper.Exec(ctx, `DELETE FROM scene_marker_performers WHERE scene_marker_id IN (?, ?)`, markerIDs[markerIdxWithTag], markerIDs[markerIdxWithSceneTag])
+		if err != nil {
+			t.Fatalf("Error clearing scene marker performers: %s", err.Error())
+		}
+		if err := db.SceneMarker.UpdateTopPerformers(ctx, markerIDs[markerIdxWithTag], []int{performerID}); err != nil {
+			t.Fatalf("Error setting top performer on first marker: %s", err.Error())
+		}
+		if err := db.SceneMarker.UpdateTopPerformers(ctx, markerIDs[markerIdxWithSceneTag], []int{performerID}); err != nil {
+			t.Fatalf("Error setting top performer on second marker: %s", err.Error())
+		}
+
+		markerFilter := &models.SceneMarkerFilterType{
+			SceneMarkerTags: &models.SceneMarkerTagsCriterionInput{
+				Modifier: models.CriterionModifierEquals,
+				OverlapGroups: []models.SceneMarkerTagGroupInput{
+					{
+						TagIDs: []string{feetTagID},
+						TopUnnamedPerformers: []models.UnnamedPerformerCriterionInput{
+							{ID: &unnamedID},
+						},
+					},
+					{
+						TagIDs: []string{dickTagID},
+						BottomUnnamedPerformers: []models.UnnamedPerformerCriterionInput{
+							{ID: &unnamedID},
+						},
+					},
+				},
+			},
+		}
+
+		markers := queryMarkers(ctx, t, db.SceneMarker, markerFilter, nil)
+		assert.NotContains(t, markersToIDs(markers), markerIDs[markerIdxWithTag])
+
+		if err := db.SceneMarker.UpdateBottomPerformers(ctx, markerIDs[markerIdxWithSceneTag], []int{performerID}); err != nil {
+			t.Fatalf("Error setting bottom performer on second marker: %s", err.Error())
+		}
+
+		markers = queryMarkers(ctx, t, db.SceneMarker, markerFilter, nil)
+		ids := markersToIDs(markers)
+		assert.Contains(t, ids, markerIDs[markerIdxWithTag])
+		assert.NotContains(t, ids, markerIDs[markerIdxWithSceneTag])
+	})
+}
+
+func TestMarkerQuerySceneMarkerTagsOverlapGroupsRequiresAllNamedTopPerformers(t *testing.T) {
+	runWithRollbackTxn(t, "overlap marker groups all named top performers", func(t *testing.T, ctx context.Context) {
+		feetTagID := strconv.Itoa(tagIDs[tagIdxWithMarkers])
+		dickTagID := strconv.Itoa(tagIDs[tagIdx2WithMarkers])
+		topPerformerID := performerIDs[performerIdxWithScene]
+		otherTopPerformerID := performerIDs[performerIdx1WithScene]
+
+		ensureSceneMarkerPerformersTable(t, ctx)
+
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithTag], 60, 120)
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithSceneTag], 30, 300)
+		clearMarkerSecondaryTags(t, ctx, markerIDs[markerIdxWithDuration])
+
+		_, err := sqlite.DBWrapper.Exec(ctx, `DELETE FROM scene_marker_performers WHERE scene_marker_id IN (?, ?)`, markerIDs[markerIdxWithTag], markerIDs[markerIdxWithSceneTag])
+		if err != nil {
+			t.Fatalf("Error clearing scene marker performers: %s", err.Error())
+		}
+		if err := db.SceneMarker.UpdateTopPerformers(ctx, markerIDs[markerIdxWithTag], []int{topPerformerID}); err != nil {
+			t.Fatalf("Error setting top marker performer: %s", err.Error())
+		}
+
+		markerFilter := &models.SceneMarkerFilterType{
+			SceneMarkerTags: &models.SceneMarkerTagsCriterionInput{
+				Modifier: models.CriterionModifierEquals,
+				OverlapGroups: []models.SceneMarkerTagGroupInput{
+					{
+						TagIDs:          []string{feetTagID},
+						TopPerformerIDs: []string{strconv.Itoa(topPerformerID), strconv.Itoa(otherTopPerformerID)},
+					},
+					{
+						TagIDs: []string{dickTagID},
+					},
+				},
+			},
+		}
+
+		markers := queryMarkers(ctx, t, db.SceneMarker, markerFilter, nil)
+		assert.NotContains(t, markersToIDs(markers), markerIDs[markerIdxWithTag])
+
+		if err := db.SceneMarker.UpdateTopPerformers(ctx, markerIDs[markerIdxWithTag], []int{topPerformerID, otherTopPerformerID}); err != nil {
+			t.Fatalf("Error setting all top marker performers: %s", err.Error())
+		}
+
+		markers = queryMarkers(ctx, t, db.SceneMarker, markerFilter, nil)
+		ids := markersToIDs(markers)
+		assert.Contains(t, ids, markerIDs[markerIdxWithTag])
+		assert.NotContains(t, ids, markerIDs[markerIdxWithSceneTag])
+	})
+}
+
+func TestSceneQuerySceneMarkerTagsIncludesOverlappingMarkerTags(t *testing.T) {
+	runWithRollbackTxn(t, "scene overlap marker tags include", func(t *testing.T, ctx context.Context) {
+		feetTagID := strconv.Itoa(tagIDs[tagIdxWithMarkers])
+		dickTagID := strconv.Itoa(tagIDs[tagIdx2WithMarkers])
+
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithTag], 60, 120)
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithSceneTag], 30, 300)
+		clearMarkerSecondaryTags(t, ctx, markerIDs[markerIdxWithDuration])
+
+		result, err := db.Scene.Query(ctx, models.SceneQueryOptions{
+			SceneFilter: &models.SceneFilterType{
+				SceneMarkerTags: &models.SceneMarkerTagsCriterionInput{
+					Modifier: models.CriterionModifierEquals,
+					GroupsExtended: []models.SceneMarkerTagGroupInput{
+						{
+							TagIDs: []string{feetTagID, dickTagID},
+						},
+					},
+				},
+			},
+		})
+		if err != nil {
+			t.Fatalf("SceneStore.Query() error = %v", err)
+		}
+
+		assert.Contains(t, result.IDs, sceneIDs[sceneIdxWithMarkers])
+	})
+}
+
+func TestSceneQuerySceneMarkerTagsIncludeSubtagsWithEffectiveTags(t *testing.T) {
+	runWithRollbackTxn(t, "scene marker tags include subtags with effective tags", func(t *testing.T, ctx context.Context) {
+		parentTagID := strconv.Itoa(tagIDs[tagIdx3WithScene])
+		childTagID := strconv.Itoa(tagIDs[tagIdxWithMarkers])
+		depth := -1
+
+		_, err := sqlite.DBWrapper.Exec(ctx, `INSERT OR IGNORE INTO tags_relations (parent_id, child_id) VALUES (?, ?)`, parentTagID, childTagID)
+		if err != nil {
+			t.Fatalf("Error setting tag relation: %s", err.Error())
+		}
+
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithTag], 60, 120)
+		clearMarkerSecondaryTags(t, ctx, markerIDs[markerIdxWithDuration])
+
+		result, err := db.Scene.Query(ctx, models.SceneQueryOptions{
+			SceneFilter: &models.SceneFilterType{
+				SceneMarkerTags: &models.SceneMarkerTagsCriterionInput{
+					Modifier: models.CriterionModifierEquals,
+					GroupsExtended: []models.SceneMarkerTagGroupInput{
+						{
+							TagIDs: []string{parentTagID},
+							Depth:  &depth,
+						},
+					},
+				},
+			},
+		})
+		if err != nil {
+			t.Fatalf("SceneStore.Query() error = %v", err)
+		}
+
+		assert.Contains(t, result.IDs, sceneIDs[sceneIdxWithMarkers])
+	})
+}
+
+func TestSceneQuerySceneMarkerTagsRequiresDirectMarkerPerformers(t *testing.T) {
+	runWithRollbackTxn(t, "scene overlap marker tags direct performers", func(t *testing.T, ctx context.Context) {
+		feetTagID := strconv.Itoa(tagIDs[tagIdxWithMarkers])
+		dickTagID := strconv.Itoa(tagIDs[tagIdx2WithMarkers])
+		bodyTagID := strconv.Itoa(tagIDs[tagIdxWithPrimaryMarkers])
+		topPerformerID := performerIDs[performerIdxWithScene]
+		performerMode := "OR"
+
+		_, err := sqlite.DBWrapper.Exec(ctx, `CREATE TABLE IF NOT EXISTS scene_marker_performers (
+scene_marker_id integer NOT NULL,
+performer_id integer NOT NULL,
+role text NOT NULL DEFAULT 'top',
+UNIQUE(scene_marker_id, performer_id, role)
+)`)
+		if err != nil {
+			t.Fatalf("Error creating scene_marker_performers table: %s", err.Error())
+		}
+
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithScene], 70, 90)
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithTag], 60, 120)
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithSceneTag], 30, 300)
+		clearMarkerSecondaryTags(t, ctx, markerIDs[markerIdxWithDuration])
+
+		_, err = sqlite.DBWrapper.Exec(ctx, `DELETE FROM scene_marker_performers WHERE scene_marker_id IN (?, ?, ?)`, markerIDs[markerIdxWithScene], markerIDs[markerIdxWithTag], markerIDs[markerIdxWithSceneTag])
+		if err != nil {
+			t.Fatalf("Error clearing scene marker performers: %s", err.Error())
+		}
+		if err := db.SceneMarker.UpdateTopPerformers(ctx, markerIDs[markerIdxWithScene], []int{topPerformerID}); err != nil {
+			t.Fatalf("Error setting overlapping top marker performer: %s", err.Error())
+		}
+
+		result, err := db.Scene.Query(ctx, models.SceneQueryOptions{
+			SceneFilter: &models.SceneFilterType{
+				SceneMarkerTags: &models.SceneMarkerTagsCriterionInput{
+					Modifier: models.CriterionModifierEquals,
+					GroupsExtended: []models.SceneMarkerTagGroupInput{
+						{
+							TagIDs:                []string{feetTagID, dickTagID},
+							ExcludeTagIDsOnMarker: []string{bodyTagID},
+							TopPerformerIDs:       []string{strconv.Itoa(topPerformerID)},
+							PerformerMode:         &performerMode,
+						},
+					},
+				},
+			},
+		})
+		if err != nil {
+			t.Fatalf("SceneStore.Query() error = %v", err)
+		}
+
+		assert.NotContains(t, result.IDs, sceneIDs[sceneIdxWithMarkers])
+	})
+}
+
+func TestSceneQuerySceneMarkerTagsCorrelatesSameMarkerUnnamedPerformerRoles(t *testing.T) {
+	runWithRollbackTxn(t, "scene marker tags same marker unnamed performer role correlation", func(t *testing.T, ctx context.Context) {
+		feetTagID := strconv.Itoa(tagIDs[tagIdxWithMarkers])
+		performerID := performerIDs[performerIdxWithScene]
+		unnamedID := "unnamed-A"
+		performerMode := "AND" // a vato listed as top and bottom holds both roles
+
+		ensureSceneMarkerPerformersTable(t, ctx)
+
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithTag], 60, 120)
+		clearMarkerSecondaryTags(t, ctx, markerIDs[markerIdxWithDuration])
+
+		_, err := sqlite.DBWrapper.Exec(ctx, `DELETE FROM scene_marker_performers WHERE scene_marker_id = ?`, markerIDs[markerIdxWithTag])
+		if err != nil {
+			t.Fatalf("Error clearing scene marker performers: %s", err.Error())
+		}
+		if err := db.SceneMarker.UpdateTopPerformers(ctx, markerIDs[markerIdxWithTag], []int{performerID}); err != nil {
+			t.Fatalf("Error setting top marker performer: %s", err.Error())
+		}
+
+		sceneFilter := &models.SceneFilterType{
+			SceneMarkerTags: &models.SceneMarkerTagsCriterionInput{
+				Modifier: models.CriterionModifierEquals,
+				GroupsExtended: []models.SceneMarkerTagGroupInput{
+					{
+						TagIDs:        []string{feetTagID},
+						PerformerMode: &performerMode,
+						TopUnnamedPerformers: []models.UnnamedPerformerCriterionInput{
+							{ID: &unnamedID},
+						},
+						BottomUnnamedPerformers: []models.UnnamedPerformerCriterionInput{
+							{ID: &unnamedID},
+						},
+					},
+				},
+			},
+		}
+
+		result, err := db.Scene.Query(ctx, models.SceneQueryOptions{SceneFilter: sceneFilter})
+		if err != nil {
+			t.Fatalf("SceneStore.Query() error = %v", err)
+		}
+		assert.NotContains(t, result.IDs, sceneIDs[sceneIdxWithMarkers])
+
+		if err := db.SceneMarker.UpdateBottomPerformers(ctx, markerIDs[markerIdxWithTag], []int{performerID}); err != nil {
+			t.Fatalf("Error setting bottom marker performer: %s", err.Error())
+		}
+
+		result, err = db.Scene.Query(ctx, models.SceneQueryOptions{SceneFilter: sceneFilter})
+		if err != nil {
+			t.Fatalf("SceneStore.Query() error = %v", err)
+		}
+		assert.Contains(t, result.IDs, sceneIDs[sceneIdxWithMarkers])
+	})
+}
+
+func TestSceneQuerySceneMarkerTagsRequiresAllNamedTopPerformers(t *testing.T) {
+	runWithRollbackTxn(t, "scene marker tags all named top performers", func(t *testing.T, ctx context.Context) {
+		feetTagID := strconv.Itoa(tagIDs[tagIdxWithMarkers])
+		dickTagID := strconv.Itoa(tagIDs[tagIdx2WithMarkers])
+		topPerformerID := performerIDs[performerIdxWithScene]
+		otherTopPerformerID := performerIDs[performerIdx1WithScene]
+		performerMode := "OR"
+
+		ensureSceneMarkerPerformersTable(t, ctx)
+
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithTag], 60, 120)
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithSceneTag], 30, 300)
+		clearMarkerSecondaryTags(t, ctx, markerIDs[markerIdxWithDuration])
+
+		_, err := sqlite.DBWrapper.Exec(ctx, `DELETE FROM scene_marker_performers WHERE scene_marker_id IN (?, ?)`, markerIDs[markerIdxWithTag], markerIDs[markerIdxWithSceneTag])
+		if err != nil {
+			t.Fatalf("Error clearing scene marker performers: %s", err.Error())
+		}
+		if err := db.SceneMarker.UpdateTopPerformers(ctx, markerIDs[markerIdxWithTag], []int{topPerformerID}); err != nil {
+			t.Fatalf("Error setting top marker performer: %s", err.Error())
+		}
+
+		sceneFilter := &models.SceneFilterType{
+			SceneMarkerTags: &models.SceneMarkerTagsCriterionInput{
+				Modifier: models.CriterionModifierEquals,
+				GroupsExtended: []models.SceneMarkerTagGroupInput{
+					{
+						TagIDs:          []string{feetTagID, dickTagID},
+						TopPerformerIDs: []string{strconv.Itoa(topPerformerID), strconv.Itoa(otherTopPerformerID)},
+						PerformerMode:   &performerMode,
+					},
+				},
+			},
+		}
+
+		result, err := db.Scene.Query(ctx, models.SceneQueryOptions{SceneFilter: sceneFilter})
+		if err != nil {
+			t.Fatalf("SceneStore.Query() error = %v", err)
+		}
+		assert.NotContains(t, result.IDs, sceneIDs[sceneIdxWithMarkers])
+
+		if err := db.SceneMarker.UpdateTopPerformers(ctx, markerIDs[markerIdxWithTag], []int{topPerformerID, otherTopPerformerID}); err != nil {
+			t.Fatalf("Error setting all top marker performers: %s", err.Error())
+		}
+
+		result, err = db.Scene.Query(ctx, models.SceneQueryOptions{SceneFilter: sceneFilter})
+		if err != nil {
+			t.Fatalf("SceneStore.Query() error = %v", err)
+		}
+		assert.Contains(t, result.IDs, sceneIDs[sceneIdxWithMarkers])
+	})
+}
+
+func TestSceneQuerySceneMarkerTagsOverlapGroupsWithUnnamedPerformers(t *testing.T) {
+	runWithRollbackTxn(t, "scene overlap marker groups with unnamed performers", func(t *testing.T, ctx context.Context) {
+		feetTagID := strconv.Itoa(tagIDs[tagIdxWithMarkers])
+		dickTagID := strconv.Itoa(tagIDs[tagIdx2WithMarkers])
+		topPerformerID := performerIDs[performerIdxWithScene]
+		bottomPerformerID := performerIDs[performerIdx1WithScene]
+
+		_, err := sqlite.DBWrapper.Exec(ctx, `CREATE TABLE IF NOT EXISTS scene_marker_performers (
+scene_marker_id integer NOT NULL,
+performer_id integer NOT NULL,
+role text NOT NULL DEFAULT 'top',
+UNIQUE(scene_marker_id, performer_id, role)
+)`)
+		if err != nil {
+			t.Fatalf("Error creating scene_marker_performers table: %s", err.Error())
+		}
+
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithTag], 60, 120)
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithSceneTag], 30, 300)
+		clearMarkerSecondaryTags(t, ctx, markerIDs[markerIdxWithDuration])
+
+		_, err = sqlite.DBWrapper.Exec(ctx, `DELETE FROM scene_marker_performers WHERE scene_marker_id IN (?, ?)`, markerIDs[markerIdxWithTag], markerIDs[markerIdxWithSceneTag])
+		if err != nil {
+			t.Fatalf("Error clearing scene marker performers: %s", err.Error())
+		}
+		if err := db.SceneMarker.UpdateTopPerformers(ctx, markerIDs[markerIdxWithTag], []int{topPerformerID}); err != nil {
+			t.Fatalf("Error setting top marker performer: %s", err.Error())
+		}
+		if err := db.SceneMarker.UpdateBottomPerformers(ctx, markerIDs[markerIdxWithSceneTag], []int{bottomPerformerID}); err != nil {
+			t.Fatalf("Error setting bottom marker performer: %s", err.Error())
+		}
+
+		result, err := db.Scene.Query(ctx, models.SceneQueryOptions{
+			SceneFilter: &models.SceneFilterType{
+				SceneMarkerTags: &models.SceneMarkerTagsCriterionInput{
+					Modifier: models.CriterionModifierEquals,
+					OverlapGroups: []models.SceneMarkerTagGroupInput{
+						{
+							TagIDs: []string{feetTagID},
+							TopUnnamedPerformers: []models.UnnamedPerformerCriterionInput{
+								{},
+							},
+						},
+						{
+							TagIDs: []string{dickTagID},
+							BottomUnnamedPerformers: []models.UnnamedPerformerCriterionInput{
+								{},
+							},
+						},
+					},
+				},
+			},
+		})
+		if err != nil {
+			t.Fatalf("SceneStore.Query() error = %v", err)
+		}
+
+		assert.Contains(t, result.IDs, sceneIDs[sceneIdxWithMarkers])
+	})
+}
+
+func TestSceneQuerySceneMarkerTagsOverlapGroupsCorrelatesUnnamedPerformerRoles(t *testing.T) {
+	runWithRollbackTxn(t, "scene overlap marker groups same unnamed performer role correlation", func(t *testing.T, ctx context.Context) {
+		feetTagID := strconv.Itoa(tagIDs[tagIdxWithMarkers])
+		dickTagID := strconv.Itoa(tagIDs[tagIdx2WithMarkers])
+		performerID := performerIDs[performerIdxWithScene]
+		unnamedID := "unnamed-A"
+
+		ensureSceneMarkerPerformersTable(t, ctx)
+
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithTag], 60, 120)
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithSceneTag], 30, 300)
+		clearMarkerSecondaryTags(t, ctx, markerIDs[markerIdxWithDuration])
+
+		_, err := sqlite.DBWrapper.Exec(ctx, `DELETE FROM scene_marker_performers WHERE scene_marker_id IN (?, ?)`, markerIDs[markerIdxWithTag], markerIDs[markerIdxWithSceneTag])
+		if err != nil {
+			t.Fatalf("Error clearing scene marker performers: %s", err.Error())
+		}
+		if err := db.SceneMarker.UpdateTopPerformers(ctx, markerIDs[markerIdxWithTag], []int{performerID}); err != nil {
+			t.Fatalf("Error setting top performer on first marker: %s", err.Error())
+		}
+		if err := db.SceneMarker.UpdateTopPerformers(ctx, markerIDs[markerIdxWithSceneTag], []int{performerID}); err != nil {
+			t.Fatalf("Error setting top performer on second marker: %s", err.Error())
+		}
+
+		sceneFilter := &models.SceneFilterType{
+			SceneMarkerTags: &models.SceneMarkerTagsCriterionInput{
+				Modifier: models.CriterionModifierEquals,
+				OverlapGroups: []models.SceneMarkerTagGroupInput{
+					{
+						TagIDs: []string{feetTagID},
+						TopUnnamedPerformers: []models.UnnamedPerformerCriterionInput{
+							{ID: &unnamedID},
+						},
+					},
+					{
+						TagIDs: []string{dickTagID},
+						BottomUnnamedPerformers: []models.UnnamedPerformerCriterionInput{
+							{ID: &unnamedID},
+						},
+					},
+				},
+			},
+		}
+
+		result, err := db.Scene.Query(ctx, models.SceneQueryOptions{SceneFilter: sceneFilter})
+		if err != nil {
+			t.Fatalf("SceneStore.Query() error = %v", err)
+		}
+		assert.NotContains(t, result.IDs, sceneIDs[sceneIdxWithMarkers])
+
+		if err := db.SceneMarker.UpdateBottomPerformers(ctx, markerIDs[markerIdxWithSceneTag], []int{performerID}); err != nil {
+			t.Fatalf("Error setting bottom performer on second marker: %s", err.Error())
+		}
+
+		result, err = db.Scene.Query(ctx, models.SceneQueryOptions{SceneFilter: sceneFilter})
+		if err != nil {
+			t.Fatalf("SceneStore.Query() error = %v", err)
+		}
+		assert.Contains(t, result.IDs, sceneIDs[sceneIdxWithMarkers])
+	})
+}
+
+func TestSceneQuerySceneMarkerTagsExcludeCorrelatesSameMarkerUnnamedPerformerRoles(t *testing.T) {
+	runWithRollbackTxn(t, "scene marker tags exclude same marker unnamed performer role correlation", func(t *testing.T, ctx context.Context) {
+		feetTagID := strconv.Itoa(tagIDs[tagIdxWithMarkers])
+		performerID := performerIDs[performerIdxWithScene]
+		unnamedID := "unnamed-A"
+		performerMode := "AND" // a vato listed as top and bottom holds both roles
+		excludeModifier := models.CriterionModifierIncludes
+
+		ensureSceneMarkerPerformersTable(t, ctx)
+
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithTag], 60, 120)
+		clearMarkerSecondaryTags(t, ctx, markerIDs[markerIdxWithDuration])
+
+		_, err := sqlite.DBWrapper.Exec(ctx, `DELETE FROM scene_marker_performers WHERE scene_marker_id = ?`, markerIDs[markerIdxWithTag])
+		if err != nil {
+			t.Fatalf("Error clearing scene marker performers: %s", err.Error())
+		}
+		if err := db.SceneMarker.UpdateTopPerformers(ctx, markerIDs[markerIdxWithTag], []int{performerID}); err != nil {
+			t.Fatalf("Error setting top marker performer: %s", err.Error())
+		}
+
+		sceneFilter := &models.SceneFilterType{
+			SceneMarkerTags: &models.SceneMarkerTagsCriterionInput{
+				Modifier:        models.CriterionModifierEquals,
+				ExcludeModifier: &excludeModifier,
+				GroupsExtendedExclude: []models.SceneMarkerTagGroupInput{
+					{
+						TagIDs:        []string{feetTagID},
+						PerformerMode: &performerMode,
+						TopUnnamedPerformers: []models.UnnamedPerformerCriterionInput{
+							{ID: &unnamedID},
+						},
+						BottomUnnamedPerformers: []models.UnnamedPerformerCriterionInput{
+							{ID: &unnamedID},
+						},
+					},
+				},
+			},
+		}
+
+		result, err := db.Scene.Query(ctx, models.SceneQueryOptions{SceneFilter: sceneFilter})
+		if err != nil {
+			t.Fatalf("SceneStore.Query() error = %v", err)
+		}
+		assert.Contains(t, result.IDs, sceneIDs[sceneIdxWithMarkers])
+
+		if err := db.SceneMarker.UpdateBottomPerformers(ctx, markerIDs[markerIdxWithTag], []int{performerID}); err != nil {
+			t.Fatalf("Error setting bottom marker performer: %s", err.Error())
+		}
+
+		result, err = db.Scene.Query(ctx, models.SceneQueryOptions{SceneFilter: sceneFilter})
+		if err != nil {
+			t.Fatalf("SceneStore.Query() error = %v", err)
+		}
+		assert.NotContains(t, result.IDs, sceneIDs[sceneIdxWithMarkers])
+	})
+}
+
+func TestSceneQuerySceneMarkerTagsExcludeIncludesOverlappingMarkerTags(t *testing.T) {
+	runWithRollbackTxn(t, "scene overlap marker tags exclude", func(t *testing.T, ctx context.Context) {
+		feetTagID := strconv.Itoa(tagIDs[tagIdxWithMarkers])
+		dickTagID := strconv.Itoa(tagIDs[tagIdx2WithMarkers])
+		excludeModifier := models.CriterionModifierIncludes
+
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithTag], 60, 120)
+		setMarkerRange(t, ctx, markerIDs[markerIdxWithSceneTag], 30, 300)
+		clearMarkerSecondaryTags(t, ctx, markerIDs[markerIdxWithDuration])
+
+		result, err := db.Scene.Query(ctx, models.SceneQueryOptions{
+			SceneFilter: &models.SceneFilterType{
+				SceneMarkerTags: &models.SceneMarkerTagsCriterionInput{
+					Modifier:        models.CriterionModifierEquals,
+					ExcludeModifier: &excludeModifier,
+					GroupsExtendedExclude: []models.SceneMarkerTagGroupInput{
+						{
+							TagIDs: []string{feetTagID, dickTagID},
+						},
+					},
+				},
+			},
+		})
+		if err != nil {
+			t.Fatalf("SceneStore.Query() error = %v", err)
+		}
+
+		assert.NotContains(t, result.IDs, sceneIDs[sceneIdxWithMarkers])
+	})
+}
+
 func TestMarkerQuerySceneTags(t *testing.T) {
 	type test struct {
 		name         string
@@ -509,6 +1293,42 @@ func queryMarkers(ctx context.Context, t *testing.T, sqb models.SceneMarkerReade
 	}
 
 	return result
+}
+
+func setMarkerRange(t *testing.T, ctx context.Context, markerID int, seconds float64, endSeconds float64) {
+	t.Helper()
+
+	marker, err := db.SceneMarker.Find(ctx, markerID)
+	if err != nil {
+		t.Fatalf("error finding marker %d: %v", markerID, err)
+	}
+	marker.Seconds = seconds
+	marker.EndSeconds = &endSeconds
+	if err := db.SceneMarker.Update(ctx, marker); err != nil {
+		t.Fatalf("error updating marker %d range: %v", markerID, err)
+	}
+}
+
+func clearMarkerSecondaryTags(t *testing.T, ctx context.Context, markerID int) {
+	t.Helper()
+
+	if err := db.SceneMarker.UpdateTags(ctx, markerID, nil); err != nil {
+		t.Fatalf("error clearing marker %d secondary tags: %v", markerID, err)
+	}
+}
+
+func ensureSceneMarkerPerformersTable(t *testing.T, ctx context.Context) {
+	t.Helper()
+
+	_, err := sqlite.DBWrapper.Exec(ctx, `CREATE TABLE IF NOT EXISTS scene_marker_performers (
+scene_marker_id integer NOT NULL,
+performer_id integer NOT NULL,
+role text NOT NULL DEFAULT 'top',
+UNIQUE(scene_marker_id, performer_id, role)
+)`)
+	if err != nil {
+		t.Fatalf("Error creating scene_marker_performers table: %s", err.Error())
+	}
 }
 
 // TODO Update

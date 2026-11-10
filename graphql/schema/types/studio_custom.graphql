@@ -1,0 +1,166 @@
+# CUSTOM: All custom Studio fields.
+# This file uses 'extend type' to add NEW fields to the upstream Studio type.
+# NOTE: Some upstream Studio fields have modified signatures (added performer_id parameter)
+# that must remain as inline changes in studio.graphql marked with # CUSTOM comments.
+# See CUSTOM_FEATURES.md for documentation.
+
+# StudioRoleCounts: all non-performer-filtered role-based scene counts in a single batch resolver.
+# Replaces individual sex_scene_count / oral_scene_count / solo_scene_count / facial_scene_count
+# calls in the studio list/detail pages, cutting getStudioSceneIDs calls from 4 down to 1.
+type StudioRoleCounts {
+  sex_scene_count: Int!
+  oral_scene_count: Int!
+  solo_scene_count: Int!
+  facial_scene_count: Int!
+}
+
+# CUSTOM: begin
+type StudioActivityStats {
+  total_seconds: Float!
+  sex_seconds: Float!
+  oral_seconds: Float!
+  solo_seconds: Float!
+  other_seconds: Float!
+  activity_other_seconds: Float!
+  outstanding_seconds: Float!
+  standard_seconds: Float!
+  unusable_seconds: Float!
+  sex_percent: Float!
+  oral_percent: Float!
+  solo_percent: Float!
+  other_percent: Float!
+  activity_other_percent: Float!
+  outstanding_percent: Float!
+  standard_percent: Float!
+  unusable_percent: Float!
+  sex_scene_count: Int!
+  oral_scene_count: Int!
+  solo_scene_count: Int!
+}
+
+# Aggregated Rating Advisor data for a studio Stats tab.
+type StudioRatingAdvisorCriterionAverage {
+  key: String!
+  average_raw_value: Float!
+  average_weighted_value: Float!
+  average_fill_percent: Float!
+  entity_count: Int!
+}
+
+type StudioRatingAdvisorAdjustmentCount {
+  section: String!
+  key: String!
+  entity_count: Int!
+}
+
+type StudioRatingAdvisorSectionStats {
+  entity_count: Int!
+  average_rating100: Float
+  criteria: [StudioRatingAdvisorCriterionAverage!]!
+  adjustments: [StudioRatingAdvisorAdjustmentCount!]!
+}
+
+type StudioRatingAdvisorStats {
+  overall_scene_average_rating100: Float
+  solo_scenes: StudioRatingAdvisorSectionStats!
+  "Standard scenes: 2 vatos"
+  sex_scenes: StudioRatingAdvisorSectionStats!
+  "Threesome scenes: 3 vatos, same rubric as Standard"
+  threesome_scenes: StudioRatingAdvisorSectionStats!
+  group_scenes: StudioRatingAdvisorSectionStats!
+  performers: StudioRatingAdvisorSectionStats!
+}
+# CUSTOM: end
+
+# CUSTOM: begin
+# Batched aggregate payload used by the studios list. Keeping these values on the
+# result object avoids running the corresponding resolver once per studio card.
+type StudioListStats {
+  studio_id: ID!
+  "Raw value for the active Studio sort when it is not already present in the card payload"
+  active_sort_value: String
+  scene_count: Int!
+  "Scene count including sub-studios"
+  scene_count_all: Int!
+  image_count: Int!
+  gallery_count: Int!
+  performer_count: Int!
+  "Performer count including sub-studios"
+  performer_count_all: Int!
+  group_count: Int!
+  scene_marker_count: Int!
+  o_counter: Int!
+  "O count including sub-studios"
+  o_counter_all: Int!
+  unique_performer_count: Int!
+  facial_count: Int!
+  studio_role_counts: StudioRoleCounts!
+  studio_activity_stats: StudioActivityStats!
+}
+
+type StudioListMetricValue {
+  "Studio sort key"
+  key: String!
+  value: String
+}
+
+type StudioListMetricValues {
+  studio_id: ID!
+  values: [StudioListMetricValue!]!
+}
+
+extend type FindStudiosResultType {
+  studio_list_stats: [StudioListStats!]!
+  "Raw values for the requested Studio sort metrics, used by the studio list table columns"
+  studio_list_metrics(metrics: [String!]!): [StudioListMetricValues!]!
+}
+# CUSTOM: end
+
+# StudioPerformerRoleStats: all performer-filtered marker-based counts in one batch resolver.
+type StudioPerformerRoleStats {
+  sex_scene_count: Int!
+  sex_top_count: Int!
+  sex_bottom_count: Int!
+  sex_with_top_count: Int!
+  sex_with_bottom_count: Int!
+  oral_scene_count: Int!
+  oral_top_count: Int!
+  oral_bottom_count: Int!
+  oral_with_top_count: Int!
+  oral_with_bottom_count: Int!
+  solo_scene_count: Int!
+  facial_scene_count: Int!
+  facial_top_count: Int!
+  facial_bottom_count: Int!
+  facial_with_top_count: Int!
+  facial_with_bottom_count: Int!
+  facial_marker_with_top_count: Int!
+  facial_marker_with_bottom_count: Int!
+  sex_unique_partner_count: Int!
+  oral_unique_partner_count: Int!
+  facial_unique_partner_count: Int!
+  orgasm_top_count: Int!
+  facial_marker_count: Int!
+  feet_top_count: Int!
+}
+
+extend type Studio {
+  unique_performer_count(depth: Int): Int! # Resolver - performers with only one scene in database and it's for this studio
+  # Batched resolvers - replace N individual field calls with one resolver per studio
+  studio_role_counts(depth: Int): StudioRoleCounts! # CUSTOM: batched sex/oral/solo/facial scene counts (no performer filter)
+  studio_activity_stats(depth: Int): StudioActivityStats! # CUSTOM: duration percentages for configured activity tags
+  facial_count(depth: Int): Int! # CUSTOM: facials, counted like Scene Stats Total Facials
+  "Average StashDB Matches over scenes with a count; null when none has one"
+  average_stashdb_matches(depth: Int): Float # CUSTOM
+  studio_rating_advisor_stats(depth: Int): StudioRatingAdvisorStats! # CUSTOM: averaged advisor criteria and active adjustment counts
+  studio_performer_activity_stats(
+    performer_id: ID!
+    depth: Int
+  ): StudioActivityStats! # CUSTOM: performer-filtered duration percentages
+  studio_performer_role_stats(
+    performer_id: ID!
+    depth: Int
+  ): StudioPerformerRoleStats! # CUSTOM: batched all marker-based stats for one performer
+  "Site the studio's scenes sync from, null when it has none"
+  site_sync: StudioSiteSync # CUSTOM: studio site sync
+}

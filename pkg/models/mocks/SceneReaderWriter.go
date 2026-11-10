@@ -30,6 +30,20 @@ func (_m *SceneReaderWriter) AddFileID(ctx context.Context, id int, fileID model
 	return r0
 }
 
+// RemoveFileID provides a mock function with given fields: ctx, sceneID, fileID
+func (_m *SceneReaderWriter) RemoveFileID(ctx context.Context, sceneID int, fileID models.FileID) error {
+	ret := _m.Called(ctx, sceneID, fileID)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, int, models.FileID) error); ok {
+		r0 = rf(ctx, sceneID, fileID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // AddGalleryIDs provides a mock function with given fields: ctx, sceneID, galleryIDs
 func (_m *SceneReaderWriter) AddGalleryIDs(ctx context.Context, sceneID int, galleryIDs []int) error {
 	ret := _m.Called(ctx, sceneID, galleryIDs)
@@ -1380,6 +1394,102 @@ func (_m *SceneReaderWriter) ResetO(ctx context.Context, id int) (int, error) {
 	return r0, r1
 }
 
+// AddOAtVideoTimestamp provides a mock function with given fields: ctx, id, videoTimestamp
+// CUSTOM
+func (_m *SceneReaderWriter) AddOAtVideoTimestamp(ctx context.Context, id int, videoTimestamp float64) ([]time.Time, error) {
+	ret := _m.Called(ctx, id, videoTimestamp)
+
+	var r0 []time.Time
+	if rf, ok := ret.Get(0).(func(context.Context, int, float64) []time.Time); ok {
+		r0 = rf(ctx, id, videoTimestamp)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]time.Time)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, int, float64) error); ok {
+		r1 = rf(ctx, id, videoTimestamp)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// AddRetroactiveOCustom provides a mock function with given fields: ctx, id
+// CUSTOM
+func (_m *SceneReaderWriter) AddRetroactiveOCustom(ctx context.Context, id int) ([]time.Time, error) {
+	ret := _m.Called(ctx, id)
+
+	var r0 []time.Time
+	if rf, ok := ret.Get(0).(func(context.Context, int) []time.Time); ok {
+		r0 = rf(ctx, id)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]time.Time)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, int) error); ok {
+		r1 = rf(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// DeleteRetroactiveOCustom provides a mock function with given fields: ctx, id
+// CUSTOM
+func (_m *SceneReaderWriter) DeleteRetroactiveOCustom(ctx context.Context, id int) ([]time.Time, error) {
+	ret := _m.Called(ctx, id)
+
+	var r0 []time.Time
+	if rf, ok := ret.Get(0).(func(context.Context, int) []time.Time); ok {
+		r0 = rf(ctx, id)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]time.Time)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, int) error); ok {
+		r1 = rf(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetOVideoTimestamps provides a mock function with given fields: ctx, id
+// CUSTOM
+func (_m *SceneReaderWriter) GetOVideoTimestamps(ctx context.Context, id int) ([]*float64, error) {
+	ret := _m.Called(ctx, id)
+
+	var r0 []*float64
+	if rf, ok := ret.Get(0).(func(context.Context, int) []*float64); ok {
+		r0 = rf(ctx, id)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*float64)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, int) error); ok {
+		r1 = rf(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // SaveActivity provides a mock function with given fields: ctx, sceneID, resumeTime, playDuration
 func (_m *SceneReaderWriter) SaveActivity(ctx context.Context, sceneID int, resumeTime *float64, playDuration *float64) (bool, error) {
 	ret := _m.Called(ctx, sceneID, resumeTime, playDuration)
@@ -1408,6 +1518,108 @@ func (_m *SceneReaderWriter) SetCustomFields(ctx context.Context, id int, fields
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, int, models.CustomFieldsInput) error); ok {
 		r0 = rf(ctx, id, fields)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// GetStashDBMatchesCustom provides a mock function with given fields: ctx, sceneID
+// CUSTOM
+func (_m *SceneReaderWriter) GetStashDBMatchesCustom(ctx context.Context, sceneID int) (*int, error) {
+	ret := _m.Called(ctx, sceneID)
+
+	var r0 *int
+	if rf, ok := ret.Get(0).(func(context.Context, int) *int); ok {
+		r0 = rf(ctx, sceneID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*int)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, int) error); ok {
+		r1 = rf(ctx, sceneID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FindStashDBMatchTargetsCustom provides a mock function with given fields: ctx, endpoint
+// CUSTOM
+func (_m *SceneReaderWriter) FindStashDBMatchTargetsCustom(ctx context.Context, endpoint string) ([]models.StashDBMatchTargetCustom, error) {
+	ret := _m.Called(ctx, endpoint)
+
+	var r0 []models.StashDBMatchTargetCustom
+	if rf, ok := ret.Get(0).(func(context.Context, string) []models.StashDBMatchTargetCustom); ok {
+		r0 = rf(ctx, endpoint)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]models.StashDBMatchTargetCustom)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, endpoint)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetStashDBMatchesReportCustom provides a mock function with given fields: ctx
+// CUSTOM
+func (_m *SceneReaderWriter) GetStashDBMatchesReportCustom(ctx context.Context) (*models.StashDBMatchesReportCustom, error) {
+	ret := _m.Called(ctx)
+
+	var r0 *models.StashDBMatchesReportCustom
+	if rf, ok := ret.Get(0).(func(context.Context) *models.StashDBMatchesReportCustom); ok {
+		r0 = rf(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*models.StashDBMatchesReportCustom)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// SaveStashDBMatchesReportCustom provides a mock function with given fields: ctx, report
+// CUSTOM
+func (_m *SceneReaderWriter) SaveStashDBMatchesReportCustom(ctx context.Context, report models.StashDBMatchesReportCustom) error {
+	ret := _m.Called(ctx, report)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, models.StashDBMatchesReportCustom) error); ok {
+		r0 = rf(ctx, report)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// SetStashDBMatchesCustom provides a mock function with given fields: ctx, sceneID, matches
+// CUSTOM
+func (_m *SceneReaderWriter) SetStashDBMatchesCustom(ctx context.Context, sceneID int, matches *int) error {
+	ret := _m.Called(ctx, sceneID, matches)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, int, *int) error); ok {
+		r0 = rf(ctx, sceneID, matches)
 	} else {
 		r0 = ret.Error(0)
 	}

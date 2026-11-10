@@ -1,0 +1,18 @@
+/* CUSTOM: Bronze, silver, gold, and Alpha Sapphire metal palettes, shared by
+   medal bars, growth charts, and achievement toasts. */
+@each $threshold, $highlight, $metal, $shadow,
+  $rim
+    in (
+      (25, #f6d4ac, #c58a51, #92572c, #d8a16d),
+      (50, #f4f8fc, #bbc8d3, #82919f, #d5dfe8),
+      (75, #fff0ab, #eac15a, #b47c21, #f4d47c),
+      (100, #b9e6ff, #94c3df, #123f9f, #60c9ff)
+    )
+{
+  .milestone-checkpoint-#{$threshold} {
+    --checkpoint-highlight: #{$highlight};
+    --checkpoint-metal: #{$metal};
+    --checkpoint-shadow: #{$shadow};
+    --checkpoint-rim: #{$rim};
+  }
+}

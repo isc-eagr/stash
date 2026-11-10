@@ -46,7 +46,14 @@ import { LoadedContent } from "../List/PagedList";
 import useFocus from "src/utils/focus";
 import { SidebarPerformersFilter } from "../List/Filters/PerformersFilter";
 import { SidebarTagsFilter } from "../List/Filters/TagsFilter";
+import { SceneTagsCriterionOption } from "src/models/list-filter/criteria/tags"; // CUSTOM
 import { Button } from "react-bootstrap";
+import TextUtils from "src/utils/text"; // CUSTOM
+// CUSTOM: begin - marker queue imports
+import { useMarkerQueue } from "src/hooks/MarkerQueue";
+import { MarkerQueueIndicator } from "./MarkerQueueIndicator";
+import { useToast } from "src/hooks/Toast";
+// CUSTOM: end
 
 const SceneMarkerList: React.FC<{
   markers: GQL.SceneMarkerDataFragment[];
@@ -78,6 +85,8 @@ const SceneMarkerList: React.FC<{
           zoomIndex={filter.zoomIndex}
           selectedIds={selectedIds}
           onSelectChange={onSelectChange}
+          activeSortBy={filter.sortBy} // CUSTOM
+          activeSortDirection={filter.sortDirection} // CUSTOM
         />
       );
     }
@@ -175,6 +184,7 @@ const SidebarContent: React.FC<{
           filterHook={filterHook}
         />
         <SidebarTagsFilter
+          option={SceneTagsCriterionOption} // CUSTOM
           filter={filter}
           setFilter={setFilter}
           filterHook={filterHook}
@@ -198,10 +208,33 @@ interface ISceneMarkerList {
   extraOperations?: IItemListOperation<GQL.FindSceneMarkersQueryResult>[];
 }
 
+// CUSTOM: mirror the scene-list duration byline on filtered marker lists.
+function renderMarkerMetadataByline(result: GQL.FindSceneMarkersQueryResult) {
+  const duration = result.data?.findSceneMarkers.duration;
+  if (duration === undefined) return null;
+
+  return (
+    <span className="scene-markers-stats">
+      &nbsp;({TextUtils.secondsAsTimeString(duration, 3)})
+    </span>
+  );
+}
+
 export const FilteredSceneMarkerList = PatchComponent(
   "FilteredSceneMarkerList",
   (props: ISceneMarkerList) => {
     const intl = useIntl();
+    // CUSTOM: begin - marker queue
+    const { addToQueue, clearQueue } = useMarkerQueue();
+    const Toast = useToast();
+
+    // Clear the marker queue when navigating away from this page
+    useEffect(() => {
+      return () => {
+        clearQueue();
+      };
+    }, [clearQueue]);
+    // CUSTOM: end
 
     const searchFocus = useFocus();
 
@@ -316,6 +349,9 @@ export const FilteredSceneMarkerList = PatchComponent(
     });
 
     const playRandom = usePlayRandom(effectiveFilter, totalCount);
+    const metadataByline = cachedResult.loading // CUSTOM
+      ? null
+      : renderMarkerMetadataByline(cachedResult);
 
     const convertedExtraOperations: IListFilterOperation[] =
       extraOperations.map((o) => ({
@@ -367,6 +403,25 @@ export const FilteredSceneMarkerList = PatchComponent(
     // render
     if (sidebarStateLoading) return null;
 
+    // CUSTOM: begin - add to marker queue handler
+    const handleAddToQueue = () => {
+      if (selectedIds.size > 0) {
+        const selectedMarkers = Array.from(selectedIds)
+          .map((id) => items.find((m) => m.id === id))
+          .filter((m): m is GQL.SceneMarkerDataFragment => m !== undefined);
+
+        addToQueue(selectedMarkers);
+        Toast.success(
+          intl.formatMessage(
+            { id: "actions.added_to_queue" },
+            { count: selectedMarkers.length }
+          )
+        );
+        onSelectNone();
+      }
+    };
+    // CUSTOM: end
+
     const operations = (
       <ListOperations
         items={items.length}
@@ -414,6 +469,15 @@ export const FilteredSceneMarkerList = PatchComponent(
                 operationComponent={operations}
                 view={view}
                 zoomable
+                // CUSTOM: begin - marker queue indicator
+                extraToolbarContent={
+                  <MarkerQueueIndicator
+                    className="ml-2"
+                    onAddToQueue={handleAddToQueue}
+                    selectedCount={selectedIds.size}
+                  />
+                }
+                // CUSTOM: end
               />
 
               <FilterTags
@@ -436,6 +500,7 @@ export const FilteredSceneMarkerList = PatchComponent(
                   itemsPerPage={filter.itemsPerPage}
                   currentPage={filter.currentPage}
                   totalItems={totalCount}
+                  metadataByline={metadataByline}
                 />
               </div>
 

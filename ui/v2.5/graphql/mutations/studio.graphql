@@ -12,7 +12,8 @@ mutation StudioUpdate($input: StudioUpdateInput!) {
 
 mutation BulkStudioUpdate($input: BulkStudioUpdateInput!) {
   bulkStudioUpdate(input: $input) {
-    ...StudioData
+    # CUSTOM: keep bulk edit responses lightweight; callers refetch impacted lists.
+    id
   }
 }
 

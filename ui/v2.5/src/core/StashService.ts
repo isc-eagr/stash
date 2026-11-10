@@ -17,6 +17,19 @@ import * as GQL from "./generated-graphql";
 import { createClient } from "./createClient";
 import { Client } from "graphql-ws";
 import { useEffect, useState } from "react";
+// CUSTOM: begin
+import {
+  ICacheReferenceCustom,
+  removeCacheReferenceCustom,
+  upsertCacheReferenceCustom,
+} from "./sceneMarkerCache_custom";
+import {
+  addSceneHistoryEntriesCustom,
+  removeSceneHistoryEntriesCustom,
+} from "./sceneHistoryCache_custom";
+import { releaseMutationCacheRefreshCustom } from "./sceneReleaseCache_custom";
+import { updateStashDBChangesReportCustom } from "./stashDBChangesCache_custom";
+// CUSTOM: end
 
 const { client, wsClient, cache: clientCache } = createClient();
 
@@ -50,7 +63,8 @@ export function useWSState(ws: Client) {
 // Will also call a cache GC afterwards.
 export function evictQueries(
   cache: ApolloCache<unknown>,
-  queries: DocumentNode[]
+  queries: DocumentNode[],
+  garbageCollect = true // CUSTOM: hot mutations can defer global cache collection
 ) {
   const fields: Modifiers = {};
   for (const query of queries) {
@@ -66,7 +80,7 @@ export function evictQueries(
 
   // evictQueries is usually called at the end of
   // an update function - so call a GC here
-  cache.gc();
+  if (garbageCollect) cache.gc(); // CUSTOM
 }
 
 /**
@@ -285,7 +299,14 @@ export const queryFindSceneMarkers = (filter: ListFilterModel) =>
     },
   });
 
-export const useMarkerStrings = () => GQL.useMarkerStringsQuery();
+export const useMarkerStrings = (skip = false) =>
+  GQL.useMarkerStringsQuery({
+    skip,
+    variables: { sort: "count" },
+  }); // CUSTOM: rank title suggestions by saved-marker usage
+
+export const useSceneNegativeMarkerNames = (skip = false) =>
+  GQL.useSceneNegativeMarkerNamesQuery({ fetchPolicy: "network-only", skip }); // CUSTOM
 
 export const useFindGallery = (id: string) => {
   const skip = id === "new" || id === "";
@@ -333,12 +354,19 @@ export const queryFindGalleriesByIDForSelect = (galleryIDs: string[]) =>
 
 export const useFindPerformer = (id: string) => {
   const skip = id === "new" || id === "";
-  return GQL.useFindPerformerQuery({ variables: { id }, skip });
+  return GQL.useFindPerformerProfileQuery({ variables: { id }, skip }); // CUSTOM
 };
 
 export const queryFindPerformer = (id: string) =>
   client.query<GQL.FindPerformerQuery>({
     query: GQL.FindPerformerDocument,
+    variables: { id },
+  });
+
+// CUSTOM: Tagger only needs identity and Stash IDs, not role totals.
+export const queryFindPerformerForTagger = (id: string) =>
+  client.query<GQL.FindPerformerForTaggerQuery>({
+    query: GQL.FindPerformerForTaggerDocument,
     variables: { id },
   });
 
@@ -361,8 +389,8 @@ export const queryFindPerformers = (filter: ListFilterModel) =>
   });
 
 export const queryFindPerformersByID = (performerIDs: number[]) =>
-  client.query<GQL.FindPerformersQuery>({
-    query: GQL.FindPerformersDocument,
+  client.query<GQL.FindPerformersByIdQuery>({
+    query: GQL.FindPerformersByIdDocument,
     variables: {
       performer_ids: performerIDs,
     },
@@ -505,6 +533,25 @@ export const queryFindTagsForSelect = (filter: ListFilterModel) =>
     },
   });
 
+// CUSTOM: begin
+// Variant that allows overriding/augmenting the tag_filter used for selects.
+// Useful for constraining TagSelect to subsets of tags.
+export const queryFindTagsForSelectWithTagFilter = (
+  filter: ListFilterModel,
+  tagFilterOverride?: GQL.TagFilterType
+) =>
+  client.query<GQL.FindTagsForSelectQuery>({
+    query: GQL.FindTagsForSelectDocument,
+    variables: {
+      filter: filter.makeFindFilter(),
+      tag_filter: {
+        ...(filter.makeFilter() as GQL.TagFilterType),
+        ...(tagFilterOverride ?? ({} as GQL.TagFilterType)),
+      },
+    },
+  });
+// CUSTOM: end
+
 export const useFindSavedFilter = (id: string) =>
   GQL.useFindSavedFilterQuery({
     variables: { id },
@@ -620,11 +667,53 @@ export const mutateCreateScene = (input: GQL.SceneCreateInput) =>
 
 export const useSceneUpdate = () =>
   GQL.useSceneUpdateMutation({
+    update(cache, result, { variables }) {
+      if (!result.data?.sceneUpdate || !variables) return;
+
+      // CUSTOM: begin - invalidate only aggregates affected by changed relationships
+      const { input } = variables;
+      const impactedTypeFields: Record<string, string[]> = {};
+      const impactedQueries: DocumentNode[] = [GQL.FindScenesDocument];
+
+      if (input.groups !== undefined || input.movies !== undefined) {
+        impactedTypeFields.Group = sceneMutationImpactedTypeFields.Group;
+        impactedTypeFields.Performer =
+          sceneMutationImpactedTypeFields.Performer;
+        impactedQueries.push(GQL.FindGroupsDocument);
+      }
+      if (input.gallery_ids !== undefined) {
+        impactedTypeFields.Gallery = sceneMutationImpactedTypeFields.Gallery;
+        impactedQueries.push(GQL.FindGalleriesDocument);
+      }
+      if (input.performer_ids !== undefined) {
+        impactedTypeFields.Performer =
+          sceneMutationImpactedTypeFields.Performer;
+        impactedTypeFields.Studio = sceneMutationImpactedTypeFields.Studio;
+        impactedQueries.push(GQL.FindPerformersDocument);
+      }
+      if (input.studio_id !== undefined) {
+        impactedTypeFields.Studio = sceneMutationImpactedTypeFields.Studio;
+        impactedQueries.push(GQL.FindStudiosDocument);
+      }
+      if (input.tag_ids !== undefined) {
+        impactedTypeFields.Tag = sceneMutationImpactedTypeFields.Tag;
+        impactedQueries.push(GQL.FindTagsDocument);
+      }
+
+      if (Object.keys(impactedTypeFields).length > 0) {
+        evictTypeFields(cache, impactedTypeFields);
+      }
+      evictQueries(cache, impactedQueries, false);
+      // CUSTOM: end
+    },
+  });
+
+// CUSTOM: the Organized toolbar toggle changes one normalized field only.
+export const useSceneOrganizedUpdate = () =>
+  GQL.useSceneOrganizedUpdateMutation({
     update(cache, result) {
       if (!result.data?.sceneUpdate) return;
-
-      evictTypeFields(cache, sceneMutationImpactedTypeFields);
-      evictQueries(cache, sceneMutationImpactedQueries);
+      evictQueries(cache, [GQL.FindScenesDocument], false);
     },
   });
 
@@ -698,15 +787,21 @@ export const useSceneIncrementO = (id: string) =>
       const mutationResult = result.data?.sceneAddO;
       if (!mutationResult || !variables) return;
 
-      const { history } = mutationResult;
+      const { count } = mutationResult; // CUSTOM: count-only mutation result
       const { times } = variables;
-      const timeArray = !times ? [at] : Array.isArray(times) ? times : [times];
+      const timeArray = (
+        !times ? [at] : Array.isArray(times) ? times : [times]
+      ) as string[];
 
-      const scene = cache.readFragment<GQL.SlimSceneDataFragment>({
+      const scene = cache.readFragment<GQL.SceneHistoryCacheDataFragment>({
         id: cache.identify({ __typename: "Scene", id }),
-        fragment: GQL.SlimSceneDataFragmentDoc,
-        fragmentName: "SlimSceneData",
+        fragment: GQL.SceneHistoryCacheDataFragmentDoc,
+        fragmentName: "SceneHistoryCacheData",
       });
+
+      const previousCount =
+        scene?.o_counter ?? Math.max(0, count - timeArray.length); // CUSTOM
+      const addedCount = Math.max(0, count - previousCount); // CUSTOM
 
       if (scene) {
         // if we have the scene, update performer o_counters manually
@@ -715,7 +810,7 @@ export const useSceneIncrementO = (id: string) =>
             id: cache.identify(performer),
             fields: {
               o_counter(value) {
-                return value + timeArray.length;
+                return value + addedCount;
               },
             },
           });
@@ -727,24 +822,171 @@ export const useSceneIncrementO = (id: string) =>
         });
       }
 
-      updateStats(cache, "total_o_count", timeArray.length);
+      updateStats(cache, "total_o_count", addedCount);
+
+      // CUSTOM: keep O dates and their parallel timestamps aligned locally.
+      const entries = addSceneHistoryEntriesCustom(
+        scene?.o_history,
+        timeArray,
+        scene?.o_timestamps ?? undefined
+      );
 
       cache.modify({
         id: cache.identify({ __typename: "Scene", id }),
         fields: {
           o_history() {
-            return history;
+            return entries.map((entry) => entry.date);
+          },
+          o_timestamps() {
+            return entries.map((entry) => entry.videoTimestamp ?? null);
           },
         },
       });
 
-      updateO(cache, "Scene", id, history.length);
-      evictQueries(cache, [
-        GQL.FindScenesDocument, // filter by o_counter
-        GQL.FindPerformersDocument, // filter by o_counter
-      ]);
+      updateO(cache, "Scene", id, count);
+      evictQueries(
+        cache,
+        [
+          GQL.FindScenesDocument, // filter by o_counter
+          GQL.FindPerformersDocument, // filter by o_counter
+        ],
+        false
+      ); // CUSTOM: avoid synchronous full-cache GC
     },
   });
+
+// CUSTOM: Records an O at the current video player timestamp.
+export const useSceneRecordOAtTimestamp = (id: string) =>
+  GQL.useSceneRecordOAtTimestampMutation({
+    update(cache, result, { variables }) {
+      // CUSTOM: add variables to update o_timestamps
+      const mutationResult = result.data?.sceneRecordOAtTimestamp;
+      if (!mutationResult) return;
+
+      const { count } = mutationResult;
+
+      const scene = cache.readFragment<GQL.SceneHistoryCacheDataFragment>({
+        id: cache.identify({ __typename: "Scene", id }),
+        fragment: GQL.SceneHistoryCacheDataFragmentDoc,
+        fragmentName: "SceneHistoryCacheData",
+      });
+
+      const previousCount = scene?.o_counter ?? Math.max(0, count - 1);
+      const addedCount = Math.max(0, count - previousCount);
+
+      if (scene) {
+        for (const performer of scene.performers) {
+          cache.modify({
+            id: cache.identify(performer),
+            fields: {
+              o_counter(value) {
+                return value + addedCount;
+              },
+            },
+          });
+        }
+      } else {
+        evictTypeFields(cache, {
+          Performer: ["o_counter"],
+        });
+      }
+
+      updateStats(cache, "total_o_count", addedCount);
+
+      // CUSTOM: begin - insert the new date and video timestamp as one aligned entry
+      const videoTimestamp = variables?.video_timestamp;
+      const entries = addSceneHistoryEntriesCustom(
+        scene?.o_history,
+        [new Date().toISOString()],
+        scene?.o_timestamps ?? undefined,
+        [videoTimestamp ?? null]
+      );
+      cache.modify({
+        id: cache.identify({ __typename: "Scene", id }),
+        fields: {
+          o_history() {
+            return entries.map((entry) => entry.date);
+          },
+          o_timestamps() {
+            return entries.map((entry) => entry.videoTimestamp ?? null);
+          },
+        },
+      });
+      // CUSTOM: end
+
+      updateO(cache, "Scene", id, count);
+
+      evictQueries(
+        cache,
+        [GQL.FindScenesDocument, GQL.FindPerformersDocument],
+        false
+      );
+    },
+  });
+
+// CUSTOM: begin - add/remove O's without a date or video timestamp
+function updateSceneRetroactiveOCustom(
+  cache: ApolloCache<Record<string, StoreObject>>,
+  id: string,
+  count: number
+) {
+  const scene = cache.readFragment<GQL.SceneHistoryCacheDataFragment>({
+    id: cache.identify({ __typename: "Scene", id }),
+    fragment: GQL.SceneHistoryCacheDataFragmentDoc,
+    fragmentName: "SceneHistoryCacheData",
+  });
+
+  const diff = scene ? count - (scene.o_counter ?? 0) : 0;
+
+  if (scene) {
+    for (const performer of scene.performers) {
+      cache.modify({
+        id: cache.identify(performer),
+        fields: {
+          o_counter(value) {
+            return Math.max(0, value + diff);
+          },
+        },
+      });
+    }
+  } else {
+    evictTypeFields(cache, {
+      Performer: ["o_counter"],
+    });
+  }
+
+  updateStats(cache, "total_o_count", diff);
+  updateO(cache, "Scene", id, count);
+
+  evictQueries(
+    cache,
+    [GQL.FindScenesDocument, GQL.FindPerformersDocument],
+    false
+  );
+}
+
+export const useSceneAddRetroactiveO = (id: string) =>
+  GQL.useSceneAddRetroactiveOMutation({
+    variables: { id },
+    update(cache, result) {
+      const mutationResult = result.data?.sceneAddRetroactiveO;
+      if (mutationResult) {
+        updateSceneRetroactiveOCustom(cache, id, mutationResult.count);
+      }
+    },
+  });
+
+export const useSceneDeleteRetroactiveO = (id: string) =>
+  GQL.useSceneDeleteRetroactiveOMutation({
+    variables: { id },
+    update(cache, result) {
+      const mutationResult = result.data?.sceneDeleteRetroactiveO;
+      if (mutationResult) {
+        updateSceneRetroactiveOCustom(cache, id, mutationResult.count);
+      }
+    },
+  });
+// CUSTOM: end
 
 export const useSceneDecrementO = (id: string) =>
   GQL.useSceneDeleteOMutation({
@@ -753,15 +995,21 @@ export const useSceneDecrementO = (id: string) =>
       const mutationResult = result.data?.sceneDeleteO;
       if (!mutationResult || !variables) return;
 
-      const { history } = mutationResult;
+      const { count } = mutationResult; // CUSTOM: count-only mutation result
       const { times } = variables;
-      const timeArray = !times ? null : Array.isArray(times) ? times : [times];
+      const timeArray = (
+        !times ? undefined : Array.isArray(times) ? times : [times]
+      ) as string[] | undefined;
 
-      const scene = cache.readFragment<GQL.SlimSceneDataFragment>({
+      const scene = cache.readFragment<GQL.SceneHistoryCacheDataFragment>({
         id: cache.identify({ __typename: "Scene", id }),
-        fragment: GQL.SlimSceneDataFragmentDoc,
-        fragmentName: "SlimSceneData",
+        fragment: GQL.SceneHistoryCacheDataFragmentDoc,
+        fragmentName: "SceneHistoryCacheData",
       });
+
+      const previousCount =
+        scene?.o_counter ?? count + (timeArray?.length ?? 1); // CUSTOM
+      const removedCount = Math.max(0, previousCount - count); // CUSTOM
 
       if (scene) {
         // if we have the scene, update performer o_counters manually
@@ -770,7 +1018,7 @@ export const useSceneDecrementO = (id: string) =>
             id: cache.identify(performer),
             fields: {
               o_counter(value) {
-                return value - (timeArray?.length ?? 1);
+                return Math.max(0, value - removedCount);
               },
             },
           });
@@ -782,22 +1030,36 @@ export const useSceneDecrementO = (id: string) =>
         });
       }
 
-      updateStats(cache, "total_o_count", -(timeArray?.length ?? 1));
+      updateStats(cache, "total_o_count", -removedCount);
+
+      // CUSTOM: remove the matching date and timestamp together without a refetch.
+      const entries = removeSceneHistoryEntriesCustom(
+        scene?.o_history,
+        timeArray,
+        scene?.o_timestamps ?? undefined
+      );
 
       cache.modify({
         id: cache.identify({ __typename: "Scene", id }),
         fields: {
           o_history() {
-            return history;
+            return entries.map((entry) => entry.date);
+          },
+          o_timestamps() {
+            return entries.map((entry) => entry.videoTimestamp ?? null);
           },
         },
       });
 
-      updateO(cache, "Scene", id, history.length);
-      evictQueries(cache, [
-        GQL.FindScenesDocument, // filter by o_counter
-        GQL.FindPerformersDocument, // filter by o_counter
-      ]);
+      updateO(cache, "Scene", id, count);
+      evictQueries(
+        cache,
+        [
+          GQL.FindScenesDocument, // filter by o_counter
+          GQL.FindPerformersDocument, // filter by o_counter
+        ],
+        false
+      ); // CUSTOM
     },
   });
 
@@ -808,10 +1070,10 @@ export const useSceneResetO = (id: string) =>
       const updatedOCount = result.data?.sceneResetO;
       if (updatedOCount === undefined) return;
 
-      const scene = cache.readFragment<GQL.SlimSceneDataFragment>({
+      const scene = cache.readFragment<GQL.SceneHistoryCacheDataFragment>({
         id: cache.identify({ __typename: "Scene", id }),
-        fragment: GQL.SlimSceneDataFragmentDoc,
-        fragmentName: "SlimSceneData",
+        fragment: GQL.SceneHistoryCacheDataFragmentDoc,
+        fragmentName: "SceneHistoryCacheData",
       });
 
       if (scene) {
@@ -851,14 +1113,22 @@ export const useSceneResetO = (id: string) =>
             const ret: string[] = [];
             return ret;
           },
+          // CUSTOM: clear o_timestamps since all O entries are removed
+          o_timestamps() {
+            return [];
+          },
         },
       });
 
       updateO(cache, "Scene", id, updatedOCount);
-      evictQueries(cache, [
-        GQL.FindScenesDocument, // filter by o_counter
-        GQL.FindPerformersDocument, // filter by o_counter
-      ]);
+      evictQueries(
+        cache,
+        [
+          GQL.FindScenesDocument, // filter by o_counter
+          GQL.FindPerformersDocument, // filter by o_counter
+        ],
+        false
+      ); // CUSTOM: avoid synchronous full-cache GC
     },
   });
 
@@ -872,8 +1142,28 @@ export const useSceneResetActivity = (
     update(cache, result) {
       if (!result.data?.sceneResetActivity) return;
 
-      evictTypeFields(cache, sceneMutationImpactedTypeFields);
-      evictQueries(cache, sceneMutationImpactedQueries);
+      // CUSTOM: begin - reset only the two scene activity fields involved
+      let removedDuration = 0;
+      cache.modify({
+        id: cache.identify({ __typename: "Scene", id }),
+        fields: {
+          resume_time(value) {
+            return reset_resume ? null : value;
+          },
+          play_duration(value) {
+            if (!reset_duration) return value;
+            removedDuration = typeof value === "number" ? value : 0;
+            return 0;
+          },
+        },
+      });
+      if (removedDuration) {
+        updateStats(cache, "total_play_duration", -removedDuration);
+      }
+      if (reset_duration) {
+        evictQueries(cache, [GQL.FindScenesDocument], false);
+      }
+      // CUSTOM: end
     },
   });
 
@@ -929,12 +1219,14 @@ export const mutateSceneMerge = (
   source: string[],
   values: GQL.SceneUpdateInput,
   includeViewHistory: boolean,
-  includeOHistory: boolean
+  includeOHistory: boolean,
+  custom?: Partial<GQL.SceneMergeInput> // CUSTOM
 ) =>
   client.mutate<GQL.SceneMergeMutation>({
     mutation: GQL.SceneMergeDocument,
     variables: {
       input: {
+        ...custom, // CUSTOM
         source,
         destination,
         values,
@@ -985,9 +1277,13 @@ export const useSceneSaveActivity = () =>
         updateStats(cache, "total_play_duration", playDuration);
       }
 
-      evictQueries(cache, [
-        GQL.FindScenesDocument, // filter by play duration
-      ]);
+      evictQueries(
+        cache,
+        [
+          GQL.FindScenesDocument, // filter by play duration
+        ],
+        false
+      ); // CUSTOM
     },
   });
 
@@ -998,18 +1294,33 @@ export const useSceneIncrementPlayCount = () =>
 
       if (!mutationResult || !variables) return;
 
-      const { history } = mutationResult;
-      const { id } = variables;
-
-      let lastPlayCount = 0;
-      const playCount = history.length;
+      const { count: playCount } = mutationResult; // CUSTOM
+      const { id, times } = variables;
+      const dates = (
+        !times
+          ? [new Date().toISOString()]
+          : Array.isArray(times)
+            ? times
+            : [times]
+      ) as string[];
+      const scene = cache.readFragment<GQL.SceneHistoryCacheDataFragment>({
+        id: cache.identify({ __typename: "Scene", id }),
+        fragment: GQL.SceneHistoryCacheDataFragmentDoc,
+        fragmentName: "SceneHistoryCacheData",
+      });
+      const history = addSceneHistoryEntriesCustom(
+        scene?.play_history,
+        dates
+      ).map((entry) => entry.date);
+      const lastPlayCount =
+        scene?.play_count ?? Math.max(0, playCount - dates.length);
+      const addedCount = Math.max(0, playCount - lastPlayCount);
 
       cache.modify({
         id: cache.identify({ __typename: "Scene", id }),
         fields: {
-          play_count(value) {
-            lastPlayCount = value;
-            return history.length;
+          play_count() {
+            return playCount;
           },
           last_played_at() {
             // assume only one entry - or the first is the most recent
@@ -1021,14 +1332,18 @@ export const useSceneIncrementPlayCount = () =>
         },
       });
 
-      updateStats(cache, "total_play_count", playCount - lastPlayCount);
-      if (lastPlayCount === 0) {
+      updateStats(cache, "total_play_count", addedCount);
+      if (lastPlayCount === 0 && playCount > 0) {
         updateStats(cache, "scenes_played", 1);
       }
 
-      evictQueries(cache, [
-        GQL.FindScenesDocument, // filter by play count
-      ]);
+      evictQueries(
+        cache,
+        [
+          GQL.FindScenesDocument, // filter by play count
+        ],
+        false
+      ); // CUSTOM
     },
   });
 
@@ -1039,26 +1354,32 @@ export const useSceneDecrementPlayCount = () =>
 
       if (!mutationResult || !variables) return;
 
-      const { history } = mutationResult;
+      const { count: playCount } = mutationResult; // CUSTOM
       const { id, times } = variables;
-      const timeArray = !times ? null : Array.isArray(times) ? times : [times];
-      const nRemoved = timeArray?.length ?? 1;
-
-      let lastPlayCount = 0;
-      let lastPlayedAt: string | null = null;
-      const playCount = history.length;
+      const timeArray = (
+        !times ? undefined : Array.isArray(times) ? times : [times]
+      ) as string[] | undefined;
+      const scene = cache.readFragment<GQL.SceneHistoryCacheDataFragment>({
+        id: cache.identify({ __typename: "Scene", id }),
+        fragment: GQL.SceneHistoryCacheDataFragmentDoc,
+        fragmentName: "SceneHistoryCacheData",
+      });
+      const history = removeSceneHistoryEntriesCustom(
+        scene?.play_history,
+        timeArray
+      ).map((entry) => entry.date);
+      const lastPlayCount =
+        scene?.play_count ?? playCount + (timeArray?.length ?? 1);
+      const nRemoved = Math.max(0, lastPlayCount - playCount);
+      const lastPlayedAt = history[0] ?? null;
 
       cache.modify({
         id: cache.identify({ __typename: "Scene", id }),
         fields: {
-          play_count(value) {
-            lastPlayCount = value;
+          play_count() {
             return playCount;
           },
           play_history() {
-            if (history.length > 0) {
-              lastPlayedAt = history[0];
-            }
             return history;
           },
         },
@@ -1074,19 +1395,19 @@ export const useSceneDecrementPlayCount = () =>
       });
 
       if (lastPlayCount > 0) {
-        updateStats(
-          cache,
-          "total_play_count",
-          nRemoved > lastPlayCount ? -lastPlayCount : -nRemoved
-        );
+        updateStats(cache, "total_play_count", -nRemoved);
       }
-      if (lastPlayCount - nRemoved <= 0) {
+      if (lastPlayCount > 0 && playCount === 0) {
         updateStats(cache, "scenes_played", -1);
       }
 
-      evictQueries(cache, [
-        GQL.FindScenesDocument, // filter by play count
-      ]);
+      evictQueries(
+        cache,
+        [
+          GQL.FindScenesDocument, // filter by play count
+        ],
+        false
+      ); // CUSTOM
     },
   });
 
@@ -1120,9 +1441,13 @@ export const useSceneResetPlayCount = () =>
         updateStats(cache, "scenes_played", -1);
       }
 
-      evictQueries(cache, [
-        GQL.FindScenesDocument, // filter by play count
-      ]);
+      evictQueries(
+        cache,
+        [
+          GQL.FindScenesDocument, // filter by play count
+        ],
+        false
+      ); // CUSTOM
     },
   });
 
@@ -1534,35 +1859,113 @@ const sceneMarkerMutationImpactedQueries = [
   GQL.FindTagsDocument, // filter by marker count
 ];
 
+// CUSTOM: begin - keep the current scene responsive without refetching its
+// complete SceneData graph after every marker mutation.
+function upsertSceneMarkerCacheCustom(
+  cache: ApolloCache<unknown>,
+  sceneID: string,
+  fieldName: "scene_markers" | "negative_markers",
+  marker: StoreObject
+) {
+  const sceneCacheID = cache.identify({ __typename: "Scene", id: sceneID });
+  if (!sceneCacheID) return;
+
+  const fields: Modifiers = {
+    [fieldName](existing, helpers) {
+      const references = Array.isArray(existing)
+        ? (existing as ICacheReferenceCustom[])
+        : [];
+      const reference = helpers.toReference(marker);
+      if (!reference) return references;
+
+      return upsertCacheReferenceCustom(references, reference);
+    },
+  };
+  cache.modify({
+    id: sceneCacheID,
+    fields,
+  });
+}
+
+function removeSceneMarkerCacheCustom(
+  cache: ApolloCache<unknown>,
+  sceneID: string | undefined,
+  fieldName: "scene_markers" | "negative_markers",
+  markerCacheID: string | undefined
+) {
+  if (!sceneID || !markerCacheID) return;
+
+  const sceneCacheID = cache.identify({ __typename: "Scene", id: sceneID });
+  if (!sceneCacheID) return;
+
+  const fields: Modifiers = {
+    [fieldName](existing) {
+      const references = Array.isArray(existing)
+        ? (existing as ICacheReferenceCustom[])
+        : [];
+      return removeCacheReferenceCustom(references, markerCacheID);
+    },
+  };
+  cache.modify({
+    id: sceneCacheID,
+    fields,
+  });
+}
+
+function invalidateSceneMarkerListsCustom(cache: ApolloCache<unknown>) {
+  // These list results may be filtered by marker data. Invalidating their root
+  // fields is cheap and lets mounted lists refresh independently of the save.
+  // Do not synchronously garbage-collect the entire cache on this hot path.
+  const fields: Modifiers = {};
+  for (const query of sceneMarkerMutationImpactedQueries) {
+    // Keep the mounted marker panel painted until its explicit background
+    // refetch replaces the grouped result. // CUSTOM
+    if (query === GQL.FindSceneMarkerTagsDocument) continue;
+    const { selections } = getQueryDefinition(query).selectionSet;
+    for (const field of selections) {
+      if (!isField(field)) continue;
+      fields[field.name.value] = (_value, { DELETE }) => DELETE;
+    }
+  }
+  cache.modify({ fields });
+}
+// CUSTOM: end
+
 export const useSceneMarkerCreate = () =>
   GQL.useSceneMarkerCreateMutation({
+    // CUSTOM: refresh only mounted marker groups and the shared scene-wide
+    // role query; Apollo does not await these background requests.
+    refetchQueries: ["FindSceneMarkerTags", "PerformerSceneMarkerRoles"],
     update(cache, result, { variables }) {
       if (!result.data?.sceneMarkerCreate || !variables) return;
 
-      // refetch linked scene's marker list
-      cache.evict({
-        id: cache.identify({ __typename: "Scene", id: variables.scene_id }),
-        fieldName: "scene_markers",
-      });
-
-      evictTypeFields(cache, sceneMarkerMutationImpactedTypeFields);
-      evictQueries(cache, sceneMarkerMutationImpactedQueries);
+      // CUSTOM: begin
+      upsertSceneMarkerCacheCustom(
+        cache,
+        variables.scene_id,
+        "scene_markers",
+        result.data.sceneMarkerCreate
+      );
+      invalidateSceneMarkerListsCustom(cache);
+      // CUSTOM: end
     },
   });
 
 export const useSceneMarkerUpdate = () =>
   GQL.useSceneMarkerUpdateMutation({
+    refetchQueries: ["FindSceneMarkerTags", "PerformerSceneMarkerRoles"], // CUSTOM
     update(cache, result, { variables }) {
       if (!result.data?.sceneMarkerUpdate || !variables) return;
 
-      // refetch linked scene's marker list
-      cache.evict({
-        id: cache.identify({ __typename: "Scene", id: variables.scene_id }),
-        fieldName: "scene_markers",
-      });
-
-      evictTypeFields(cache, sceneMarkerMutationImpactedTypeFields);
-      evictQueries(cache, sceneMarkerMutationImpactedQueries);
+      // CUSTOM: begin
+      upsertSceneMarkerCacheCustom(
+        cache,
+        variables.scene_id,
+        "scene_markers",
+        result.data.sceneMarkerUpdate
+      );
+      invalidateSceneMarkerListsCustom(cache);
+      // CUSTOM: end
     },
   });
 
@@ -1576,16 +1979,24 @@ export const useBulkSceneMarkerUpdate = () =>
     },
   });
 
-export const useSceneMarkerDestroy = () =>
+export const useSceneMarkerDestroy = (sceneID?: string) =>
   GQL.useSceneMarkerDestroyMutation({
+    refetchQueries: ["FindSceneMarkerTags", "PerformerSceneMarkerRoles"], // CUSTOM
     update(cache, result, { variables }) {
       if (!result.data?.sceneMarkerDestroy || !variables) return;
 
       const obj = { __typename: "SceneMarker", id: variables.id };
-      cache.evict({ id: cache.identify(obj) });
-
-      evictTypeFields(cache, sceneMarkerMutationImpactedTypeFields);
-      evictQueries(cache, sceneMarkerMutationImpactedQueries);
+      const markerCacheID = cache.identify(obj);
+      // CUSTOM: begin
+      removeSceneMarkerCacheCustom(
+        cache,
+        sceneID,
+        "scene_markers",
+        markerCacheID
+      );
+      cache.evict({ id: markerCacheID });
+      invalidateSceneMarkerListsCustom(cache);
+      // CUSTOM: end
     },
   });
 
@@ -1606,6 +2017,186 @@ export const useSceneMarkersDestroy = (
       evictQueries(cache, sceneMarkerMutationImpactedQueries);
     },
   });
+
+// CUSTOM: begin - update the normalized current-scene negative-marker list
+// instead of forcing the complete FindScene query through the network.
+export const useSceneNegativeMarkerCreate = () =>
+  GQL.useSceneNegativeMarkerCreateMutation({
+    update(cache, result) {
+      const marker = result.data?.sceneNegativeMarkerCreate;
+      if (!marker) return;
+
+      upsertSceneMarkerCacheCustom(
+        cache,
+        marker.scene_id,
+        "negative_markers",
+        marker
+      );
+    },
+  });
+
+export const useSceneNegativeMarkerUpdate = () =>
+  GQL.useSceneNegativeMarkerUpdateMutation({
+    update(cache, result) {
+      const marker = result.data?.sceneNegativeMarkerUpdate;
+      if (!marker) return;
+
+      upsertSceneMarkerCacheCustom(
+        cache,
+        marker.scene_id,
+        "negative_markers",
+        marker
+      );
+    },
+  });
+
+export const useSceneNegativeMarkerDestroy = (sceneID?: string) =>
+  GQL.useSceneNegativeMarkerDestroyMutation({
+    update(cache, result, { variables }) {
+      if (!result.data?.sceneNegativeMarkerDestroy || !variables) return;
+
+      const markerCacheID = cache.identify({
+        __typename: "SceneNegativeMarker",
+        id: variables.id,
+      });
+      removeSceneMarkerCacheCustom(
+        cache,
+        sceneID,
+        "negative_markers",
+        markerCacheID
+      );
+      cache.evict({ id: markerCacheID });
+    },
+  });
+// CUSTOM: end
+
+// CUSTOM: begin
+// Marker Playlist hooks
+export const useFindMarkerPlaylistsQuery = () =>
+  GQL.useFindMarkerPlaylistsQuery();
+
+export const useMarkerPlaylistCreate = () =>
+  GQL.useMarkerPlaylistCreateMutation({
+    refetchQueries: ["FindMarkerPlaylists"],
+  });
+
+export const useMarkerPlaylistDestroy = () =>
+  GQL.useMarkerPlaylistDestroyMutation({
+    refetchQueries: ["FindMarkerPlaylists"],
+  });
+
+// Scene Release hooks
+export const useSceneReleaseCreate = () =>
+  GQL.useSceneReleaseCreateMutation({
+    ...releaseMutationCacheRefreshCustom, // CUSTOM
+    update(cache, result, { variables }) {
+      if (!result.data?.sceneReleaseCreate || !variables) return;
+
+      // Refetch linked scene's release list
+      cache.evict({
+        id: cache.identify({
+          __typename: "Scene",
+          id: variables.input.scene_id,
+        }),
+        fieldName: "releases",
+      });
+      cache.gc();
+    },
+  });
+
+export const useSceneReleaseUpdate = () =>
+  GQL.useSceneReleaseUpdateMutation({
+    ...releaseMutationCacheRefreshCustom, // CUSTOM
+    update(cache, result) {
+      if (!result.data?.sceneReleaseUpdate) return;
+      cache.gc();
+    },
+  });
+
+export const useSceneReleaseDestroy = () =>
+  GQL.useSceneReleaseDestroyMutation({
+    ...releaseMutationCacheRefreshCustom, // CUSTOM
+    update(cache, result, { variables }) {
+      if (!result.data?.sceneReleaseDestroy || !variables) return;
+
+      const obj = { __typename: "SceneRelease", id: variables.input.id };
+      cache.evict({ id: cache.identify(obj) });
+      cache.gc();
+    },
+  });
+
+export const useSceneReleaseAddFile = () =>
+  GQL.useSceneReleaseAddFileMutation({
+    ...releaseMutationCacheRefreshCustom, // CUSTOM
+    update(cache, result) {
+      if (!result.data?.sceneReleaseAddFile) return;
+      cache.gc();
+    },
+  });
+
+export const useSceneReleaseRemoveFile = () =>
+  GQL.useSceneReleaseRemoveFileMutation({
+    ...releaseMutationCacheRefreshCustom, // CUSTOM
+    update(cache, result, { variables }) {
+      if (!result.data?.sceneReleaseRemoveFile || !variables) return;
+      // Evict the file from cache if it was deleted
+      if (variables.input.delete_from_filesystem) {
+        cache.evict({
+          id: cache.identify({
+            __typename: "VideoFile",
+            id: variables.input.file_id,
+          }),
+        });
+      }
+      cache.gc();
+    },
+  });
+
+export const useConvertSceneToRelease = () =>
+  GQL.useConvertSceneToReleaseMutation({
+    ...releaseMutationCacheRefreshCustom, // CUSTOM
+    update(cache, result, { variables }) {
+      if (!result.data?.convertSceneToRelease || !variables) return;
+
+      // Evict the source scene since it was deleted
+      const sourceObj = {
+        __typename: "Scene",
+        id: variables.input.source_scene_id,
+      };
+      cache.evict({ id: cache.identify(sourceObj) });
+
+      // Refetch target scene's release list
+      cache.evict({
+        id: cache.identify({
+          __typename: "Scene",
+          id: variables.input.target_scene_id,
+        }),
+        fieldName: "releases",
+      });
+      cache.gc();
+    },
+  });
+
+export const useConvertReleaseToScene = () =>
+  GQL.useConvertReleaseToSceneMutation({
+    ...releaseMutationCacheRefreshCustom, // CUSTOM
+    update(cache, result, { variables }) {
+      if (!result.data?.convertReleaseToScene || !variables) return;
+
+      // Evict the release since it was deleted
+      const releaseObj = {
+        __typename: "SceneRelease",
+        id: variables.input.release_id,
+      };
+      cache.evict({ id: cache.identify(releaseObj) });
+
+      // Update stats
+      updateStats(cache, "scene_count", 1);
+
+      cache.gc();
+    },
+  });
+// CUSTOM: end
 
 const galleryMutationImpactedTypeFields = {
   Scene: ["galleries"],
@@ -1865,6 +2456,33 @@ export const usePerformerUpdate = () =>
       evictQueries(cache, performerMutationImpactedQueries);
     },
   });
+
+// CUSTOM: begin - StashDB Changes apply updates like the update mutations and
+// refreshes the applied report entry.
+export const useApplyStashDBSceneChangesCustom = () =>
+  GQL.useApplyStashDbSceneChangesMutation({
+    update(cache, result) {
+      const entry = result.data?.applyStashDBSceneChanges;
+      if (!entry) return;
+
+      updateStashDBChangesReportCustom(cache, entry);
+      evictTypeFields(cache, sceneMutationImpactedTypeFields);
+      evictQueries(cache, sceneMutationImpactedQueries);
+    },
+  });
+
+export const useApplyStashDBPerformerChangesCustom = () =>
+  GQL.useApplyStashDbPerformerChangesMutation({
+    update(cache, result) {
+      const entry = result.data?.applyStashDBPerformerChanges;
+      if (!entry) return;
+
+      updateStashDBChangesReportCustom(cache, entry);
+      evictTypeFields(cache, performerMutationImpactedTypeFields);
+      evictQueries(cache, performerMutationImpactedQueries);
+    },
+  });
+// CUSTOM: end
 
 export const useBulkPerformerUpdate = (input: GQL.BulkPerformerUpdateInput) =>
   GQL.useBulkPerformerUpdateMutation({

@@ -66,19 +66,25 @@ func (e *MismatchedSchemaVersionError) Error() string {
 }
 
 type storeRepository struct {
-	Blobs          *BlobStore
-	File           *FileStore
-	Folder         *FolderStore
-	Image          *ImageStore
-	Gallery        *GalleryStore
-	GalleryChapter *GalleryChapterStore
-	Scene          *SceneStore
-	SceneMarker    *SceneMarkerStore
-	Performer      *PerformerStore
-	SavedFilter    *SavedFilterStore
-	Studio         *StudioStore
-	Tag            *TagStore
-	Group          *GroupStore
+	Blobs               *BlobStore
+	File                *FileStore
+	Folder              *FolderStore
+	Image               *ImageStore
+	Gallery             *GalleryStore
+	GalleryChapter      *GalleryChapterStore
+	Scene               *SceneStore
+	SceneMarker         *SceneMarkerStore
+	SceneLoopPreset     *SceneLoopPresetStore     // CUSTOM
+	SceneNegativeMarker *SceneNegativeMarkerStore // CUSTOM
+	TaskProgressTracker *TaskProgressTrackerStore // CUSTOM
+	SceneRelease        *SceneReleaseStore        // CUSTOM
+	Performer           *PerformerStore
+	SavedFilter         *SavedFilterStore
+	Studio              *StudioStore
+	Tag                 *TagStore
+	Group               *GroupStore
+	PerformerImage      *PerformerImageStore // CUSTOM
+	RatingScore         *RatingScoreStore    // CUSTOM
 }
 
 type Database struct {
@@ -99,24 +105,31 @@ func NewDatabase() *Database {
 	galleryStore := NewGalleryStore(fileStore, folderStore)
 	blobStore := NewBlobStore(BlobStoreOptions{})
 	performerStore := NewPerformerStore(blobStore)
+	performerImageStore := NewPerformerImageStore(blobStore) // CUSTOM
 	studioStore := NewStudioStore(blobStore)
 	tagStore := NewTagStore(blobStore)
 
 	r := &storeRepository{}
 	*r = storeRepository{
-		Blobs:          blobStore,
-		File:           fileStore,
-		Folder:         folderStore,
-		Scene:          NewSceneStore(r, blobStore),
-		SceneMarker:    NewSceneMarkerStore(),
-		Image:          NewImageStore(r),
-		Gallery:        galleryStore,
-		GalleryChapter: NewGalleryChapterStore(),
-		Performer:      performerStore,
-		Studio:         studioStore,
-		Tag:            tagStore,
-		Group:          NewGroupStore(blobStore),
-		SavedFilter:    NewSavedFilterStore(),
+		Blobs:               blobStore,
+		File:                fileStore,
+		Folder:              folderStore,
+		Scene:               NewSceneStore(r, blobStore),
+		SceneMarker:         NewSceneMarkerStore(),
+		SceneLoopPreset:     NewSceneLoopPresetStore(),          // CUSTOM
+		SceneNegativeMarker: NewSceneNegativeMarkerStore(),      // CUSTOM
+		TaskProgressTracker: NewTaskProgressTrackerStore(),      // CUSTOM
+		SceneRelease:        NewSceneReleaseStore(r, blobStore), // CUSTOM
+		Image:               NewImageStore(r),
+		Gallery:             galleryStore,
+		GalleryChapter:      NewGalleryChapterStore(),
+		Performer:           performerStore,
+		PerformerImage:      performerImageStore, // CUSTOM
+		Studio:              studioStore,
+		Tag:                 tagStore,
+		Group:               NewGroupStore(blobStore),
+		RatingScore:         NewRatingScoreStore(), // CUSTOM
+		SavedFilter:         NewSavedFilterStore(),
 	}
 
 	ret := &Database{
@@ -263,12 +276,34 @@ func (db *Database) open(disableForeignKeys bool, writable bool) (*sqlx.DB, erro
 }
 
 func (db *Database) initialise() error {
+	// CUSTOM: Fork tables and fork changes to upstream tables, after upstream migrations.
+	if err := db.ensureForkSchemaCustom(context.Background()); err != nil {
+		return fmt.Errorf("initializing custom database schema: %w", err)
+	}
+
 	if err := db.openReadDB(); err != nil {
 		return fmt.Errorf("opening read database: %w", err)
 	}
 	if err := db.openWriteDB(); err != nil {
 		return fmt.Errorf("opening write database: %w", err)
 	}
+
+	// CUSTOM: begin - Bootstrap fork-owned tables outside the upstream migration chain.
+	for _, ensure := range []func(context.Context) error{
+		db.ensureTaskProgressSchemaCustom,
+		db.ensureSceneStashDBMatchesSchemaCustom,
+		db.ensureStashDBChangesSchemaCustom,
+		db.clearReleaseRatingsCustom,
+	} {
+		if err := ensure(context.Background()); err != nil {
+			_ = db.readDB.Close()
+			_ = db.writeDB.Close()
+			db.readDB = nil
+			db.writeDB = nil
+			return fmt.Errorf("initializing custom database schema: %w", err)
+		}
+	}
+	// CUSTOM: end
 
 	return nil
 }

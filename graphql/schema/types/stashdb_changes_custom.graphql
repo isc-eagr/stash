@@ -1,0 +1,81 @@
+# CUSTOM: StashDB Changes compares linked scenes and performers with StashDB.
+
+enum StashDBChangeStatus {
+  "Fields differ from StashDB"
+  CHANGED
+  "Deleted on StashDB"
+  DELETED
+  "Merged into another StashDB entry, given by merged_into_id"
+  MERGED
+  "StashDB has no entry with this ID"
+  NOT_FOUND
+}
+
+input StashDBChangesCheckInput {
+  scenes: Boolean!
+  performers: Boolean!
+}
+
+"""
+Applies report fields: scalars take the StashDB value; URLs and aliases append
+the added entries; studios, performers, and tags use the local entity with the
+StashDB ID, name, or alias, skipping those with none. Removed entries stay.
+"""
+input StashDBChangesApplyInput {
+  "Local scene or performer ID"
+  id: ID!
+  stash_id: String!
+  fields: [String!]!
+}
+
+"""
+A field that differs from StashDB. Scalar fields set local and remote; list
+fields (urls, aliases, studio performers, tags) set added and removed.
+"""
+type StashDBFieldChange {
+  field: String!
+  "Null when the local value is empty"
+  local: String
+  remote: String
+  "On StashDB but missing locally"
+  added: [String!]!
+  "Linked to StashDB locally but gone from the StashDB entry"
+  removed: [String!]!
+}
+
+type StashDBSceneChange {
+  scene: Scene!
+  stash_id: String!
+  status: StashDBChangeStatus!
+  merged_into_id: String
+  "Every differing field; the report hides excluded fields"
+  fields: [StashDBFieldChange!]!
+}
+
+type StashDBPerformerChange {
+  performer: Performer!
+  stash_id: String!
+  status: StashDBChangeStatus!
+  merged_into_id: String
+  fields: [StashDBFieldChange!]!
+}
+
+type StashDBChangesRun {
+  started_at: Time!
+  finished_at: Time!
+  endpoint: String!
+  checked: Int!
+  "Entries skipped because their request failed"
+  failed: Int!
+  "True when the job was stopped before checking every entry"
+  cancelled: Boolean!
+}
+
+type StashDBChangesReport {
+  "Latest scene check; null before the first"
+  scene_run: StashDBChangesRun
+  scenes: [StashDBSceneChange!]!
+  "Latest performer check; null before the first"
+  performer_run: StashDBChangesRun
+  performers: [StashDBPerformerChange!]!
+}

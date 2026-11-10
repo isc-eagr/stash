@@ -1,4 +1,5 @@
 import {
+  ModifierCriterionOption, // CUSTOM
   createMandatoryNumberCriterionOption,
   createStringCriterionOption,
   createDateCriterionOption,
@@ -19,10 +20,17 @@ import {
 } from "./criteria/tags";
 import { ListFilterOptions, MediaSortByOptions } from "./filter-options";
 import { DisplayMode } from "./types";
-import { RatingCriterionOption } from "./criteria/rating";
+import {
+  RatingCriterionOption,
+  PerformerRatingCriterionOption, // CUSTOM
+} from "./criteria/rating";
+import { MetallicRatingCriterionOption } from "./criteria/metallic-rating_custom"; // CUSTOM
 import { PathCriterionOption } from "./criteria/path";
 import { CustomFieldsCriterionOption } from "./criteria/custom-fields";
 import { ParentFolderCriterionOption } from "./criteria/folder";
+import { CriterionModifier } from "src/core/generated-graphql"; // CUSTOM
+import { CountryCriterion } from "./criteria/country"; // CUSTOM
+import { EthnicityCriterionOption } from "./criteria/ethnicity"; // CUSTOM
 
 const defaultSortBy = "path";
 
@@ -61,6 +69,7 @@ const criterionOptions = [
   ParentFolderCriterionOption,
   createStringCriterionOption("checksum", "media_info.md5"),
   RatingCriterionOption,
+  MetallicRatingCriterionOption, // CUSTOM
   OrganizedCriterionOption,
   AverageResolutionCriterionOption,
   GalleryIsMissingCriterionOption,
@@ -68,6 +77,24 @@ const criterionOptions = [
   HasChaptersCriterionOption,
   createMandatoryNumberCriterionOption("tag_count"),
   PerformerTagsCriterionOption,
+  // CUSTOM: begin
+  EthnicityCriterionOption,
+  new ModifierCriterionOption({
+    messageID: "performer_country",
+    type: "performer_country",
+    modifierOptions: [
+      CriterionModifier.Equals,
+      CriterionModifier.NotEquals,
+      CriterionModifier.Includes,
+      CriterionModifier.IncludesAll,
+    ],
+    defaultModifier: CriterionModifier.Equals,
+    inputType: "text",
+    makeCriterion: (o) =>
+      new CountryCriterion(o as unknown as ModifierCriterionOption),
+  }),
+  PerformerRatingCriterionOption,
+  // CUSTOM: end
   PerformersCriterionOption,
   createMandatoryNumberCriterionOption("performer_count"),
   PerformerAgeCriterionOption,

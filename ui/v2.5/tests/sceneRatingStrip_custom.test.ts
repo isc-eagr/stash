@@ -1,0 +1,331 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+
+import {
+  getSceneCardChipInsightSets,
+  getSceneGoatMomentsCustom,
+  getSceneOrgasmFacialEvents,
+} from "../src/components/Scenes/sceneCardInsightsData_custom.ts";
+import {
+  getSceneCardOrgasmReportGroupsCustom,
+  sceneCardOrgasmReportGroupLabelCustom,
+} from "../src/components/Scenes/sceneCardOrgasmReportData_custom.ts";
+
+const roleTagIds = {
+  sexTagId: "sex",
+  oralTagId: "oral",
+  orgasmTagId: "orgasm",
+  facialTagId: "facial",
+  secondCameraTagId: "second-camera",
+  reallyHotTagId: "really-hot",
+  goatTagId: "goat",
+};
+
+const tag = (id: string, parents: Array<{ id: string }> = []) => ({
+  id,
+  name: id,
+  parents,
+});
+const vato = (id: string) => ({ id, name: id });
+const marker = (
+  id: string,
+  primaryTag: ReturnType<typeof tag>,
+  secondaryTags: Array<ReturnType<typeof tag>> = [],
+  topPerformers: Array<ReturnType<typeof vato>> = [],
+  bottomPerformers: Array<ReturnType<typeof vato>> = []
+) => ({
+  id,
+  seconds: Number(id.replace(/\D/g, "")) || 0,
+  end_seconds: null,
+  primary_tag: primaryTag,
+  tags: secondaryTags,
+  top_performers: topPerformers,
+  bottom_performers: bottomPerformers,
+});
+const scene = (
+  sceneMarkers: ReturnType<typeof marker>[],
+  performers: Array<ReturnType<typeof vato>> = []
+) => ({
+  id: "scene-1",
+  files: [{ duration: 600 }],
+  performers,
+  scene_markers: sceneMarkers,
+});
+
+const top1 = vato("top-1");
+const top2 = vato("top-2");
+const events = getSceneOrgasmFacialEvents(
+  scene([
+    marker("orgasm-10", tag("orgasm"), [], [top1, top2]),
+    // A Facial subtag of Orgasm still counts as a facial.
+    marker("facial-20", tag("cum-shot", [{ id: "facial" }]), [
+      tag("really-hot"),
+    ]),
+    marker("orgasm-30", tag("orgasm"), [tag("goat")], [top1]),
+    marker("orgasm-40", tag("orgasm"), [tag("second-camera")], [top1]),
+    marker("sex-50", tag("sex"), [], [top1]),
+  ]),
+  roleTagIds
+);
+assert.deepEqual(
+  events.map(({ id, category, quality }) => [id, category, quality]),
+  [
+    ["orgasm-10-0", "orgasm", undefined],
+    ["orgasm-10-1", "orgasm", undefined],
+    ["facial-20-0", "facial", "Really Hot"],
+    ["orgasm-30-0", "orgasm", "GOAT"],
+  ],
+  "one event per top on Orgasm/Facial markers and subtags, skipping 2nd Camera"
+);
+
+const groups = getSceneCardOrgasmReportGroupsCustom(events);
+assert.deepEqual(groups, [
+  { category: "orgasm", count: 2 },
+  { category: "orgasm", quality: "GOAT", count: 1 },
+  { category: "facial", quality: "Really Hot", count: 1 },
+]);
+assert.deepEqual(groups.map(sceneCardOrgasmReportGroupLabelCustom), [
+  "2 nuts",
+  "1 GOAT nut",
+  "1 Really Hot facial",
+]);
+assert.deepEqual(
+  getSceneCardOrgasmReportGroupsCustom([]),
+  [],
+  "no events leaves the crossed-out sperm icon to the card"
+);
+
+const timed = (
+  base: ReturnType<typeof marker>,
+  seconds: number,
+  endSeconds: number
+) => ({ ...base, seconds, end_seconds: endSeconds });
+const goat = getSceneGoatMomentsCustom(
+  scene([
+    timed(marker("rim", tag("rimming"), [tag("goat")], [top1]), 100, 130),
+    // Overlapping time counts once.
+    timed(marker("kiss", tag("kissing"), [tag("goat")], [top2]), 120, 140),
+    marker("moment-300", tag("goat")),
+    // Orgasms and facials stay in the orgasm report.
+    timed(marker("nut", tag("orgasm"), [tag("goat")], [top1]), 200, 210),
+    timed(
+      marker("cam", tag("rimming"), [tag("goat"), tag("second-camera")]),
+      400,
+      450
+    ),
+    timed(marker("plain", tag("rimming")), 500, 550),
+  ]),
+  roleTagIds
+);
+assert.equal(goat.duration, 40, "GOAT time is the union of timed markers");
+assert.deepEqual(
+  goat.moments.map(({ id, label }) => [id, label]),
+  [
+    ["rim", "rimming"],
+    ["kiss", "kissing"],
+    ["moment-300", "GOAT moment"],
+  ],
+  "GOAT moments skip orgasms, facials, and 2nd camera"
+);
+
+const onlyVato = vato("only-vato");
+const oralTop = vato("oral-top");
+const sexTop = vato("sex-top");
+const bottom = vato("bottom");
+const roleStats = (overrides: Record<string, number>) => ({
+  scene_count: 20,
+  sex_top_count: 0,
+  sex_bottom_count: 0,
+  oral_role_top_count: 0,
+  oral_role_bottom_count: 0,
+  facial_scene_count: 0,
+  ...overrides,
+});
+const chipSets = getSceneCardChipInsightSets(
+  scene(
+    [
+      marker("oral-1", tag("oral"), [], [oralTop], [bottom]),
+      marker("sex-2", tag("sex"), [], [sexTop], [bottom]),
+    ],
+    [onlyVato, oralTop, sexTop, bottom]
+  ),
+  roleTagIds,
+  undefined,
+  new Map([
+    [onlyVato.id, roleStats({ scene_count: 1 })],
+    [
+      oralTop.id,
+      roleStats({ oral_role_top_count: 1, oral_role_bottom_count: 9 }),
+    ],
+    [sexTop.id, roleStats({ sex_top_count: 1, sex_bottom_count: 9 })],
+  ])
+);
+assert.deepEqual(
+  chipSets.all.map(({ key }) => key).sort(),
+  ["only-scene-only-vato", "rare-oral-top-oral-top", "rare-sex-top-sex-top"],
+  "scene cards keep Rare sex/oral roles and Only scene chips"
+);
+
+const orgasmChipSets = getSceneCardChipInsightSets(
+  scene([
+    marker("orgasm-10", tag("orgasm"), [], [top1, top2]),
+    marker("orgasm-200", tag("orgasm"), [], [top1]),
+  ]),
+  roleTagIds
+);
+assert.deepEqual(
+  orgasmChipSets.all.map(({ key }) => key).sort(),
+  ["orgasm-repeat-top-1", "orgasm-simultaneous"],
+  "scene cards also keep Vatos nut at the same time and Repeated orgasms"
+);
+
+const source = (path: string) =>
+  readFileSync(new URL(`../src/components/${path}`, import.meta.url), "utf8");
+const orgasmReportSource = source("Scenes/SceneCardOrgasmReport_custom.tsx");
+assert.match(
+  orgasmReportSource,
+  /import spermsSvg from "src\/assets\/sperms\.svg"/,
+  "performer orgasm reports reuse the sperm graphic from performer cards"
+);
+assert.doesNotMatch(
+  orgasmReportSource,
+  /SweatDrops/,
+  "performer orgasms must stay visually distinct from the user's O Counter"
+);
+assert.match(
+  orgasmReportSource,
+  /category === "facial" \? facialPng : spermsSvg/,
+  "facials keep their own icon"
+);
+for (const property of ["maskImage", "WebkitMaskImage"]) {
+  assert.ok(
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: matches source text
+    orgasmReportSource.includes(property + ': `url("${asset}")`'),
+    "mask URLs must be quoted so Vite's SVG data URL quotes do not invalidate CSS"
+  );
+}
+assert.match(
+  orgasmReportSource,
+  /aria-label="No nuts"[\s\S]*?<ReportIcon category="orgasm" \/>/,
+  "the empty report crosses out the same performer orgasm icon"
+);
+for (const counterPath of [
+  "Scenes/SceneDetails/OCounterButton.tsx",
+  "Shared/CountButton.tsx",
+  "Shared/PopoverCountButton.tsx",
+  "Scenes/SceneDetails/ScenePerformerOverviewPanel_custom.tsx",
+  "ScenePlayer/ScenePlayer.tsx",
+  "Scenes/MarkerPlaylistPlayer.tsx",
+  "SceneDuplicateChecker/SceneDuplicateChecker.tsx",
+  "StatsLinks_custom.tsx",
+]) {
+  assert.match(
+    source(counterPath),
+    /<SweatDrops \/>/,
+    `${counterPath} keeps droplets for the user's O Counter`
+  );
+}
+const cardSource = source("Scenes/SceneCard.tsx");
+for (const path of ["Scenes/SceneCard.tsx", "ScenePlayer/ScenePlayer.tsx"]) {
+  assert.doesNotMatch(
+    source(path),
+    /scene-facial-overlay|facialPng/,
+    `${path} keeps facial icons in the rating strip instead of over the video`
+  );
+}
+assert.doesNotMatch(
+  cardSource,
+  /RatingCriteriaTooltip/,
+  "the card rating star has no hover summary"
+);
+assert.match(
+  cardSource,
+  /<SceneRatingStrip scene=\{props\.scene\} nutReportInline \/>/,
+  "scene cards show the nut report inside the rating strip"
+);
+const sceneDetailSource = source("Scenes/SceneDetails/Scene.tsx");
+assert.match(
+  sceneDetailSource,
+  /<SceneDetailActivityBar scene=\{scene\} \/>\s*<SceneRatingStrip/,
+  "scene details show the activity bar and rating strip with the orgasm report"
+);
+const advisorSource = source("Shared/RatingAdvisor_custom.tsx");
+assert.doesNotMatch(
+  advisorSource,
+  /RatingCriteriaTooltip|showSummaryOnHover/,
+  "rating strips replace every rating star hover summary"
+);
+const performerCardSource = source("Performers/PerformerCard.tsx");
+assert.ok(
+  performerCardSource.indexOf("<RatingCriteriaStrip") <
+    performerCardSource.indexOf("<PerformerCategoryStrip"),
+  "performer cards show the rating strip above the versatility strips"
+);
+const performerPageSource = source("Performers/PerformerDetails/Performer.tsx");
+assert.match(
+  performerPageSource,
+  /performer-head-identity[\s\S]*?<RatingCriteriaStrip\s+className="rating-panel rating-panel--vato"[\s\S]*?performer-head-body[\s\S]*?performer-header-activity[\s\S]*?<PerformerCategoryStrip[\s\S]*?<ActivityStatsCharts[\s\S]*?<PerformerVersatility/,
+  "performer pages show his rating strip in the name row, and the count tiles above Activity Type and versatility"
+);
+assert.doesNotMatch(
+  performerPageSource,
+  /PerformerSceneRatingStrips/,
+  "his scene averages live in the Stats tab"
+);
+const drawerSource = source(
+  "Scenes/SceneDetails/ScenePerformerOverviewPanel_custom.tsx"
+);
+assert.match(
+  drawerSource,
+  /<PerformerSceneAverageRating[\s\S]*?scene-performer-overview-rating--o-count[\s\S]*?<\/section>\s*<RatingCriteriaStrip/,
+  "the vato drawer shows O Count beside the scene average, then his strip"
+);
+assert.match(
+  drawerSource,
+  /ageFromDate=\{sceneAgeFromDate\(\s*scene\.production_date,\s*scene\.effective_date \?\? scene\.date\s*\)\}/,
+  "the vato drawer shows his age in the scene (production date first)"
+);
+assert.match(
+  source("Scenes/SceneActivityBar_custom.tsx"),
+  /scene-activity-bar--detail"\s*outstandingBatteries/,
+  "scene details show the Outstanding batteries"
+);
+assert.match(
+  source("Scenes/SceneRatingStrip_custom.tsx"),
+  /<SceneCardGoatMoments \{\.\.\.goat\} \/>/,
+  "rating strips show GOAT moment time beside the orgasm report"
+);
+const studioHeaderSource = source(
+  "Studios/StudioDetails/StudioHeaderInsights.tsx"
+);
+assert.match(
+  studioHeaderSource,
+  /<StudioSceneTypeTiles[\s\S]*?size="full"[\s\S]*?rating-panel rating-panel--scenes[\s\S]*?rating-panel rating-panel--vato/,
+  "studio pages show Scene Types, then scene averages apart from vato averages"
+);
+const averagesSource = source(
+  "Studios/StudioDetails/StudioRatingAdvisorStats.tsx"
+);
+assert.match(
+  averagesSource,
+  /<RatingStrip[\s\S]*?rating-criteria-strip--average/,
+  "Rating Advisor averages render as inline strips"
+);
+assert.match(
+  averagesSource,
+  /value: \(criterion\.average_fill_percent \/ 100\) \* steps/,
+  "averages fill part of a step"
+);
+const studioCardSource = source("Studios/StudioCard.tsx");
+assert.match(
+  studioCardSource,
+  /<StudioSceneTypeTiles[\s\S]*?size="compact"[\s\S]*?\{maybeRenderSceneTypeTiles\(\)\}/,
+  "studio cards show compact Scene Types tiles"
+);
+assert.match(
+  studioCardSource,
+  /<ActivityStatsCharts compact stats=\{activityStats\} \/>/,
+  "the studio logo hover shows the compact Activity Type and Quality bars"
+);
+
+console.log("Scene rating strip tests passed.");

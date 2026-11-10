@@ -11,7 +11,7 @@ export const usePerformerFilterHook = (
   return (filter: ListFilterModel) => {
     const performerValue = {
       id: performer.id,
-      label: performer.name ?? `Performer ${performer.id}`,
+      label: performer.name ?? `Vato ${performer.id}`,
     };
     // if performers is already present, then we modify it, otherwise add
     let performerCriterion = filter.criteria.find((c) => {

@@ -13,13 +13,23 @@ interface IImageCardGrid {
   zoomIndex: number;
   onSelectChange: (id: string, selected: boolean, shiftKey: boolean) => void;
   onPreview: (index: number, ev: React.MouseEvent<Element, MouseEvent>) => void;
+  activeSortBy?: string; // CUSTOM
+  activeSortDirection?: GQL.SortDirectionEnum; // CUSTOM
 }
 
 const zoomWidths = [280, 340, 480, 640];
 
 export const ImageCardGrid: React.FC<IImageCardGrid> = PatchComponent(
   "ImageCardGrid",
-  ({ images, selectedIds, zoomIndex, onSelectChange, onPreview }) => {
+  ({
+    images,
+    selectedIds,
+    zoomIndex,
+    onSelectChange,
+    onPreview,
+    activeSortBy,
+    activeSortDirection,
+  }) => {
     const [componentRef, { width: containerWidth }] = useContainerDimensions();
     const cardWidth = useCardWidth(containerWidth, zoomIndex, zoomWidths);
 
@@ -39,6 +49,8 @@ export const ImageCardGrid: React.FC<IImageCardGrid> = PatchComponent(
             onPreview={
               selectedIds.size < 1 ? (ev) => onPreview(index, ev) : undefined
             }
+            activeSortBy={activeSortBy} // CUSTOM
+            activeSortDirection={activeSortDirection} // CUSTOM
           />
         ))}
       </div>

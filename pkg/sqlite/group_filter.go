@@ -67,6 +67,7 @@ func (qb *groupFilterHandler) criterionHandler() criterionHandler {
 		stringCriterionHandler(groupFilter.Director, "groups.director"),
 		stringCriterionHandler(groupFilter.Synopsis, "groups.description"),
 		intCriterionHandler(groupFilter.Rating100, "groups.rating", nil),
+		metallicRatingCriterionHandler(groupFilter.MetallicRating, "groups", "groups.rating", "groups_tags", "group_id", "scene"), // CUSTOM
 		floatIntCriterionHandler(groupFilter.Duration, "groups.duration", nil),
 		qb.missingCriterionHandler(groupFilter.IsMissing),
 		qb.urlsCriterionHandler(groupFilter.URL),
@@ -244,7 +245,7 @@ func (qb *groupFilterHandler) sceneCountCriterionHandler(count *models.IntCriter
 var selectGroupOCountSQL = utils.StrFormat(
 	"SELECT SUM(o_counter) "+
 		"FROM ("+
-		"SELECT COUNT({scenes_o_dates}.{o_date}) as o_counter from {groups_scenes} s "+
+		"SELECT COUNT({scenes_o_dates}.{scene_id}) as o_counter from {groups_scenes} s "+ // CUSTOM: count retroactive O's without a date
 		"LEFT JOIN {scenes} ON {scenes}.id = s.{scene_id} "+
 		"LEFT JOIN {scenes_o_dates} ON {scenes_o_dates}.{scene_id} = {scenes}.id "+
 		"WHERE s.{group_id} = {group}.id "+
@@ -256,7 +257,6 @@ var selectGroupOCountSQL = utils.StrFormat(
 		"scenes":         sceneTable,
 		"scene_id":       sceneIDColumn,
 		"scenes_o_dates": scenesODatesTable,
-		"o_date":         sceneODateColumn,
 	},
 )
 
@@ -266,7 +266,7 @@ func (qb *groupFilterHandler) groupOCounterCriterionHandler(count *models.IntCri
 			return
 		}
 
-		lhs := "(" + selectGroupOCountSQL + ")"
+		lhs := groupTotalOCountSQLCustom() // CUSTOM: plus O's on the group's releases
 		clause, args := getIntCriterionWhereClause(lhs, *count)
 
 		f.addWhere(clause, args...)

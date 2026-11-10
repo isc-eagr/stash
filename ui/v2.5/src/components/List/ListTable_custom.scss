@@ -1,0 +1,31 @@
+// Sortable headers and metric cells for list tables that pass onSort.
+.table-list {
+  .sortable-column-head {
+    background: none;
+    border: none;
+    color: inherit;
+    font: inherit;
+    padding: 0;
+    white-space: nowrap;
+
+    &:hover,
+    &:focus-visible {
+      text-decoration: underline;
+    }
+  }
+
+  .sort-direction {
+    margin-left: 0.25rem;
+  }
+
+  th.sorted-column,
+  td.sorted-column {
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+
+  .list-table-metric {
+    display: block;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+}

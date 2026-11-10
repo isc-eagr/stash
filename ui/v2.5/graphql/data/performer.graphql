@@ -1,5 +1,7 @@
 fragment PerformerData on Performer {
   id
+  created_at # CUSTOM: keep detail performer cards compatible with list cards
+  updated_at # CUSTOM: keep detail performer cards compatible with list cards
   name
   disambiguation
   urls
@@ -27,6 +29,30 @@ fragment PerformerData on Performer {
   group_count
   performer_count
   o_counter
+  # CUSTOM: begin
+  # CUSTOM: role totals load through performerRoleStats; retain exact marker
+  # counts used by the performer detail and scene overview strips.
+  facial_marker_top_count
+  facial_marker_bottom_count
+  feet_marker_count
+  activity_stats {
+    total_activity_seconds
+    sex_seconds
+    sex_top_seconds
+    sex_bottom_seconds
+    oral_seconds
+    oral_top_seconds
+    oral_bottom_seconds
+    solo_seconds
+    sex_percent
+    oral_percent
+    solo_percent
+    sex_top_percent
+    sex_bottom_percent
+    oral_top_percent
+    oral_bottom_percent
+  }
+  # CUSTOM: end
 
   tags {
     ...SlimTagData
@@ -38,6 +64,109 @@ fragment PerformerData on Performer {
     updated_at
   }
   rating100
+  rating_scores {
+    id
+    entity_type
+    entity_id
+    section
+    key
+    raw_value
+    weighted_value
+    label
+    created_at
+    updated_at
+  }
+  details
+  death_date
+  hair_color
+  weight
+
+  custom_fields
+
+  # CUSTOM: begin
+  additional_images {
+    id
+    performer_id
+    image_path
+    position
+  }
+  # CUSTOM: end
+}
+
+# CUSTOM: begin
+fragment PerformerListData on Performer {
+  id
+  created_at
+  updated_at
+  name
+  disambiguation
+  urls
+  gender
+  birthdate
+  ethnicity
+  country
+  eye_color
+  height_cm
+  measurements
+  fake_tits
+  penis_length
+  circumcised
+  career_start
+  career_end
+  tattoos
+  piercings
+  alias_list
+  favorite
+  ignore_auto_tag
+  image_path
+  scene_count
+  image_count
+  gallery_count
+  group_count
+  performer_count
+  o_counter
+  # CUSTOM: role-count fields are lazy-loaded by performer cards.
+  activity_stats {
+    total_activity_seconds
+    sex_seconds
+    sex_top_seconds
+    sex_bottom_seconds
+    oral_seconds
+    oral_top_seconds
+    oral_bottom_seconds
+    solo_seconds
+    sex_percent
+    oral_percent
+    solo_percent
+    sex_top_percent
+    sex_bottom_percent
+    oral_top_percent
+    oral_bottom_percent
+  }
+
+  tags {
+    ...SlimTagData
+  }
+
+  stash_ids {
+    stash_id
+    endpoint
+    updated_at
+  }
+  rating100
+  # CUSTOM: performer card rating criteria strip; same fields as PerformerData
+  rating_scores {
+    id
+    entity_type
+    entity_id
+    section
+    key
+    raw_value
+    weighted_value
+    label
+    created_at
+    updated_at
+  }
   details
   death_date
   hair_color
@@ -45,3 +174,26 @@ fragment PerformerData on Performer {
 
   custom_fields
 }
+# CUSTOM: end
+
+# CUSTOM: begin
+mutation PerformerImageUpload($performer_id: ID!, $image: String!) {
+  performerImageUpload(performer_id: $performer_id, image: $image) {
+    id
+    performer_id
+    image_path
+    position
+  }
+}
+
+mutation PerformerImageDelete($id: ID!) {
+  performerImageDelete(id: $id)
+}
+
+mutation PerformerImageSetDefault($id: ID!) {
+  performerImageSetDefault(id: $id) {
+    id
+    image_path
+  }
+}
+# CUSTOM: end

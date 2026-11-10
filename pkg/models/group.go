@@ -9,6 +9,8 @@ type GroupFilterType struct {
 	Duration *IntCriterionInput `json:"duration"`
 	// Filter by rating expressed as 1-100
 	Rating100 *IntCriterionInput `json:"rating100"`
+	// Filter by metallic card style after rating thresholds and tag overrides
+	MetallicRating *MultiCriterionInput `json:"metallic_rating"` // CUSTOM
 	// Filter to only include movies with this studio
 	Studios *HierarchicalMultiCriterionInput `json:"studios"`
 	// Filter to only include movies missing this property

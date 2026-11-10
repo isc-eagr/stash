@@ -1,0 +1,108 @@
+/* Achievement colors and decorative medals within the existing app toast. */
+.toast-container .toast.progress-toast-achievement {
+  background-color: #176d7b;
+}
+
+.progress-achievement-content {
+  --checkpoint-highlight: #cafff5;
+  --checkpoint-metal: #61cbb9;
+  --checkpoint-shadow: #237b82;
+  --checkpoint-rim: #9fe7db;
+
+  align-items: center;
+  display: flex;
+  gap: 0.65rem;
+}
+
+.progress-achievement-emblem {
+  align-items: center;
+  animation: progress-achievement-glow 3s ease-in-out 2;
+  background: linear-gradient(
+    135deg,
+    var(--checkpoint-highlight),
+    var(--checkpoint-metal) 40%,
+    var(--checkpoint-shadow) 75%,
+    var(--checkpoint-highlight)
+  );
+  border: 1px solid var(--checkpoint-rim);
+  border-radius: 50%;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.7),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.25);
+  color: #182532;
+  display: inline-flex;
+  flex: 0 0 2rem;
+  height: 2rem;
+  justify-content: center;
+  overflow: hidden;
+  pointer-events: none;
+  position: relative;
+
+  .fa-icon {
+    height: 1rem;
+    margin: 0;
+    width: 1rem;
+  }
+
+  &::after {
+    animation: progress-achievement-shimmer 3s ease-in-out 2;
+    background: linear-gradient(
+      90deg,
+      transparent 30%,
+      rgba(255, 255, 255, 0.9) 50%,
+      transparent 70%
+    );
+    content: "";
+    inset: -40% -20%;
+    opacity: 0;
+    position: absolute;
+    transform: translateX(-120%) rotate(25deg);
+  }
+}
+
+.progress-achievement-message {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@keyframes progress-achievement-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 1px var(--checkpoint-metal));
+  }
+
+  45% {
+    filter: drop-shadow(0 0 6px var(--checkpoint-metal));
+  }
+}
+@keyframes progress-achievement-shimmer {
+  0%,
+  15% {
+    opacity: 0;
+    transform: translateX(-120%) rotate(25deg);
+  }
+
+  30% {
+    opacity: 0.9;
+  }
+
+  65%,
+  100% {
+    opacity: 0;
+    transform: translateX(120%) rotate(25deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress-achievement-emblem,
+  .progress-achievement-emblem::after {
+    animation: none;
+  }
+}
+
+@each $threshold,
+  $color in ((25, #8c5a35), (50, #647580), (75, #846311), (100, #1d5ca6))
+{
+  .toast-container .toast.progress-toast-tier-#{$threshold} {
+    background-color: $color;
+  }
+}

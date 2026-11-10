@@ -1,6 +1,11 @@
 import { Button, Tabs, Tab, Form } from "react-bootstrap";
 import React, { useEffect, useMemo, useState } from "react";
-import { useHistory, Redirect, RouteComponentProps } from "react-router-dom";
+import {
+  useHistory,
+  useLocation, // CUSTOM
+  Redirect,
+  RouteComponentProps,
+} from "react-router-dom";
 import { FormattedMessage, useIntl } from "react-intl";
 import { Helmet } from "react-helmet";
 import cx from "classnames";
@@ -45,6 +50,7 @@ import { FavoriteIcon } from "src/components/Shared/FavoriteIcon";
 import { AliasList } from "src/components/Shared/DetailsPage/AliasList";
 import { HeaderImage } from "src/components/Shared/DetailsPage/HeaderImage";
 import { goBackOrReplace } from "src/utils/history";
+import { tagMarkerIncludeSubTagsFromSearch } from "./tagMarkerNavigation_custom"; // CUSTOM
 import { PatchComponent } from "src/patch";
 
 interface IProps {
@@ -77,11 +83,25 @@ const TagTabs: React.FC<{
   tabKey?: TabKey;
   tag: GQL.TagDataFragment;
   abbreviateCounter: boolean;
+  initialIncludeSubTags?: boolean; // CUSTOM
   showAllCounts?: boolean;
-}> = ({ tabKey, tag, abbreviateCounter, showAllCounts = false }) => {
+}> = ({
+  tabKey,
+  tag,
+  abbreviateCounter,
+  initialIncludeSubTags, // CUSTOM
+  showAllCounts = false,
+}) => {
   const [showAllDetails, setShowAllDetails] = useState<boolean>(
-    showAllCounts && tag.children.length > 0
+    (initialIncludeSubTags ?? showAllCounts) && tag.children.length > 0 // CUSTOM
   );
+
+  // CUSTOM: Matrix links explicitly restore their direct/sub-tag mode.
+  useEffect(() => {
+    if (initialIncludeSubTags !== undefined) {
+      setShowAllDetails(initialIncludeSubTags && tag.children.length > 0);
+    }
+  }, [initialIncludeSubTags, tag.children.length]);
 
   const sceneCount =
     (showAllDetails ? tag.scene_count_all : tag.scene_count) ?? 0;
@@ -287,6 +307,7 @@ const TagPage: React.FC<IProps> = PatchComponent(
   "TagPage",
   ({ tag, tabKey }) => {
     const history = useHistory();
+    const location = useLocation(); // CUSTOM
     const Toast = useToast();
     const intl = useIntl();
 
@@ -314,6 +335,9 @@ const TagPage: React.FC<IProps> = PatchComponent(
     const [deleteTag] = useTagDestroy({ id: tag.id });
 
     const showAllCounts = uiConfig?.showChildTagContent;
+    const initialIncludeSubTags = tagMarkerIncludeSubTagsFromSearch(
+      location.search
+    ); // CUSTOM
 
     const tagImage = useMemo(() => {
       const existingImage = tag.image_path;
@@ -573,6 +597,7 @@ const TagPage: React.FC<IProps> = PatchComponent(
                   tabKey={tabKey}
                   tag={tag}
                   abbreviateCounter={abbreviateCounter}
+                  initialIncludeSubTags={initialIncludeSubTags} // CUSTOM
                   showAllCounts={showAllCounts}
                 />
               )}

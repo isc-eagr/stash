@@ -1,5 +1,8 @@
 fragment SceneMarkerData on SceneMarker {
   id
+  release_id # CUSTOM
+  created_at # CUSTOM: active sort metric on marker cards
+  updated_at # CUSTOM: active sort metric on marker cards
   title
   seconds
   end_seconds
@@ -14,22 +17,58 @@ fragment SceneMarkerData on SceneMarker {
   primary_tag {
     id
     name
+    # CUSTOM: begin
+    parents {
+      id
+      name
+    }
+    # CUSTOM: end
   }
 
   tags {
     id
     name
+    # CUSTOM: begin
+    parents {
+      id
+      name
+    }
+    # CUSTOM: end
   }
+
+  # CUSTOM: begin
+  top_performers {
+    id
+    name
+    alias_list
+    disambiguation
+    image_path
+  }
+
+  bottom_performers {
+    id
+    name
+    alias_list
+    disambiguation
+    image_path
+  }
+  # CUSTOM: end
 }
 
 fragment SceneMarkerSceneData on Scene {
   id
+  updated_at # CUSTOM: active scene-updated sort metric on marker cards
   title
   files {
     width
     height
     path
   }
+  # CUSTOM: begin
+  paths {
+    stream
+  }
+  # CUSTOM: end
   performers {
     id
     name

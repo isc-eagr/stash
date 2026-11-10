@@ -1,0 +1,4 @@
+# CUSTOM: queue the studio site sync task.
+mutation StudioSiteSync($input: StudioSiteSyncInput!) {
+  studioSiteSync(input: $input)
+}

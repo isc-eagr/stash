@@ -17,6 +17,7 @@ import { SettingsServicesPanel } from "./SettingsServicesPanel";
 import { SettingsContext, useSettings } from "./context";
 import { SettingsLibraryPanel } from "./SettingsLibraryPanel";
 import { SettingsSecurityPanel } from "./SettingsSecurityPanel";
+import { SettingsCustomPanel } from "./SettingsCustomPanel"; // CUSTOM
 import Changelog from "../Changelog/Changelog";
 import { TroubleshootingModeButton } from "../TroubleshootingMode/TroubleshootingModeButton";
 import { useTroubleshootingMode } from "../TroubleshootingMode/useTroubleshootingMode";
@@ -34,6 +35,7 @@ const validTabs = [
   "tools",
   "changelog",
   "about",
+  "custom", // CUSTOM
 ] as const;
 type TabKey = (typeof validTabs)[number];
 
@@ -139,6 +141,14 @@ const SettingTabs: React.FC<{ tab: TabKey }> = ({ tab }) => {
                 </Nav.Link>
               </LinkContainer>
             </Nav.Item>
+            {/* CUSTOM: keep the custom settings section at the bottom */}
+            <Nav.Item>
+              <LinkContainer to="/settings?tab=custom">
+                <Nav.Link eventKey="custom">
+                  <FormattedMessage id="config.categories.custom" />
+                </Nav.Link>
+              </LinkContainer>
+            </Nav.Item>
             <Nav.Item>
               <div className="advanced-switch">
                 <Form.Label htmlFor="advanced-settings">
@@ -197,6 +207,10 @@ const SettingTabs: React.FC<{ tab: TabKey }> = ({ tab }) => {
             </Tab.Pane>
             <Tab.Pane eventKey="about" unmountOnExit>
               <SettingsAboutPanel />
+            </Tab.Pane>
+            {/* CUSTOM: keep the custom settings section at the bottom */}
+            <Tab.Pane eventKey="custom">
+              <SettingsCustomPanel />
             </Tab.Pane>
           </Tab.Content>
         </Col>

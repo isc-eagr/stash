@@ -1,0 +1,307 @@
+package api
+
+import (
+	"database/sql"
+	"strings"
+	"testing"
+
+	_ "github.com/mattn/go-sqlite3"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestPerformerActivityStatsQueryCustomPreservesRoleMembership(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	require.NoError(t, err)
+	defer db.Close()
+	_, err = db.Exec(`
+CREATE TABLE scene_markers (id INTEGER PRIMARY KEY, scene_id INTEGER, seconds REAL, end_seconds REAL, primary_tag_id INTEGER);
+CREATE TABLE scene_marker_performers (scene_marker_id INTEGER, performer_id INTEGER, role TEXT);
+CREATE TABLE scene_markers_tags (scene_marker_id INTEGER, tag_id INTEGER);
+INSERT INTO scene_markers VALUES
+  (1, 101, 0, 10, 1), (2, 102, 5, 20, 2), (3, 103, 0, 30, 3),
+  (4, 104, 0, 10, 1), (5, 105, 0, 10, 4), (6, 106, 0, 10, 1),
+  (7, 107, 0, NULL, 1), (8, 108, 10, 5, 1);
+INSERT INTO scene_marker_performers VALUES
+  (1, 7, 'top'), (1, 7, 'bottom'), (1, 8, 'top'),
+  (2, 7, 'top'), (3, 7, 'bottom'), (4, 8, 'top'),
+  (5, 7, 'top'), (6, 7, 'top'), (7, 7, 'top'), (8, 7, 'top');
+INSERT INTO scene_markers_tags VALUES (6, 99);`)
+	require.NoError(t, err)
+	rows, err := db.Query(performerActivityStatsQueryCustom, 7, 7, 1, 2, 3, 7)
+	require.NoError(t, err)
+	defer rows.Close()
+	type activityRow struct {
+		scene, tag  int
+		start, end  float64
+		top, bottom bool
+	}
+	var got []activityRow
+	for rows.Next() {
+		var row activityRow
+		require.NoError(t, rows.Scan(&row.scene, &row.start, &row.end, &row.tag, &row.top, &row.bottom))
+		got = append(got, row)
+	}
+	require.NoError(t, rows.Err())
+	// Both-role assignments must not duplicate a marker. Other performers,
+	// unrelated tags, annotated markers and invalid intervals stay excluded.
+	assert.ElementsMatch(t, []activityRow{
+		{101, 1, 0, 10, true, true},
+		{102, 2, 5, 20, true, false},
+		{103, 3, 0, 30, false, true},
+	}, got)
+}
+
+func TestActivityStatsSceneScopeCustomSupportsGlobalAndStudioStats(t *testing.T) {
+	globalSQL, globalArgs := activityStatsSceneScopeCustom(nil, nil, nil)
+	assert.Contains(t, globalSQL, "SELECT id FROM scenes")
+	assert.NotContains(t, globalSQL, "studio_id")
+	assert.Empty(t, globalArgs)
+
+	studioID := 7
+	depth := -1
+	studioSQL, studioArgs := activityStatsSceneScopeCustom(&studioID, &depth, nil)
+	assert.Contains(t, studioSQL, "WITH RECURSIVE selected_studios")
+	assert.Contains(t, studioSQL, "studio_id IN (SELECT id FROM selected_studios)")
+	assert.Equal(t, 3, strings.Count(studioSQL, "?"))
+	assert.Equal(t, []interface{}{7, -1, -1}, studioArgs)
+}
+
+func TestActivityStatsDurationCustom(t *testing.T) {
+	tests := []struct {
+		name      string
+		intervals []activityIntervalCustom
+		want      float64
+	}{
+		{
+			name: "empty",
+			want: 0,
+		},
+		{
+			name: "merges overlapping intervals per scene",
+			intervals: []activityIntervalCustom{
+				{sceneID: 1, start: 10, end: 20},
+				{sceneID: 1, start: 15, end: 30},
+				{sceneID: 1, start: 40, end: 45},
+			},
+			want: 25,
+		},
+		{
+			name: "keeps scenes separate",
+			intervals: []activityIntervalCustom{
+				{sceneID: 2, start: 0, end: 10},
+				{sceneID: 1, start: 0, end: 10},
+				{sceneID: 1, start: 5, end: 15},
+				{sceneID: 2, start: 5, end: 15},
+			},
+			want: 30,
+		},
+		{
+			name: "handles unsorted intervals",
+			intervals: []activityIntervalCustom{
+				{sceneID: 1, start: 20, end: 25},
+				{sceneID: 1, start: 0, end: 10},
+				{sceneID: 1, start: 8, end: 15},
+			},
+			want: 20,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, activityStatsDurationCustom(tt.intervals))
+		})
+	}
+}
+
+func TestActivityStatsSubtractIntervalsCustom(t *testing.T) {
+	intervals := []activityIntervalCustom{
+		{sceneID: 1, start: 0, end: 30},
+		{sceneID: 1, start: 20, end: 50},
+		{sceneID: 2, start: 0, end: 20},
+	}
+	subtractIntervals := []activityIntervalCustom{
+		{sceneID: 1, start: 10, end: 15},
+		{sceneID: 1, start: 35, end: 60},
+		{sceneID: 2, start: 5, end: 10},
+	}
+
+	assert.Equal(t, []activityIntervalCustom{
+		{sceneID: 1, start: 0, end: 10},
+		{sceneID: 1, start: 15, end: 35},
+		{sceneID: 2, start: 0, end: 5},
+		{sceneID: 2, start: 10, end: 20},
+	}, activityStatsSubtractIntervalsCustom(intervals, subtractIntervals))
+}
+
+func TestActivityStatsPercentCustom(t *testing.T) {
+	assert.Equal(t, 0.0, activityStatsPercentCustom(10, 0))
+	assert.Equal(t, 0.0, activityStatsPercentCustom(10, -1))
+	assert.Equal(t, 25.0, activityStatsPercentCustom(15, 60))
+}
+
+func TestActivityStatsTypePercentsCustomIgnoreUnclassifiedRuntime(t *testing.T) {
+	sexPercent, oralPercent, soloPercent := activityStatsTypePercentsCustom(60, 30, 10, 100)
+	assert.Equal(t, 60.0, sexPercent)
+	assert.Equal(t, 30.0, oralPercent)
+	assert.Equal(t, 10.0, soloPercent)
+	assert.Equal(t, 100.0, sexPercent+oralPercent+soloPercent)
+
+	sexPercent, oralPercent, soloPercent = activityStatsTypePercentsCustom(0, 0, 0, 0)
+	assert.Zero(t, sexPercent)
+	assert.Zero(t, oralPercent)
+	assert.Zero(t, soloPercent)
+}
+
+func TestActivityStatsOtherSecondsCustom(t *testing.T) {
+	activityIntervals := []activityIntervalCustom{
+		{sceneID: 1, start: 0, end: 30},
+		{sceneID: 1, start: 20, end: 45},
+	}
+	unusableIntervals := []activityIntervalCustom{
+		{sceneID: 1, start: 40, end: 55},
+		{sceneID: 1, start: 50, end: 60},
+	}
+
+	assert.Equal(t, 40.0, activityStatsOtherSecondsCustom(100, activityIntervals, unusableIntervals))
+	assert.Equal(t, 0.0, activityStatsOtherSecondsCustom(50, activityIntervals, unusableIntervals))
+}
+
+func TestActivityStatsActivityOtherSecondsCustom(t *testing.T) {
+	activityIntervals := []activityIntervalCustom{
+		{sceneID: 1, start: 0, end: 30},
+		{sceneID: 1, start: 20, end: 45},
+	}
+	assert.Equal(t, 55.0, activityStatsActivityOtherSecondsCustom(100, activityIntervals))
+	assert.Equal(t, 0.0, activityStatsActivityOtherSecondsCustom(30, activityIntervals))
+}
+
+func TestActivityStatsRestrictToMeaningfulScenesCustom(t *testing.T) {
+	sceneDurations := map[int]float64{
+		1: 100,
+		2: 200,
+		3: 300,
+	}
+	byCategory := map[activityCategoryCustom][]activityIntervalCustom{
+		activitySexCustom: {
+			{sceneID: 1, start: 10, end: 30},
+		},
+		activityOutstandingCustom: {
+			{sceneID: 1, start: 10, end: 30},
+			{sceneID: 2, start: 20, end: 40},
+		},
+		activityUnusableCustom: {
+			{sceneID: 2, start: 50, end: 60},
+			{sceneID: 3, start: 70, end: 80},
+		},
+	}
+
+	activityStatsRestrictToMeaningfulScenesCustom(
+		sceneDurations,
+		byCategory,
+		map[int]bool{1: true},
+	)
+
+	assert.Equal(t, map[int]float64{1: 100}, sceneDurations)
+	assert.Equal(t, []activityIntervalCustom{
+		{sceneID: 1, start: 10, end: 30},
+	}, byCategory[activitySexCustom])
+	assert.Equal(t, []activityIntervalCustom{
+		{sceneID: 1, start: 10, end: 30},
+	}, byCategory[activityOutstandingCustom])
+	assert.Empty(t, byCategory[activityUnusableCustom])
+}
+
+func TestActivityStatsOtherSecondsCustomMergesAnyCoveredMarkerType(t *testing.T) {
+	activityIntervals := []activityIntervalCustom{
+		{sceneID: 1, start: 0, end: 20},
+		{sceneID: 1, start: 10, end: 30},
+		{sceneID: 1, start: 50, end: 70},
+	}
+	unusableIntervals := []activityIntervalCustom{
+		{sceneID: 1, start: 25, end: 60},
+		{sceneID: 1, start: 80, end: 90},
+	}
+
+	assert.Equal(t, 20.0, activityStatsOtherSecondsCustom(100, activityIntervals, unusableIntervals))
+}
+
+func TestActivityStatsCategoryCustom(t *testing.T) {
+	category, ok := activityStatsCategoryCustom(10, 10, 20, 30)
+	assert.True(t, ok)
+	assert.Equal(t, activitySexCustom, category)
+
+	category, ok = activityStatsCategoryCustom(20, 10, 20, 30)
+	assert.True(t, ok)
+	assert.Equal(t, activityOralCustom, category)
+
+	category, ok = activityStatsCategoryCustom(30, 10, 20, 30)
+	assert.True(t, ok)
+	assert.Equal(t, activitySoloCustom, category)
+
+	category, ok = activityStatsCategoryCustom(10, 0, 20, 30)
+	assert.False(t, ok)
+	assert.Empty(t, category)
+}
+
+func TestActivityStatsIsOutstandingMarkerCustom(t *testing.T) {
+	assert.False(t, activityStatsIsOutstandingMarkerCustom(10, 0, false, false, false, 10, 20, 30))
+	assert.True(t, activityStatsIsOutstandingMarkerCustom(10, 1, false, false, false, 10, 20, 30))
+	assert.True(t, activityStatsIsOutstandingMarkerCustom(40, 0, false, false, false, 10, 20, 30))
+	assert.True(t, activityStatsIsOutstandingMarkerCustom(10, 0, false, false, false, 0, 20, 30))
+	assert.True(t, activityStatsIsOutstandingMarkerCustom(10, 0, true, false, false, 10, 20, 30))
+	assert.False(t, activityStatsIsOutstandingMarkerCustom(40, 0, false, true, false, 10, 20, 30))
+	assert.False(t, activityStatsIsOutstandingMarkerCustom(40, 1, false, true, false, 10, 20, 30))
+	assert.False(t, activityStatsIsOutstandingMarkerCustom(10, 1, false, true, false, 10, 20, 30))
+	assert.True(t, activityStatsIsOutstandingMarkerCustom(40, 0, false, true, true, 10, 20, 30))
+	assert.True(t, activityStatsIsOutstandingMarkerCustom(40, 0, true, true, false, 10, 20, 30))
+}
+
+func TestActivityStatsGoatMarkerSQLCustomMatchesConfiguredTagDescendants(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
+
+	_, err = db.Exec(`
+CREATE TABLE scene_markers (id INTEGER PRIMARY KEY, primary_tag_id INTEGER);
+CREATE TABLE scene_markers_tags (scene_marker_id INTEGER, tag_id INTEGER);
+CREATE TABLE tags_relations (parent_id INTEGER, child_id INTEGER);
+
+INSERT INTO tags_relations (parent_id, child_id) VALUES (500, 400), (400, 10);
+INSERT INTO scene_markers (id, primary_tag_id) VALUES (1, 10), (2, 20), (3, 20);
+INSERT INTO scene_markers_tags (scene_marker_id, tag_id) VALUES (3, 400);
+`)
+	require.NoError(t, err)
+
+	rows, err := db.Query("SELECT sm.id, " + activityStatsGoatMarkerSQLCustom("sm", 500) + " FROM scene_markers sm ORDER BY sm.id")
+	require.NoError(t, err)
+	defer rows.Close()
+
+	var matches []bool
+	for rows.Next() {
+		var id int
+		var isGoat bool
+		require.NoError(t, rows.Scan(&id, &isGoat))
+		matches = append(matches, isGoat)
+	}
+	require.NoError(t, rows.Err())
+	assert.Equal(t, []bool{true, false, true}, matches)
+}
+
+func TestActivityStatsValueConversionsCustom(t *testing.T) {
+	assert.Equal(t, 12, activityStatsIntCustom(12))
+	assert.Equal(t, 13, activityStatsIntCustom(int64(13)))
+	assert.Equal(t, 14, activityStatsIntCustom(float64(14.9)))
+	assert.Equal(t, 15, activityStatsIntCustom([]byte("15")))
+	assert.Equal(t, 16, activityStatsIntCustom("16"))
+
+	assert.Equal(t, 12.5, activityStatsFloatCustom(12.5))
+	assert.Equal(t, 13.5, activityStatsFloatCustom(float32(13.5)))
+	assert.Equal(t, 14.0, activityStatsFloatCustom(14))
+	assert.Equal(t, 15.25, activityStatsFloatCustom([]byte("15.25")))
+	assert.Equal(t, 16.75, activityStatsFloatCustom("16.75"))
+
+	assert.False(t, activityStatsBoolCustom(0))
+	assert.True(t, activityStatsBoolCustom(1))
+	assert.True(t, activityStatsBoolCustom([]byte("1")))
+}

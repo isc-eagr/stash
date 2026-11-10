@@ -40,6 +40,7 @@ type ImageCounter interface {
 	OCount(ctx context.Context) (int, error)
 	OCountByPerformerID(ctx context.Context, performerID int) (int, error)
 	OCountByStudioID(ctx context.Context, studioID int, depth int) (int, error)
+	OCountByStudioIDCustom(ctx context.Context, studioID int, depth *int, performerID *string) (int, error) // CUSTOM: performer scope and release O's
 }
 
 // ImageCreator provides methods to create images.

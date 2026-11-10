@@ -64,3 +64,14 @@ node_modules
 dist
 .DS_Store
 /.local*
+
+# CUSTOM: local agent/build artifacts
+/build_output.txt
+/go.mod.bak
+/.codex/visualizations/
+.codex
+.pnpm-store
+data
+
+# CUSTOM: Claude Code local settings
+.claude/settings.local.json

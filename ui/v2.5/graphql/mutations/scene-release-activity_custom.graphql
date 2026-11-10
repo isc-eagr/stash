@@ -1,0 +1,40 @@
+mutation SceneReleaseSaveActivity(
+  $id: ID!
+  $resume_time: Float
+  $play_duration: Float
+) {
+  sceneReleaseSaveActivity(
+    id: $id
+    resume_time: $resume_time
+    play_duration: $play_duration
+  )
+}
+
+mutation SceneReleaseAddPlay($id: ID!) {
+  sceneReleaseAddPlay(id: $id)
+}
+
+mutation SceneReleaseRecordOAtTimestamp($id: ID!, $video_timestamp: Float!) {
+  sceneReleaseRecordOAtTimestamp(id: $id, video_timestamp: $video_timestamp)
+}
+
+mutation SceneReleaseEditHistory(
+  $id: ID!
+  $kind: String!
+  $action: String!
+  $at: Timestamp
+) {
+  sceneReleaseEditHistory(id: $id, kind: $kind, action: $action, at: $at)
+}
+
+mutation SceneReleaseResetActivity(
+  $id: ID!
+  $reset_resume: Boolean
+  $reset_duration: Boolean
+) {
+  sceneReleaseResetActivity(
+    id: $id
+    reset_resume: $reset_resume
+    reset_duration: $reset_duration
+  )
+}

@@ -131,13 +131,14 @@ class SourceSelectorPlugin extends videojs.getPlugin("plugin") {
       const paused = player.paused();
 
       player.src(loadSrc);
-      player.one("canplay", () => {
-        if (paused) {
-          player.pause();
-        }
+      // CUSTOM: preserve the paused/playing state across manual stream changes.
+      player.one("loadedmetadata", () => {
         player.currentTime(currentTime);
       });
-      player.play();
+      // CUSTOM: begin
+      if (paused) player.load();
+      else player.play();
+      // CUSTOM: end
     });
 
     player.on("ready", () => {
@@ -218,6 +219,7 @@ class SourceSelectorPlugin extends videojs.getPlugin("plugin") {
   }
 
   setSources(sources: ISource[]) {
+    this.manuallySelected = false; // CUSTOM: a new scene starts with automatic source fallback
     const cleanupTracks = this.cleanupTextTracks.splice(0);
     for (const track of cleanupTracks) {
       this.player.removeRemoteTextTrack(track);

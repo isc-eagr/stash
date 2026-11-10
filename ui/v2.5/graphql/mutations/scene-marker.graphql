@@ -5,6 +5,8 @@ mutation SceneMarkerCreate(
   $scene_id: ID!
   $primary_tag_id: ID!
   $tag_ids: [ID!] = []
+  $top_performer_ids: [ID!] = [] # CUSTOM
+  $bottom_performer_ids: [ID!] = [] # CUSTOM
 ) {
   sceneMarkerCreate(
     input: {
@@ -14,9 +16,11 @@ mutation SceneMarkerCreate(
       scene_id: $scene_id
       primary_tag_id: $primary_tag_id
       tag_ids: $tag_ids
+      top_performer_ids: $top_performer_ids # CUSTOM
+      bottom_performer_ids: $bottom_performer_ids # CUSTOM
     }
   ) {
-    ...SceneMarkerData
+    ...SceneMarkerMutationData # CUSTOM: omit the nested scene graph from save responses
   }
 }
 
@@ -28,6 +32,8 @@ mutation SceneMarkerUpdate(
   $scene_id: ID!
   $primary_tag_id: ID!
   $tag_ids: [ID!] = []
+  $top_performer_ids: [ID!] = [] # CUSTOM
+  $bottom_performer_ids: [ID!] = [] # CUSTOM
 ) {
   sceneMarkerUpdate(
     input: {
@@ -38,15 +44,18 @@ mutation SceneMarkerUpdate(
       scene_id: $scene_id
       primary_tag_id: $primary_tag_id
       tag_ids: $tag_ids
+      top_performer_ids: $top_performer_ids # CUSTOM
+      bottom_performer_ids: $bottom_performer_ids # CUSTOM
     }
   ) {
-    ...SceneMarkerData
+    ...SceneMarkerMutationData # CUSTOM: omit the nested scene graph from save responses
   }
 }
 
 mutation BulkSceneMarkerUpdate($input: BulkSceneMarkerUpdateInput!) {
   bulkSceneMarkerUpdate(input: $input) {
-    ...SceneMarkerData
+    # CUSTOM: keep bulk edit responses lightweight; callers refetch impacted lists.
+    id
   }
 }
 
@@ -56,4 +65,48 @@ mutation SceneMarkerDestroy($id: ID!) {
 
 mutation SceneMarkersDestroy($ids: [ID!]!) {
   sceneMarkersDestroy(ids: $ids)
+}
+
+# CUSTOM: marker saves only need the marker and its direct relationships. The
+# full SceneMarkerData fragment recursively fetches scene files and performers.
+fragment SceneMarkerMutationData on SceneMarker {
+  id
+  created_at
+  updated_at
+  title
+  seconds
+  end_seconds
+  stream
+  preview
+  screenshot
+  primary_tag {
+    id
+    name
+    parents {
+      id
+      name
+    }
+  }
+  tags {
+    id
+    name
+    parents {
+      id
+      name
+    }
+  }
+  top_performers {
+    id
+    name
+    alias_list
+    disambiguation
+    image_path
+  }
+  bottom_performers {
+    id
+    name
+    alias_list
+    disambiguation
+    image_path
+  }
 }

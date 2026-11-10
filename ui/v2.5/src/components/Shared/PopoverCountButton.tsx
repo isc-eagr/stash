@@ -1,5 +1,7 @@
 import {
   faFilm,
+  faThumbsUp, // CUSTOM
+  faClone, // CUSTOM
   faImage,
   faImages,
   faPlayCircle,
@@ -14,6 +16,7 @@ import { Link } from "react-router-dom";
 import { useConfigurationContext } from "src/hooks/Config";
 import TextUtils from "src/utils/text";
 import { Icon } from "./Icon";
+import { SweatDrops } from "./SweatDrops"; // CUSTOM
 
 export const Count: React.FC<{
   count: number;
@@ -46,7 +49,10 @@ type PopoverLinkType =
   | "group"
   | "sub_group"
   | "performer"
-  | "studio";
+  | "studio"
+  | "release" // CUSTOM
+  | "o_count"; // CUSTOM
+type StandardPopoverLinkType = Exclude<PopoverLinkType, "o_count">; // CUSTOM
 
 interface IProps {
   className?: string;
@@ -54,6 +60,7 @@ interface IProps {
   type: PopoverLinkType;
   count: number;
   showZero?: boolean;
+  showTooltip?: boolean; // CUSTOM
 }
 
 export const PopoverCountButton: React.FC<IProps> = ({
@@ -62,16 +69,32 @@ export const PopoverCountButton: React.FC<IProps> = ({
   type,
   count,
   showZero = true,
+  showTooltip = true, // CUSTOM
 }) => {
   const intl = useIntl();
+  const { configuration } = useConfigurationContext(); // CUSTOM
 
   if (!showZero && count === 0) {
     return null;
   }
 
+  function renderIcon() {
+    // CUSTOM: begin - compact O count support
+    if (type === "o_count") {
+      return !configuration.interface.sfwContentMode ? (
+        <SweatDrops />
+      ) : (
+        <Icon icon={faThumbsUp} />
+      );
+    }
+    // CUSTOM: end
+
+    return <Icon icon={getIcon(type)} />;
+  }
+
   // TODO - refactor - create SceneIcon, ImageIcon etc components
-  function getIcon() {
-    switch (type) {
+  function getIcon(linkType: StandardPopoverLinkType) {
+    switch (linkType) {
       case "scene":
         return faPlayCircle;
       case "image":
@@ -87,6 +110,8 @@ export const PopoverCountButton: React.FC<IProps> = ({
         return faUser;
       case "studio":
         return faVideo;
+      case "release": // CUSTOM
+        return faClone;
     }
   }
 
@@ -132,6 +157,24 @@ export const PopoverCountButton: React.FC<IProps> = ({
           one: "studio",
           other: "studios",
         };
+      // CUSTOM: begin - release count tooltip
+      case "release":
+        return {
+          one: "release",
+          other: "releases",
+        };
+      // CUSTOM: end
+      // CUSTOM: begin - O count tooltip
+      case "o_count":
+        return {
+          one: configuration.interface.sfwContentMode
+            ? "o_count_sfw"
+            : "o_count",
+          other: configuration.interface.sfwContentMode
+            ? "o_count_sfw"
+            : "o_count",
+        };
+      // CUSTOM: end
     }
   }
 
@@ -144,17 +187,23 @@ export const PopoverCountButton: React.FC<IProps> = ({
     return `${count} ${plural}`;
   }
 
+  const link = (
+    <Link className={className} to={url}>
+      <Button className="minimal">
+        {renderIcon()}
+        <Count count={count} />
+      </Button>
+    </Link>
+  );
+
+  if (!showTooltip) return link; // CUSTOM
+
   return (
     <OverlayTrigger
       overlay={<Tooltip id={`${type}-count-tooltip`}>{getTitle()}</Tooltip>}
       placement="bottom"
     >
-      <Link className={className} to={url}>
-        <Button className="minimal">
-          <Icon icon={getIcon()} />
-          <Count count={count} />
-        </Button>
-      </Link>
+      {link}
     </OverlayTrigger>
   );
 };

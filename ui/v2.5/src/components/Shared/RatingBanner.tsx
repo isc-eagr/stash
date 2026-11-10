@@ -1,42 +1,44 @@
 import React from "react";
 import { FormattedMessage } from "react-intl";
-import {
-  convertToRatingFormat,
-  defaultRatingSystemOptions,
-  RatingStarPrecision,
-  RatingSystemType,
-} from "src/utils/rating";
-import { useConfigurationContext } from "src/hooks/Config";
+import cx from "classnames"; // CUSTOM
 
 interface IProps {
   rating?: number | null;
+  compact?: boolean;
+  className?: string; // CUSTOM
 }
 
-export const RatingBanner: React.FC<IProps> = ({ rating }) => {
-  const { configuration: config } = useConfigurationContext();
-  const ratingSystemOptions =
-    config?.ui.ratingSystemOptions ?? defaultRatingSystemOptions;
-  const isLegacy =
-    ratingSystemOptions.type === RatingSystemType.Stars &&
-    ratingSystemOptions.starPrecision === RatingStarPrecision.Full;
+export const RatingBanner: React.FC<IProps> = ({
+  rating,
+  compact = false,
+  className, // CUSTOM
+}) => {
+  const classBucket = Math.min(20, Math.trunc((rating ?? 0) / 5));
+  const isWideRating = (rating ?? 0) >= 100;
 
-  const convertedRating = convertToRatingFormat(
-    rating ?? undefined,
-    ratingSystemOptions
-  );
-
-  return rating ? (
+  return rating !== undefined && rating !== null ? (
     <div
-      className={
-        isLegacy
-          ? `rating-banner rating-${convertedRating}`
-          : `rating-banner rating-100-${Math.trunc(rating / 5)}`
-      }
+      className={cx(
+        "rating-banner",
+        {
+          "rating-banner-compact": compact,
+          "rating-banner-wide": isWideRating,
+        },
+        `rating-100-${classBucket}`,
+        className
+      )} // CUSTOM
       data-rating100={rating}
-      data-rating-system={ratingSystemOptions.type}
       style={{ "--rating-100": rating } as React.CSSProperties}
     >
-      <FormattedMessage id="rating" />: {convertedRating}
+      {compact ? (
+        <span className="rating-banner-compact-star" aria-label="Rating">
+          {rating}
+        </span>
+      ) : (
+        <>
+          <FormattedMessage id="rating" />: {rating}
+        </>
+      )}
     </div>
   ) : null;
 };

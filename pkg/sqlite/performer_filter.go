@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/stashapp/stash/pkg/models"
-	"github.com/stashapp/stash/pkg/utils"
+	"github.com/stashapp/stash/pkg/utils" // CUSTOM: logger import is in performer_filter_custom.go
 )
 
 type performerFilterHandler struct {
@@ -124,6 +124,7 @@ func (qb *performerFilterHandler) criterionHandler() criterionHandler {
 	convertLegacyCareerLengthFilter(&filter)
 
 	return compoundHandler{
+		insightPerformerIDsCriterionHandlerCustom(filter.InsightPerformerIDs), // CUSTOM
 		stringCriterionHandler(filter.Name, tableName+".name"),
 		stringCriterionHandler(filter.Disambiguation, tableName+".disambiguation"),
 		stringCriterionHandler(filter.Details, tableName+".details"),
@@ -149,8 +150,8 @@ func (qb *performerFilterHandler) criterionHandler() criterionHandler {
 		}),
 
 		qb.performerIsMissingCriterionHandler(filter.IsMissing),
-		stringCriterionHandler(filter.Ethnicity, tableName+".ethnicity"),
-		stringCriterionHandler(filter.Country, tableName+".country"),
+		performerEthnicityCriterionHandlerCustom(filter.Ethnicity, tableName+".ethnicity"), // CUSTOM
+		performerCountryCriterionHandlerCustom(filter.Country, tableName+".country"),       // CUSTOM
 		stringCriterionHandler(filter.EyeColor, tableName+".eye_color"),
 
 		// special handler for legacy height filter
@@ -183,6 +184,16 @@ func (qb *performerFilterHandler) criterionHandler() criterionHandler {
 		stringCriterionHandler(filter.Tattoos, tableName+".tattoos"),
 		stringCriterionHandler(filter.Piercings, tableName+".piercings"),
 		intCriterionHandler(filter.Rating100, tableName+".rating", nil),
+		metallicRatingCriterionHandler(filter.MetallicRating, tableName, tableName+".rating", "performers_tags", "performer_id", "performer"),                                                                         // CUSTOM
+		ratingCriteriaCriterionHandler(filter.RatingCriteria, models.RatingEntityPerformer, tableName),                                                                                                                // CUSTOM
+		performerActivityPercentFilterHandlerCustom(filter.ActivityPercentages, activityPercentPerformerStudioSQLCustom(&filter)),                                                                                     // CUSTOM
+		activityPercentCriterionHandlerCustom(filter.SexActivityPercent, activityPercentPerformerCategoryPercentExprCustom(activityPercentSexCustom, activityPercentPerformerStudioSQLCustom(&filter))),               // CUSTOM
+		activityPercentCriterionHandlerCustom(filter.OralActivityPercent, activityPercentPerformerCategoryPercentExprCustom(activityPercentOralCustom, activityPercentPerformerStudioSQLCustom(&filter))),             // CUSTOM
+		activityPercentCriterionHandlerCustom(filter.SoloActivityPercent, activityPercentPerformerCategoryPercentExprCustom(activityPercentSoloCustom, activityPercentPerformerStudioSQLCustom(&filter))),             // CUSTOM
+		activityPercentCriterionHandlerCustom(filter.SexTopActivityPercent, activityPercentPerformerRolePercentExprCustom(activityPercentSexCustom, "top", activityPercentPerformerStudioSQLCustom(&filter))),         // CUSTOM
+		activityPercentCriterionHandlerCustom(filter.SexBottomActivityPercent, activityPercentPerformerRolePercentExprCustom(activityPercentSexCustom, "bottom", activityPercentPerformerStudioSQLCustom(&filter))),   // CUSTOM
+		activityPercentCriterionHandlerCustom(filter.OralTopActivityPercent, activityPercentPerformerRolePercentExprCustom(activityPercentOralCustom, "top", activityPercentPerformerStudioSQLCustom(&filter))),       // CUSTOM
+		activityPercentCriterionHandlerCustom(filter.OralBottomActivityPercent, activityPercentPerformerRolePercentExprCustom(activityPercentOralCustom, "bottom", activityPercentPerformerStudioSQLCustom(&filter))), // CUSTOM
 		stringCriterionHandler(filter.HairColor, tableName+".hair_color"),
 		qb.urlsCriterionHandler(filter.URL),
 		intCriterionHandler(filter.Weight, tableName+".weight", nil),
@@ -219,6 +230,7 @@ func (qb *performerFilterHandler) criterionHandler() criterionHandler {
 		qb.sceneCountCriterionHandler(filter.SceneCount),
 		qb.markerCountCriterionHandler(filter.MarkerCount),
 		qb.imageCountCriterionHandler(filter.ImageCount),
+		qb.profileImageCountCriterionHandler(filter.ProfileImageCount), // CUSTOM
 		qb.galleryCountCriterionHandler(filter.GalleryCount),
 		qb.playCounterCriterionHandler(filter.PlayCount),
 		qb.oCounterCriterionHandler(filter.OCounter),
@@ -279,6 +291,11 @@ func (qb *performerFilterHandler) criterionHandler() criterionHandler {
 			c:     filter.CustomFields,
 			idCol: "performers.id",
 		},
+
+		qb.hasMarkersCriterionHandler(filter.HasMarkers),             // CUSTOM
+		qb.partnersCriterionHandler(filter.Partners),                 // CUSTOM
+		qb.sceneTypeCriterionHandler(filter.SceneType),               // CUSTOM
+		qb.performerMarkersCriterionHandler(filter.PerformerMarkers), // CUSTOM
 	}
 }
 
@@ -484,10 +501,13 @@ var selectPerformerOCountSQL = utils.StrFormat(
 		"LEFT JOIN {images} ON {images}.id = s.{images_id} "+
 		"WHERE s.{performer_id} = {performers}.id "+
 		"UNION ALL "+
-		"SELECT COUNT({scenes_o_dates}.{o_date}) as o_counter from {performers_scenes} s "+
+		"SELECT COUNT({scenes_o_dates}.{scene_id}) as o_counter from {performers_scenes} s "+ // CUSTOM: count retroactive O's without a date
 		"LEFT JOIN {scenes} ON {scenes}.id = s.{scene_id} "+
 		"LEFT JOIN {scenes_o_dates} ON {scenes_o_dates}.{scene_id} = {scenes}.id "+
 		"WHERE s.{performer_id} = {performers}.id "+
+		"UNION ALL SELECT COUNT(*) FROM scene_release_performers rp "+ // CUSTOM: release-owned events use release cast
+		"JOIN scene_release_o_dates o ON o.release_id = rp.release_id "+ // CUSTOM
+		"WHERE rp.performer_id = {performers}.id "+ // CUSTOM
 		")",
 	map[string]interface{}{
 		"performers_images": performersImagesTable,
@@ -499,17 +519,19 @@ var selectPerformerOCountSQL = utils.StrFormat(
 		"scenes":            sceneTable,
 		"scene_id":          sceneIDColumn,
 		"scenes_o_dates":    scenesODatesTable,
-		"o_date":            sceneODateColumn,
 	},
 )
 
 // used for sorting and filtering play count on performer view count
 var selectPerformerPlayCountSQL = utils.StrFormat(
-	"SELECT COUNT(DISTINCT {view_date}) FROM ("+
+	"SELECT COUNT({view_date}) FROM ("+ // CUSTOM: count every event, including same-timestamp duplicates
 		"SELECT {view_date} FROM {performers_scenes} s "+
 		"LEFT JOIN {scenes} ON {scenes}.id = s.{scene_id} "+
 		"LEFT JOIN {scenes_view_dates} ON {scenes_view_dates}.{scene_id} = {scenes}.id "+
-		"WHERE s.{performer_id} = {performers}.id"+
+		"WHERE s.{performer_id} = {performers}.id "+
+		"UNION ALL SELECT v.view_date FROM scene_release_performers rp "+ // CUSTOM
+		"JOIN scene_release_view_dates v ON v.release_id = rp.release_id "+ // CUSTOM
+		"WHERE rp.performer_id = {performers}.id"+ // CUSTOM
 		")",
 	map[string]interface{}{
 		"performer_id":      performerIDColumn,

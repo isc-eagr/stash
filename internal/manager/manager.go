@@ -106,6 +106,11 @@ func (s *Manager) RefreshConfig() {
 		if err := fsutil.EnsureDir(s.Paths.Generated.Markers); err != nil {
 			logger.Warnf("could not create markers directory: %v", err)
 		}
+		// CUSTOM: begin
+		if err := fsutil.EnsureDir(s.Paths.Generated.GetOScreenshotDir()); err != nil {
+			logger.Warnf("could not create O screenshots directory: %v", err)
+		}
+		// CUSTOM: end
 		if err := fsutil.EnsureDir(s.Paths.Generated.Transcodes); err != nil {
 			logger.Warnf("could not create transcodes directory: %v", err)
 		}

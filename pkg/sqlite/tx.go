@@ -39,6 +39,9 @@ type dbWrapperType struct{}
 
 var dbWrapper = dbWrapperType{}
 
+// CUSTOM: DBWrapper provides access to database operations with proper transaction handling
+var DBWrapper = dbWrapper
+
 func sqlError(err error, sql string, args ...interface{}) error {
 	if err == nil {
 		return nil

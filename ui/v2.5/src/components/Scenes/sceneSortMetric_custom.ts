@@ -1,0 +1,410 @@
+import type * as GQL from "src/core/generated-graphql";
+import {
+  resolveSortMetricCustom,
+  type SortMetricDefinitionCustom,
+} from "../Shared/sortMetric_custom";
+import {
+  getSceneActivityMetrics,
+  getSceneMarkerCountCustom,
+  type SceneActivityMetricRows,
+  type SceneActivityRoleTagIds,
+  type SceneMarkerCountKeyCustom,
+} from "./sceneActivityMetricsData_custom";
+import {
+  sceneLastOAtCustom,
+  sceneOTotalCustom,
+  sceneStashDBMatchesTotalCustom,
+} from "./sceneReleaseTotals_custom";
+
+type SceneSortMetricScene = GQL.SlimSceneDataFragment & {
+  created_at?: string;
+  updated_at?: string;
+  last_played_at?: string | null;
+  o_history?: string[];
+  performers: Array<
+    GQL.SlimSceneDataFragment["performers"][number] & {
+      birthdate?: string | null;
+    }
+  >;
+};
+
+type SceneSortMetricSource = {
+  direction: GQL.SortDirectionEnum;
+  fromGroupId?: string;
+  activityMetrics?: SceneActivityMetricRows;
+  roleTagIds: SceneActivityRoleTagIds;
+  scene: SceneSortMetricScene;
+};
+
+const firstFile = ({ scene }: SceneSortMetricSource) => scene.files[0];
+const fileNameFromPath = (path: string) => path.replace(/^.*[\\/]/, "");
+const scenePath = (source: SceneSortMetricSource) =>
+  firstFile(source)?.path ?? "";
+const sceneTitle = (source: SceneSortMetricSource) =>
+  source.scene.title ??
+  (scenePath(source) ? fileNameFromPath(scenePath(source)) : "");
+const fuzzyDate = (value: string) => {
+  const [yearValue, monthValue = "1", dayValue = "1"] = value.split("-");
+  const year = Number(yearValue);
+  const month = Number(monthValue);
+  const day = Number(dayValue);
+  if (![year, month, day].every(Number.isFinite)) return undefined;
+  return new Date(year, Math.max(0, month - 1), day);
+};
+const ageAtDate = (birthdate: string, atDate: string) => {
+  const birth = fuzzyDate(birthdate);
+  const at = fuzzyDate(atDate);
+  if (!birth || !at) return undefined;
+  let age = at.getFullYear() - birth.getFullYear();
+  if (
+    birth.getMonth() > at.getMonth() ||
+    (birth.getMonth() === at.getMonth() && birth.getDate() > at.getDate())
+  ) {
+    age -= 1;
+  }
+  return age;
+};
+const activityPercent = (
+  source: SceneSortMetricSource,
+  key:
+    | "sex"
+    | "oral"
+    | "solo"
+    | "outstanding"
+    | "standard"
+    | "unclassified"
+    | "unusable"
+) => {
+  const metrics =
+    source.activityMetrics ??
+    getSceneActivityMetrics(source.scene, source.roleTagIds);
+  if (!metrics) return undefined;
+  // The metric rows omit zero-duration categories; the sort treats them as 0.
+  return (
+    [...metrics.activity, ...metrics.quality].find(
+      (metric) => metric.key === key
+    )?.percent ?? 0
+  );
+};
+
+const markerCount =
+  (key: SceneMarkerCountKeyCustom) => (source: SceneSortMetricSource) =>
+    getSceneMarkerCountCustom(source.scene, source.roleTagIds, key);
+
+const performerAge = (source: SceneSortMetricSource) => {
+  // Matches the backend sort: production date, else the effective date.
+  const sceneDate =
+    source.scene.production_date ||
+    (source.scene.effective_date ?? source.scene.date);
+  if (!sceneDate) return undefined;
+
+  const ages = source.scene.performers
+    .map((performer) =>
+      performer.birthdate
+        ? ageAtDate(performer.birthdate, sceneDate)
+        : undefined
+    )
+    .filter((age): age is number => age !== undefined);
+  if (ages.length === 0) return undefined;
+
+  return source.direction === "DESC" ? Math.max(...ages) : Math.min(...ages);
+};
+
+const groupSceneNumber = (source: SceneSortMetricSource) => {
+  const contextual = source.fromGroupId
+    ? source.scene.groups.find(
+        (sceneGroup) => sceneGroup.group.id === source.fromGroupId
+      )?.scene_index
+    : undefined;
+  if (contextual !== undefined && contextual !== null) return contextual;
+
+  const indexes = source.scene.groups
+    .map((sceneGroup) => sceneGroup.scene_index)
+    .filter((index): index is number => index !== undefined && index !== null);
+  if (indexes.length === 0) return undefined;
+  return source.direction === "DESC"
+    ? Math.max(...indexes)
+    : Math.min(...indexes);
+};
+
+const definitions: Record<
+  string,
+  SortMetricDefinitionCustom<SceneSortMetricSource>
+> = {
+  organized: {
+    messageID: "organized",
+    format: "boolean",
+    value: ({ scene }) => scene.organized,
+  },
+  effective_date: {
+    messageID: "effective_date",
+    format: "date",
+    value: ({ scene }) => scene.effective_date,
+  },
+  production_date: {
+    messageID: "production_date",
+    format: "date",
+    value: ({ scene }) => scene.production_date,
+  },
+  stashdb_matches: {
+    messageID: "stashdb_matches",
+    format: "count",
+    value: ({ scene }) => sceneStashDBMatchesTotalCustom(scene)?.total,
+  },
+  file_count: {
+    messageID: "file_count",
+    format: "count",
+    value: ({ scene }) => scene.files.length,
+  },
+  filesize: {
+    messageID: "filesize",
+    format: "bytes",
+    value: (source) => firstFile(source)?.size,
+  },
+  duration: {
+    messageID: "duration",
+    format: "duration",
+    value: (source) => firstFile(source)?.duration,
+  },
+  framerate: {
+    messageID: "framerate",
+    format: "decimal",
+    value: (source) => firstFile(source)?.frame_rate,
+  },
+  resolution: {
+    messageID: "resolution",
+    format: "text",
+    value: (source) => {
+      const file = firstFile(source);
+      return file?.width && file?.height
+        ? `${file.width}\u00d7${file.height}`
+        : undefined;
+    },
+  },
+  bitrate: {
+    messageID: "bitrate",
+    format: "text",
+    value: (source) => {
+      const value = firstFile(source)?.bit_rate;
+      return value ? `${(value / 1_000_000).toFixed(2)} Mbps` : undefined;
+    },
+  },
+  last_played_at: {
+    messageID: "last_played_at",
+    format: "datetime",
+    value: ({ scene }) => scene.last_played_at,
+  },
+  resume_time: {
+    messageID: "resume_time",
+    format: "duration",
+    value: ({ scene }) => scene.resume_time,
+  },
+  play_duration: {
+    messageID: "play_duration",
+    format: "duration",
+    value: ({ scene }) => scene.play_duration,
+  },
+  play_count: {
+    messageID: "play_count",
+    format: "count",
+    value: ({ scene }) => scene.play_count,
+  },
+  interactive: {
+    messageID: "interactive",
+    format: "boolean",
+    value: ({ scene }) => scene.interactive,
+  },
+  interactive_speed: {
+    messageID: "interactive_speed",
+    format: "decimal",
+    value: ({ scene }) => scene.interactive_speed,
+  },
+  perceptual_similarity: {
+    messageID: "perceptual_similarity",
+    format: "text",
+    value: (source) =>
+      firstFile(source)?.fingerprints.find(
+        (fingerprint) => fingerprint.type === "phash"
+      )?.value,
+  },
+  performer_age: {
+    messageID: "performer_age",
+    format: "decimal",
+    value: performerAge,
+  },
+  studio: {
+    messageID: "studio",
+    format: "text",
+    value: ({ scene }) => scene.studio?.name,
+  },
+  title: {
+    messageID: "title",
+    format: "text",
+    value: sceneTitle,
+  },
+  path: {
+    messageID: "path",
+    format: "text",
+    value: scenePath,
+  },
+  rating: {
+    messageID: "rating",
+    format: "rating",
+    value: ({ scene }) => scene.rating100,
+  },
+  goat_element_bonus: {
+    messageID: "goat_element_bonus",
+    format: "text",
+    value: ({ scene }) => {
+      const rawValue = scene.rating_scores.find(
+        (score) => score.section === "bonus" && score.key === "goatElement"
+      )?.raw_value;
+      return rawValue ? `+${Math.round(rawValue * 10)}` : "+0";
+    },
+  },
+  file_mod_time: {
+    messageID: "file_mod_time",
+    format: "datetime",
+    value: (source) => firstFile(source)?.mod_time,
+  },
+  tag_count: {
+    messageID: "tag_count",
+    format: "count",
+    value: ({ scene }) => scene.tags.length,
+  },
+  performer_count: {
+    messageID: "performer_count",
+    format: "count",
+    value: ({ scene }) => scene.performers.length,
+  },
+  random: { messageID: "random", format: "none", value: () => undefined },
+  o_counter: {
+    messageID: "o_count",
+    format: "count",
+    value: ({ scene }) => sceneOTotalCustom(scene).total,
+  },
+  last_o_at: {
+    messageID: "last_o_at",
+    format: "datetime",
+    value: ({ scene }) => sceneLastOAtCustom(scene),
+  },
+  group_scene_number: {
+    messageID: "group_scene_number",
+    format: "count",
+    value: groupSceneNumber,
+  },
+  code: {
+    messageID: "scene_code",
+    format: "text",
+    value: ({ scene }) => scene.code,
+  },
+  sex_activity_percent: {
+    messageID: "sex_activity_percent",
+    format: "percent",
+    value: (source) => activityPercent(source, "sex"),
+  },
+  oral_activity_percent: {
+    messageID: "oral_activity_percent",
+    format: "percent",
+    value: (source) => activityPercent(source, "oral"),
+  },
+  solo_activity_percent: {
+    messageID: "solo_activity_percent",
+    format: "percent",
+    value: (source) => activityPercent(source, "solo"),
+  },
+  outstanding_activity_percent: {
+    messageID: "outstanding_activity_percent",
+    format: "percent",
+    value: (source) => activityPercent(source, "outstanding"),
+  },
+  standard_activity_percent: {
+    messageID: "standard_activity_percent",
+    format: "percent",
+    value: (source) => activityPercent(source, "standard"),
+  },
+  unclassified_activity_percent: {
+    messageID: "unclassified_activity_percent",
+    format: "percent",
+    value: (source) => activityPercent(source, "unclassified"),
+  },
+  unusable_activity_percent: {
+    messageID: "unusable_activity_percent",
+    format: "percent",
+    value: (source) => activityPercent(source, "unusable"),
+  },
+  orgasm_count: {
+    messageID: "orgasm_count",
+    format: "count",
+    value: markerCount("orgasm_count"),
+  },
+  regular_orgasm_count: {
+    messageID: "regular_orgasm_count",
+    format: "count",
+    value: markerCount("regular_orgasm_count"),
+  },
+  goat_orgasm_count: {
+    messageID: "goat_orgasm_count",
+    format: "count",
+    value: markerCount("goat_orgasm_count"),
+  },
+  regular_facial_count: {
+    messageID: "regular_facial_count",
+    format: "count",
+    value: markerCount("regular_facial_count"),
+  },
+  goat_facial_count: {
+    messageID: "goat_facial_count",
+    format: "count",
+    value: markerCount("goat_facial_count"),
+  },
+  really_hot_orgasm_count: {
+    messageID: "really_hot_orgasm_count",
+    format: "count",
+    value: markerCount("really_hot_orgasm_count"),
+  },
+  facial_count: {
+    messageID: "facial_count",
+    format: "count",
+    value: markerCount("facial_count"),
+  },
+  really_hot_facial_count: {
+    messageID: "really_hot_facial_count",
+    format: "count",
+    value: markerCount("really_hot_facial_count"),
+  },
+  created_at: {
+    messageID: "created_at",
+    format: "datetime",
+    value: ({ scene }) => scene.created_at,
+  },
+  updated_at: {
+    messageID: "updated_at",
+    format: "datetime",
+    value: ({ scene }) => scene.updated_at,
+  },
+};
+
+export function getSceneSortMetricCustom(
+  sortBy: string | undefined,
+  scene: SceneSortMetricScene,
+  direction: GQL.SortDirectionEnum,
+  roleTagIds: SceneActivityRoleTagIds,
+  fromGroupId?: string,
+  activityMetrics?: SceneActivityMetricRows
+) {
+  return resolveSortMetricCustom(sortBy, "date", definitions, {
+    direction,
+    fromGroupId,
+    activityMetrics,
+    roleTagIds,
+    scene,
+  });
+}
+
+// Label and format for a scene sort, used by list table columns.
+export function getSceneSortMetricDefinitionCustom(sortBy: string) {
+  const definition = definitions[sortBy];
+  if (!definition) return undefined;
+  return { messageID: definition.messageID, format: definition.format };
+}

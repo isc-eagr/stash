@@ -25,7 +25,10 @@ type GenerateMetadataInput struct {
 	Markers             bool                         `json:"markers"`
 	MarkerImagePreviews bool                         `json:"markerImagePreviews"`
 	MarkerScreenshots   bool                         `json:"markerScreenshots"`
-	Transcodes          bool                         `json:"transcodes"`
+	// Delete generated marker video/webp previews for simple marker preview skip tags.
+	DeleteSimpleMarkerPreviews bool `json:"deleteSimpleMarkerPreviews"` // CUSTOM
+	OScreenshots               bool `json:"oScreenshots"`               // CUSTOM
+	Transcodes                 bool `json:"transcodes"`
 	// Generate transcodes even if not required
 	ForceTranscodes           bool `json:"forceTranscodes"`
 	Phashes                   bool `json:"phashes"`
@@ -78,6 +81,7 @@ type totalsGenerate struct {
 	previews                 int64
 	imagePreviews            int64
 	markers                  int64
+	oScreenshots             int64 // CUSTOM
 	transcodes               int64
 	phashes                  int64
 	imagePhashes             int64
@@ -220,6 +224,9 @@ func (j *GenerateJob) Execute(ctx context.Context, progress *job.Progress) error
 		if j.input.Markers {
 			logMsg += fmt.Sprintf(" %d markers", totals.markers)
 		}
+		if j.input.OScreenshots {
+			logMsg += fmt.Sprintf(" %d O screenshots", totals.oScreenshots)
+		}
 		if j.input.Transcodes {
 			logMsg += fmt.Sprintf(" %d transcodes", totals.transcodes)
 		}
@@ -293,7 +300,15 @@ func (j *GenerateJob) Execute(ctx context.Context, progress *job.Progress) error
 func (j *GenerateJob) queueTasks(ctx context.Context, g *generate.Generator, paths []string, queue chan<- Task) {
 	j.totals = totalsGenerate{}
 
-	j.queueScenesTasks(ctx, g, paths, queue)
+	hasSceneTasks := j.input.Covers || j.input.Sprites || j.input.Previews ||
+		j.input.Markers || j.input.MarkerImagePreviews || j.input.MarkerScreenshots ||
+		j.input.DeleteSimpleMarkerPreviews || j.input.Transcodes || j.input.Phashes ||
+		j.input.InteractiveHeatmapsSpeeds
+	if j.input.OScreenshots && !hasSceneTasks { // CUSTOM
+		j.queueOScreenshotTasks(ctx, g, paths, queue) // CUSTOM
+	} else {
+		j.queueScenesTasks(ctx, g, paths, queue)
+	}
 	j.queueImagesTasks(ctx, g, paths, queue)
 }
 
@@ -472,15 +487,16 @@ func (j *GenerateJob) queueSceneJobs(ctx context.Context, g *generate.Generator,
 		}
 	}
 
-	if j.input.Markers || j.input.MarkerImagePreviews || j.input.MarkerScreenshots {
+	if j.input.Markers || j.input.MarkerImagePreviews || j.input.MarkerScreenshots || j.input.DeleteSimpleMarkerPreviews { // CUSTOM
 		task := &GenerateMarkersTask{
-			repository:          r,
-			Scene:               scene,
-			Overwrite:           j.overwrite,
-			fileNamingAlgorithm: j.fileNamingAlgo,
-			VideoPreview:        j.input.Markers,
-			ImagePreview:        j.input.MarkerImagePreviews,
-			Screenshot:          j.input.MarkerScreenshots,
+			repository:                 r,
+			Scene:                      scene,
+			Overwrite:                  j.overwrite,
+			fileNamingAlgorithm:        j.fileNamingAlgo,
+			VideoPreview:               j.input.Markers,
+			ImagePreview:               j.input.MarkerImagePreviews,
+			Screenshot:                 j.input.MarkerScreenshots,
+			DeleteSimpleMarkerPreviews: j.input.DeleteSimpleMarkerPreviews, // CUSTOM
 
 			generator: g,
 		}
@@ -542,18 +558,23 @@ func (j *GenerateJob) queueSceneJobs(ctx context.Context, g *generate.Generator,
 			queue <- task
 		}
 	}
+
+	if j.input.OScreenshots {
+		j.queueSceneOScreenshotJobs(ctx, g, scene, queue) // CUSTOM
+	}
 }
 
 func (j *GenerateJob) queueMarkerJob(g *generate.Generator, marker *models.SceneMarker, queue chan<- Task) {
 	task := &GenerateMarkersTask{
-		repository:          j.repository,
-		Marker:              marker,
-		Overwrite:           j.overwrite,
-		fileNamingAlgorithm: j.fileNamingAlgo,
-		VideoPreview:        j.input.Markers,
-		ImagePreview:        j.input.MarkerImagePreviews,
-		Screenshot:          j.input.MarkerScreenshots,
-		generator:           g,
+		repository:                 j.repository,
+		Marker:                     marker,
+		Overwrite:                  j.overwrite,
+		fileNamingAlgorithm:        j.fileNamingAlgo,
+		VideoPreview:               j.input.Markers,
+		ImagePreview:               j.input.MarkerImagePreviews,
+		Screenshot:                 j.input.MarkerScreenshots,
+		DeleteSimpleMarkerPreviews: j.input.DeleteSimpleMarkerPreviews, // CUSTOM
+		generator:                  g,
 	}
 	j.totals.markers++
 	j.totals.tasks++

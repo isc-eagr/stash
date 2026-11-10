@@ -1,12 +1,30 @@
 @import "video.js/dist/video-js.css";
 @import "videojs-mobile-ui/dist/videojs-mobile-ui.css";
-@import "videojs-seek-buttons/dist/videojs-seek-buttons.css";
+@import "videojs-seek-buttons/dist/videojs-seek-buttons.css"; // Needed for BigButtonGroup on touch
 @import "@silvermine/videojs-chromecast/dist/silvermine-videojs-chromecast.css";
 @import "@silvermine/videojs-airplay/dist/silvermine-videojs-airplay.css";
+@import "./scenePlayerControlVisibility_custom"; // CUSTOM
+@import "./scenePlayerMobileControls_custom"; // CUSTOM
 
 $scrubberHeight: 120px;
 $menuHeight: 4rem;
 $sceneTabWidth: 450px;
+$secondary: #394b59;
+$muted-gray: #bfccd6;
+$success: #0f9960;
+$danger: #db3737;
+$body-bg: #202b33;
+$text-muted: $muted-gray;
+$link-color: #48aff0;
+$text-color: #f5f8fa;
+$dark-text: #182026;
+$card-bg: #30404d;
+$border-radius: 0.25rem;
+$border-radius-sm: 0.2rem;
+$font-family-base: -apple-system, blinkmacsystemfont, "Segoe UI", roboto,
+  "Helvetica Neue", arial, sans-serif;
+$font-family-monospace: sfmono-regular, menlo, monaco, consolas,
+  "Liberation Mono", "Courier New", monospace;
 
 .VideoPlayer {
   display: flex;
@@ -112,7 +130,6 @@ $sceneTabWidth: 450px;
       content: "\f101";
       font-size: 1em;
       line-height: 1;
-      margin-left: 1rem;
       padding: 0.3em;
       position: relative;
       z-index: 2;
@@ -126,7 +143,6 @@ $sceneTabWidth: 450px;
       content: "\f103";
       font-size: 1em;
       line-height: 1;
-      margin-right: 1rem;
       padding: 0.3em;
       position: relative;
       z-index: 2;
@@ -134,17 +150,7 @@ $sceneTabWidth: 450px;
 
     &.vjs-icon-play-circle::after,
     &.vjs-icon-cancel::after {
-      background-color: rgb(255 255 255 / 70%);
-      border-radius: 8px;
-      content: "";
-      height: 2.5rem;
-      left: 50%;
-      opacity: 0.7;
-      position: absolute;
-      top: 50%;
-      transform: translate(-50%, -50%) rotate(90deg);
-      width: 1rem;
-      z-index: 1;
+      display: none; /* CUSTOM: replaced large overlay with display:none */
     }
 
     &:hover {
@@ -176,6 +182,83 @@ $sceneTabWidth: 450px;
       width: 100%;
     }
   }
+
+  /* CUSTOM: begin - hide fullscreen controls while idle, including paused video */
+  &.vjs-fullscreen.vjs-has-started.vjs-user-inactive {
+    .vjs-control-bar {
+      opacity: 0;
+      pointer-events: none;
+      transition: visibility 1s, opacity 1s;
+      visibility: hidden;
+    }
+  }
+
+  /* CUSTOM: end */
+
+  /* CUSTOM: begin - marker-player-style O overlay and fullscreen confirmation */
+  .scene-player-record-o-overlay {
+    align-items: center;
+    background: rgba(0, 0, 0, 0.55);
+    border: none;
+    border-radius: 50%;
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    font-size: 1.1rem;
+    height: 48px;
+    justify-content: center;
+    opacity: 1;
+    position: absolute;
+    right: 1.5rem;
+    top: 1.5rem;
+    transition: background 0.2s, color 0.2s, opacity 0.2s, transform 0.2s,
+      visibility 0.2s;
+    visibility: visible;
+    width: 48px;
+    z-index: 10000;
+
+    &:hover {
+      background: rgba(0, 0, 0, 0.85);
+      transform: scale(1.06);
+    }
+
+    &:focus-visible {
+      box-shadow: 0 0 0 3px rgba(108, 152, 198, 0.75);
+      outline: none;
+    }
+
+    &:disabled {
+      cursor: wait;
+      opacity: 0.65;
+      transform: none;
+    }
+
+    &.is-hidden {
+      opacity: 0;
+      pointer-events: none;
+      visibility: hidden;
+    }
+  }
+
+  .scene-player-o-recorded-toast {
+    background: rgba(53, 168, 83, 0.94);
+    border: 1px solid rgba(174, 255, 193, 0.72);
+    border-radius: 0.45rem;
+    box-shadow: 0 0.3rem 1rem rgba(0, 0, 0, 0.35);
+    color: #fff;
+    font-family: $font-family-base;
+    font-size: 1rem;
+    font-weight: 800;
+    left: 50%;
+    padding: 0.65rem 1rem;
+    pointer-events: none;
+    position: absolute;
+    top: 1.5rem;
+    transform: translateX(-50%);
+    z-index: 10001;
+  }
+
+  /* CUSTOM: end */
 
   .vjs-time-control {
     align-items: center;
@@ -281,7 +364,7 @@ $sceneTabWidth: 450px;
     }
 
     .vjs-menu-item.vjs-source-menu-item-error:not(.vjs-selected) {
-      color: $text-muted;
+      color: #6c757d;
     }
 
     .vjs-menu-item.vjs-source-menu-item-error {
@@ -307,15 +390,31 @@ $sceneTabWidth: 450px;
     left: 0;
     opacity: 1;
     position: absolute;
-    transition: opacity 0.2s ease;
+    transition: box-shadow 0.16s ease, filter 0.16s ease, opacity 0.2s ease; /* CUSTOM */
     visibility: hidden;
     width: 6px;
     z-index: 100;
 
-    &:hover {
-      cursor: pointer;
-      transform: scale(1.3, 1.3);
+    /* CUSTOM: restrained, static Royal Sapphire cue for GOAT timeline ticks */
+    &.vjs-marker-royal-sapphire {
+      background-color: #05080d;
+      background-image: none;
+      border: 1px solid rgba(var(--semantic-goat-rgb), 0.96);
+      box-shadow: 0 0 4px rgba(var(--semantic-goat-rgb), 0.38),
+        0 0 8px rgba(var(--semantic-goat-rgb), 0.5);
+      box-sizing: border-box;
     }
+
+    /* CUSTOM: begin - stable timeline marker aura without moving the hit target */
+    &:hover {
+      box-shadow: 0 0 0 2px rgba(126, 205, 255, 0.22),
+        0 0 0.65rem rgba(72, 175, 240, 0.48);
+      cursor: pointer;
+      filter: brightness(1.18);
+      z-index: 102;
+    }
+
+    /* CUSTOM: end */
   }
 
   .vjs-marker-range {
@@ -326,25 +425,311 @@ $sceneTabWidth: 450px;
     min-width: 8px;
     position: absolute;
     transform: translateY(-28px);
-    transition: none;
+    transition: box-shadow 0.16s ease, filter 0.16s ease; /* CUSTOM */
+
+    /* CUSTOM: restrained, static Royal Sapphire cue for GOAT timeline ranges */
+    &.vjs-marker-royal-sapphire {
+      background-color: #05080d;
+      background-image: none;
+      border: 1px solid rgba(var(--semantic-goat-rgb), 0.96);
+      box-shadow: 0 0 4px rgba(var(--semantic-goat-rgb), 0.38),
+        0 0 8px rgba(var(--semantic-goat-rgb), 0.5);
+      box-sizing: border-box;
+    }
+
+    /* CUSTOM: begin - subtle aura for clickable marker ranges */
+    &:not(.vjs-negative-marker-range) {
+      cursor: pointer;
+
+      &:hover {
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.78),
+          0 0 0 2px rgba(126, 205, 255, 0.28),
+          0 0 0.7rem rgba(72, 175, 240, 0.42);
+        filter: brightness(1.16);
+        z-index: 101;
+      }
+    }
+
+    /* CUSTOM: end */
+
+    /* CUSTOM: begin – negative marker range styling */
+    // Negative markers are displayed in red
+    &.vjs-negative-marker-range {
+      /* stylelint-disable-next-line declaration-no-important -- override overlapping Video.js marker range colors */
+      background-color: rgba(220, 53, 69, 0.7) !important;
+      box-shadow: 0 0 4px rgba(220, 53, 69, 0.5);
+      z-index: 102; /* Keep negative overlaps visible above hovered markers. */
+    }
+
+    /* CUSTOM: end */
   }
 
+  /* CUSTOM: begin – O timestamp marker (gold glowing dot on the seek bar) */
+  .vjs-o-timestamp-marker {
+    background-color: #ffd700;
+    border-radius: 2px;
+    bottom: 0;
+    box-shadow: 0 0 6px 2px rgba(255, 215, 0, 0.85);
+    cursor: pointer;
+    height: 100%;
+    left: 0;
+    position: absolute;
+    width: 6px;
+    z-index: 99;
+
+    &:hover {
+      transform: scale(1.3, 1.3);
+    }
+  }
+
+  /* CUSTOM: end */
+
   .vjs-marker-tooltip {
-    background-color: #fff;
-    background-color: rgba(255, 255, 255, 0.8);
-    border-radius: 0.3em;
-    color: #000;
+    background-color: rgba(32, 43, 51, 0.98);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 0.25rem;
+    box-shadow: 0 0.75rem 2rem rgba(0, 0, 0, 0.45);
+    color: #f5f8fa;
     float: right;
     font-family: Arial, Helvetica, sans-serif;
-    font-size: 0.6em;
-    padding: 6px 8px 8px 8px;
+    font-size: 13px; /* CUSTOM */
+    line-height: 1.2; /* CUSTOM */
+    overflow-wrap: anywhere; /* CUSTOM */
+    padding: 0.65rem 0.75rem; /* CUSTOM */
     pointer-events: none;
     position: absolute;
+    text-align: center; /* CUSTOM */
     top: -3.4em;
     visibility: hidden;
-    white-space: nowrap;
-    z-index: 1;
+    white-space: normal; /* CUSTOM */
+    z-index: 101; /* CUSTOM */
+
+    /* CUSTOM: begin – negative marker tooltip */
+    // Style for negative markers - red background
+    &.vjs-marker-tooltip-negative {
+      background-color: rgba(220, 53, 69, 0.9);
+      border: 1px solid #dc3545;
+      color: #fff;
+    }
+
+    /* CUSTOM: end */
+
+    /* CUSTOM: begin - use scene marker pill popover presentation for marker hovers */
+    &.vjs-marker-tooltip-with-performer-card {
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      padding: 0;
+
+      .scene-marker-highlight-popover-card {
+        background-color: rgba(20, 28, 36, 0.98);
+        border-radius: 0.25rem;
+        max-width: min(32rem, calc(100vw - 2rem));
+        padding: 0.65rem;
+      }
+
+      /* CUSTOM: begin - Royal Sapphire timeline marker hover card */
+      .scene-marker-highlight-popover-card:is(
+          .rating-card-theme-premium,
+          .rating-card-theme-classic
+        ).rating-royal-sapphire {
+        background: radial-gradient(
+            circle at 50% 0%,
+            rgba(56, 189, 248, 0.18),
+            rgba(0, 0, 0, 0) 44%
+          ),
+          rgba(6, 15, 30, 0.98);
+        border: 1px solid rgba(56, 189, 248, 0.62);
+        box-shadow: 0 0 1rem rgba(56, 189, 248, 0.28);
+      }
+
+      .scene-marker-highlight-popover-card.rating-royal-sapphire
+        .scene-marker-activity-performer-image {
+        border-color: rgba(56, 189, 248, 0.82);
+      }
+
+      .scene-marker-highlight-popover-card.rating-royal-sapphire
+        .scene-marker-activity-performer-name {
+        color: #9bdcff;
+      }
+
+      /* CUSTOM: end */
+
+      .scene-marker-activity-config-performers {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.9rem;
+        justify-content: center;
+        margin-top: 0.55rem;
+      }
+
+      .scene-marker-activity-config-empty {
+        color: #b8c2cc;
+        font-size: 0.85rem;
+        padding: 0.35rem 0.5rem;
+      }
+
+      .scene-marker-activity-performer {
+        align-items: center;
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        max-width: 7.875rem;
+        min-width: 7.875rem;
+      }
+
+      .scene-marker-activity-performer-image {
+        align-items: center;
+        aspect-ratio: 2 / 3;
+        background-color: rgba(255, 255, 255, 0.08);
+        border: 2px solid rgba(255, 255, 255, 0.1);
+        border-radius: 0.25rem;
+        color: #b8c2cc;
+        display: flex;
+        font-size: 2.15rem;
+        justify-content: center;
+        overflow: hidden;
+        width: 7.875rem;
+
+        img {
+          height: 100%;
+          object-fit: cover;
+          width: 100%;
+        }
+      }
+
+      .scene-marker-activity-performer-name {
+        /* stylelint-disable-next-line property-no-vendor-prefix */
+        -webkit-box-orient: vertical;
+        color: #d9e2ea;
+        display: -webkit-box;
+        font-size: 0.75rem;
+        font-weight: 700;
+        -webkit-line-clamp: 2;
+        line-height: 1.08;
+        max-width: 100%;
+        overflow: hidden;
+        text-align: center;
+        text-overflow: ellipsis;
+        white-space: normal;
+        word-break: break-word;
+      }
+
+      .scene-marker-highlight-performer-tags {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        justify-content: center;
+        max-width: 100%;
+
+        .tag-badge {
+          border-radius: 0.75rem;
+          font-size: 0.75rem;
+          font-weight: normal;
+          padding: 0.2rem 0.5rem;
+        }
+
+        .scene-marker-highlight-tag-top.badge-secondary {
+          background-color: #3f94b8;
+          color: #fff;
+        }
+
+        .scene-marker-highlight-tag-bottom.badge-secondary {
+          background-color: #4b9f4b;
+          color: #fff;
+        }
+
+        .scene-marker-highlight-tag-top.scene-marker-highlight-tag-overlap.badge-secondary {
+          background-color: rgba(63, 148, 184, 0.58);
+          border: 1px dashed rgba(190, 232, 245, 0.72);
+          color: #e3f5fa;
+        }
+
+        .scene-marker-highlight-tag-bottom.scene-marker-highlight-tag-overlap.badge-secondary {
+          background-color: rgba(75, 159, 75, 0.58);
+          border: 1px dashed rgba(194, 235, 194, 0.72);
+          color: #e8f7e8;
+        }
+      }
+    }
+
+    /* CUSTOM: end */
   }
+
+  /* CUSTOM: begin - performer images in marker timeline tooltips */
+  .vjs-marker-tooltip-title {
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+
+  .vjs-marker-tooltip-performers {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+    justify-content: center;
+    margin: 0.45rem 0.4rem 0;
+    vertical-align: top;
+  }
+
+  .vjs-marker-tooltip-performer {
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    max-width: 10.5rem;
+    min-width: 9.5rem;
+  }
+
+  .vjs-marker-tooltip-performer-image {
+    aspect-ratio: 2 / 3;
+    background-color: rgba(255, 255, 255, 0.08);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0.25rem;
+    flex: 0 0 auto;
+    object-fit: cover;
+    overflow: hidden;
+    width: 9.5rem;
+  }
+
+  .vjs-marker-tooltip-performer-name {
+    /* stylelint-disable property-no-vendor-prefix */
+    -webkit-box-orient: vertical;
+    display: -webkit-box;
+    font-size: 0.75rem;
+    font-weight: 700;
+    -webkit-line-clamp: 2;
+    line-height: 1.08;
+    max-width: 100%;
+    overflow: hidden;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: normal;
+    word-break: break-word;
+    /* stylelint-enable property-no-vendor-prefix */
+  }
+
+  .vjs-marker-tooltip-performers-top {
+    .vjs-marker-tooltip-performer-image {
+      border-color: rgba(var(--semantic-top-rgb), 0.85);
+    }
+
+    .vjs-marker-tooltip-performer-name {
+      color: var(--semantic-top);
+    }
+  }
+
+  .vjs-marker-tooltip-performers-bottom {
+    .vjs-marker-tooltip-performer-image {
+      border-color: rgba(var(--semantic-bottom-rgb), 0.85);
+    }
+
+    .vjs-marker-tooltip-performer-name {
+      color: var(--semantic-bottom);
+    }
+  }
+
+  /* CUSTOM: end */
 
   .vjs-text-track-settings select {
     background: #fff;
@@ -361,6 +746,85 @@ $sceneTabWidth: 450px;
     -webkit-transform: scale(-1, 1);
     transform: scale(-1, 1);
   }
+
+  // Custom seek menu buttons with hover dropdown
+
+  /* CUSTOM: begin – seek menu buttons */
+  .vjs-seek-menu-button {
+    cursor: pointer;
+    position: relative;
+
+    // Use the replay icon from videojs fonts
+    .vjs-icon-placeholder::before {
+      content: "\f11a"; // replay/refresh icon
+      font-family: VideoJS;
+      font-size: 1.8em;
+      line-height: 1.67;
+    }
+
+    &.skip-forward .vjs-icon-placeholder::before {
+      transform: scaleX(-1);
+    }
+
+    // Display the seconds value
+    &::after {
+      bottom: 0.3em;
+      color: #fff;
+      content: attr(data-seek-seconds);
+      font-size: 0.55em;
+      left: 50%;
+      pointer-events: none;
+      position: absolute;
+      transform: translateX(-50%);
+    }
+
+    .vjs-menu {
+      background-color: rgba(43, 51, 63, 0.9);
+      border-radius: 0.3em;
+      bottom: auto;
+      display: none;
+      left: 50%;
+      margin-top: -13px;
+      position: absolute;
+      top: 100%;
+      transform: translateX(-50%);
+      width: 2em;
+      z-index: 100;
+    }
+
+    &:hover .vjs-menu,
+    &:focus .vjs-menu,
+    &[aria-expanded="true"] .vjs-menu {
+      display: block;
+    }
+
+    .vjs-menu-content {
+      list-style: none;
+      margin: 0;
+      max-height: none;
+      padding: 0.4em 0;
+    }
+
+    .vjs-menu-item {
+      color: #fff;
+      cursor: pointer;
+      font-size: 0.9em;
+      padding: 0.4em 0.3em;
+      text-align: center;
+      white-space: nowrap;
+
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.2);
+      }
+
+      &.vjs-selected {
+        background-color: rgba(255, 255, 255, 0.3);
+        font-weight: bold;
+      }
+    }
+  }
+
+  /* CUSTOM: end */
 
   @media (pointer: coarse) {
     &.vjs-touch-enabled {
@@ -396,13 +860,7 @@ $sceneTabWidth: 450px;
       }
     }
   }
-  @media (max-width: 576px) {
-    .vjs-control-bar {
-      .vjs-autostart-button {
-        display: none;
-      }
-    }
-  }
+  // CUSTOM: Auto Start button visibility follows Custom Settings at every width.
 
   // make controls a little more compact on smaller screens
   @media (max-width: 768px) {
@@ -509,7 +967,7 @@ $sceneTabWidth: 450px;
 .scrubber-button {
   background-color: transparent;
   border: 1px solid #555;
-  color: $link-color;
+  color: #48aff0;
   cursor: pointer;
   font-size: 1.1rem;
   font-weight: 800;
@@ -591,14 +1049,22 @@ $sceneTabWidth: 450px;
 }
 
 .scrubber-tag {
+  align-items: center;
   background-color: #000;
   cursor: pointer;
+  display: inline-flex;
   font-size: 10px;
+  gap: 3px;
   height: 20px;
-  padding: 0 10px;
+  padding: 0 8px;
   position: absolute;
   transform: translateX(-50%);
   white-space: nowrap;
+
+  /* stylelint-disable-next-line selector-max-universal -- every scrubber-tag child must ignore pointer events */
+  > * {
+    pointer-events: none;
+  }
 
   &:hover {
     background-color: #444;
@@ -621,6 +1087,114 @@ $sceneTabWidth: 450px;
     position: absolute;
   }
 }
+
+/* CUSTOM: begin - performer thumbnails in player scrubber marker tags */
+.scrubber-tag-popover-trigger {
+  display: inline-flex;
+  height: 20px;
+  position: absolute;
+  transform: translateX(-50%);
+  transition: filter 0.16s ease; /* CUSTOM */
+
+  .scrubber-tag {
+    position: static;
+    transform: none;
+  }
+
+  /* CUSTOM: begin - mirror GOAT/Royal Sapphire marker styling in the scrubber */
+  &:where(
+      .rating-card-theme-premium,
+      .rating-card-theme-classic
+    ).rating-royal-sapphire {
+    .scrubber-tag {
+      background: linear-gradient(135deg, #102a68, #1d4ed8 58%, #075985);
+      border: 1px solid rgba(125, 211, 252, 0.9);
+      box-shadow: 0 0 0.55rem rgba(var(--semantic-goat-rgb), 0.38),
+        inset 0 0 0.7rem rgba(125, 211, 252, 0.16);
+      box-sizing: border-box;
+      color: #fff;
+    }
+
+    .scrubber-tag::after {
+      border-top-color: #1249a3;
+    }
+
+    &:hover {
+      .scrubber-tag {
+        background: linear-gradient(135deg, #173a82, #2563eb 58%, #08719f);
+        box-shadow: 0 0 0 1px rgba(186, 230, 253, 0.44),
+          0 0 0.85rem rgba(56, 189, 248, 0.66);
+      }
+
+      .scrubber-tag::after {
+        border-top-color: #175ab6;
+      }
+    }
+  }
+
+  /* CUSTOM: end */
+
+  /* CUSTOM: begin - discreet aura without moving scrubber marker tags */
+  &:hover {
+    filter: brightness(1.12);
+    z-index: 3;
+
+    .scrubber-tag {
+      box-shadow: 0 0 0 1px rgba(126, 205, 255, 0.2),
+        0 0 0.65rem rgba(72, 175, 240, 0.34);
+    }
+  }
+
+  /* CUSTOM: end */
+}
+
+.scrubber-tag-performer-image {
+  aspect-ratio: 2 / 3;
+  border-radius: 1px;
+  height: 18px;
+  object-fit: cover;
+  width: 12px;
+}
+
+.scrubber-tag-label {
+  display: inline-block;
+  max-width: 8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+
+/* CUSTOM: end */
+
+/* CUSTOM: begin – negative marker bars on scrubber */
+// Negative markers container (sits on top of scrubber)
+.scrubber-negative-markers {
+  height: 100%;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  top: 0;
+  z-index: 2;
+}
+
+// Individual negative marker bar (red stripe on scrubber)
+.scrubber-negative-marker {
+  background-color: rgba(220, 53, 69, 0.6);
+  border-radius: 2px;
+  cursor: pointer;
+  height: 100%;
+  min-width: 4px;
+  pointer-events: auto;
+  position: absolute;
+  top: 0;
+
+  &:hover {
+    background-color: rgba(220, 53, 69, 0.85);
+  }
+}
+
+/* CUSTOM: end */
 
 .scrubber-item {
   color: white;
@@ -658,7 +1232,7 @@ $sceneTabWidth: 450px;
     flex: 0 0 $sceneTabWidth;
     max-height: calc(100vh - 4rem);
     max-width: $sceneTabWidth;
-    overflow: auto;
+    overflow: hidden; /* CUSTOM: keep tab-content as the marker toolbar scroll parent */
 
     &.collapsed {
       display: none;
@@ -669,6 +1243,16 @@ $sceneTabWidth: 450px;
       min-height: 15rem;
       overflow-x: hidden;
       overflow-y: auto;
+
+      /* CUSTOM: begin - keep upstream Bootstrap rows inside the clip boundary */
+      &.scene-tab-content-bootstrap-gutters {
+        margin-left: -15px;
+        padding-left: 15px;
+        padding-right: 15px;
+        width: calc(100% + 15px);
+      }
+
+      /* CUSTOM: end */
     }
   }
 
@@ -679,7 +1263,7 @@ $sceneTabWidth: 450px;
     button {
       background-color: transparent;
       border: 0;
-      color: $link-color;
+      color: #48aff0;
       cursor: pointer;
       font-size: 10px;
       font-weight: 800;
@@ -709,3 +1293,606 @@ $sceneTabWidth: 450px;
     }
   }
 }
+
+/* CUSTOM: begin – multi-segment loop, negative-marker skip, performer image overlay styles */
+/* stylelint-disable max-nesting-depth -- Video.js control markup requires matching its nested plugin states */
+// Negative marker skip toggle button
+.video-js .vjs-control-bar .vjs-negative-marker-skip-btn {
+  cursor: pointer;
+  margin-right: 0.5em;
+  padding: 0 0.5em;
+  position: relative;
+  z-index: 10;
+
+  .vjs-icon-placeholder {
+    align-items: center;
+    color: #6c757d;
+    display: flex;
+    height: 100%;
+    justify-content: center;
+
+    svg {
+      fill: currentColor;
+      height: 14px;
+      width: 14px;
+    }
+  }
+
+  &.vjs-negative-skip-active .vjs-icon-placeholder {
+    color: #dc3545;
+  }
+
+  &:hover .vjs-icon-placeholder {
+    color: #fff;
+  }
+}
+
+// Ensure autostart button doesn't overlap with dropdown
+.video-js .vjs-control-bar .vjs-autostart-button {
+  position: relative;
+  z-index: 5;
+
+  &.vjs-icon-play-circle::before {
+    margin-left: 0;
+  }
+
+  &.vjs-icon-cancel::before {
+    margin-right: 0;
+  }
+
+  // Remove the large overlay that blocks clicks
+  &.vjs-icon-play-circle::after,
+  &.vjs-icon-cancel::after {
+    display: none;
+  }
+}
+
+// Multi-segment markers on timeline
+.video-js {
+  .vjs-multi-segment-marker {
+    background-color: rgba(40, 167, 69, 0.6);
+    border: 1px solid rgba(40, 167, 69, 0.9);
+    border-radius: 2px;
+    cursor: pointer;
+    height: 8px;
+    min-width: 8px;
+    position: absolute;
+    transform: translateY(-34px);
+    transition: background-color 0.2s;
+    z-index: 99;
+
+    &:hover {
+      background-color: rgba(40, 167, 69, 0.9);
+    }
+
+    &.active {
+      background-color: rgba(40, 167, 69, 0.9);
+      border-color: #28a745;
+      box-shadow: 0 0 4px rgba(40, 167, 69, 0.8);
+    }
+
+    &.loop-single {
+      background-color: rgba(108, 152, 198, 0.8);
+      border-color: #6c98c6;
+
+      &.active {
+        background-color: rgba(108, 152, 198, 1);
+        box-shadow: 0 0 6px rgba(108, 152, 198, 0.9);
+      }
+    }
+
+    .segment-label {
+      background-color: rgba(0, 0, 0, 0.7);
+      border-radius: 2px;
+      color: #fff;
+      font-size: 9px;
+      font-weight: bold;
+      left: 50%;
+      padding: 1px 3px;
+      pointer-events: none;
+      position: absolute;
+      top: -14px;
+      transform: translateX(-50%);
+    }
+  }
+
+  .vjs-multi-segment-pending-marker {
+    background-color: rgba(255, 193, 7, 0.9);
+    border-radius: 50%;
+    box-shadow: 0 0 6px rgba(255, 193, 7, 0.8);
+    height: 10px;
+    position: absolute;
+    transform: translateY(-36px);
+    width: 10px;
+    z-index: 100;
+
+    &::after {
+      animation: pulse 1s infinite;
+      background-color: rgba(255, 193, 7, 0.4);
+      border-radius: 50%;
+      content: "";
+      height: 100%;
+      left: 0;
+      position: absolute;
+      top: 0;
+      width: 100%;
+    }
+  }
+
+  @keyframes pulse {
+    0% {
+      transform: scale(1);
+    }
+
+    50% {
+      transform: scale(1.5);
+    }
+
+    100% {
+      transform: scale(1);
+    }
+  }
+}
+
+// Performer Image Overlay Button in control bar
+.video-js .vjs-performer-image-overlay-btn {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  position: relative;
+
+  .vjs-icon-placeholder {
+    align-items: center;
+    display: flex;
+    justify-content: center;
+
+    svg {
+      fill: currentColor;
+    }
+  }
+
+  &.active {
+    color: #6c98c6;
+  }
+
+  &:hover {
+    color: #fff;
+  }
+}
+
+// Performer Image Select Modal
+.performer-image-select-backdrop {
+  align-items: center;
+  background-color: rgba($dark-text, 0.55);
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  left: 0;
+  padding: 1rem;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 99999;
+
+  &.fullscreen-mode {
+    position: absolute;
+  }
+}
+
+.performer-image-select-modal {
+  background-color: $card-bg;
+  border: 1px solid rgba($dark-text, 0.45);
+  border-radius: $border-radius;
+  box-shadow: 0 0.5rem 1rem rgba($dark-text, 0.55);
+  color: $text-color;
+  display: flex;
+  flex-direction: column;
+  max-height: min(85vh, 54rem);
+  max-width: min(92vw, 58rem);
+  overflow: hidden;
+  width: 58rem;
+
+  &.fullscreen-mode {
+    max-height: 80vh;
+    max-width: 85vw;
+  }
+
+  .pis-header {
+    align-items: center;
+    border-bottom: 1px solid rgba($dark-text, 0.35);
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+
+    .pis-title {
+      color: $text-color;
+      font-size: 1.1rem;
+      font-weight: 500;
+      line-height: 1.2;
+      margin: 0;
+
+      .pis-selection-count {
+        color: $text-muted;
+        font-size: 0.9rem;
+        font-weight: 400;
+        margin-left: 0.5rem;
+      }
+    }
+
+    .pis-close-btn {
+      color: $text-muted;
+      margin: -0.25rem -0.25rem -0.25rem 0.5rem;
+      padding: 0.25rem 0.5rem;
+
+      &:hover {
+        color: $text-color;
+        text-decoration: none;
+      }
+    }
+  }
+
+  .pis-content {
+    flex: 1;
+    min-height: 16rem;
+    overflow-y: auto;
+    padding: 1rem;
+
+    .pis-tag-filter {
+      background-color: rgba($body-bg, 0.65);
+      border: 1px solid rgba($dark-text, 0.35);
+      border-radius: $border-radius-sm;
+      margin-bottom: 1rem;
+      padding: 0.75rem;
+    }
+
+    .pis-loading,
+    .pis-error,
+    .pis-empty {
+      align-items: center;
+      background-color: rgba($body-bg, 0.65);
+      border: 1px solid rgba($dark-text, 0.35);
+      border-radius: $border-radius-sm;
+      color: $text-muted;
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+      min-height: 10rem;
+      padding: 1rem;
+      text-align: center;
+    }
+
+    .pis-error {
+      color: $danger;
+    }
+  }
+
+  .pis-image-grid {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+
+    .pis-image-item {
+      background-color: rgba($body-bg, 0.65);
+      border: 1px solid rgba($dark-text, 0.35);
+      border-radius: $border-radius-sm;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+      transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s,
+        opacity 0.15s;
+
+      .pis-image-wrapper {
+        aspect-ratio: 1;
+        background-color: $body-bg;
+        overflow: hidden;
+        position: relative;
+
+        img {
+          height: 100%;
+          object-fit: cover;
+          width: 100%;
+        }
+
+        .pis-selected-badge {
+          align-items: center;
+          background-color: $success;
+          border: 2px solid $card-bg;
+          border-radius: 50%;
+          box-shadow: 0 0.125rem 0.35rem rgba($dark-text, 0.45);
+          color: $text-color;
+          display: none;
+          font-size: 0.75rem;
+          font-weight: 700;
+          height: 1.65rem;
+          justify-content: center;
+          position: absolute;
+          right: 0.4rem;
+          top: 0.4rem;
+          width: 1.65rem;
+        }
+      }
+
+      &:hover {
+        background-color: rgba($text-muted, 0.12);
+        border-color: rgba($link-color, 0.75);
+        cursor: pointer;
+      }
+
+      &.selected {
+        border-color: $success;
+        box-shadow: inset 0 0 0 1px $success;
+
+        .pis-selected-badge {
+          display: flex;
+        }
+      }
+
+      &.disabled {
+        cursor: not-allowed;
+        opacity: 0.5;
+
+        &:hover {
+          background-color: rgba($body-bg, 0.65);
+          border-color: rgba($dark-text, 0.35);
+        }
+      }
+
+      .pis-performer-names {
+        color: $text-muted;
+        font-size: 0.75rem;
+        min-height: 1.7rem;
+        overflow: hidden;
+        padding: 0.35rem 0.45rem;
+        text-align: center;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+    }
+  }
+
+  .pis-pagination {
+    align-items: center;
+    border-top: 1px solid rgba($dark-text, 0.35);
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+    padding: 0.75rem 1rem;
+
+    .pis-page-info {
+      color: $text-muted;
+      font-size: 0.875rem;
+      min-width: 60px;
+      text-align: center;
+    }
+  }
+
+  .pis-footer {
+    align-items: center;
+    border-top: 1px solid rgba($dark-text, 0.35);
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+
+    .pis-footer-right {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .btn {
+      align-items: center;
+      display: flex;
+      gap: 0.35rem;
+    }
+  }
+
+  @media (max-width: 575.98px) {
+    max-height: calc(100vh - 2rem);
+    max-width: calc(100vw - 2rem);
+
+    .pis-footer {
+      align-items: stretch;
+      flex-direction: column;
+      gap: 0.5rem;
+
+      .pis-footer-right {
+        justify-content: flex-end;
+      }
+    }
+
+    .pis-image-grid {
+      grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
+    }
+  }
+}
+
+// Performer Image Overlay (on video)
+.performer-image-overlay {
+  cursor: grab;
+  overflow: visible;
+  position: fixed;
+  user-select: none;
+  z-index: 10000;
+
+  &.dragging {
+    cursor: grabbing;
+  }
+
+  &:hover {
+    .pio-resize-handle {
+      opacity: 1;
+    }
+
+    .pio-resize-handle-tl {
+      opacity: 1;
+    }
+
+    .pio-controls-bar {
+      opacity: 1;
+    }
+
+    .pio-crop-handle {
+      opacity: 1;
+    }
+  }
+
+  img {
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+    width: 100%;
+  }
+
+  .pio-controls-bar {
+    display: flex;
+    gap: 2px;
+    left: 0;
+    opacity: 0;
+    position: absolute;
+    top: -30px;
+    transition: opacity 0.15s;
+    z-index: 10002;
+
+    .pio-ctrl-btn {
+      align-items: center;
+      background: rgba(20, 20, 20, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      font-size: 0.65rem;
+      height: 24px;
+      justify-content: center;
+      padding: 0;
+      width: 24px;
+
+      &:hover {
+        background: rgba(60, 60, 60, 0.95);
+      }
+
+      &.pio-ctrl-close:hover {
+        background: rgba(220, 53, 69, 0.9);
+      }
+    }
+  }
+
+  .pio-resize-handle-tl {
+    background: linear-gradient(
+      315deg,
+      transparent 50%,
+      rgba(255, 255, 255, 0.5) 50%
+    );
+    cursor: nw-resize;
+    height: 12px;
+    left: 0;
+    opacity: 0;
+    position: absolute;
+    top: 0;
+    transition: opacity 0.15s;
+    width: 12px;
+  }
+
+  .pio-resize-handle {
+    background: linear-gradient(
+      135deg,
+      transparent 50%,
+      rgba(255, 255, 255, 0.5) 50%
+    );
+    bottom: 0;
+    cursor: se-resize;
+    height: 12px;
+    opacity: 0;
+    position: absolute;
+    right: 0;
+    transition: opacity 0.15s;
+    width: 12px;
+  }
+
+  // Crop handles – thin bars on each edge
+  .pio-crop-handle {
+    background: rgba(100, 180, 255, 0.7);
+    opacity: 0;
+    position: absolute;
+    transition: opacity 0.15s;
+    z-index: 10001;
+
+    &.pio-crop-top,
+    &.pio-crop-bottom {
+      cursor: ns-resize;
+      height: 3px;
+      left: 40%;
+      right: 40%;
+    }
+
+    &.pio-crop-top {
+      bottom: auto;
+      transform: translateY(-50%);
+    }
+
+    &.pio-crop-bottom {
+      top: auto;
+      transform: translateY(50%);
+    }
+
+    &.pio-crop-left,
+    &.pio-crop-right {
+      bottom: 40%;
+      cursor: ew-resize;
+      top: 40%;
+      width: 3px;
+    }
+
+    &.pio-crop-left {
+      right: auto;
+      transform: translateX(-50%);
+    }
+
+    &.pio-crop-right {
+      left: auto;
+      transform: translateX(50%);
+    }
+
+    &.pio-crop-active {
+      background: rgba(255, 140, 0, 0.9);
+    }
+
+    &:hover {
+      background: rgba(100, 180, 255, 1);
+    }
+  }
+}
+
+// Performer image toggle button
+.video-js .vjs-performer-image-toggle-btn {
+  align-items: center;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  transition: color 0.15s;
+  width: 2.5em;
+
+  &:hover {
+    color: #6c98c6;
+  }
+
+  &.hidden-state {
+    color: #888;
+
+    &:hover {
+      color: #fff;
+    }
+  }
+
+  .vjs-icon-placeholder {
+    align-items: center;
+    display: flex;
+    justify-content: center;
+  }
+}
+
+/* stylelint-enable max-nesting-depth */
+
+/* CUSTOM: end */

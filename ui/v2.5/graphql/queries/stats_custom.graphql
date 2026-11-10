@@ -1,0 +1,118 @@
+# CUSTOM: Activity/Quality and Rating Advisor data for global or studio-scoped SceneStats dashboards.
+query SceneStatsInsights(
+  $studioId: ID
+  $depth: Int
+  $dateRange: StatsDateRangeInput
+  $cohort: StatsCohortInput
+) {
+  sceneStatsActivity(
+    studio_id: $studioId
+    depth: $depth
+    date_range: $dateRange
+    cohort: $cohort
+  ) {
+    total_seconds
+    sex_seconds
+    oral_seconds
+    solo_seconds
+    other_seconds
+    activity_other_seconds
+    outstanding_seconds
+    standard_seconds
+    unusable_seconds
+    sex_percent
+    oral_percent
+    solo_percent
+    other_percent
+    activity_other_percent
+    outstanding_percent
+    standard_percent
+    unusable_percent
+    sex_scene_count
+    oral_scene_count
+    solo_scene_count
+  }
+  globalRatingAdvisorStats(
+    studio_id: $studioId
+    depth: $depth
+    date_range: $dateRange
+    cohort: $cohort
+  ) {
+    overall_scene_average_rating100
+    solo_scenes {
+      ...StudioRatingAdvisorSectionData
+    }
+    sex_scenes {
+      ...StudioRatingAdvisorSectionData
+    }
+    threesome_scenes {
+      ...StudioRatingAdvisorSectionData
+    }
+    group_scenes {
+      ...StudioRatingAdvisorSectionData
+    }
+  }
+}
+
+# CUSTOM: Total-only Activity Matrix for global, studio-scoped, and performer-scoped stats.
+query SceneStatsActivityMatrix(
+  $studioId: ID
+  $depth: Int
+  $performerId: ID
+  $includeSubTags: Boolean!
+  $dateRange: StatsDateRangeInput
+  $cohort: StatsCohortInput
+) {
+  sceneStatsActivityMatrix(
+    studio_id: $studioId
+    depth: $depth
+    performer_id: $performerId
+    include_subtags: $includeSubTags
+    date_range: $dateRange
+    cohort: $cohort
+  ) {
+    tag_id
+    tag_name
+    parent_tag_ids
+    duration
+    marker_count
+    percent
+  }
+}
+
+query VatoStatsRatingAdvisor(
+  $studioId: ID
+  $depth: Int
+  $dateRange: StatsDateRangeInput
+  $cohort: StatsCohortInput
+) {
+  globalRatingAdvisorStats(
+    studio_id: $studioId
+    depth: $depth
+    date_range: $dateRange
+    cohort: $cohort
+  ) {
+    performers {
+      ...StudioRatingAdvisorSectionData
+    }
+  }
+}
+
+# CUSTOM: Scene Rating Advisor data scoped to one performer's appearances.
+query PerformerRatingAdvisorStats($performerId: ID!) {
+  performerRatingAdvisorStats(performer_id: $performerId) {
+    overall_scene_average_rating100
+    solo_scenes {
+      ...StudioRatingAdvisorSectionData
+    }
+    sex_scenes {
+      ...StudioRatingAdvisorSectionData
+    }
+    threesome_scenes {
+      ...StudioRatingAdvisorSectionData
+    }
+    group_scenes {
+      ...StudioRatingAdvisorSectionData
+    }
+  }
+}

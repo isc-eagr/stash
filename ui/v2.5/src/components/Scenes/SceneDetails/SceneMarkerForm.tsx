@@ -1,50 +1,227 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Button, Form } from "react-bootstrap";
+import {
+  Alert,
+  Button,
+  Col,
+  Dropdown,
+  DropdownButton,
+  Form,
+  Row,
+} from "react-bootstrap"; // CUSTOM
 import { FormattedMessage, useIntl } from "react-intl";
-import { useFormik } from "formik";
+import { useFormik, type FormikErrors } from "formik"; // CUSTOM
 import * as yup from "yup";
 import * as GQL from "src/core/generated-graphql";
 import {
   useSceneMarkerCreate,
   useSceneMarkerUpdate,
   useSceneMarkerDestroy,
+  useFindScene, // CUSTOM
+  useSceneNegativeMarkerCreate, // CUSTOM
+  useSceneNegativeMarkerDestroy, // CUSTOM
+  useSceneNegativeMarkerUpdate, // CUSTOM
+  useSceneNegativeMarkerNames, // CUSTOM
 } from "src/core/StashService";
 import { DurationInput } from "src/components/Shared/DurationInput";
 import { MarkerTitleSuggest } from "src/components/Shared/Select";
 import {
   getAbLoopPlugin,
   getPlayerPosition,
+  getPlayer, // CUSTOM
 } from "src/components/ScenePlayer/util";
 import { useToast } from "src/hooks/Toast";
 import isEqual from "lodash-es/isEqual";
 import { formikUtils } from "src/utils/form";
 import { yupFormikValidate } from "src/utils/yup";
 import { Tag, TagSelect } from "src/components/Tags/TagSelect";
+// CUSTOM: begin – performer selection imports & type
+import Select, {
+  components as reactSelectComponents,
+  type OptionProps,
+} from "react-select";
+import { Icon } from "src/components/Shared/Icon";
+import {
+  faArrowDown,
+  faArrowUp,
+  faArrowsRotate, // CUSTOM
+  faUser,
+} from "@fortawesome/free-solid-svg-icons";
+import TextUtils from "src/utils/text";
+import { useConfigurationContext } from "src/hooks/Config"; // CUSTOM
+// CUSTOM: begin
+import { getFlippedSceneMarkerPerformers } from "./sceneMarkerPerformerFlip_custom";
+import {
+  findSceneMarkerWarnings,
+  type SceneMarkerGapTag,
+  type SceneMarkerWarning,
+} from "./sceneMarkerGapWarning_custom";
+import {
+  getSceneMarkerDuplicateValues,
+  getSceneMarkerGapDraftValues,
+  getSceneMarkerInsertRangeErrors,
+  getSceneMarkerInsertRecordKind,
+  getSceneMarkerSplitBounds,
+  INSERT_MARKER_SOURCE_END_REQUIRED,
+  type SceneMarkerInsertMode,
+} from "./sceneMarkerFormActions_custom";
+import {
+  formatSceneMarkerDuration,
+  toMarkerMilliseconds,
+} from "./sceneMarkerTimestamp_custom";
+import {
+  getSequentialMarkerDraft,
+  hasSequentialMarkerEnd,
+  type ISceneMarkerSequentialDraft,
+  type SceneMarkerSequentialRecordKind,
+} from "./sceneMarkerSequentialActions_custom";
+import { sceneMarkerLoopSegmentCustom } from "src/components/ScenePlayer/sceneMarkerLoopSegment_custom";
+import { useMultiSegmentLoopSnapshot } from "src/components/ScenePlayer/useMultiSegmentLoop_custom";
+import type {
+  ISceneMarkerTimestampCopyRequest,
+  ISceneMarkerTimestampCopySelection,
+  SceneMarkerTimestampDestination,
+  SceneMarkerTimestampField,
+} from "src/components/ScenePlayer/sceneMarkerTimestampCopy_custom";
+// CUSTOM: end
+
+// CUSTOM: the unsaved form range repeats under this id, apart from saved markers.
+const MARKER_FORM_REPEAT_ID = "scene-marker-form-draft";
+
+interface IPerformer {
+  id: string;
+  name: string;
+  alias_list: string[];
+  disambiguation?: string | null;
+  image_path?: string | null;
+}
+
+interface IPerformerSelectOption {
+  value: string;
+  label: string;
+  performer: IPerformer;
+}
+
+const PerformerSelectFace: React.FC<{ performer: IPerformer }> = ({
+  performer,
+}) => (
+  <span className="scene-marker-form-performer-face">
+    {performer.image_path ? (
+      <img src={performer.image_path} alt={performer.name} />
+    ) : (
+      <Icon icon={faUser} />
+    )}
+  </span>
+);
+
+const PerformerSelectOption: React.FC<
+  OptionProps<IPerformerSelectOption, true>
+> = (props) => {
+  // CUSTOM: react-select's mousemove focus churns in this image grid and can
+  // leave options looking hovered or flashing between performers.
+  const { onMouseMove, onMouseOver, ...stableInnerProps } = props.innerProps;
+
+  void onMouseMove;
+  void onMouseOver;
+
+  return (
+    <reactSelectComponents.Option
+      {...props}
+      className={`${
+        props.className ?? ""
+      } scene-marker-form-performer-select-option`}
+      innerProps={stableInnerProps}
+    >
+      <div className="scene-marker-form-performer-option">
+        <PerformerSelectFace performer={props.data.performer} />
+        <span className="scene-marker-form-performer-option-label">
+          {props.data.label}
+        </span>
+      </div>
+    </reactSelectComponents.Option>
+  );
+};
+
+// CUSTOM: end
 
 interface ISceneMarkerForm {
   sceneID: string;
   marker?: GQL.SceneMarkerDataFragment;
+  initialSeconds?: number; // CUSTOM: cross-panel adjacent negative-marker handoff
   onClose: () => void;
+  markerTimestampCopyRequest?: ISceneMarkerTimestampCopyRequest; // CUSTOM
+  markerTimestampCopySelection?: ISceneMarkerTimestampCopySelection; // CUSTOM
+  onMarkerTimestampCopyRequest: (
+    field: SceneMarkerTimestampField | undefined,
+    destination: SceneMarkerTimestampDestination
+  ) => void; // CUSTOM
+  onMarkerTimestampCopySelectionHandled: (requestId: number) => void; // CUSTOM
 }
 
 export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
   sceneID,
   marker,
+  initialSeconds, // CUSTOM
   onClose,
+  markerTimestampCopyRequest, // CUSTOM
+  markerTimestampCopySelection, // CUSTOM
+  onMarkerTimestampCopyRequest, // CUSTOM
+  onMarkerTimestampCopySelectionHandled, // CUSTOM
 }) => {
   const intl = useIntl();
 
   const [sceneMarkerCreate] = useSceneMarkerCreate();
   const [sceneMarkerUpdate] = useSceneMarkerUpdate();
-  const [sceneMarkerDestroy] = useSceneMarkerDestroy();
+  const [sceneMarkerDestroy] = useSceneMarkerDestroy(sceneID); // CUSTOM
+  const [sceneNegativeMarkerUpdate] = useSceneNegativeMarkerUpdate(); // CUSTOM
+  // CUSTOM: begin - inserted negative marker lifecycle
+  const [sceneNegativeMarkerCreate] = useSceneNegativeMarkerCreate();
+  const [sceneNegativeMarkerDestroy] = useSceneNegativeMarkerDestroy(sceneID);
+  // CUSTOM: end
   const Toast = useToast();
+  const { configuration } = useConfigurationContext(); // CUSTOM
 
   const [primaryTag, setPrimaryTag] = useState<Tag>();
   const [tags, setTags] = useState<Tag[]>([]);
+  // CUSTOM: begin - create a duplicate or a bounded marker from the edit form
+  const [createAction, setCreateAction] = useState<
+    | "duplicate"
+    | "insert-between"
+    | "gap-from-marker"
+    | "next-marker"
+    | "next-negative-marker"
+  >();
+  const [sequentialDraft, setSequentialDraft] =
+    useState<ISceneMarkerSequentialDraft>();
+  const isInsertBetween =
+    createAction === "insert-between" || createAction === "gap-from-marker";
+  const isNew = marker === undefined || createAction !== undefined;
+  const draftMarker =
+    isInsertBetween || createAction?.startsWith("next-") ? undefined : marker;
+  // CUSTOM: end
+  // CUSTOM: begin – performer state & scene data
+  const [topPerformers, setTopPerformers] = useState<IPerformer[]>([]);
+  const [bottomPerformers, setBottomPerformers] = useState<IPerformer[]>([]);
 
-  const isNew = marker === undefined;
+  // Fetch scene to get available performers
+  const { data: sceneData } = useFindScene(sceneID);
+  const scenePerformers = useMemo(() => {
+    return (
+      sceneData?.findScene?.performers?.map((p) => ({
+        id: p.id,
+        name: p.name,
+        alias_list: p.alias_list ?? [],
+        disambiguation: p.disambiguation,
+        image_path: p.image_path,
+      })) ?? []
+    );
+  }, [sceneData]);
+  // CUSTOM: end
 
   const schema = yup.object({
+    insert_mode: yup
+      .mixed<SceneMarkerInsertMode>()
+      .oneOf(["marker", "negative-marker", "gap"])
+      .defined(), // CUSTOM
     title: yup.string().ensure(),
     seconds: yup.number().min(0).required(),
     end_seconds: yup
@@ -58,14 +235,48 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
         function (value) {
           return value === null || value >= this.parent.seconds;
         }
+      )
+      // CUSTOM: negative markers require a positive-duration range.
+      .test(
+        "negative-marker-has-duration",
+        intl.formatMessage({ id: "validation.end_time_before_start_time" }),
+        function (value) {
+          return (
+            this.parent.insert_mode !== "negative-marker" ||
+            (value !== null && value > this.parent.seconds)
+          );
+        }
       ),
-    primary_tag_id: yup.string().required(),
+    primary_tag_id: yup
+      .string()
+      .defined()
+      .test("required-for-regular-marker", "Required", function (value) {
+        return this.parent.insert_mode !== "marker" || !!value;
+      }), // CUSTOM
     tag_ids: yup.array(yup.string().required()).defined(),
+    top_performer_ids: yup.array(yup.string().required()).defined(), // CUSTOM
+    bottom_performer_ids: yup.array(yup.string().required()).defined(), // CUSTOM
   });
 
   // useMemo to only run getPlayerPosition when the input marker actually changes
   const initialValues = useMemo(() => {
-    if (!marker) {
+    if (sequentialDraft) return sequentialDraft;
+
+    if (!draftMarker) {
+      if (initialSeconds !== undefined) {
+        return {
+          insert_mode: "marker" as const,
+          title: "",
+          seconds: initialSeconds,
+          end_seconds: null,
+          primary_tag_id: "",
+          tag_ids: [],
+          top_performer_ids: [],
+          bottom_performer_ids: [],
+        };
+      }
+
+      // CUSTOM: insert-between uses normal new-marker defaults
       const abLoopPlugin = getAbLoopPlugin();
       const opts = abLoopPlugin?.getOptions();
       const start = opts?.start;
@@ -73,39 +284,224 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
       const hasAbLoop = Number.isFinite(start);
 
       if (opts?.enabled && hasAbLoop) {
-        const current = Math.round(getPlayerPosition() ?? 0);
+        const current = toMarkerMilliseconds(getPlayerPosition());
         const rawEnd =
           Number.isFinite(end) && (end as number) > 0 ? (end as number) : null;
         const endSeconds =
           rawEnd !== null ? rawEnd : Math.max(start as number, current);
 
         return {
+          insert_mode: "marker" as const, // CUSTOM
           title: "",
           seconds: start as number,
           end_seconds: endSeconds,
           primary_tag_id: "",
           tag_ids: [],
+          top_performer_ids: [],
+          bottom_performer_ids: [],
         };
       }
     }
 
+    if (draftMarker) {
+      return {
+        insert_mode: "marker" as const,
+        ...getSceneMarkerDuplicateValues(draftMarker),
+      }; // CUSTOM
+    }
+
     return {
-      title: marker?.title ?? "",
-      seconds: marker?.seconds ?? Math.round(getPlayerPosition() ?? 0),
-      end_seconds: marker?.end_seconds ?? null,
-      primary_tag_id: marker?.primary_tag.id ?? "",
-      tag_ids: marker?.tags.map((tag) => tag.id) ?? [],
+      insert_mode: "marker" as const, // CUSTOM
+      title: "",
+      seconds: toMarkerMilliseconds(getPlayerPosition()),
+      end_seconds: null,
+      primary_tag_id: "",
+      tag_ids: [],
+      top_performer_ids: [],
+      bottom_performer_ids: [],
     };
-  }, [marker]);
+  }, [draftMarker, initialSeconds, sequentialDraft]); // CUSTOM
 
   type InputValues = yup.InferType<typeof schema>;
+  const validateSchema = yupFormikValidate<InputValues>(schema); // CUSTOM
 
   const formik = useFormik<InputValues>({
     initialValues,
     enableReinitialize: true,
-    validate: yupFormikValidate(schema),
+    validateOnMount: isInsertBetween, // CUSTOM
+    // CUSTOM: begin - enforce strict millisecond bounds for inserted markers
+    validate: async (values) => {
+      const errors = await validateSchema(values);
+      if (!isInsertBetween || !marker) return errors;
+
+      return {
+        ...errors,
+        ...getSceneMarkerInsertRangeErrors(marker, values),
+      } as FormikErrors<InputValues>;
+    },
+    // CUSTOM: end
     onSubmit: (values) => onSave(schema.cast(values)),
   });
+  const { setFieldValue, setValues } = formik; // CUSTOM: stable timestamp-copy dependencies
+  // CUSTOM: begin - apply a selected source-marker boundary to the field that
+  // launched copy mode, then acknowledge the one-shot selection.
+  useEffect(() => {
+    if (markerTimestampCopySelection?.destination !== "scene-marker-form") {
+      return;
+    }
+
+    if (
+      markerTimestampCopySelection.field === "range" &&
+      markerTimestampCopySelection.markerId === marker?.id
+    ) {
+      Toast.error("Choose another marker to define the gap.");
+      onMarkerTimestampCopySelectionHandled(
+        markerTimestampCopySelection.requestId
+      );
+      onMarkerTimestampCopyRequest("range", "scene-marker-form");
+      return;
+    }
+
+    if (
+      markerTimestampCopySelection.field === "range" &&
+      markerTimestampCopySelection.end_seconds !== undefined
+    ) {
+      // CUSTOM: apply the complete range atomically. Three separately validated
+      // field updates could finish out of order and leave stale range errors,
+      // which kept Save disabled until the same marker was selected again.
+      void setValues(
+        (values) =>
+          getSceneMarkerGapDraftValues(values, {
+            seconds: markerTimestampCopySelection.seconds,
+            end_seconds: markerTimestampCopySelection.end_seconds!,
+          }),
+        true
+      );
+    } else if (markerTimestampCopySelection.field !== "range") {
+      void setFieldValue(
+        markerTimestampCopySelection.field,
+        markerTimestampCopySelection.seconds
+      );
+    }
+    onMarkerTimestampCopySelectionHandled(
+      markerTimestampCopySelection.requestId
+    );
+  }, [
+    markerTimestampCopySelection,
+    marker?.id,
+    onMarkerTimestampCopySelectionHandled,
+    onMarkerTimestampCopyRequest,
+    setFieldValue,
+    setValues,
+    Toast,
+  ]);
+
+  useEffect(
+    () => () => onMarkerTimestampCopyRequest(undefined, "scene-marker-form"),
+    [onMarkerTimestampCopyRequest]
+  );
+  // CUSTOM: end
+  // CUSTOM: begin - repeat the range currently typed in Time / End Time
+  const loopPlugin = getPlayer()?.multiSegmentLoop();
+  const repeating =
+    useMultiSegmentLoopSnapshot(loopPlugin).markerRepeatId ===
+    MARKER_FORM_REPEAT_ID;
+  const draftRepeatSegment = sceneMarkerLoopSegmentCustom(
+    { seconds: formik.values.seconds, end_seconds: formik.values.end_seconds },
+    formik.values.title
+  );
+  const { start: repeatStart, end: repeatEnd } = draftRepeatSegment;
+  const repeatTitle = formik.values.title;
+
+  useEffect(() => {
+    if (!repeating) return;
+    loopPlugin?.retargetMarkerRepeat(MARKER_FORM_REPEAT_ID, {
+      start: repeatStart,
+      end: repeatEnd,
+      title: repeatTitle,
+    });
+  }, [repeating, loopPlugin, repeatStart, repeatEnd, repeatTitle]);
+
+  // Stop the draft repeat when the form closes.
+  useEffect(
+    () => () => {
+      const plugin = getPlayer()?.multiSegmentLoop();
+      if (plugin?.getSnapshot().markerRepeatId === MARKER_FORM_REPEAT_ID) {
+        plugin.toggleMarkerRepeat(MARKER_FORM_REPEAT_ID, {
+          start: 0,
+          end: 1,
+        });
+      }
+    },
+    []
+  );
+  // CUSTOM: end
+  // CUSTOM: fetch negative titles only while that insert mode is visible.
+  const { data: negativeMarkerNameData, loading: negativeMarkerNamesLoading } =
+    useSceneNegativeMarkerNames(
+      formik.values.insert_mode !== "negative-marker"
+    );
+  const negativeMarkerTitles =
+    negativeMarkerNameData?.sceneNegativeMarkerNames ?? [];
+
+  // CUSTOM: begin - warn about marker quality issues without blocking saves
+  const markerWarnings = useMemo(
+    () =>
+      findSceneMarkerWarnings({
+        draft: {
+          id: isNew ? undefined : marker?.id, // CUSTOM
+          seconds: formik.values.seconds,
+          end_seconds: formik.values.end_seconds,
+          primary_tag_id: formik.values.primary_tag_id,
+          tag_ids: formik.values.tag_ids,
+          primary_tag: primaryTag as unknown as SceneMarkerGapTag | undefined,
+          tags: tags as unknown as SceneMarkerGapTag[],
+          top_performer_ids: formik.values.top_performer_ids,
+          bottom_performer_ids: formik.values.bottom_performer_ids,
+        },
+        sceneMarkers: sceneData?.findScene?.scene_markers ?? [],
+        negativeMarkers: sceneData?.findScene?.negative_markers ?? [],
+        roleTagIds: configuration?.ui.roleTagIds ?? {},
+      }),
+    [
+      configuration?.ui.roleTagIds,
+      formik.values.bottom_performer_ids,
+      formik.values.end_seconds,
+      formik.values.primary_tag_id,
+      formik.values.seconds,
+      formik.values.tag_ids,
+      formik.values.top_performer_ids,
+      isNew, // CUSTOM
+      marker?.id,
+      primaryTag,
+      sceneData?.findScene?.negative_markers,
+      sceneData?.findScene?.scene_markers,
+      tags,
+    ]
+  );
+  const gapWarnings = useMemo(() => {
+    const previous = markerWarnings.find(
+      (warning) => warning.boundary === "previous"
+    )?.gapWarning;
+    const next = markerWarnings.find(
+      (warning) => warning.boundary === "next"
+    )?.gapWarning;
+
+    return previous || next ? { previous, next } : undefined;
+  }, [markerWarnings]);
+  const [heldMissingEndWarning, setHeldMissingEndWarning] =
+    useState<SceneMarkerWarning>();
+  const displayedMarkerWarnings = useMemo(() => {
+    if (
+      !heldMissingEndWarning ||
+      markerWarnings.some((warning) => warning.issueType === "missing-end-time")
+    ) {
+      return markerWarnings;
+    }
+
+    return [heldMissingEndWarning, ...markerWarnings];
+  }, [heldMissingEndWarning, markerWarnings]);
+  // CUSTOM: end
 
   function onSetPrimaryTag(item: Tag) {
     setPrimaryTag(item);
@@ -120,52 +516,347 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
     );
   }
 
+  // CUSTOM: begin – performer setter functions
+  function onSetTopPerformers(items: IPerformer[]) {
+    setTopPerformers(items);
+    formik.setFieldValue(
+      "top_performer_ids",
+      items.map((item) => item.id)
+    );
+  }
+
+  function onSetBottomPerformers(items: IPerformer[]) {
+    setBottomPerformers(items);
+    formik.setFieldValue(
+      "bottom_performer_ids",
+      items.map((item) => item.id)
+    );
+  }
+
+  // CUSTOM: swap the draft only; the existing Save action persists both roles.
+  function onFlipPerformers() {
+    const flipped = getFlippedSceneMarkerPerformers(
+      topPerformers,
+      bottomPerformers
+    );
+    setTopPerformers(flipped.topPerformers);
+    setBottomPerformers(flipped.bottomPerformers);
+    formik.setValues((values) => ({
+      ...values,
+      top_performer_ids: flipped.top_performer_ids,
+      bottom_performer_ids: flipped.bottom_performer_ids,
+    }));
+  }
+  // CUSTOM: end
+
+  // CUSTOM: begin - discard edit-form changes before opening the duplicate draft
+  function onDuplicateMarker() {
+    if (!marker) return;
+
+    formik.resetForm({
+      values: {
+        insert_mode: "marker",
+        ...getSceneMarkerDuplicateValues(marker),
+      },
+    });
+    setPrimaryTag({
+      ...marker.primary_tag,
+      aliases: [],
+      stash_ids: [],
+    });
+    setTags(
+      marker.tags.map((tag) => ({
+        ...tag,
+        aliases: [],
+        stash_ids: [],
+      }))
+    );
+    setTopPerformers(
+      marker.top_performers?.map((performer) => ({
+        ...performer,
+        image_path: performer.image_path,
+      })) ?? []
+    );
+    setBottomPerformers(
+      marker.bottom_performers?.map((performer) => ({
+        ...performer,
+        image_path: performer.image_path,
+      })) ?? []
+    );
+    setCreateAction("duplicate");
+  }
+
+  function onCreateGapFromMarker() {
+    if (!marker) return;
+
+    setCreateAction("gap-from-marker");
+    onMarkerTimestampCopyRequest("range", "scene-marker-form");
+  }
+  // CUSTOM: end
+
   useEffect(() => {
     setPrimaryTag(
-      marker?.primary_tag
-        ? { ...marker.primary_tag, aliases: [], stash_ids: [] }
+      draftMarker?.primary_tag
+        ? { ...draftMarker.primary_tag, aliases: [], stash_ids: [] }
         : undefined
     );
-  }, [marker?.primary_tag]);
+  }, [draftMarker?.primary_tag]); // CUSTOM
 
   useEffect(() => {
     setTags(
-      marker?.tags.map((t) => ({
+      draftMarker?.tags.map((t) => ({
         ...t,
         aliases: [],
         stash_ids: [],
       })) ?? []
     );
-  }, [marker?.tags]);
+  }, [draftMarker?.tags]); // CUSTOM
 
-  async function onSave(input: InputValues) {
+  // CUSTOM: begin – sync performer state from marker
+  useEffect(() => {
+    setTopPerformers(
+      draftMarker?.top_performers?.map((p) => ({
+        id: p.id,
+        name: p.name,
+        alias_list: p.alias_list ?? [],
+        disambiguation: p.disambiguation,
+        image_path: p.image_path,
+      })) ?? []
+    );
+  }, [draftMarker?.top_performers]); // CUSTOM
+
+  useEffect(() => {
+    setBottomPerformers(
+      draftMarker?.bottom_performers?.map((p) => ({
+        id: p.id,
+        name: p.name,
+        alias_list: p.alias_list ?? [],
+        disambiguation: p.disambiguation,
+        image_path: p.image_path,
+      })) ?? []
+    );
+  }, [draftMarker?.bottom_performers]); // CUSTOM
+  // CUSTOM: end
+
+  async function persistMarker(input: InputValues): Promise<boolean> {
+    const createdMarkerIDs: string[] = []; // CUSTOM: rollback split creates on failure
+    const createdNegativeMarkerIDs: string[] = []; // CUSTOM
+
     try {
-      if (isNew) {
-        await sceneMarkerCreate({
+      // CUSTOM: begin - insert a marker, clone the right side, then shorten the source
+      if (isInsertBetween && marker) {
+        const rangeErrors = getSceneMarkerInsertRangeErrors(marker, input);
+        if (Object.keys(rangeErrors).length > 0 || input.end_seconds === null) {
+          await formik.setErrors(rangeErrors as FormikErrors<InputValues>);
+          return false;
+        }
+
+        const insertedRecordKind = getSceneMarkerInsertRecordKind(
+          input.insert_mode
+        );
+        if (insertedRecordKind === "scene-marker") {
+          const insertedResult = await sceneMarkerCreate({
+            // CUSTOM: the final source update performs the single authoritative
+            // grouped-marker refresh for this multi-mutation split.
+            refetchQueries: [],
+            variables: {
+              scene_id: sceneID,
+              title: input.title,
+              seconds: input.seconds,
+              end_seconds: input.end_seconds,
+              primary_tag_id: input.primary_tag_id,
+              tag_ids: input.tag_ids,
+              top_performer_ids: input.top_performer_ids,
+              bottom_performer_ids: input.bottom_performer_ids,
+            },
+          });
+          const insertedID = insertedResult.data?.sceneMarkerCreate?.id;
+          if (!insertedID) {
+            throw new Error("The in-between marker could not be created.");
+          }
+          createdMarkerIDs.push(insertedID);
+        } else if (insertedRecordKind === "negative-marker") {
+          const insertedResult = await sceneNegativeMarkerCreate({
+            variables: {
+              input: {
+                scene_id: sceneID,
+                name: input.title,
+                start_seconds: input.seconds,
+                end_seconds: input.end_seconds,
+              },
+            },
+          });
+          const insertedID = insertedResult.data?.sceneNegativeMarkerCreate?.id;
+          if (!insertedID) {
+            throw new Error(
+              "The in-between negative marker could not be created."
+            );
+          }
+          createdNegativeMarkerIDs.push(insertedID);
+        }
+
+        const splitBounds = getSceneMarkerSplitBounds({
+          seconds: input.seconds,
+          end_seconds: input.end_seconds,
+        });
+        const rightResult = await sceneMarkerCreate({
+          // CUSTOM: avoid racing an intermediate scene snapshot against the
+          // final source-marker update below.
+          refetchQueries: [],
           variables: {
             scene_id: sceneID,
-            ...input,
-            // undefined means setting to null, not omitting the field
-            end_seconds: input.end_seconds ?? null,
+            title: marker.title,
+            seconds: splitBounds.rightStartSeconds,
+            end_seconds: marker.end_seconds,
+            primary_tag_id: marker.primary_tag.id,
+            tag_ids: marker.tags.map((tag) => tag.id),
+            top_performer_ids:
+              marker.top_performers?.map((performer) => performer.id) ?? [],
+            bottom_performer_ids:
+              marker.bottom_performers?.map((performer) => performer.id) ?? [],
           },
         });
-      } else {
+        const rightID = rightResult.data?.sceneMarkerCreate?.id;
+        if (!rightID) {
+          throw new Error("The right side of the split could not be created.");
+        }
+        createdMarkerIDs.push(rightID);
+
         await sceneMarkerUpdate({
           variables: {
             id: marker.id,
             scene_id: sceneID,
-            ...input,
-            // undefined means setting to null, not omitting the field
+            title: marker.title,
+            seconds: marker.seconds,
+            end_seconds: splitBounds.leftEndSeconds,
+            primary_tag_id: marker.primary_tag.id,
+            tag_ids: marker.tags.map((tag) => tag.id),
+            top_performer_ids:
+              marker.top_performers?.map((performer) => performer.id) ?? [],
+            bottom_performer_ids:
+              marker.bottom_performers?.map((performer) => performer.id) ?? [],
+          },
+        });
+      } else if (isNew && input.insert_mode === "negative-marker") {
+        await sceneNegativeMarkerCreate({
+          variables: {
+            input: {
+              scene_id: sceneID,
+              name: input.title,
+              start_seconds: input.seconds,
+              end_seconds: input.end_seconds as number,
+            },
+          },
+        });
+      } else if (isNew) {
+        await sceneMarkerCreate({
+          variables: {
+            scene_id: sceneID,
+            title: input.title,
+            seconds: input.seconds,
             end_seconds: input.end_seconds ?? null,
+            primary_tag_id: input.primary_tag_id,
+            tag_ids: input.tag_ids,
+            top_performer_ids: input.top_performer_ids,
+            bottom_performer_ids: input.bottom_performer_ids,
+          },
+        });
+      } else if (marker) {
+        await sceneMarkerUpdate({
+          variables: {
+            id: marker.id,
+            scene_id: sceneID,
+            title: input.title,
+            seconds: input.seconds,
+            end_seconds: input.end_seconds ?? null,
+            primary_tag_id: input.primary_tag_id,
+            tag_ids: input.tag_ids,
+            top_performer_ids: input.top_performer_ids,
+            bottom_performer_ids: input.bottom_performer_ids,
           },
         });
       }
+      // CUSTOM: end
     } catch (e) {
+      // CUSTOM: remove the inserted/right markers if the original was not split.
+      for (const id of createdMarkerIDs.reverse()) {
+        try {
+          await sceneMarkerDestroy({ variables: { id } });
+        } catch (rollbackError) {
+          Toast.error(rollbackError);
+        }
+      }
+      for (const id of createdNegativeMarkerIDs.reverse()) {
+        try {
+          await sceneNegativeMarkerDestroy({ variables: { id } });
+        } catch (rollbackError) {
+          Toast.error(rollbackError);
+        }
+      }
       Toast.error(e);
-    } finally {
-      onClose();
+      return false;
+    }
+
+    return true;
+  }
+
+  async function onSave(input: InputValues) {
+    if (await persistMarker(input)) {
+      onClose(); // CUSTOM: keep the form open when saving fails
     }
   }
+
+  // CUSTOM: begin - save the current marker or inline negative-marker draft,
+  // then open its adjacent regular or negative-marker draft.
+  async function onSaveAndAddSequential(
+    recordKind: SceneMarkerSequentialRecordKind
+  ) {
+    if (
+      isInsertBetween ||
+      formik.isSubmitting ||
+      !hasSequentialMarkerEnd(formik.values.end_seconds)
+    ) {
+      return;
+    }
+
+    formik.setSubmitting(true);
+    try {
+      const errors = await validateSchema(formik.values);
+      if (!isEqual(errors, {})) {
+        await formik.setErrors(errors);
+        Toast.error("Complete the required marker fields before saving.");
+        return;
+      }
+
+      const currentValues = schema.cast(formik.values);
+      const saved = await persistMarker(currentValues);
+      if (!saved) return;
+      if (!hasSequentialMarkerEnd(currentValues.end_seconds)) return;
+
+      const nextDraft = getSequentialMarkerDraft(
+        {
+          ...currentValues,
+          end_seconds: currentValues.end_seconds,
+        },
+        recordKind
+      );
+      setSequentialDraft(nextDraft);
+      setCreateAction(
+        recordKind === "marker" ? "next-marker" : "next-negative-marker"
+      );
+      formik.resetForm({ values: nextDraft });
+
+      if (recordKind === "negative-marker") {
+        setPrimaryTag(undefined);
+        setTags([]);
+        setTopPerformers([]);
+        setBottomPerformers([]);
+      }
+    } finally {
+      formik.setSubmitting(false);
+    }
+  }
+  // CUSTOM: end
 
   async function onDelete() {
     if (isNew) return;
@@ -203,10 +894,19 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
 
   function renderTitleField() {
     const title = intl.formatMessage({ id: "title" });
+    const isNegativeMarkerDraft =
+      formik.values.insert_mode === "negative-marker";
     const control = (
       <MarkerTitleSuggest
         initialMarkerTitle={formik.values.title}
         onChange={(v) => formik.setFieldValue("title", v)}
+        additionalTitles={
+          isNegativeMarkerDraft ? negativeMarkerTitles : undefined
+        } // CUSTOM
+        additionalTitlesLoading={
+          isNegativeMarkerDraft ? negativeMarkerNamesLoading : undefined
+        } // CUSTOM
+        includeRegularTitles={!isNegativeMarkerDraft} // CUSTOM
       />
     );
 
@@ -220,7 +920,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
         <TagSelect
           onSelect={(t) => onSetPrimaryTag(t[0])}
           values={primaryTag ? [primaryTag] : []}
-          hoverPlacement="right"
+          disableHoverPopovers
         />
         {formik.touched.primary_tag_id && (
           <Form.Control.Feedback type="invalid">
@@ -244,6 +944,21 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
         onReset={() =>
           formik.setFieldValue("seconds", getPlayerPosition() ?? 0)
         }
+        // CUSTOM: begin – seek-to-time
+        onSeekTo={() => {
+          const player = getPlayer();
+          if (player && formik.values.seconds !== null) {
+            player.currentTime(formik.values.seconds);
+          }
+        }}
+        onCopyFromMarker={() =>
+          onMarkerTimestampCopyRequest("seconds", "scene-marker-form")
+        }
+        copyFromMarkerActive={
+          markerTimestampCopyRequest?.destination === "scene-marker-form" &&
+          markerTimestampCopyRequest.field === "seconds"
+        }
+        // CUSTOM: end
         error={error}
       />
     );
@@ -256,13 +971,34 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
 
     const title = intl.formatMessage({ id: "time_end" });
     const control = (
-      <>
+      <div onMouseLeave={() => setHeldMissingEndWarning(undefined)}>
         <DurationInput
           value={formik.values.end_seconds}
           setValue={(v) => formik.setFieldValue("end_seconds", v ?? null)}
-          onReset={() =>
-            formik.setFieldValue("end_seconds", getPlayerPosition() ?? 0)
+          onReset={() => {
+            const missingEndWarning = markerWarnings.find(
+              (warning) => warning.issueType === "missing-end-time"
+            );
+            if (missingEndWarning) {
+              setHeldMissingEndWarning(missingEndWarning);
+            }
+            formik.setFieldValue("end_seconds", getPlayerPosition() ?? 0);
+          }}
+          // CUSTOM: begin – seek-to-time
+          onSeekTo={() => {
+            const player = getPlayer();
+            if (player && formik.values.end_seconds !== null) {
+              player.currentTime(formik.values.end_seconds);
+            }
+          }}
+          onCopyFromMarker={() =>
+            onMarkerTimestampCopyRequest("end_seconds", "scene-marker-form")
           }
+          copyFromMarkerActive={
+            markerTimestampCopyRequest?.destination === "scene-marker-form" &&
+            markerTimestampCopyRequest.field === "end_seconds"
+          }
+          // CUSTOM: end
           error={error}
         />
         {formik.touched.end_seconds && formik.errors.end_seconds && (
@@ -270,11 +1006,384 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
             {formik.errors.end_seconds}
           </Form.Control.Feedback>
         )}
-      </>
+      </div>
     );
 
     return renderField("end_seconds", title, control);
   }
+
+  // CUSTOM: begin – duration display field
+  function renderDurationField() {
+    const { seconds, end_seconds } = formik.values;
+    const title = intl.formatMessage({
+      id: "duration",
+      defaultMessage: "Duration",
+    });
+
+    let duration: number;
+    if (end_seconds === null || end_seconds === undefined) {
+      duration = 20; // Default 20s when no end time
+    } else if (end_seconds < seconds) {
+      return null; // Invalid range
+    } else {
+      duration = end_seconds - seconds;
+    }
+
+    const control = (
+      <Form.Control
+        plaintext
+        readOnly
+        value={formatSceneMarkerDuration(duration)}
+      />
+    );
+
+    return (
+      <Form.Group as={Row} data-field="duration_display">
+        <Form.Label {...splitProps.labelProps}>{title}</Form.Label>
+        <Col {...splitProps.fieldProps}>{control}</Col>
+      </Form.Group>
+    );
+  }
+  // CUSTOM: end
+
+  // CUSTOM: begin - same repeat action as the player's marker hover button
+  function renderRepeatButton() {
+    const { seconds, end_seconds } = formik.values;
+    const invalidRange = end_seconds !== null && end_seconds <= seconds;
+
+    return (
+      <div className="d-flex justify-content-center mb-2">
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          className="scene-marker-form-repeat"
+          disabled={!loopPlugin || (!repeating && invalidRange)}
+          aria-pressed={repeating}
+          title={
+            repeating
+              ? "Stop repeating this range"
+              : "Repeat the video between Time and End Time"
+          }
+          onClick={() =>
+            loopPlugin?.toggleMarkerRepeat(
+              MARKER_FORM_REPEAT_ID,
+              draftRepeatSegment
+            )
+          }
+        >
+          {repeating ? "Stop Repeating" : "Repeat Marker"}
+        </Button>
+      </div>
+    );
+  }
+  // CUSTOM: end
+
+  // CUSTOM: begin - timestamp copy guidance shown while the player timeline is
+  // waiting for an existing marker boundary in the create/edit form.
+  function renderTimestampCopyNotice() {
+    if (markerTimestampCopyRequest?.destination !== "scene-marker-form") {
+      return null;
+    }
+
+    const isRangeSelection = markerTimestampCopyRequest.field === "range";
+    const destination =
+      markerTimestampCopyRequest.field === "seconds"
+        ? "Start time"
+        : "End time";
+
+    return (
+      <Alert variant="info" className="d-flex align-items-center py-2">
+        <span>
+          {isRangeSelection ? (
+            <>
+              Hover another marker in the player timeline, then choose{" "}
+              <strong>Use full range</strong>. Its exact boundaries will become
+              the gap inside this marker.
+            </>
+          ) : (
+            <>
+              Hover a regular or negative marker in the player timeline to
+              preview its exact range, then choose <strong>Start</strong> or{" "}
+              <strong>End</strong>. The timestamp will be copied into{" "}
+              {destination}.
+            </>
+          )}
+        </span>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          className="ml-auto"
+          onClick={() =>
+            onMarkerTimestampCopyRequest(undefined, "scene-marker-form")
+          }
+        >
+          Cancel
+        </Button>
+      </Alert>
+    );
+  }
+  // CUSTOM: end
+
+  // CUSTOM: begin - choose and explain the bounded insert mode
+  function renderInsertModeField() {
+    if (!isInsertBetween) return null;
+
+    const modes: Array<{ value: SceneMarkerInsertMode; label: string }> = [
+      { value: "marker", label: "Insert marker" },
+      { value: "negative-marker", label: "Insert negative marker" },
+      { value: "gap", label: "Create gap" },
+    ];
+
+    return (
+      <Form.Group as={Row} data-field="insert_mode">
+        <Form.Label {...splitProps.labelProps}>Insert mode</Form.Label>
+        <Col {...splitProps.fieldProps}>
+          {modes.map((mode) => (
+            <Form.Check
+              inline
+              key={mode.value}
+              type="radio"
+              name="scene-marker-insert-mode"
+              id={`scene-marker-insert-mode-${mode.value}`}
+              label={mode.label}
+              checked={formik.values.insert_mode === mode.value}
+              onChange={() => formik.setFieldValue("insert_mode", mode.value)}
+            />
+          ))}
+        </Col>
+      </Form.Group>
+    );
+  }
+
+  function renderCreateActionNotice() {
+    if (createAction === "duplicate") {
+      return (
+        <Alert variant="info" className="py-2">
+          This is a new marker preloaded from the original. The original marker
+          will remain unchanged.
+        </Alert>
+      );
+    }
+
+    if (createAction === "next-marker") {
+      return (
+        <Alert variant="info" className="py-2">
+          The previous marker was saved. This new marker starts one millisecond
+          after its end and retains its marker setup.
+        </Alert>
+      );
+    }
+
+    if (createAction === "next-negative-marker") {
+      return (
+        <Alert variant="info" className="py-2">
+          The previous marker was saved. This new negative marker starts one
+          millisecond after its end.
+        </Alert>
+      );
+    }
+
+    if (createAction === "gap-from-marker") {
+      const rangeCopyActive =
+        markerTimestampCopyRequest?.destination === "scene-marker-form" &&
+        markerTimestampCopyRequest.field === "range";
+
+      return (
+        <Alert variant="info" className="py-2">
+          Select another bounded marker from the player timeline. Saving will
+          split this marker around that marker&apos;s exact range and leave the
+          selected range as a gap.
+          {!rangeCopyActive && (
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="ml-2"
+              onClick={() =>
+                onMarkerTimestampCopyRequest("range", "scene-marker-form")
+              }
+            >
+              Select Marker Range
+            </Button>
+          )}
+        </Alert>
+      );
+    }
+
+    if (!isInsertBetween || !marker) return null;
+
+    if (marker.end_seconds === null || marker.end_seconds === undefined) {
+      return (
+        <Alert variant="danger">{INSERT_MARKER_SOURCE_END_REQUIRED}</Alert>
+      );
+    }
+
+    const modeDescription =
+      formik.values.insert_mode === "marker"
+        ? "A regular marker will occupy the selected range."
+        : formik.values.insert_mode === "negative-marker"
+          ? "A negative marker will occupy the selected range."
+          : "No middle marker will be created; the selected range will remain as a gap.";
+
+    return (
+      <Alert variant="info" className="py-2">
+        {modeDescription} Choose a range strictly inside{" "}
+        {TextUtils.secondsToTimestamp(marker.seconds, true)} -{" "}
+        {TextUtils.secondsToTimestamp(marker.end_seconds, true)}. Saving will
+        split the original marker around this new range with one-millisecond
+        boundaries.
+      </Alert>
+    );
+  }
+  // CUSTOM: end
+
+  // CUSTOM: begin - marker warning display
+  function renderGapWarning() {
+    if (displayedMarkerWarnings.length === 0) return null;
+
+    const closePreviousGap = async () => {
+      if (!gapWarnings?.previous) return;
+      await formik.setFieldValue(
+        "seconds",
+        gapWarnings.previous.closeToSeconds
+      );
+    };
+    const closeNextGap = async () => {
+      if (!gapWarnings?.next) return;
+      await formik.setFieldValue(
+        "end_seconds",
+        gapWarnings.next.closeToSeconds
+      );
+    };
+    const closeAllGaps = async () => {
+      await closePreviousGap();
+      await closeNextGap();
+    };
+    const closeOtherMarkerGap = async (boundary: "previous" | "next") => {
+      const warning = gapWarnings?.[boundary];
+      if (!warning?.adjacentMarkerId) return;
+
+      try {
+        if (warning.adjacentMarkerKind === "negative-marker") {
+          await sceneNegativeMarkerUpdate({
+            variables: {
+              input: {
+                id: warning.adjacentMarkerId,
+                ...(boundary === "previous"
+                  ? { end_seconds: warning.otherCloseToSeconds }
+                  : { start_seconds: warning.otherCloseToSeconds }),
+              },
+            },
+          });
+          return;
+        }
+
+        const adjacentMarker = sceneData?.findScene?.scene_markers.find(
+          (sceneMarker) => sceneMarker.id === warning.adjacentMarkerId
+        );
+        if (!adjacentMarker) return;
+
+        await sceneMarkerUpdate({
+          variables: {
+            id: adjacentMarker.id,
+            scene_id: sceneID,
+            title: adjacentMarker.title,
+            seconds:
+              boundary === "next"
+                ? warning.otherCloseToSeconds
+                : adjacentMarker.seconds,
+            end_seconds:
+              boundary === "previous"
+                ? warning.otherCloseToSeconds
+                : (adjacentMarker.end_seconds ?? null),
+            primary_tag_id: adjacentMarker.primary_tag.id,
+            tag_ids: adjacentMarker.tags.map((tag) => tag.id),
+            top_performer_ids:
+              adjacentMarker.top_performers?.map((performer) => performer.id) ??
+              [],
+            bottom_performer_ids:
+              adjacentMarker.bottom_performers?.map(
+                (performer) => performer.id
+              ) ?? [],
+          },
+        });
+      } catch (e) {
+        Toast.error(e);
+      }
+    };
+    const closeAllOtherMarkerGaps = async () => {
+      await closeOtherMarkerGap("previous");
+      await closeOtherMarkerGap("next");
+    };
+    const canCloseAllOtherMarkerGaps =
+      !!gapWarnings?.previous?.adjacentMarkerId &&
+      !!gapWarnings?.next?.adjacentMarkerId;
+
+    return (
+      <Alert variant="warning" className="py-2">
+        {displayedMarkerWarnings.length === 1 ? (
+          <div>{displayedMarkerWarnings[0].message}</div>
+        ) : (
+          <ul className="mb-0 pl-3">
+            {displayedMarkerWarnings.map((warning, index) => (
+              <li key={`${warning.issueType}-${warning.boundary ?? index}`}>
+                {warning.message}
+              </li>
+            ))}
+          </ul>
+        )}
+        {gapWarnings && (
+          <div className="mt-2 d-flex flex-wrap" style={{ gap: "0.5rem" }}>
+            {gapWarnings.previous && (
+              <Button size="sm" variant="warning" onClick={closePreviousGap}>
+                Fix previous on this marker
+              </Button>
+            )}
+            {gapWarnings.previous?.adjacentMarkerId && (
+              <Button
+                size="sm"
+                variant="warning"
+                onClick={() => closeOtherMarkerGap("previous")}
+              >
+                Fix previous on other marker
+              </Button>
+            )}
+            {gapWarnings.next && (
+              <Button size="sm" variant="warning" onClick={closeNextGap}>
+                Fix next on this marker
+              </Button>
+            )}
+            {gapWarnings.next?.adjacentMarkerId && (
+              <Button
+                size="sm"
+                variant="warning"
+                onClick={() => closeOtherMarkerGap("next")}
+              >
+                Fix next on other marker
+              </Button>
+            )}
+            {gapWarnings.previous && gapWarnings.next && (
+              <Button size="sm" variant="warning" onClick={closeAllGaps}>
+                Fix both on this marker
+              </Button>
+            )}
+            {canCloseAllOtherMarkerGaps && (
+              <Button
+                size="sm"
+                variant="warning"
+                onClick={closeAllOtherMarkerGaps}
+              >
+                Fix both on other marker
+              </Button>
+            )}
+          </div>
+        )}
+      </Alert>
+    );
+  }
+  // CUSTOM: end
 
   function renderTagsField() {
     const title = intl.formatMessage({ id: "tags" });
@@ -283,28 +1392,234 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
         isMulti
         onSelect={onSetTags}
         values={tags}
-        hoverPlacement="right"
+        disableHoverPopovers
       />
     );
 
     return renderField("tag_ids", title, control, fullWidthProps);
   }
 
+  // CUSTOM: begin – performer picker (top/bottom)
+  function renderPerformersField() {
+    if (scenePerformers.length === 0) return null;
+
+    // Create options from scene performers only
+    const performerOptions: IPerformerSelectOption[] = scenePerformers.map(
+      (p) => ({
+        value: p.id,
+        label: p.disambiguation ? `${p.name} (${p.disambiguation})` : p.name,
+        performer: p,
+      })
+    );
+
+    // Top performers
+    const topTitle = intl.formatMessage({
+      id: "top_performers",
+      defaultMessage: "Top Vatos",
+    });
+
+    const selectedTopValues: IPerformerSelectOption[] = topPerformers.map(
+      (p) => ({
+        value: p.id,
+        label: p.disambiguation ? `${p.name} (${p.disambiguation})` : p.name,
+        performer: p,
+      })
+    );
+    const performerSelectStyles = {
+      menuPortal: (base: Record<string, unknown>) => ({
+        ...base,
+        // CUSTOM: extend from the clicked control to the viewport edge.
+        right: 0,
+        width: "auto",
+        zIndex: 9999,
+      }),
+      menu: (base: Record<string, unknown>) => ({
+        ...base,
+        // CUSTOM: grow from the clicked control, wrapping before the viewport edge.
+        left: 0,
+        maxWidth: "100%",
+        width: "max-content",
+      }),
+      menuList: (base: Record<string, unknown>) => ({
+        ...base,
+        display: "flex",
+        flexWrap: "wrap" as const,
+        gap: "0.75rem",
+        padding: "0.75rem",
+      }),
+      option: (
+        base: Record<string, unknown>,
+        state: { isFocused: boolean; isSelected: boolean }
+      ) => ({
+        ...base,
+        alignItems: "flex-start",
+        backgroundColor: state.isSelected
+          ? // CUSTOM: Black Steel uses copper while the fallback preserves upstream styling.
+            "var(--black-steel-accent-dark, rgba(72, 175, 240, 0.22))"
+          : "transparent",
+        borderRadius: "0.25rem",
+        display: "flex",
+        flex: "0 0 auto",
+        justifyContent: "center",
+        padding: "0.45rem",
+        transition: "none",
+        width: "auto",
+      }),
+    };
+
+    const topControl = (
+      <div className="d-flex align-items-center">
+        <Icon
+          icon={faArrowUp}
+          className="text-role-top mr-2"
+          title="Top" // CUSTOM
+        />
+        <div className="flex-grow-1">
+          {/* CUSTOM: use a content-sized menu within the visible viewport. */}
+          <Select<IPerformerSelectOption, true>
+            className="react-select scene-marker-form-performer-select"
+            classNamePrefix="react-select"
+            isMulti
+            options={performerOptions}
+            value={selectedTopValues}
+            onChange={(selected) => {
+              const selectedPerformers = (selected ?? []).map((opt) => {
+                return opt.performer;
+              });
+              onSetTopPerformers(selectedPerformers);
+            }}
+            components={{
+              Option: PerformerSelectOption,
+            }}
+            placeholder={intl.formatMessage({
+              id: "actions.select_performers",
+            })}
+            menuPortalTarget={document.body}
+            menuPosition="fixed"
+            minMenuHeight={390}
+            maxMenuHeight={448}
+            menuPlacement="auto"
+            styles={performerSelectStyles}
+          />
+        </div>
+      </div>
+    );
+
+    // Bottom performers
+    const bottomTitle = intl.formatMessage({
+      id: "bottom_performers",
+      defaultMessage: "Bottom Vatos",
+    });
+
+    const selectedBottomValues: IPerformerSelectOption[] = bottomPerformers.map(
+      (p) => ({
+        value: p.id,
+        label: p.disambiguation ? `${p.name} (${p.disambiguation})` : p.name,
+        performer: p,
+      })
+    );
+
+    const bottomControl = (
+      <div className="d-flex align-items-center">
+        <Icon
+          icon={faArrowDown}
+          className="text-role-bottom mr-2"
+          title="Bottom" // CUSTOM
+        />
+        <div className="flex-grow-1">
+          {/* CUSTOM: use a content-sized menu within the visible viewport. */}
+          <Select<IPerformerSelectOption, true>
+            className="react-select scene-marker-form-performer-select"
+            classNamePrefix="react-select"
+            isMulti
+            options={performerOptions}
+            value={selectedBottomValues}
+            onChange={(selected) => {
+              const selectedPerformers = (selected ?? []).map((opt) => {
+                return opt.performer;
+              });
+              onSetBottomPerformers(selectedPerformers);
+            }}
+            components={{
+              Option: PerformerSelectOption,
+            }}
+            placeholder={intl.formatMessage({
+              id: "actions.select_performers",
+            })}
+            menuPortalTarget={document.body}
+            menuPosition="fixed"
+            minMenuHeight={390}
+            maxMenuHeight={448}
+            menuPlacement="auto"
+            styles={performerSelectStyles}
+          />
+        </div>
+      </div>
+    );
+
+    // CUSTOM: begin - consistent entity vocabulary.
+    return (
+      <>
+        {renderField("top_performer_ids", topTitle, topControl, fullWidthProps)}
+        {/* CUSTOM: flip both performer roles without submitting the form. */}
+        <div className="d-flex justify-content-center mb-1">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={onFlipPerformers}
+            disabled={
+              formik.isSubmitting ||
+              (topPerformers.length === 0 && bottomPerformers.length === 0)
+            }
+            aria-label="Flip Top and Bottom vatos"
+            title="Flip Top and Bottom vatos" // CUSTOM
+          >
+            {/* CUSTOM: circular arrows indicate swapping performer roles. */}
+            <Icon icon={faArrowsRotate} />
+          </Button>
+        </div>
+        {renderField(
+          "bottom_performer_ids",
+          bottomTitle,
+          bottomControl,
+          fullWidthProps
+        )}
+      </>
+    );
+    // CUSTOM: end
+  }
+  // CUSTOM: end
+
   return (
     <Form noValidate onSubmit={formik.handleSubmit}>
       <div className="form-container px-3">
-        {renderTitleField()}
-        {renderPrimaryTagField()}
+        {renderInsertModeField()}
+        {renderCreateActionNotice()}
+        {formik.values.insert_mode !== "gap" && renderTitleField()}
+        {formik.values.insert_mode === "marker" && renderPrimaryTagField()}
         {renderTimeField()}
         {renderEndTimeField()}
-        {renderTagsField()}
+        {renderDurationField()}
+        {renderRepeatButton()} {/* CUSTOM */}
+        {renderTimestampCopyNotice()} {/* CUSTOM */}
+        {formik.values.insert_mode === "marker" && renderGapWarning()}
+        {formik.values.insert_mode === "marker" && renderTagsField()}
+        {formik.values.insert_mode === "marker" && renderPerformersField()}
+        {/* CUSTOM: conditional insert-mode fields */}
+        {/* ^^^ CUSTOM: renderDurationField + renderPerformersField */}
       </div>
       <div className="buttons-container px-3">
         <div className="d-flex">
           <Button
             variant="primary"
-            disabled={(!isNew && !formik.dirty) || !isEqual(formik.errors, {})}
-            onClick={() => formik.submitForm()}
+            type="submit" // CUSTOM: submit once through Formik's form handler
+            disabled={
+              formik.isSubmitting ||
+              (!isNew && !formik.dirty) ||
+              !isEqual(formik.errors, {})
+            }
+            className="scene-marker-form-save" // CUSTOM
           >
             <FormattedMessage id="actions.save" />
           </Button>
@@ -326,6 +1641,54 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
             </Button>
           )}
         </div>
+        {/* CUSTOM: begin - keep specialized marker actions in one compact menu */}
+        {!isInsertBetween && (
+          <DropdownButton
+            drop="up"
+            size="sm"
+            variant="secondary"
+            title="Marker actions"
+            className="mt-2 scene-marker-sequential-actions"
+          >
+            <Dropdown.Header>Continue after this marker</Dropdown.Header>
+            <Dropdown.Item
+              disabled={
+                formik.isSubmitting ||
+                !hasSequentialMarkerEnd(formik.values.end_seconds)
+              }
+              onClick={() => void onSaveAndAddSequential("marker")}
+            >
+              Save &amp; Add Next Marker
+            </Dropdown.Item>
+            <Dropdown.Item
+              disabled={
+                formik.isSubmitting ||
+                !hasSequentialMarkerEnd(formik.values.end_seconds)
+              }
+              onClick={() => void onSaveAndAddSequential("negative-marker")}
+            >
+              Save &amp; Add Next Negative Marker
+            </Dropdown.Item>
+            {!isNew && marker && (
+              <>
+                <Dropdown.Divider />
+                <Dropdown.Header>Create from this marker</Dropdown.Header>
+                <Dropdown.Item
+                  onClick={() => setCreateAction("insert-between")}
+                >
+                  Insert Marker In-Between
+                </Dropdown.Item>
+                <Dropdown.Item onClick={onCreateGapFromMarker}>
+                  Create Gap From Marker
+                </Dropdown.Item>
+                <Dropdown.Item onClick={onDuplicateMarker}>
+                  Duplicate Marker
+                </Dropdown.Item>
+              </>
+            )}
+          </DropdownButton>
+        )}
+        {/* CUSTOM: end */}
       </div>
     </Form>
   );

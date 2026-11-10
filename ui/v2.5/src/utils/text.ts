@@ -37,45 +37,26 @@ const fileSize = (bytes: number = 0) => {
 };
 
 class DurationUnit {
-  static readonly SECOND: DurationUnit = new DurationUnit(
-    "second",
-    "seconds",
-    "s",
-    1
-  );
-  static readonly MINUTE: DurationUnit = new DurationUnit(
-    "minute",
-    "minutes",
-    "m",
-    60
-  );
+  // CUSTOM: Store only the abbreviated units used by duration formatting.
+  static readonly SECOND: DurationUnit = new DurationUnit("s", 1);
+  static readonly MINUTE: DurationUnit = new DurationUnit("m", 60);
   static readonly HOUR: DurationUnit = new DurationUnit(
-    "hour",
-    "hours",
     "h",
     DurationUnit.MINUTE.secs * 60
   );
   static readonly DAY: DurationUnit = new DurationUnit(
-    "day",
-    "days",
     "D",
     DurationUnit.HOUR.secs * 24
   );
   static readonly WEEK: DurationUnit = new DurationUnit(
-    "week",
-    "weeks",
     "W",
     DurationUnit.DAY.secs * 7
   );
   static readonly MONTH: DurationUnit = new DurationUnit(
-    "month",
-    "months",
     "M",
     DurationUnit.DAY.secs * 30
   );
   static readonly YEAR: DurationUnit = new DurationUnit(
-    "year",
-    "years",
     "Y",
     DurationUnit.DAY.secs * 365
   );
@@ -91,9 +72,8 @@ class DurationUnit {
   ];
 
   private constructor(
-    public readonly singular: string,
-    public readonly plural: string,
-    public readonly shortString: string,
+    // CUSTOM: Duration labels are always abbreviated.
+    private readonly shortString: string,
     public secs: number
   ) {}
 
@@ -534,6 +514,25 @@ const stripQuotes = (text: string) => {
  */
 const addQuotes = (text: string) => `"${text}"`;
 
+// CUSTOM: begin
+/**
+ * Formats a duration in seconds into a human-readable short form.
+ * e.g. 45 → "45s", 90 → "1m 30s", 3661 → "1h 1m 1s"
+ */
+const formatDurationRange = (totalSeconds: number): string => {
+  const secs = Math.round(Math.abs(totalSeconds));
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+
+  const parts: string[] = [];
+  if (h > 0) parts.push(`${h}h`);
+  if (m > 0) parts.push(`${m}m`);
+  if (s > 0 || parts.length === 0) parts.push(`${s}s`);
+  return parts.join(" ");
+};
+// CUSTOM: end
+
 const TextUtils = {
   fileSize,
   formatFileSizeUnit,
@@ -559,6 +558,7 @@ const TextUtils = {
   abbreviateCounter,
   stripQuotes,
   addQuotes,
+  formatDurationRange, // CUSTOM
 };
 
 export default TextUtils;

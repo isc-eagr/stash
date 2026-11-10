@@ -85,6 +85,7 @@ export const useUpdateStudio = () => {
               data: {
                 findStudios: {
                   count: 1,
+                  studio_list_stats: [], // CUSTOM
                   studios: [updatedStudio.data!.studioUpdate!],
                   __typename: "FindStudiosResultType",
                 },

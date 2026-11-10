@@ -55,8 +55,10 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 	sceneFilter := qb.sceneFilter
 	return compoundHandler{
 		intCriterionHandler(sceneFilter.ID, "scenes.id", nil),
+		insightSceneIDsCriterionHandler(sceneFilter.InsightSceneIDs), // CUSTOM
 		pathCriterionHandler(sceneFilter.Path, "folders.path", "files.basename", qb.addFoldersTable),
 		qb.fileCountCriterionHandler(sceneFilter.FileCount),
+		qb.releaseCountCriterionHandler(sceneFilter.ReleaseCount), // CUSTOM
 		stringCriterionHandler(sceneFilter.Title, "scenes.title"),
 		stringCriterionHandler(sceneFilter.Code, "scenes.code"),
 		stringCriterionHandler(sceneFilter.Details, "scenes.details"),
@@ -121,6 +123,8 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 		},
 
 		intCriterionHandler(sceneFilter.Rating100, "scenes.rating", nil),
+		metallicRatingCriterionHandler(sceneFilter.MetallicRating, "scenes", "scenes.rating", "scenes_tags", "scene_id", "scene"), // CUSTOM
+		ratingCriteriaCriterionHandler(sceneFilter.RatingCriteria, models.RatingEntityScene, "scenes"),                            // CUSTOM
 		qb.oCountCriterionHandler(sceneFilter.OCounter),
 		boolCriterionHandler(sceneFilter.Organized, "scenes.organized", nil),
 
@@ -133,6 +137,13 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 		qb.codecCriterionHandler(sceneFilter.AudioCodec, "video_files.audio_codec", qb.addVideoFilesTable),
 
 		qb.hasMarkersCriterionHandler(sceneFilter.HasMarkers),
+		qb.hasMarkerPerformersCriterionHandler(sceneFilter.HasMarkerPerformers), // CUSTOM
+		&joinedSceneMarkerTagsHandler{ // CUSTOM
+			criterion:      sceneFilter.SceneMarkerTags,
+			primaryTable:   sceneTable,
+			joinTable:      "scene_markers",
+			joinPrimaryKey: "scene_id",
+		},
 		qb.isMissingCriterionHandler(sceneFilter.IsMissing),
 		qb.urlsCriterionHandler(sceneFilter.URL),
 
@@ -190,7 +201,13 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 		qb.performerTagsCriterionHandler(sceneFilter.PerformerTags),
 		qb.performerFavoriteCriterionHandler(sceneFilter.PerformerFavorite),
 		qb.performerAgeCriterionHandler(sceneFilter.PerformerAge),
+		qb.performerEthnicityCriterionHandler(sceneFilter.PerformerEthnicity),                           // CUSTOM
+		qb.performerCountryCriterionHandler(sceneFilter.PerformerCountry),                               // CUSTOM
+		qb.performerRatingCriterionHandler(sceneFilter.PerformerRating, sceneFilter.PerformerRatingAll), // CUSTOM
 		qb.duplicatedCriterionHandler(sceneFilter.Duplicated),
+		qb.effectiveDateCriterionHandler(sceneFilter.EffectiveDate), // CUSTOM
+		// CUSTOM: StashDB Matches
+		qb.stashDBMatchesCriterionHandlerCustom(sceneFilter.StashDBMatches),
 		&dateCriterionHandler{sceneFilter.Date, "scenes.date", nil},
 		&dateCriterionHandler{sceneFilter.ProductionDate, "scenes.production_date", nil},
 		&timestampCriterionHandler{sceneFilter.CreatedAt, "scenes.created_at", nil},
@@ -204,11 +221,11 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 		},
 
 		&relatedFilterHandler{
-			relatedIDCol:   "scenes_galleries.gallery_id",
+			relatedIDCol:   "scene_all_galleries_custom.gallery_id", // CUSTOM
 			relatedRepo:    galleryRepository.repository,
 			relatedHandler: &galleryFilterHandler{sceneFilter.GalleriesFilter},
 			joinFn: func(f *filterBuilder) {
-				sceneRepository.galleries.innerJoin(f, "", "scenes.id")
+				f.addInnerJoin("scene_all_galleries_custom", "", "scene_all_galleries_custom.scene_id = scenes.id") // CUSTOM
 			},
 		},
 
@@ -268,6 +285,9 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 				f.addInnerJoin("scene_markers", "", "scenes.id")
 			},
 		},
+		qb.customFiltersCriterionHandler(sceneFilter.CustomFilters), // CUSTOM: scope after ordinary criteria
+		qb.sceneTypeCriterionHandler(sceneFilter.SceneType),         // CUSTOM
+		qb.activityPercentagesCriterionHandlerCustom(),              // CUSTOM: run after local criteria to scope metric work
 	}
 }
 
@@ -301,13 +321,7 @@ func (qb *sceneFilterHandler) playCountCriterionHandler(count *models.IntCriteri
 }
 
 func (qb *sceneFilterHandler) oCountCriterionHandler(count *models.IntCriterionInput) criterionHandlerFunc {
-	h := countCriterionHandlerBuilder{
-		primaryTable: sceneTable,
-		joinTable:    scenesODatesTable,
-		primaryFK:    sceneIDColumn,
-	}
-
-	return h.handler(count)
+	return intCriterionHandler(count, sceneTotalOCountSQLCustom("scenes.id"), nil) // CUSTOM: plus release O's
 }
 
 func (qb *sceneFilterHandler) fileCountCriterionHandler(fileCount *models.IntCriterionInput) criterionHandlerFunc {
@@ -637,10 +651,10 @@ func (qb *sceneFilterHandler) groupsCriterionHandler(groups *models.Hierarchical
 
 func (qb *sceneFilterHandler) galleriesCriterionHandler(galleries *models.MultiCriterionInput) criterionHandlerFunc {
 	addJoinsFunc := func(f *filterBuilder, joinType joinType) {
-		sceneRepository.galleries.leftJoin(f, "", "scenes.id")
-		f.addJoin(joinType, "galleries", "", "scenes_galleries.gallery_id = galleries.id")
+		f.addLeftJoin("scene_all_galleries_custom", "", "scene_all_galleries_custom.scene_id = scenes.id") // CUSTOM
+		f.addJoin(joinType, "galleries", "", "scene_all_galleries_custom.gallery_id = galleries.id")       // CUSTOM
 	}
-	h := qb.getMultiCriterionHandlerBuilder(galleryTable, scenesGalleriesTable, "gallery_id", addJoinsFunc)
+	h := qb.getMultiCriterionHandlerBuilder(galleryTable, "scene_all_galleries_custom", "gallery_id", addJoinsFunc) // CUSTOM
 	return h.handler(galleries)
 }
 

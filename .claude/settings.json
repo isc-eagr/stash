@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(go build:*)",
+      "Bash(go test:*)",
+      "Bash(go vet:*)",
+      "Bash(mingw32-make generate:*)",
+      "Bash(mingw32-make validate-ui-quick:*)",
+      "PowerShell(git status:*)",
+      "PowerShell(git diff:*)",
+      "PowerShell(git log:*)",
+      "PowerShell(go build:*)",
+      "PowerShell(go test:*)",
+      "PowerShell(go vet:*)",
+      "PowerShell(mingw32-make generate:*)",
+      "PowerShell(mingw32-make validate-ui-quick:*)",
+      "PowerShell(npm.cmd run check:*)",
+      "PowerShell(npm.cmd run lint:*)",
+      "PowerShell(npm.cmd run format:*)"
+    ]
+  }
+}

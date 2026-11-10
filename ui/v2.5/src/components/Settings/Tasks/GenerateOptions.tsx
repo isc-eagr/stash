@@ -115,6 +115,13 @@ export const GenerateOptions: React.FC<IGenerateOptions> = ({
             tooltipID="dialogs.scene_gen.marker_screenshots_tooltip"
             onChange={(v) => setOptions({ markerScreenshots: v })}
           />
+          <BooleanSetting
+            id="o-screenshot-task"
+            checked={options.oScreenshots ?? false}
+            headingID="dialogs.scene_gen.o_screenshots"
+            tooltipID="dialogs.scene_gen.o_screenshots_tooltip"
+            onChange={(v) => setOptions({ oScreenshots: v })}
+          />
 
           <BooleanSetting
             advanced

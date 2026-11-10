@@ -1,4 +1,6 @@
+import { setAppLocaleCustom } from "src/utils/appLocale_custom"; // CUSTOM
 import React, { Suspense, useEffect, useState } from "react";
+import RemoteO from "./components/RemoteO/RemoteO"; // CUSTOM
 import {
   Route,
   Switch,
@@ -12,6 +14,9 @@ import cloneDeep from "lodash-es/cloneDeep";
 import mergeWith from "lodash-es/mergeWith";
 import { ToastProvider } from "src/hooks/Toast";
 import { LightboxProvider } from "src/hooks/Lightbox/context";
+import { MarkerQueueProvider } from "src/hooks/MarkerQueue"; // CUSTOM
+import { ImageQueueProvider } from "src/hooks/ImageQueue"; // CUSTOM
+import { SceneViewerQueueProvider } from "src/hooks/SceneViewerQueue"; // CUSTOM
 import { initPolyfills } from "src/polyfills";
 
 import locales, { NestedMessage, registerCountry } from "src/locales";
@@ -56,6 +61,8 @@ import moment from "moment/min/moment-with-locales";
 import { ErrorMessage } from "./components/Shared/ErrorMessage";
 import cx from "classnames";
 import Welcome from "./components/Setup/Welcome";
+import { ApplicationThemeCustom } from "./components/ApplicationTheme_custom"; // CUSTOM
+import { TaskProgressAchievementMonitor } from "./components/TaskProgress/TaskProgressAchievementMonitor"; // CUSTOM
 
 const Performers = lazyComponent(
   () => import("./components/Performers/Performers")
@@ -66,6 +73,40 @@ const FrontPage = lazyComponent(
 const Scenes = lazyComponent(() => import("./components/Scenes/Scenes"));
 const Settings = lazyComponent(() => import("./components/Settings/Settings"));
 const Stats = lazyComponent(() => import("./components/Stats"));
+// CUSTOM: begin - Scene rating Playground.
+const Playground = lazyComponent(
+  () => import("./components/Playground/Playground")
+);
+// CUSTOM: end
+const OStats = lazyComponent(() => import("./components/OStats/OStats")); // CUSTOM
+const SceneStats = lazyComponent(
+  () => import("./components/SceneStats/SceneStats")
+); // CUSTOM
+const VatoStats = lazyComponent(
+  () => import("./components/VatoStats/VatoStats")
+); // CUSTOM
+// CUSTOM: begin - Nut Stats and Facial Stats share one chunk.
+const NutStats = lazyComponent<object>(() =>
+  import("./components/MarkerEventStats/MarkerEventStats").then((module) => ({
+    default: module.NutStats,
+  }))
+);
+const FacialStats = lazyComponent<object>(() =>
+  import("./components/MarkerEventStats/MarkerEventStats").then((module) => ({
+    default: module.FacialStats,
+  }))
+);
+// CUSTOM: end
+const GEVILatest = lazyComponent(
+  () => import("./components/GEVILatest/GEVILatest_custom")
+); // CUSTOM
+const TaskProgress = lazyComponent(() => import("./components/TaskProgress")); // CUSTOM
+const StashDBMatchesReport = lazyComponent(
+  () => import("./components/StashDBMatches/StashDBMatchesReport")
+); // CUSTOM
+const StashDBChangesReport = lazyComponent(
+  () => import("./components/StashDBChanges/StashDBChangesReport")
+); // CUSTOM
 const Studios = lazyComponent(() => import("./components/Studios/Studios"));
 const Galleries = lazyComponent(
   () => import("./components/Galleries/Galleries")
@@ -74,6 +115,9 @@ const Galleries = lazyComponent(
 const Groups = lazyComponent(() => import("./components/Groups/Groups"));
 const Tags = lazyComponent(() => import("./components/Tags/Tags"));
 const Images = lazyComponent(() => import("./components/Images/Images"));
+const UnifiedViewer = lazyComponent(
+  () => import("./components/Viewers/UnifiedViewer")
+); // CUSTOM
 const Setup = lazyComponent(() => import("./components/Setup/Setup"));
 const Migrate = lazyComponent(() => import("./components/Setup/Migrate"));
 
@@ -197,12 +241,13 @@ export const App: React.FC = () => {
         },
       });
 
+      setAppLocaleCustom(intlLanguage); // CUSTOM
       setMessages(newMessages);
       moment.locale([language, defaultLocale]);
     };
 
     setLocale();
-  }, [customMessages, language]);
+  }, [customMessages, language, intlLanguage]); // CUSTOM
 
   const location = useLocation();
   const history = useHistory();
@@ -255,6 +300,9 @@ export const App: React.FC = () => {
         <Suspense fallback={<LoadingIndicator />}>
           <Switch>
             <Route exact path="/" component={FrontPage} />
+            {/* CUSTOM: persistent paired mobile O remote */}
+            <Route exact path="/remote/o" component={RemoteO} />
+            <Route exact path="/viewer" component={UnifiedViewer} />
             <Route path="/scenes" component={Scenes} />
             <Route path="/images" component={Images} />
             <Route path="/galleries" component={Galleries} />
@@ -262,7 +310,53 @@ export const App: React.FC = () => {
             <Route path="/tags" component={Tags} />
             <Route path="/studios" component={Studios} />
             <Route path="/groups" component={Groups} />
+            {/* CUSTOM */}
+            <Route path="/stats/playground" component={Playground} />
             <Route path="/stats" component={Stats} />
+            <Route path="/scenestats/:year?/:month?" component={SceneStats} />{" "}
+            {/* CUSTOM */}
+            <Route path="/vatostats" component={VatoStats} /> {/* CUSTOM */}
+            <Route path="/nutstats" component={NutStats} /> {/* CUSTOM */}
+            <Route path="/facialstats" component={FacialStats} /> {/* CUSTOM */}
+            <Route path="/gevi-latest" component={GEVILatest} /> {/* CUSTOM */}
+            {/* CUSTOM */}
+            <Route
+              path="/stashdb-matches/report"
+              component={StashDBMatchesReport}
+            />
+            {/* CUSTOM */}
+            <Route path="/stashdb-changes" component={StashDBChangesReport} />
+            <Route exact path="/ostats/timeline" component={OStats} />{" "}
+            {/* CUSTOM */}
+            <Route path="/ostats/vato/:performerId" component={OStats} />{" "}
+            {/* CUSTOM */}
+            <Route path="/ostats/scene/:sceneId" component={OStats} />{" "}
+            {/* CUSTOM */}
+            <Route path="/ostats/tag/:tagId" component={OStats} />{" "}
+            {/* CUSTOM */}
+            <Route path="/ostats/ethnicity/:ethnicity" component={OStats} />{" "}
+            {/* CUSTOM */}
+            <Route path="/ostats/country/:country" component={OStats} />{" "}
+            {/* CUSTOM */}
+            <Route path="/ostats/studio/:studioId" component={OStats} />{" "}
+            {/* CUSTOM */}
+            <Route path="/ostats/age/:performerAge" component={OStats} />{" "}
+            {/* CUSTOM */}
+            <Route
+              path="/ostats/release-year/:releaseYear"
+              component={OStats}
+            />{" "}
+            {/* CUSTOM */}
+            <Route path="/ostats/rating/:ratingBucket" component={OStats} />{" "}
+            {/* CUSTOM */}
+            <Route path="/ostats/tier/:tier" component={OStats} />{" "}
+            {/* CUSTOM */}
+            <Route path="/ostats/unknown/:unknownCategory" component={OStats} />{" "}
+            {/* CUSTOM */}
+            <Route path="/ostats/:year?/:month?/:day?" component={OStats} />{" "}
+            {/* CUSTOM */}
+            <Route path="/task-progress" component={TaskProgress} />{" "}
+            {/* CUSTOM */}
             <Route path="/settings" component={Settings} />
             <Route
               path="/sceneFilenameParser"
@@ -359,34 +453,52 @@ export const App: React.FC = () => {
         formats={intlFormats}
       >
         <ToastProvider>
-          <PluginsLoader
-            disableCustomizations={
-              config.data?.configuration?.interface?.disableCustomizations ??
-              false
-            }
-          >
-            <AppContainer>
-              <ConfigurationProvider configuration={config.data!.configuration}>
-                {maybeRenderReleaseNotes()}
-                <ConnectionMonitor />
-                <TroubleshootingModeOverlay />
-                <Suspense fallback={<LoadingIndicator />}>
-                  <LightboxProvider>
-                    <ManualProvider>
-                      <InteractiveProvider>
-                        <Helmet
-                          {...titleProps}
-                          htmlAttributes={htmlAttributes}
-                        />
-                        {maybeRenderNavbar()}
-                        <MainContainer>{renderContent()}</MainContainer>
-                      </InteractiveProvider>
-                    </ManualProvider>
-                  </LightboxProvider>
-                </Suspense>
-              </ConfigurationProvider>
-            </AppContainer>
-          </PluginsLoader>
+          <MarkerQueueProvider>
+            {/* CUSTOM: begin */}
+            <SceneViewerQueueProvider>
+              <ImageQueueProvider>
+                <PluginsLoader
+                  disableCustomizations={
+                    config.data?.configuration?.interface
+                      ?.disableCustomizations ?? false
+                  }
+                >
+                  <AppContainer>
+                    <ConfigurationProvider
+                      configuration={config.data!.configuration}
+                    >
+                      {/* CUSTOM */}
+                      <ApplicationThemeCustom />
+                      {/* CUSTOM: Announce progress checkpoints from every app section. */}
+                      {!setupMatch &&
+                        systemStatusData?.systemStatus.status ===
+                          GQL.SystemStatusEnum.Ok && (
+                          <TaskProgressAchievementMonitor />
+                        )}
+                      {maybeRenderReleaseNotes()}
+                      <ConnectionMonitor />
+                      <TroubleshootingModeOverlay />
+                      <Suspense fallback={<LoadingIndicator />}>
+                        <LightboxProvider>
+                          <ManualProvider>
+                            <InteractiveProvider>
+                              <Helmet
+                                {...titleProps}
+                                htmlAttributes={htmlAttributes}
+                              />
+                              {maybeRenderNavbar()}
+                              <MainContainer>{renderContent()}</MainContainer>
+                            </InteractiveProvider>
+                          </ManualProvider>
+                        </LightboxProvider>
+                      </Suspense>
+                    </ConfigurationProvider>
+                  </AppContainer>
+                </PluginsLoader>
+              </ImageQueueProvider>
+            </SceneViewerQueueProvider>
+          </MarkerQueueProvider>
+          {/* CUSTOM: end */}
         </ToastProvider>
       </IntlProvider>
     </ErrorBoundary>

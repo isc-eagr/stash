@@ -1,0 +1,127 @@
+# CUSTOM: Database-backed task progress trackers.
+
+type TaskProgressTracker {
+  id: ID!
+  title: String!
+  description: String!
+  goal: Int!
+  "Optional number of items targeted for completion each active day"
+  goal_per_day: Int
+  tag_id: ID!
+  tag_name: String!
+  position: Int!
+  "Calendar date the task was started, formatted as YYYY-MM-DD"
+  started_on: String!
+  "ACTIVE, PAUSED, COMPLETED, ARCHIVED, or DELETED"
+  status: String!
+  "BACKLOG includes new work; FIXED follows only the initial batch"
+  mode: String!
+  version: Int!
+  history_started_on: String!
+  "Directly tagged entity types included in this tracker"
+  item_types: [String!]!
+  current_count: Int!
+  completed_count: Int!
+  incoming_count: Int!
+  item_counts: [TaskProgressItemCount!]!
+  "Completed items by type"
+  completed_item_counts: [TaskProgressItemCount!]!
+  history: [TaskProgressDay!]!
+  created_at: Time!
+  updated_at: Time!
+}
+
+type TaskProgressItemCount {
+  item_type: String!
+  count: Int!
+}
+
+type TaskProgressOverall {
+  total_count: Int!
+  organized_count: Int!
+  completed_count: Int!
+  incoming_count: Int!
+  "Persisted number of scenes targeted for organization each day"
+  goal_per_day: Int
+  history: [TaskProgressDay!]!
+}
+
+type TaskProgressDay {
+  date: String!
+  completed: Int!
+  incoming: Int!
+  remaining: Int!
+  "Unfinished items brought into scope, such as a tracker joining a milestone"
+  added: Int!
+  "Unfinished items taken out of scope without being completed"
+  removed: Int!
+  baseline_count: Int
+  "Daily goal that applied on this calendar date"
+  goal_per_day: Int
+  "Finished items at the end of this day when snapshotted, including work done before tracking began"
+  completed_total: Int
+}
+
+type TaskProgressEvent {
+  id: ID!
+  event_type: String!
+  item_type: String!
+  item_id: ID!
+  item_label: String!
+  occurred_on: String!
+  occurred_at: Time!
+  url: String!
+}
+
+type TaskProgressEventPage {
+  events: [TaskProgressEvent!]!
+  has_more: Boolean!
+}
+
+extend type Query {
+  taskProgressOverall: TaskProgressOverall!
+  taskProgressEvents(
+    tracker_id: ID!
+    date: String!
+    after_id: ID
+  ): TaskProgressEventPage!
+  taskProgressPendingItems(
+    tracker_id: ID!
+    item_type: String!
+    offset: Int
+  ): TaskProgressEventPage!
+  taskProgressPreview(tag_id: ID!, item_types: [String!]): Int!
+}
+
+extend type Mutation {
+  "Persist or clear the Overall Progress daily goal"
+  taskProgressOverallGoalUpdate(goal_per_day: Int): TaskProgressOverall!
+}
+
+input TaskProgressTrackerCreateInput {
+  title: String!
+  description: String!
+  tag_id: ID!
+  "Optional calendar date in YYYY-MM-DD or DD/MM/YYYY format; defaults to the creation date"
+  started_on: String
+  item_types: [String!]
+  mode: String
+  "Optional positive daily completion goal"
+  goal_per_day: Int
+}
+
+input TaskProgressTrackerUpdateInput {
+  id: ID!
+  title: String
+  description: String
+  tag_id: ID
+  reset_goal: Boolean
+  "Calendar date in YYYY-MM-DD or DD/MM/YYYY format"
+  started_on: String
+  status: String
+  mode: String
+  expected_version: Int
+  item_types: [String!]
+  "Positive value sets the daily goal; zero clears it"
+  goal_per_day: Int
+}

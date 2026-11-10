@@ -8,6 +8,7 @@ const (
 	galleryKey key = iota
 	performerKey
 	sceneKey
+	sceneReleaseKey // CUSTOM: scene release routes
 	studioKey
 	groupKey
 	tagKey

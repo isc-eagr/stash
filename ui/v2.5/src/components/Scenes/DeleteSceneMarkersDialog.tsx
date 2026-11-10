@@ -1,3 +1,4 @@
+import { runDeletionCustom } from "src/components/Shared/deletion_custom"; // CUSTOM
 import React, { useState } from "react";
 import { useSceneMarkersDestroy } from "src/core/StashService";
 import * as GQL from "src/core/generated-graphql";
@@ -45,18 +46,19 @@ export const DeleteSceneMarkersDialog: React.FC<
     };
   }
 
-  async function onDelete() {
-    setIsDeleting(true);
-    try {
-      await deleteSceneMarkers();
-      Toast.success(toastMessage);
-      props.onClose(true);
-    } catch (e) {
-      Toast.error(e);
-      props.onClose(false);
-    }
-    setIsDeleting(false);
+  // CUSTOM: share success/failure and retry behavior across all deletion dialogs.
+  function onDelete() {
+    return runDeletionCustom({
+      action: () => deleteSceneMarkers(),
+      onSuccess: () => {
+        Toast.success(toastMessage);
+      },
+      onError: Toast.error,
+      setRunning: setIsDeleting,
+      onApplied: props.onClose,
+    });
   }
+  // CUSTOM: end
 
   return (
     <ModalComponent

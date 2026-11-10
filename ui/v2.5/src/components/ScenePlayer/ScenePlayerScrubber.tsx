@@ -5,15 +5,27 @@ import React, {
   useState,
   useCallback,
 } from "react";
+import cx from "classnames"; // CUSTOM
 import { Button } from "react-bootstrap";
 import * as GQL from "src/core/generated-graphql";
 import TextUtils from "src/utils/text";
 import { Icon } from "src/components/Shared/Icon";
+import { HoverPopover } from "src/components/Shared/HoverPopover";
 import {
   faChevronRight,
   faChevronLeft,
 } from "@fortawesome/free-solid-svg-icons";
 import { useSpriteInfo } from "src/hooks/sprite";
+import {
+  getSceneMarkerHoverGroup,
+  SceneMarkerHighlightPerformersPopover,
+  useSceneMarkerRatingCardClassGetter,
+} from "src/components/Scenes/SceneDetails/sceneMarkerHoverPopover_custom";
+import type {
+  SceneMarkerTimestampBoundary,
+  SceneMarkerTimestampSourceKind,
+} from "./sceneMarkerTimestampCopy_custom"; // CUSTOM
+import { SceneMarkerTimestampCopyPopover } from "./SceneMarkerTimestampCopyPopover_custom"; // CUSTOM
 
 interface IScenePlayerScrubberProps {
   file: GQL.VideoFileDataFragment;
@@ -21,6 +33,14 @@ interface IScenePlayerScrubberProps {
   time: number;
   onSeek: (seconds: number) => void;
   onScroll: () => void;
+  onMarkerClick?: (
+    markerId: string,
+    seconds: number,
+    boundary?: SceneMarkerTimestampBoundary,
+    sourceKind?: SceneMarkerTimestampSourceKind
+  ) => void; // CUSTOM
+  timestampCopyActive?: boolean; // CUSTOM
+  timestampRangeCopyActive?: boolean; // CUSTOM
 }
 
 interface ISceneSpriteItem {
@@ -38,6 +58,9 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
   time,
   onSeek,
   onScroll,
+  onMarkerClick, // CUSTOM
+  timestampCopyActive = false, // CUSTOM
+  timestampRangeCopyActive = false, // CUSTOM
 }) => {
   const contentEl = useRef<HTMLDivElement>(null);
   const indicatorEl = useRef<HTMLDivElement>(null);
@@ -51,7 +74,16 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
   const _width = useRef(0);
   const [width, setWidth] = useState(0);
   const [scrubWidth, setScrubWidth] = useState(0);
+  const [activeNegativeTimestampPickerId, setActiveNegativeTimestampPickerId] =
+    useState<string>(); // CUSTOM
   const position = useRef(0);
+
+  // CUSTOM: release exclusive negative-marker hover ownership when copy mode
+  // closes, including after a timestamp is selected.
+  useEffect(() => {
+    if (!timestampCopyActive) setActiveNegativeTimestampPickerId(undefined);
+  }, [timestampCopyActive]);
+
   const setPosition = useCallback(
     (value: number, seek: boolean) => {
       if (!scrubWidth) return;
@@ -88,6 +120,7 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
 
   const spriteInfo = useSpriteInfo(scene.paths.vtt ?? undefined);
   const [spriteItems, setSpriteItems] = useState<ISceneSpriteItem[]>();
+  const getMarkerRatingCardClass = useSceneMarkerRatingCardClassGetter();
 
   useEffect(() => {
     if (!spriteInfo || spriteInfo.length === 0) return;
@@ -212,18 +245,37 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
       contentEl.current!.classList.remove("dragging");
 
       let newPosition = position.current;
+      let clickedMarker: GQL.SceneMarkerDataFragment | undefined; // CUSTOM
+      let clickedMarkerSeconds: number | undefined; // CUSTOM
       const midpointOffset = slider.clientWidth / 2;
       const delta = Math.abs(event.clientX - startMouseEvent.current!.clientX);
-      if (delta < 1 && event.target instanceof HTMLDivElement) {
+      if (delta < 1 && event.target instanceof Element) {
         const { target } = event;
 
-        if (target.hasAttribute("data-sprite-item-id")) {
-          newPosition = midpointOffset - (target.offsetLeft + event.offsetX);
+        const spriteElement = target.closest<HTMLElement>(
+          "[data-sprite-item-id]"
+        );
+        if (spriteElement) {
+          newPosition =
+            midpointOffset - (spriteElement.offsetLeft + event.offsetX);
         }
 
-        if (target.hasAttribute("data-marker-id")) {
-          newPosition = midpointOffset - target.offsetLeft;
+        // CUSTOM: begin - popover wrappers own the marker's left offset, so
+        // resolve clicks by marker data instead of the nested tag's offsetLeft.
+        const markerElement = target.closest<HTMLElement>(
+          "[data-scene-marker-id]"
+        );
+        const markerId = markerElement?.dataset.sceneMarkerId;
+        clickedMarker = scene.scene_markers.find(
+          (marker) => marker.id === markerId
+        );
+        if (clickedMarker) {
+          clickedMarkerSeconds = clickedMarker.seconds; // CUSTOM
+          newPosition =
+            midpointOffset -
+            (scrubWidth * clickedMarker.seconds) / file.duration;
         }
+        // CUSTOM: end
       }
       if (Math.abs(velocity.current) > 25) {
         newPosition = position.current + velocity.current * 10;
@@ -232,8 +284,18 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
 
       setEaseOutTransition();
       setPosition(newPosition, true);
+      if (clickedMarker && clickedMarkerSeconds !== undefined) {
+        onMarkerClick?.(clickedMarker.id, clickedMarkerSeconds);
+      }
     },
-    [setPosition, setEaseOutTransition]
+    [
+      file.duration,
+      onMarkerClick,
+      scene.scene_markers,
+      scrubWidth,
+      setPosition,
+      setEaseOutTransition,
+    ]
   );
 
   const onMouseDown = useCallback((event: MouseEvent) => {
@@ -308,23 +370,167 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
   function renderTags() {
     if (!spriteItems) return;
 
-    return scene.scene_markers.map((marker, index) => {
+    return scene.scene_markers.map((marker) => {
+      // CUSTOM: marker id is the stable picker key
       const { duration } = file;
       const left = (scrubWidth * marker.seconds) / duration;
       const style = { left: `${left}px` };
+      const hoverGroup = getSceneMarkerHoverGroup(marker, scene.scene_markers);
+      const performerImages = [
+        ...marker.top_performers,
+        ...marker.bottom_performers,
+      ].filter((performer) => !!performer.image_path);
+
+      // CUSTOM: begin - consistent entity vocabulary.
+      return (
+        <React.Fragment key={marker.id}>
+          {/* CUSTOM: begin - stable exact-time picker for marker timestamp copying */}
+          <HoverPopover
+            className={cx(
+              "scrubber-tag-popover-trigger",
+              timestampCopyActive &&
+                "scrubber-tag-popover-trigger-timestamp-copy", // CUSTOM
+              getMarkerRatingCardClass(marker)
+            )} // CUSTOM: mirror GOAT/Royal Sapphire marker styling in the scrubber
+            popoverClassName={
+              timestampCopyActive
+                ? "scene-marker-timestamp-picker-popover"
+                : "scene-marker-highlight-popover"
+            } // CUSTOM
+            enterDelay={timestampCopyActive ? 75 : undefined} // CUSTOM
+            leaveDelay={timestampCopyActive ? 350 : undefined} // CUSTOM
+            estimatedContentHeight={timestampCopyActive ? 110 : undefined} // CUSTOM
+            anchorToCursor={timestampCopyActive} // CUSTOM
+            disabled={timestampCopyActive && !!activeNegativeTimestampPickerId} // CUSTOM
+            placement="bottom"
+            style={style}
+            content={
+              timestampCopyActive ? (
+                <SceneMarkerTimestampCopyPopover
+                  marker={marker}
+                  rangeSelectionActive={timestampRangeCopyActive} // CUSTOM
+                  onSelect={(boundary, seconds) => {
+                    onSeek(seconds);
+                    onMarkerClick?.(
+                      marker.id,
+                      seconds,
+                      boundary,
+                      "scene-marker"
+                    );
+                  }}
+                />
+              ) : (
+                <SceneMarkerHighlightPerformersPopover
+                  group={hoverGroup}
+                  orgasmTagId={undefined}
+                  getMarkerRatingCardClass={getMarkerRatingCardClass}
+                />
+              )
+            }
+          >
+            <div
+              className={cx(
+                "scrubber-tag scrubber-tag-with-vatos",
+                timestampCopyActive && "scrubber-tag-timestamp-copy"
+              )}
+              data-scene-marker-id={marker.id} // CUSTOM
+              title={
+                timestampCopyActive ? "Choose a marker timestamp" : undefined
+              }
+            >
+              {timestampCopyActive && (
+                <span className="scrubber-marker-copy-label">S/E</span>
+              )}
+              {performerImages.slice(0, 3).map((performer) => (
+                <img
+                  key={performer.id}
+                  className="scrubber-tag-performer-image"
+                  src={performer.image_path ?? ""}
+                  alt={performer.name}
+                />
+              ))}
+              <span className="scrubber-tag-label">
+                {marker.title || marker.primary_tag.name}
+              </span>
+            </div>
+          </HoverPopover>
+          {/* CUSTOM: end */}
+        </React.Fragment>
+      );
+      // CUSTOM: end
+    });
+  }
+
+  // CUSTOM: begin - negative markers on scrubber
+  function renderNegativeMarkers() {
+    if (!spriteItems) return;
+    const negativeMarkers = scene.negative_markers ?? [];
+    if (negativeMarkers.length === 0) return null;
+
+    return negativeMarkers.map((marker) => {
+      const { duration } = file;
+      const leftPos = (scrubWidth * marker.start_seconds) / duration;
+      const markerWidth =
+        (scrubWidth * (marker.end_seconds - marker.start_seconds)) / duration;
+      const style: CSSProperties = {
+        left: `${leftPos}px`,
+        width: `${Math.max(markerWidth, 4)}px`,
+      };
+
+      if (timestampCopyActive) {
+        return (
+          <HoverPopover
+            key={marker.id}
+            className="scrubber-negative-marker scrubber-negative-marker-timestamp-copy"
+            popoverClassName="scene-marker-timestamp-picker-popover"
+            enterDelay={0}
+            leaveDelay={350}
+            estimatedContentHeight={110}
+            anchorToCursor
+            placement="bottom"
+            style={style}
+            onOpen={() => setActiveNegativeTimestampPickerId(marker.id)}
+            onClose={() =>
+              setActiveNegativeTimestampPickerId((currentId) =>
+                currentId === marker.id ? undefined : currentId
+              )
+            }
+            content={
+              <SceneMarkerTimestampCopyPopover
+                marker={{
+                  title: marker.name || "Negative marker",
+                  seconds: marker.start_seconds,
+                  end_seconds: marker.end_seconds,
+                }}
+                rangeSelectionActive={timestampRangeCopyActive} // CUSTOM
+                onSelect={(boundary, seconds) => {
+                  onSeek(seconds);
+                  onMarkerClick?.(
+                    marker.id,
+                    seconds,
+                    boundary,
+                    "negative-marker"
+                  );
+                }}
+              />
+            }
+          >
+            <span className="scrubber-negative-marker-copy-label">S/E</span>
+          </HoverPopover>
+        );
+      }
 
       return (
         <div
-          key={index}
-          className="scrubber-tag"
+          key={marker.id}
+          className="scrubber-negative-marker"
           style={style}
-          data-marker-id={index}
-        >
-          {marker.title || marker.primary_tag.name}
-        </div>
+          title={marker.name || "Skip Section"}
+        />
       );
     });
   }
+  // CUSTOM: end
 
   function renderSprites() {
     if (!scene.paths.vtt) return;
@@ -368,6 +574,16 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
         <div className="scrubber-viewport">
           <div ref={sliderEl} className="scrubber-slider">
             <div className="scrubber-tags">{renderTags()}</div>
+            <div
+              className={cx(
+                "scrubber-negative-markers",
+                timestampCopyActive &&
+                  "scrubber-negative-markers-timestamp-copy"
+              )} // CUSTOM: keep negative overlap targets above regular markers
+            >
+              {renderNegativeMarkers()}
+            </div>{" "}
+            {/* CUSTOM */}
             {renderSprites()}
           </div>
         </div>

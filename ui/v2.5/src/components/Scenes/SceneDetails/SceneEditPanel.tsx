@@ -34,6 +34,7 @@ import {
   faPlus,
   faArrowsRotate,
   faCameraRotate,
+  faExclamationTriangle, // CUSTOM
 } from "@fortawesome/free-solid-svg-icons";
 import { objectTitle } from "src/core/files";
 import { galleryTitle } from "src/core/galleries";
@@ -61,6 +62,10 @@ import {
   formatCustomFieldInput,
 } from "src/components/Shared/CustomFields";
 import cloneDeep from "lodash-es/cloneDeep";
+import { changedSceneEditFieldsCustom } from "./sceneEditInput_custom"; // CUSTOM
+import TextUtils from "src/utils/text"; // CUSTOM
+import { getSceneRatingModeChangeCustom } from "src/components/Shared/groupSceneRating_custom"; // CUSTOM
+import { ModalComponent } from "src/components/Shared/Modal"; // CUSTOM
 
 const SceneScrapeDialog = lazyComponent(() => import("./SceneScrapeDialog"));
 const SceneQueryModal = lazyComponent(() => import("./SceneQueryModal"));
@@ -74,6 +79,7 @@ interface IProps {
   onGenerateThumbDefault?: () => Promise<void>;
   onSubmit: (input: GQL.SceneCreateInput, andNew?: boolean) => Promise<void>;
   onDelete?: () => void;
+  ratingSoloCustom?: boolean; // CUSTOM: solo markers keep 2-3 vato scenes on the solo rubric
 }
 
 export const SceneEditPanel: React.FC<IProps> = ({
@@ -85,6 +91,7 @@ export const SceneEditPanel: React.FC<IProps> = ({
   onGenerateThumbDefault,
   onSubmit,
   onDelete,
+  ratingSoloCustom = false, // CUSTOM
 }) => {
   const intl = useIntl();
   const Toast = useToast();
@@ -122,14 +129,15 @@ export const SceneEditPanel: React.FC<IProps> = ({
 
   useEffect(() => {
     setGalleries(
-      scene.galleries?.map((g) => ({
+      scene.direct_galleries?.map((g) => ({
+        // CUSTOM: direct_galleries
         id: g.id,
         title: galleryTitle(g),
         files: g.files,
         folder: g.folder,
       })) ?? []
     );
-  }, [scene.galleries]);
+  }, [scene.direct_galleries]); // CUSTOM: direct_galleries
 
   useEffect(() => {
     setPerformers(scene.performers ?? []);
@@ -171,6 +179,7 @@ export const SceneEditPanel: React.FC<IProps> = ({
     details: yup.string().ensure(),
     cover_image: yup.string().nullable().optional(),
     custom_fields: yup.object().required().defined(),
+    stashdb_matches: yup.number().integer().nullable().defined(), // CUSTOM
   });
 
   const initialValues = useMemo(
@@ -181,7 +190,7 @@ export const SceneEditPanel: React.FC<IProps> = ({
       date: scene.date ?? "",
       production_date: scene.production_date ?? "",
       director: scene.director ?? "",
-      gallery_ids: (scene.galleries ?? []).map((g) => g.id),
+      gallery_ids: (scene.direct_galleries ?? []).map((g) => g.id), // CUSTOM: direct_galleries
       studio_id: scene.studio?.id ?? null,
       performer_ids: (scene.performers ?? []).map((p) => p.id),
       groups: (scene.groups ?? []).map((m) => {
@@ -192,6 +201,7 @@ export const SceneEditPanel: React.FC<IProps> = ({
       details: scene.details ?? "",
       cover_image: initialCoverImage,
       custom_fields: cloneDeep(scene.custom_fields ?? {}),
+      stashdb_matches: scene.stashdb_matches ?? null, // CUSTOM
     }),
     [scene, initialCoverImage]
   );
@@ -200,13 +210,55 @@ export const SceneEditPanel: React.FC<IProps> = ({
 
   const [customFieldsError, setCustomFieldsError] = useState<string>();
 
+  // CUSTOM: begin - avoid rewriting every scene relationship on small edits
+  function buildSubmitInputCustom(values: InputValues) {
+    const castValues = schema.cast(values);
+    const changedValues = isNew
+      ? { ...castValues }
+      : changedSceneEditFieldsCustom(
+          castValues,
+          schema.cast(initialValues) as typeof castValues
+        );
+
+    if (isNew || Object.hasOwn(changedValues, "custom_fields")) {
+      changedValues.custom_fields = formatCustomFieldInput(
+        isNew,
+        values.custom_fields
+      );
+    }
+
+    return changedValues as GQL.SceneCreateInput;
+  }
+
+  const [ratingResetInputCustom, setRatingResetInputCustom] =
+    useState<GQL.SceneCreateInput>();
+  const ratingResetChangeCustom = ratingResetInputCustom?.performer_ids
+    ? getSceneRatingModeChangeCustom(
+        scene.performers?.length ?? 0,
+        ratingResetInputCustom.performer_ids.length,
+        ratingSoloCustom
+      )
+    : undefined;
+
   function submit(values: InputValues) {
-    const input = {
-      ...schema.cast(values),
-      custom_fields: formatCustomFieldInput(isNew, values.custom_fields),
-    };
+    const input = buildSubmitInputCustom(values);
+    // Confirm before a cast change wipes the scene's advisor scores.
+    if (
+      !isNew &&
+      input.performer_ids &&
+      (scene.rating_scores?.length ?? 0) > 0 &&
+      getSceneRatingModeChangeCustom(
+        scene.performers?.length ?? 0,
+        input.performer_ids.length,
+        ratingSoloCustom
+      )
+    ) {
+      setRatingResetInputCustom(input);
+      return;
+    }
     onSave(input);
   }
+  // CUSTOM: end
 
   const formik = useFormik<InputValues>({
     initialValues,
@@ -303,7 +355,8 @@ export const SceneEditPanel: React.FC<IProps> = ({
     formik.setFieldValue("groups", newGroups);
   }
 
-  async function onSave(input: InputValues, andNew?: boolean) {
+  async function onSave(input: GQL.SceneCreateInput, andNew?: boolean) {
+    // CUSTOM: updates may contain only dirty fields
     setIsLoading(true);
     try {
       await onSubmit(input, andNew);
@@ -329,11 +382,7 @@ export const SceneEditPanel: React.FC<IProps> = ({
   }
 
   async function onSaveAndNewClick() {
-    const input = {
-      ...schema.cast(formik.values),
-      custom_fields: formatCustomFieldInput(isNew, formik.values.custom_fields),
-    };
-    onSave(input, true);
+    onSave(buildSubmitInputCustom(formik.values), true); // CUSTOM
   }
 
   const encodingImage = ImageUtils.usePasteImage(onImageLoad);
@@ -567,6 +616,11 @@ export const SceneEditPanel: React.FC<IProps> = ({
       formik.setFieldValue("cover_image", updatedScene.image);
     }
 
+    // CUSTOM: only stashdb.org results carry a count
+    if (updatedScene.stashdb_matches != null) {
+      formik.setFieldValue("stashdb_matches", updatedScene.stashdb_matches);
+    }
+
     if (updatedScene.remote_site_id && endpoint) {
       let found = false;
       formik.setFieldValue(
@@ -766,6 +820,18 @@ export const SceneEditPanel: React.FC<IProps> = ({
     return renderField("tag_ids", title, tagsControl(), fullWidthProps);
   }
 
+  // CUSTOM: read-only; set by StashDB scrapes
+  function maybeRenderStashDBMatchesField() {
+    if (formik.values.stashdb_matches == null) return;
+
+    const title = intl.formatMessage({ id: "stashdb_matches" });
+    const control = (
+      <Form.Control plaintext readOnly value={formik.values.stashdb_matches} />
+    );
+
+    return renderField("stashdb_matches", title, control);
+  }
+
   function renderDetailsField() {
     const props = {
       labelProps: {
@@ -805,6 +871,29 @@ export const SceneEditPanel: React.FC<IProps> = ({
           initialQuery={scene.title ?? ""}
         />
       )}
+      {/* CUSTOM: begin - cast changes that switch rubrics clear the advisor */}
+      <ModalComponent
+        show={!!ratingResetChangeCustom}
+        icon={faExclamationTriangle}
+        header="Clear Rating Advisor?"
+        accept={{
+          variant: "danger",
+          text: "Save and clear",
+          onClick: () => {
+            const input = ratingResetInputCustom;
+            setRatingResetInputCustom(undefined);
+            if (input) onSave(input);
+          },
+        }}
+        cancel={{ onClick: () => setRatingResetInputCustom(undefined) }}
+      >
+        <p>
+          This cast change moves the scene from {ratingResetChangeCustom?.from}{" "}
+          to {ratingResetChangeCustom?.to} rating. Saving clears its Rating
+          Advisor scores and rating.
+        </p>
+      </ModalComponent>
+      {/* CUSTOM: end */}
       <Form noValidate onSubmit={formik.handleSubmit}>
         <Row className="form-container edit-buttons-container px-3 pt-3">
           <div className="edit-buttons mb-3 pl-0">
@@ -907,6 +996,8 @@ export const SceneEditPanel: React.FC<IProps> = ({
                 <Icon icon={faPlus} />
               </Button>
             )}
+            {/* CUSTOM */}
+            {maybeRenderStashDBMatchesField()}
           </Col>
           <Col lg={5} xl={12}>
             {renderDetailsField()}
@@ -955,6 +1046,23 @@ export const SceneEditPanel: React.FC<IProps> = ({
           </Col>
         </Row>
       </Form>
+      {/* CUSTOM: maintenance dates stay at the bottom of Edit. */}
+      {!isNew && (
+        <div className="px-3 pb-3 text-muted">
+          {scene.created_at && (
+            <div>
+              <FormattedMessage id="created_at" />:{" "}
+              {TextUtils.formatDateTime(intl, scene.created_at)}
+            </div>
+          )}
+          {scene.updated_at && (
+            <div>
+              <FormattedMessage id="updated_at" />:{" "}
+              {TextUtils.formatDateTime(intl, scene.updated_at)}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

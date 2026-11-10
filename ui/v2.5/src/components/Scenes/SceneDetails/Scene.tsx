@@ -15,14 +15,18 @@ import {
   mutateMetadataScan,
   useFindScene,
   useSceneIncrementO,
+  useSceneRecordOAtTimestamp, // CUSTOM
+  useSceneAddRetroactiveO, // CUSTOM
   useSceneGenerateScreenshot,
   useSceneUpdate,
+  useSceneOrganizedUpdate, // CUSTOM
   queryFindScenes,
   queryFindScenesByID,
   useSceneIncrementPlayCount,
 } from "src/core/StashService";
 
 import { SceneEditPanel } from "./SceneEditPanel";
+import { SceneOCounterMenu } from "./SceneOCounterMenu"; // CUSTOM
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { Icon } from "src/components/Shared/Icon";
@@ -32,33 +36,81 @@ import SceneQueue, { QueuedScene } from "src/models/sceneQueue";
 import { ListFilterModel } from "src/models/list-filter/filter";
 import Mousetrap from "mousetrap";
 import { OrganizedButton } from "./OrganizedButton";
+import { StashDBMatchesCount } from "./StashDBMatchesCount"; // CUSTOM
+import {
+  sceneOTotalCustom,
+  sceneStashDBMatchesTotalCustom,
+  sceneTotalHintCustom,
+} from "../sceneReleaseTotals_custom"; // CUSTOM
 import { useConfigurationContext } from "src/hooks/Config";
 import {
   getAbLoopPlugin,
+  getPlayer,
   getPlayerPosition,
 } from "src/components/ScenePlayer/util";
+import { useRemotePlayerCustom } from "src/components/RemoteO/useRemotePlayer_custom"; // CUSTOM
+import type { PlaybackSnapshot } from "src/components/RemoteO/remotePlayback_custom"; // CUSTOM
+import { formatORecordedToastCustom } from "../oRecordToast_custom"; // CUSTOM
+import {
+  useSceneReleaseAddPlayCustom,
+  useSceneReleaseRecordOCustom,
+} from "../sceneReleaseActivity_custom"; // CUSTOM
+import { shouldEnableSceneOHotkeyCustom } from "./sceneOHotkeyPreference_custom"; // CUSTOM
+import { SceneReleaseMarkersCustom } from "./SceneReleaseMarkers_custom"; // CUSTOM
+import { SceneReleaseFileInfoCustom } from "./SceneReleaseFileInfo_custom"; // CUSTOM
+import { getSceneReleasePlaybackContextCustom } from "./sceneReleasePlaybackContext_custom"; // CUSTOM
 import {
   faEllipsisV,
   faChevronRight,
   faChevronLeft,
+  faCompress,
+  faExpand,
 } from "@fortawesome/free-solid-svg-icons";
 import { isPlayable, objectPath, objectTitle } from "src/core/files";
-import { RatingSystem } from "src/components/Shared/Rating/RatingSystem";
+import { RatingAdvisorButton } from "src/components/Shared/RatingAdvisor_custom"; // CUSTOM
+import { getRatingAdvisorCriterionVatosCustom } from "src/components/Shared/ratingAdvisorVatos_custom"; // CUSTOM
+import { getSceneRatingModeCustom } from "src/components/Shared/groupSceneRating_custom"; // CUSTOM
 import TextUtils from "src/utils/text";
 import {
   OCounterButton,
   ViewCountButton,
 } from "src/components/Shared/CountButton";
-import { useRatingKeybinds } from "src/hooks/keybinds";
 import { lazyComponent } from "src/utils/lazyComponent";
 import cx from "classnames";
 import { TruncatedText } from "src/components/Shared/TruncatedText";
 import { PatchComponent, PatchContainerComponent } from "src/patch";
 import { SceneMergeModal } from "../SceneMergeDialog";
-import { goBackOrReplace } from "src/utils/history";
 import { FormattedDate } from "src/components/Shared/Date";
 import { StudioLogo } from "src/components/Shared/StudioLogo";
 import { JobFragment, useMonitorJob } from "src/utils/job";
+// CUSTOM: begin - multi-segment loop and icon imports
+import type MultiSegmentLoopPlugin from "src/components/ScenePlayer/multi-segment-loop";
+import type { ILoopSegmentInput } from "src/components/ScenePlayer/multi-segment-loop";
+import { useMultiSegmentLoop } from "src/components/ScenePlayer/useMultiSegmentLoop_custom";
+import {
+  loopPresetsFromSource,
+  useMultiSegmentLoopPresets,
+} from "src/components/ScenePlayer/useMultiSegmentLoopPresets_custom";
+import { SceneDetailActivityBar } from "../SceneActivityBar_custom"; // CUSTOM
+import { SceneRatingStrip } from "../SceneRatingStrip_custom"; // CUSTOM
+import { SceneDetailInsights } from "../SceneCardInsights_custom"; // CUSTOM
+import {
+  completeSceneMarkerFocusRequest,
+  type ISceneMarkerFocusRequest,
+} from "./sceneMarkerFocusScroll_custom";
+import type { ISceneMarkerCreateRequest } from "./sceneMarkerSequentialActions_custom";
+import { ScenePerformerOverviewProvider } from "./ScenePerformerOverviewPanel_custom";
+import {
+  resolveSceneMarkerTimestampCopySelection,
+  type ISceneMarkerTimestampCopyRequest,
+  type ISceneMarkerTimestampCopySelection,
+  type ISceneMarkerTimestampSource,
+  type SceneMarkerTimestampBoundary,
+  type SceneMarkerTimestampDestination,
+  type SceneMarkerTimestampField,
+  type SceneMarkerTimestampSourceKind,
+} from "src/components/ScenePlayer/sceneMarkerTimestampCopy_custom";
+// CUSTOM: end
 
 const SubmitStashBoxDraft = lazyComponent(
   () => import("src/components/Dialogs/SubmitDraft")
@@ -76,6 +128,9 @@ const ExternalPlayerButton = lazyComponent(
 
 const QueueViewer = lazyComponent(() => import("./QueueViewer"));
 const SceneMarkersPanel = lazyComponent(() => import("./SceneMarkersPanel"));
+const SceneNegativeMarkersPanel = lazyComponent(
+  () => import("./SceneNegativeMarkersPanel")
+); // CUSTOM
 const SceneFileInfoPanel = lazyComponent(() => import("./SceneFileInfoPanel"));
 const SceneDetailPanel = lazyComponent(() => import("./SceneDetailPanel"));
 const SceneHistoryPanel = lazyComponent(() => import("./SceneHistoryPanel"));
@@ -83,6 +138,10 @@ const SceneGroupPanel = lazyComponent(() => import("./SceneGroupPanel"));
 const SceneGalleriesPanel = lazyComponent(
   () => import("./SceneGalleriesPanel")
 );
+// CUSTOM: begin - SceneReleasesPanel lazy import
+const SceneReleasesPanel = lazyComponent(() => import("./SceneReleasesPanel"));
+// CUSTOM: end
+const SceneStatsPanel = lazyComponent(() => import("./SceneStatsPanel")); // CUSTOM
 const DeleteScenesDialog = lazyComponent(() => import("../DeleteScenesDialog"));
 const GenerateDialog = lazyComponent(
   () => import("../../Dialogs/GenerateDialog")
@@ -142,6 +201,7 @@ const VideoFrameRateResolution: React.FC<{
 interface IProps {
   scene: GQL.SceneDataFragment;
   setTimestamp: (num: number) => void;
+  addMultiSegmentLoopSegments: (segments: ILoopSegmentInput[]) => void; // CUSTOM
   queueScenes: QueuedScene[];
   onQueueNext: () => void;
   onQueuePrevious: () => void;
@@ -157,6 +217,17 @@ interface IProps {
   setCollapsed: (state: boolean) => void;
   setContinuePlaylist: (value: boolean) => void;
   onRefreshScene: () => Promise<void>;
+  activeReleaseId: string | null; // CUSTOM
+  setActiveReleaseId: (id: string | null) => void; // CUSTOM
+  currentTimestamp?: number; // CUSTOM
+  markerTimestampCopyRequest?: ISceneMarkerTimestampCopyRequest; // CUSTOM
+  markerTimestampCopySelection?: ISceneMarkerTimestampCopySelection; // CUSTOM
+  onMarkerTimestampCopyRequest: (
+    field: SceneMarkerTimestampField | undefined,
+    destination: SceneMarkerTimestampDestination
+  ) => void; // CUSTOM
+  onMarkerTimestampCopySelectionHandled: (requestId: number) => void; // CUSTOM
+  remotePlayer: ReturnType<typeof useRemotePlayerCustom>; // CUSTOM
 }
 
 interface ISceneParams {
@@ -172,6 +243,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
   const {
     scene,
     setTimestamp,
+    addMultiSegmentLoopSegments, // CUSTOM
     queueScenes,
     onQueueNext,
     onQueuePrevious,
@@ -187,25 +259,52 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     setCollapsed,
     setContinuePlaylist,
     onRefreshScene,
+    activeReleaseId, // CUSTOM
+    setActiveReleaseId, // CUSTOM
+    currentTimestamp, // CUSTOM
+    markerTimestampCopyRequest, // CUSTOM
+    markerTimestampCopySelection, // CUSTOM
+    onMarkerTimestampCopyRequest, // CUSTOM
+    onMarkerTimestampCopySelectionHandled, // CUSTOM
+    remotePlayer, // CUSTOM
   } = props;
+
+  const activeRelease = activeReleaseId
+    ? scene.releases.find((release) => release.id === activeReleaseId)
+    : undefined; // CUSTOM
+  // CUSTOM: show the selected release's studio in the scene header while it
+  // is the active playback owner.
+  const headerStudio = activeRelease?.studio ?? scene.studio;
 
   const Toast = useToast();
   const intl = useIntl();
   const history = useHistory();
   const [updateScene] = useSceneUpdate();
+  const [updateSceneOrganized] = useSceneOrganizedUpdate(); // CUSTOM
   const [generateScreenshot] = useSceneGenerateScreenshot();
   const [screenshotJobID, setScreenshotJobID] = useState<string>();
   const { configuration } = useConfigurationContext();
   const { showStudioText } = configuration?.ui ?? {};
+  const isSceneOHotkeyEnabled = shouldEnableSceneOHotkeyCustom(
+    configuration?.ui
+  ); // CUSTOM
 
   const [showDraftModal, setShowDraftModal] = useState(false);
   const boxes = configuration?.general?.stashBoxes ?? [];
 
   const [incrementO] = useSceneIncrementO(scene.id);
+  const [recordOAtTimestamp] = useSceneRecordOAtTimestamp(scene.id); // CUSTOM
+  const [addRetroactiveO] = useSceneAddRetroactiveO(scene.id); // CUSTOM
+  const [recordReleaseOAtTimestamp] = useSceneReleaseRecordOCustom(); // CUSTOM
 
   const [incrementPlay] = useSceneIncrementPlayCount();
+  const [incrementReleasePlay] = useSceneReleaseAddPlayCustom(); // CUSTOM
 
   function incrementPlayCount() {
+    if (activeReleaseId) {
+      incrementReleasePlay({ variables: { id: activeReleaseId } });
+      return;
+    }
     incrementPlay({
       variables: {
         id: scene.id,
@@ -216,6 +315,15 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
   const [organizedLoading, setOrganizedLoading] = useState(false);
 
   const [activeTabKey, setActiveTabKey] = useState("scene-details-panel");
+  const [scenePanelCompact, setScenePanelCompact] = useState(false); // CUSTOM
+  // CUSTOM: begin - every scrubber marker click gets a distinct latest-wins request
+  const scrubberMarkerFocusRequestId = useRef(0);
+  const [scrubberMarkerFocusRequest, setScrubberMarkerFocusRequest] =
+    useState<ISceneMarkerFocusRequest>();
+  const sequentialMarkerCreateRequestId = useRef(0);
+  const [sequentialMarkerCreateRequest, setSequentialMarkerCreateRequest] =
+    useState<ISceneMarkerCreateRequest>();
+  // CUSTOM: end
 
   const [isMerging, setIsMerging] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState<boolean>(false);
@@ -242,30 +350,43 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
 
   useMonitorJob(screenshotJobID, onScreenshotJobComplete);
 
+  // CUSTOM: begin - Record O with video timestamp when available
   const onIncrementOClick = async () => {
     try {
-      await incrementO();
+      const playerPos = getPlayerPosition();
+      if (activeReleaseId) {
+        await recordReleaseOAtTimestamp({
+          variables: {
+            id: activeReleaseId,
+            video_timestamp: playerPos ?? 0,
+          },
+        });
+        Toast.success(formatORecordedToastCustom(playerPos));
+        return;
+      }
+      if (playerPos !== undefined) {
+        await recordOAtTimestamp({
+          variables: { id: scene.id, video_timestamp: playerPos },
+        });
+        Toast.success(formatORecordedToastCustom(playerPos));
+      } else {
+        await incrementO();
+        Toast.success(formatORecordedToastCustom());
+      }
     } catch (e) {
       Toast.error(e);
     }
   };
 
-  function setRating(v: number | null) {
-    updateScene({
-      variables: {
-        input: {
-          id: scene.id,
-          rating100: v,
-        },
-      },
-    });
-  }
-
-  useRatingKeybinds(
-    true,
-    configuration?.ui.ratingSystemOptions?.type,
-    setRating
-  );
+  const onRetroactiveOClick = async () => {
+    try {
+      await addRetroactiveO();
+      Toast.success("Retroactive O recorded");
+    } catch (e) {
+      Toast.error(e);
+    }
+  };
+  // CUSTOM: end
 
   // set up hotkeys
   useEffect(() => {
@@ -275,9 +396,11 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     Mousetrap.bind("k", () => setActiveTabKey("scene-markers-panel"));
     Mousetrap.bind("i", () => setActiveTabKey("scene-file-info-panel"));
     Mousetrap.bind("h", () => setActiveTabKey("scene-history-panel"));
-    Mousetrap.bind("o", () => {
-      onIncrementOClick();
-    });
+    if (isSceneOHotkeyEnabled) {
+      Mousetrap.bind("o", () => {
+        onIncrementOClick();
+      });
+    }
     Mousetrap.bind("p n", () => onQueueNext());
     Mousetrap.bind("p p", () => onQueuePrevious());
     Mousetrap.bind("p r", () => onQueueRandom());
@@ -328,7 +451,8 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
   const onOrganizedClick = async () => {
     try {
       setOrganizedLoading(true);
-      await updateScene({
+      await updateSceneOrganized({
+        // CUSTOM: lightweight toolbar mutation
         variables: {
           input: {
             id: scene.id,
@@ -343,53 +467,107 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     }
   };
 
-  function onClickMarker(marker: GQL.SceneMarkerDataFragment) {
-    const abLoopPlugin = getAbLoopPlugin();
-    const opts = abLoopPlugin?.getOptions();
-    const start = opts?.start;
-    const end = opts?.end;
+  const onClickMarker = useCallback(
+    (marker: GQL.SceneMarkerDataFragment, seekSeconds = marker.seconds) => {
+      const abLoopPlugin = getAbLoopPlugin();
+      const opts = abLoopPlugin?.getOptions();
+      const start = opts?.start;
+      const end = opts?.end;
 
-    const hasLoopRange =
-      opts?.enabled &&
-      typeof start === "number" &&
-      typeof end === "number" &&
-      Number.isFinite(start) &&
-      Number.isFinite(end);
+      const hasLoopRange =
+        opts?.enabled &&
+        typeof start === "number" &&
+        typeof end === "number" &&
+        Number.isFinite(start) &&
+        Number.isFinite(end);
 
-    if (
-      abLoopPlugin &&
-      opts &&
-      hasLoopRange &&
-      (marker.seconds < Math.min(start as number, end as number) ||
-        marker.seconds > Math.max(start as number, end as number))
-    ) {
-      abLoopPlugin.setOptions({
-        ...opts,
-        enabled: false,
+      if (
+        abLoopPlugin &&
+        opts &&
+        hasLoopRange &&
+        (seekSeconds < Math.min(start as number, end as number) ||
+          seekSeconds > Math.max(start as number, end as number))
+      ) {
+        abLoopPlugin.setOptions({
+          ...opts,
+          enabled: false,
+        });
+      }
+
+      setTimestamp(seekSeconds);
+    },
+    [setTimestamp]
+  );
+
+  // CUSTOM: begin - surface clicked scrubber markers in the Markers tab
+  const focusScrubberMarker = useCallback(
+    (markerId: string, seconds: number) => {
+      const marker = scene.scene_markers.find(
+        (sceneMarker) => sceneMarker.id === markerId
+      );
+
+      if (!marker) return;
+
+      setActiveTabKey("scene-markers-panel");
+      scrubberMarkerFocusRequestId.current += 1;
+      setScrubberMarkerFocusRequest({
+        markerId,
+        requestId: scrubberMarkerFocusRequestId.current,
       });
-    }
+      onClickMarker(marker, seconds);
+    },
+    [onClickMarker, scene.scene_markers]
+  );
 
-    setTimestamp(marker.seconds);
-  }
+  useEffect(() => {
+    const onScrubberMarkerClick = (event: Event) => {
+      const { markerId, seconds } =
+        (event as CustomEvent<{ markerId?: string; seconds?: number }>)
+          .detail ?? {};
 
-  function onLoopMarker(marker: GQL.SceneMarkerDataFragment) {
-    if (marker.end_seconds == null) return;
+      if (markerId && seconds !== undefined) {
+        focusScrubberMarker(markerId, seconds);
+      }
+    };
 
-    setTimestamp(marker.seconds);
-    const start = Math.min(marker.seconds, marker.end_seconds);
-    const end = Math.max(marker.seconds, marker.end_seconds);
-    const abLoopPlugin = getAbLoopPlugin();
-    const opts = abLoopPlugin?.getOptions();
+    window.addEventListener(
+      "stash:scene-marker-scrubber-click",
+      onScrubberMarkerClick
+    );
 
-    if (opts && abLoopPlugin) {
-      abLoopPlugin.setOptions({
-        ...opts,
-        start,
-        end,
-        enabled: true,
-      });
-    }
-  }
+    return () => {
+      window.removeEventListener(
+        "stash:scene-marker-scrubber-click",
+        onScrubberMarkerClick
+      );
+    };
+  }, [focusScrubberMarker]);
+
+  const onScrubberMarkerFocusHandled = useCallback((requestId: number) => {
+    setScrubberMarkerFocusRequest((currentRequest) =>
+      completeSceneMarkerFocusRequest(currentRequest, requestId)
+    );
+  }, []);
+
+  // CUSTOM: a saved negative marker can continue directly in the regular editor.
+  const onAddNextMarkerFromNegativeMarker = useCallback((seconds: number) => {
+    sequentialMarkerCreateRequestId.current += 1;
+    setSequentialMarkerCreateRequest({
+      seconds,
+      requestId: sequentialMarkerCreateRequestId.current,
+    });
+    setActiveTabKey("scene-markers-panel");
+  }, []);
+
+  const onSequentialMarkerCreateRequestHandled = useCallback(
+    (requestId: number) => {
+      setSequentialMarkerCreateRequest((currentRequest) =>
+        currentRequest?.requestId === requestId ? undefined : currentRequest
+      );
+    },
+    []
+  );
+  // CUSTOM: end
 
   async function onRescan() {
     await mutateMetadataScan({
@@ -533,12 +711,70 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     </Dropdown>
   );
 
+  // CUSTOM: preserve the configured scene rating mode after retiring title icons.
+  const sceneTypeForRating = useMemo<"gay" | "mouth" | "hand" | null>(() => {
+    // Get role tag IDs from configuration
+    const roleTagIds = configuration?.ui?.roleTagIds ?? {};
+    const { sexTagId } = roleTagIds;
+    const { oralTagId } = roleTagIds;
+    const { soloTagId } = roleTagIds;
+
+    // Get scene marker tag IDs
+    const markerTagIds = new Set<string>();
+    // biome-ignore lint/suspicious/noExplicitAny: loose typing for dynamic data
+    const sceneMarkers = (scene as any).scene_markers ?? [];
+    for (const marker of sceneMarkers) {
+      // Check if this is an oral marker
+      const isOralMarker =
+        (marker?.primary_tag?.id && marker.primary_tag.id === oralTagId) ||
+        (marker?.tags ?? []).some(
+          (tag: { id?: string }) => tag?.id === oralTagId
+        );
+
+      // Add oral markers to tag set
+      if (isOralMarker && oralTagId) {
+        markerTagIds.add(oralTagId);
+      }
+
+      // Add non-oral tag IDs normally
+      if (marker?.primary_tag?.id) {
+        if (marker.primary_tag.id === sexTagId)
+          markerTagIds.add(marker.primary_tag.id);
+        if (marker.primary_tag.id === soloTagId)
+          markerTagIds.add(marker.primary_tag.id);
+      }
+      const markerTags: Array<{ id?: string }> = marker?.tags ?? [];
+      for (const tag of markerTags) {
+        if (tag?.id) {
+          if (tag.id === sexTagId) markerTagIds.add(tag.id);
+          if (tag.id === soloTagId) markerTagIds.add(tag.id);
+        }
+      }
+    }
+
+    // Priority: sex > oral > solo
+    if (sexTagId && markerTagIds.has(sexTagId)) {
+      return "gay";
+    }
+
+    if (oralTagId && markerTagIds.has(oralTagId)) {
+      return "mouth";
+    }
+
+    if (soloTagId && markerTagIds.has(soloTagId)) {
+      return "hand";
+    }
+
+    return null;
+  }, [scene, configuration?.ui]);
+
   const renderTabs = () => (
     <Tab.Container
+      mountOnEnter // CUSTOM: defer queries and rendering in unopened tabs, retaining state after first use.
       activeKey={activeTabKey}
       onSelect={(k) => k && setActiveTabKey(k)}
     >
-      <div>
+      <div className="scene-tab-row">
         <Nav variant="tabs" className="mr-auto">
           <ScenePageTabs {...props}>
             <Nav.Item>
@@ -546,33 +782,31 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
                 <FormattedMessage id="details" />
               </Nav.Link>
             </Nav.Item>
-            {queueScenes.length > 0 ? (
-              <Nav.Item>
-                <Nav.Link eventKey="scene-queue-panel">
-                  <FormattedMessage id="queue" />
-                </Nav.Link>
-              </Nav.Item>
-            ) : (
-              ""
-            )}
+            {/* CUSTOM: secondary destinations are in More below. */}
             <Nav.Item>
               <Nav.Link eventKey="scene-markers-panel">
                 <FormattedMessage id="markers" />
               </Nav.Link>
             </Nav.Item>
-            {scene.groups.length > 0 ? (
-              <Nav.Item>
-                <Nav.Link eventKey="scene-group-panel">
-                  <FormattedMessage
-                    id="countables.groups"
-                    values={{ count: scene.groups.length }}
-                  />
-                </Nav.Link>
-              </Nav.Item>
-            ) : (
-              ""
-            )}
-            {scene.galleries.length >= 1 ? (
+            {/* CUSTOM: begin - negative markers tab */}
+            <Nav.Item>
+              <Nav.Link eventKey="scene-negative-markers-panel">
+                <FormattedMessage id="negative_markers" defaultMessage="Skip" />
+                <Counter
+                  count={
+                    activeRelease?.negative_markers.length ??
+                    scene.negative_markers?.length ??
+                    0
+                  }
+                  hideZero
+                />{" "}
+                {/* CUSTOM */}
+              </Nav.Link>
+            </Nav.Item>
+            {/* CUSTOM: end */}
+            {/* CUSTOM: group navigation is in More. */}
+            {/* CUSTOM: begin - galleries remain a direct tab when populated */}
+            {scene.galleries.length > 0 && (
               <Nav.Item>
                 <Nav.Link eventKey="scene-galleries-panel">
                   <FormattedMessage
@@ -581,33 +815,120 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
                   />
                 </Nav.Link>
               </Nav.Item>
-            ) : undefined}
+            )}
+            {/* CUSTOM: end */}
+            {/* CUSTOM: video filters and Releases are in More. */}
+            {/* CUSTOM: File Info is in More. */}
+            {/* CUSTOM: History is in More. */}
+            {/* CUSTOM: begin - stats tab */}
             <Nav.Item>
-              <Nav.Link eventKey="scene-video-filter-panel">
-                <FormattedMessage id="effect_filters.name" />
-              </Nav.Link>
+              <Nav.Link eventKey="scene-stats-panel">Stats</Nav.Link>
             </Nav.Item>
-            <Nav.Item>
-              <Nav.Link eventKey="scene-file-info-panel">
-                <FormattedMessage id="file_info" />
-                <Counter count={scene.files.length} hideZero hideOne />
-              </Nav.Link>
-            </Nav.Item>
-            <Nav.Item>
-              <Nav.Link eventKey="scene-history-panel">
-                <FormattedMessage id="history" />
-              </Nav.Link>
-            </Nav.Item>
+            {/* CUSTOM: end */}
             <Nav.Item>
               <Nav.Link eventKey="scene-edit-panel">
                 <FormattedMessage id="actions.edit" />
               </Nav.Link>
             </Nav.Item>
+            {/* CUSTOM: secondary panels retain their panes, state, and shortcuts. */}
+            <Dropdown as={Nav.Item}>
+              <Dropdown.Toggle
+                as={Nav.Link}
+                className={cx("scene-tab-more", {
+                  active: [
+                    "scene-queue-panel",
+                    "scene-group-panel",
+                    "scene-video-filter-panel",
+                    "scene-history-panel",
+                    "scene-releases-panel",
+                    "scene-file-info-panel",
+                  ].includes(activeTabKey),
+                })}
+                title="More"
+                aria-label="More"
+              >
+                <Icon icon={faEllipsisV} />
+              </Dropdown.Toggle>
+              <Dropdown.Menu>
+                {/* CUSTOM: begin - releases navigation */}
+                <Dropdown.Item
+                  active={activeTabKey === "scene-releases-panel"}
+                  onClick={() => setActiveTabKey("scene-releases-panel")}
+                >
+                  Releases
+                  <Counter count={scene.releases?.length ?? 0} hideZero />
+                </Dropdown.Item>
+                {/* CUSTOM: end */}
+                <Dropdown.Item
+                  active={activeTabKey === "scene-file-info-panel"}
+                  onClick={() => setActiveTabKey("scene-file-info-panel")}
+                >
+                  <FormattedMessage id="file_info" />
+                  <Counter
+                    count={activeRelease?.files.length ?? scene.files.length}
+                    hideZero
+                    hideOne
+                  />
+                </Dropdown.Item>
+                {queueScenes.length > 0 && (
+                  <Dropdown.Item
+                    active={activeTabKey === "scene-queue-panel"}
+                    onClick={() => setActiveTabKey("scene-queue-panel")}
+                  >
+                    <FormattedMessage id="queue" />
+                  </Dropdown.Item>
+                )}
+                {scene.groups.length > 0 && (
+                  <Dropdown.Item
+                    active={activeTabKey === "scene-group-panel"}
+                    onClick={() => setActiveTabKey("scene-group-panel")}
+                  >
+                    <FormattedMessage
+                      id="countables.groups"
+                      values={{ count: scene.groups.length }}
+                    />
+                  </Dropdown.Item>
+                )}
+                <Dropdown.Item
+                  active={activeTabKey === "scene-video-filter-panel"}
+                  onClick={() => setActiveTabKey("scene-video-filter-panel")}
+                >
+                  <FormattedMessage id="effect_filters.name" />
+                </Dropdown.Item>
+                <Dropdown.Item
+                  active={activeTabKey === "scene-history-panel"}
+                  onClick={() => setActiveTabKey("scene-history-panel")}
+                >
+                  <FormattedMessage id="history" />
+                </Dropdown.Item>
+              </Dropdown.Menu>
+            </Dropdown>
           </ScenePageTabs>
         </Nav>
+        {/* CUSTOM: begin - details panel vertical expansion toggle */}
+        <Button
+          className="scene-panel-density-toggle minimal"
+          variant="secondary"
+          onClick={() => setScenePanelCompact((current) => !current)}
+          title={
+            scenePanelCompact ? "Show scene header" : "Expand panel vertically"
+          }
+        >
+          <Icon icon={scenePanelCompact ? faCompress : faExpand} />
+        </Button>
+        {/* CUSTOM: end */}
       </div>
 
-      <Tab.Content>
+      {/* CUSTOM: preserve Bootstrap row gutters in the clipped upstream panes */}
+      <Tab.Content
+        className={cx({
+          "scene-tab-content-bootstrap-gutters": ![
+            "scene-negative-markers-panel",
+            "scene-releases-panel",
+            "scene-stats-panel",
+          ].includes(activeTabKey),
+        })}
+      >
         <ScenePageTabContent {...props}>
           <Tab.Pane eventKey="scene-details-panel">
             <SceneDetailPanel scene={scene} />
@@ -629,13 +950,60 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
             />
           </Tab.Pane>
           <Tab.Pane eventKey="scene-markers-panel">
-            <SceneMarkersPanel
-              sceneId={scene.id}
-              onClickMarker={onClickMarker}
-              onLoopMarker={onLoopMarker}
-              isVisible={activeTabKey === "scene-markers-panel"}
-            />
+            {/* CUSTOM: release markers use the selected owner's media */}
+            {activeRelease ? (
+              <SceneReleaseMarkersCustom
+                key={`${activeRelease.id}-markers`} // CUSTOM: reset editor when owner changes
+                release={activeRelease}
+                kind="markers"
+                onSeek={setTimestamp}
+              />
+            ) : (
+              <SceneMarkersPanel
+                sceneId={scene.id}
+                onClickMarker={onClickMarker}
+                isVisible={activeTabKey === "scene-markers-panel"}
+                addMultiSegmentLoopSegments={addMultiSegmentLoopSegments} // CUSTOM
+                currentTimestamp={currentTimestamp} // CUSTOM
+                focusedMarkerRequest={scrubberMarkerFocusRequest} // CUSTOM
+                onFocusedMarkerHandled={onScrubberMarkerFocusHandled} // CUSTOM
+                createMarkerRequest={sequentialMarkerCreateRequest} // CUSTOM
+                onCreateMarkerRequestHandled={
+                  onSequentialMarkerCreateRequestHandled
+                } // CUSTOM
+                markerTimestampCopyRequest={markerTimestampCopyRequest} // CUSTOM
+                markerTimestampCopySelection={markerTimestampCopySelection} // CUSTOM
+                onMarkerTimestampCopyRequest={onMarkerTimestampCopyRequest} // CUSTOM
+                onMarkerTimestampCopySelectionHandled={
+                  onMarkerTimestampCopySelectionHandled
+                } // CUSTOM
+              />
+            )}
           </Tab.Pane>
+          {/* CUSTOM: begin - negative markers pane */}
+          <Tab.Pane eventKey="scene-negative-markers-panel">
+            {activeRelease ? (
+              <SceneReleaseMarkersCustom
+                key={`${activeRelease.id}-negative`} // CUSTOM: reset editor when owner changes
+                release={activeRelease}
+                kind="negative"
+                onSeek={setTimestamp}
+              />
+            ) : (
+              <SceneNegativeMarkersPanel
+                scene={scene}
+                isVisible={activeTabKey === "scene-negative-markers-panel"}
+                onAddNextMarker={onAddNextMarkerFromNegativeMarker} // CUSTOM
+                markerTimestampCopyRequest={markerTimestampCopyRequest} // CUSTOM
+                markerTimestampCopySelection={markerTimestampCopySelection} // CUSTOM
+                onMarkerTimestampCopyRequest={onMarkerTimestampCopyRequest} // CUSTOM
+                onMarkerTimestampCopySelectionHandled={
+                  onMarkerTimestampCopySelectionHandled
+                } // CUSTOM
+              />
+            )}
+          </Tab.Pane>
+          {/* CUSTOM: end */}
           <Tab.Pane eventKey="scene-group-panel">
             <SceneGroupPanel scene={scene} />
           </Tab.Pane>
@@ -647,14 +1015,32 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
               )}
             </Tab.Pane>
           )}
-          <Tab.Pane eventKey="scene-video-filter-panel">
+          <Tab.Pane
+            eventKey="scene-video-filter-panel"
+            mountOnEnter={false} // CUSTOM: this panel also applies player styles while hidden.
+          >
             <SceneVideoFilterPanel scene={scene} />
           </Tab.Pane>
+          {/* CUSTOM: begin - releases pane */}
+          <Tab.Pane eventKey="scene-releases-panel">
+            <SceneReleasesPanel
+              scene={scene}
+              activeReleaseId={activeReleaseId}
+              onSetActiveRelease={setActiveReleaseId}
+              onRefetch={onRefreshScene} // CUSTOM: upstream refresh
+            />
+          </Tab.Pane>
+          {/* CUSTOM: end */}
           <Tab.Pane
             className="file-info-panel"
             eventKey="scene-file-info-panel"
           >
-            <SceneFileInfoPanel scene={scene} />
+            {activeRelease ? (
+              <SceneReleaseFileInfoCustom release={activeRelease} />
+            ) : (
+              <SceneFileInfoPanel scene={scene} remotePlayer={remotePlayer} />
+            )}{" "}
+            {/* CUSTOM */}
           </Tab.Pane>
           <Tab.Pane eventKey="scene-edit-panel" mountOnEnter>
             <SceneEditPanel
@@ -666,11 +1052,22 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
               onGenerateThumbDefault={() => onGenerateScreenshot()}
               onSubmit={onSave}
               onDelete={() => setIsDeleteAlertOpen(true)}
+              // CUSTOM: solo markers keep 2-3 vato scenes on the solo rubric
+              ratingSoloCustom={sceneTypeForRating === "hand"}
             />
           </Tab.Pane>
           <Tab.Pane eventKey="scene-history-panel">
-            <SceneHistoryPanel scene={scene} />
+            <SceneHistoryPanel scene={scene} release={activeRelease} />{" "}
+            {/* CUSTOM */}
           </Tab.Pane>
+          {/* CUSTOM: begin - stats pane */}
+          <Tab.Pane eventKey="scene-stats-panel">
+            <SceneStatsPanel
+              scene={scene}
+              addMultiSegmentLoopSegments={addMultiSegmentLoopSegments}
+            />
+          </Tab.Pane>
+          {/* CUSTOM: end */}
         </ScenePageTabContent>
       </Tab.Content>
     </Tab.Container>
@@ -687,8 +1084,27 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     [scene]
   );
 
+  const sceneRatingMode = getSceneRatingModeCustom(
+    scene.performers.length,
+    sceneTypeForRating === "hand"
+  ); // CUSTOM
+  // CUSTOM: attractiveness criteria in the rating advisor show the rated vatos
+  const ratingAdvisorVatos = useMemo(
+    () =>
+      getRatingAdvisorCriterionVatosCustom(
+        scene,
+        configuration?.ui?.roleTagIds ?? {},
+        sceneRatingMode
+      ),
+    [configuration?.ui?.roleTagIds, scene, sceneRatingMode]
+  );
+  // CUSTOM: the parent's O's include its releases'
+  const oTotal = sceneOTotalCustom(scene);
+  const oTotalHint = sceneTotalHintCustom(oTotal);
+
   return (
-    <>
+    <ScenePerformerOverviewProvider scene={scene}>
+      {/* CUSTOM: scene-scoped vato overview drawer */}
       <Helmet>
         <title>{title}</title>
       </Helmet>
@@ -696,22 +1112,35 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
       {maybeRenderMergeDialog()}
       {maybeRenderDeleteDialog()}
       <div
-        className={`scene-tabs order-xl-first order-last ${
-          collapsed ? "collapsed" : ""
-        }`}
+        className={cx("scene-tabs order-xl-first order-last", {
+          collapsed,
+          "scene-tabs-compact": scenePanelCompact, // CUSTOM
+        })}
       >
-        <div>
+        <div className="scene-overview">
           <div className="scene-header-container">
-            <StudioLogo studio={scene.studio} showText={showStudioText} />
-            <h3 className={cx("scene-header", { "no-studio": !scene.studio })}>
+            <StudioLogo studio={headerStudio} showText={showStudioText} />
+            <h3 className={cx("scene-header", { "no-studio": !headerStudio })}>
               <TruncatedText lineCount={2} text={title} />
             </h3>
           </div>
 
           <div className="scene-subheader">
-            <span className="date" data-value={scene.date}>
-              {!!scene.date && <FormattedDate value={scene.date} />}
-            </span>
+            {/* CUSTOM: date and insights share a line, as on scene cards */}
+            <div className="scene-meta-line">
+              <span
+                className="date"
+                data-value={scene.effective_date ?? scene.date ?? undefined}
+              >
+                {/* CUSTOM: effective_date */}
+                {(scene.effective_date ?? scene.date) && (
+                  <FormattedDate
+                    value={(scene.effective_date ?? scene.date)!}
+                  />
+                )}
+              </span>
+              <SceneDetailInsights scene={scene} />
+            </div>
             <VideoFrameRateResolution
               width={file?.width}
               height={file?.height}
@@ -719,14 +1148,28 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
             />
           </div>
 
+          {/* CUSTOM: activity bar and rating criteria strip in the scene card
+          layout; the Quality boxes live in the Stats tab */}
+          <SceneDetailActivityBar scene={scene} />
+          <SceneRatingStrip
+            className="rating-criteria-strip--scene-detail"
+            nutReportInline
+            scene={scene}
+            sceneRatingMode={sceneRatingMode}
+          />
+
           <div className="scene-toolbar">
             <span className="scene-toolbar-group">
-              <RatingSystem
-                value={scene.rating100}
-                onSetRating={setRating}
-                clickToRate
-                withoutContext
-              />
+              <RatingAdvisorButton
+                entityType="scene"
+                entityId={scene.id}
+                sceneRatingMode={sceneRatingMode}
+                rating100={scene.rating100}
+                ratingScores={scene.rating_scores}
+                criterionVatos={ratingAdvisorVatos} // CUSTOM
+                onRatingSaved={onRefreshScene} // CUSTOM: upstream refresh
+              />{" "}
+              {/* CUSTOM */}
             </span>
             <span className="scene-toolbar-group">
               <span>
@@ -734,16 +1177,42 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
               </span>
               <span>
                 <ViewCountButton
-                  value={scene.play_count ?? 0}
+                  value={
+                    activeReleaseId
+                      ? (scene.releases?.find(
+                          (release) => release.id === activeReleaseId
+                        )?.play_history.length ?? 0)
+                      : (scene.play_count ?? 0)
+                  }
                   onIncrement={() => incrementPlayCount()}
                 />
               </span>
               <span>
-                <OCounterButton
-                  value={scene.o_counter ?? 0}
-                  onIncrement={() => onIncrementOClick()}
-                />
+                {/* CUSTOM: scenes offer a retroactive O; releases keep the plain button */}
+                {activeReleaseId ? (
+                  <OCounterButton
+                    value={
+                      scene.releases?.find(
+                        (release) => release.id === activeReleaseId
+                      )?.o_history.length ?? 0
+                    }
+                    onIncrement={() => onIncrementOClick()}
+                  />
+                ) : (
+                  <SceneOCounterMenu
+                    value={oTotal.total}
+                    className={oTotalHint.className}
+                    valueTitle={oTotalHint.title}
+                    onIncrement={() => onIncrementOClick()}
+                    onRetroactive={() => onRetroactiveOClick()}
+                  />
+                )}
               </span>
+              {/* CUSTOM */}
+              <StashDBMatchesCount
+                total={sceneStashDBMatchesTotalCustom(scene)}
+                stashIDs={scene.stash_ids}
+              />
               <span>
                 <OrganizedButton
                   loading={organizedLoading}
@@ -769,7 +1238,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
         show={showDraftModal}
         onHide={() => setShowDraftModal(false)}
       />
-    </>
+    </ScenePerformerOverviewProvider>
   );
 });
 
@@ -823,6 +1292,64 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
   const [hideScrubber, setHideScrubber] = useState(
     !(configuration?.interface.showScrubber ?? true)
   );
+  const [currentTimestamp, setCurrentTimestamp] = useState<number>(0); // CUSTOM
+  // CUSTOM: begin - route marker boundary selections back to the form field
+  // that requested a copied timestamp.
+  const markerTimestampCopyRequestId = useRef(0);
+  const [markerTimestampCopyRequest, setMarkerTimestampCopyRequest] =
+    useState<ISceneMarkerTimestampCopyRequest>();
+  const [markerTimestampCopySelection, setMarkerTimestampCopySelection] =
+    useState<ISceneMarkerTimestampCopySelection>();
+
+  const onMarkerTimestampCopyRequest = useCallback(
+    (
+      field: SceneMarkerTimestampField | undefined,
+      destination: SceneMarkerTimestampDestination
+    ) => {
+      setMarkerTimestampCopySelection((currentSelection) =>
+        field || currentSelection?.destination === destination
+          ? undefined
+          : currentSelection
+      );
+      setMarkerTimestampCopyRequest((currentRequest) => {
+        if (!field) {
+          return currentRequest?.destination === destination
+            ? undefined
+            : currentRequest;
+        }
+        if (
+          currentRequest?.field === field &&
+          currentRequest.destination === destination
+        ) {
+          return undefined;
+        }
+
+        markerTimestampCopyRequestId.current += 1;
+        return {
+          field,
+          destination,
+          requestId: markerTimestampCopyRequestId.current,
+        };
+      });
+    },
+    []
+  );
+
+  const onMarkerTimestampCopySelectionHandled = useCallback(
+    (requestId: number) => {
+      setMarkerTimestampCopySelection((currentSelection) =>
+        currentSelection?.requestId === requestId ? undefined : currentSelection
+      );
+    },
+    []
+  );
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: CUSTOM: re-runs when id change
+  useEffect(() => {
+    setMarkerTimestampCopyRequest(undefined);
+    setMarkerTimestampCopySelection(undefined);
+  }, [id]);
+  // CUSTOM: end
 
   const _setTimestamp = useRef<(value: number) => void>();
   const initialTimestamp = useMemo(() => {
@@ -837,6 +1364,95 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
   const [queueTotal, setQueueTotal] = useState(0);
   const [queueStart, setQueueStart] = useState(1);
 
+  // CUSTOM: begin - active release playback state
+  // State for active release playback
+  const requestedReleaseId = queryParams.get("release");
+  const activeReleaseId =
+    scene?.id === id &&
+    scene.releases?.some(
+      (release) => release.id === requestedReleaseId && release.files.length > 0
+    )
+      ? requestedReleaseId
+      : null;
+
+  const setActiveReleaseId = useCallback(
+    (releaseId: string | null) => {
+      const params = new URLSearchParams(location.search);
+      if (releaseId) params.set("release", releaseId);
+      else params.delete("release");
+      history.replace({ ...location, search: params.toString() });
+    },
+    [history, location]
+  );
+
+  useEffect(() => {
+    if (scene?.id === id && requestedReleaseId && !activeReleaseId) {
+      setActiveReleaseId(null);
+    }
+  }, [scene, id, requestedReleaseId, activeReleaseId, setActiveReleaseId]);
+
+  // CUSTOM: select an explicit owner before exposing media to the player.
+  const playbackContext = useMemo(
+    () => scene && getSceneReleasePlaybackContextCustom(scene, activeReleaseId),
+    [scene, activeReleaseId]
+  );
+  const sceneForPlayer = playbackContext?.scene;
+
+  // The player publishes its loop plugin; markers and stats add to it too.
+  const [loopPlugin, setLoopPlugin] = useState<MultiSegmentLoopPlugin>();
+  const multiSegmentLoop = useMultiSegmentLoop(
+    loopPlugin,
+    sceneForPlayer?.negative_markers
+  );
+  const loopPresetSource = useMemo(
+    () => loopPresetsFromSource(sceneForPlayer?.multi_segment_loop_presets),
+    [sceneForPlayer?.multi_segment_loop_presets]
+  );
+  const multiSegmentLoopPresets = useMultiSegmentLoopPresets(
+    activeReleaseId
+      ? { releaseId: activeReleaseId }
+      : { sceneId: sceneForPlayer?.id },
+    loopPresetSource,
+    multiSegmentLoop
+  );
+  // CUSTOM: end
+
+  // CUSTOM: keep the remote publisher beside the player, while its pairing
+  // control lives in the File Info panel so it is easy to find later.
+  const remotePlayerReady = useRef(false);
+  const onRemotePlayerReady = useCallback((ready: boolean) => {
+    remotePlayerReady.current = ready;
+  }, []);
+  const remotePlayer = useRemotePlayerCustom(
+    `${sceneForPlayer?.id ?? id}-${sceneForPlayer?.files[0]?.id ?? ""}`,
+    (): PlaybackSnapshot | undefined => {
+      const player = getPlayer();
+      if (
+        !remotePlayerReady.current ||
+        !player ||
+        player.isDisposed() ||
+        !sceneForPlayer
+      ) {
+        return undefined;
+      }
+      return {
+        scene_id: sceneForPlayer.id,
+        release_id: activeReleaseId, // CUSTOM: remote O's follow the playing release
+        scene_title: sceneForPlayer.title || "Untitled scene",
+        video_timestamp: player.currentTime(),
+        duration: player.duration(),
+        playback_rate: player.playbackRate(),
+        status:
+          player.seeking() || player.readyState() < 3
+            ? "buffering"
+            : player.paused()
+              ? "paused"
+              : "playing",
+      };
+    },
+    getPlayer // CUSTOM: loop control and fullscreen toast host
+  );
+
   const autoplay = queryParams.get("autoplay") === "true";
   const autoPlayOnSelected =
     configuration?.interface.autostartVideoOnPlaySelected ?? false;
@@ -849,6 +1465,12 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
   function getSetTimestamp(fn: (value: number) => void) {
     _setTimestamp.current = fn;
   }
+
+  // CUSTOM: begin - markers and stats add to the current owner's loop
+  function addMultiSegmentLoopSegments(segments: ILoopSegmentInput[]) {
+    multiSegmentLoop.addSegments(segments);
+  }
+  // CUSTOM: end
 
   function setTimestamp(value: number) {
     if (_setTimestamp.current) {
@@ -1012,6 +1634,70 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
     }
   }
 
+  // CUSTOM: begin - bridge player scrubber marker clicks to ScenePage tabs
+  // biome-ignore lint/correctness/useExhaustiveDependencies: CUSTOM: intentionally omits setTimestamp
+  const onScenePlayerMarkerClick = useCallback(
+    (
+      markerId: string,
+      seconds: number,
+      boundary?: SceneMarkerTimestampBoundary,
+      sourceKind: SceneMarkerTimestampSourceKind = "scene-marker"
+    ) => {
+      if (activeReleaseId) {
+        setTimestamp(seconds);
+        return;
+      }
+      // CUSTOM: timestamp-copy mode consumes the marker click and leaves the
+      // Create Marker form open instead of focusing the source marker card.
+      if (markerTimestampCopyRequest) {
+        if (!boundary) return;
+
+        let sourceMarker: ISceneMarkerTimestampSource | undefined;
+        if (sourceKind === "negative-marker") {
+          const negativeMarker = scene?.negative_markers.find(
+            (candidate) => candidate.id === markerId
+          );
+          if (negativeMarker) {
+            sourceMarker = {
+              id: negativeMarker.id,
+              seconds: negativeMarker.start_seconds,
+              end_seconds: negativeMarker.end_seconds,
+            };
+          }
+        } else {
+          sourceMarker = scene?.scene_markers.find(
+            (sceneMarker) => sceneMarker.id === markerId
+          );
+        }
+        if (!sourceMarker) return;
+
+        const selection = resolveSceneMarkerTimestampCopySelection(
+          markerTimestampCopyRequest,
+          sourceMarker,
+          boundary
+        );
+        if (!selection) return;
+
+        setMarkerTimestampCopySelection(selection);
+        setMarkerTimestampCopyRequest(undefined);
+        return;
+      }
+
+      window.dispatchEvent(
+        new CustomEvent("stash:scene-marker-scrubber-click", {
+          detail: { markerId, seconds },
+        })
+      );
+    },
+    [
+      activeReleaseId,
+      markerTimestampCopyRequest,
+      scene?.negative_markers,
+      scene?.scene_markers,
+    ]
+  );
+  // CUSTOM: end
+
   function onDelete() {
     if (
       continuePlaylist &&
@@ -1020,7 +1706,7 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
     ) {
       loadScene(queueScenes[currentQueueIndex + 1].id);
     } else {
-      goBackOrReplace(history, "/scenes");
+      history.goBack(); // CUSTOM: goBack instead of goBackOrReplace
     }
   }
 
@@ -1051,6 +1737,7 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
       <ScenePage
         scene={scene}
         setTimestamp={setTimestamp}
+        addMultiSegmentLoopSegments={addMultiSegmentLoopSegments}
         queueScenes={queueScenes}
         queueStart={queueStart}
         onDelete={onDelete}
@@ -1066,17 +1753,56 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
         setCollapsed={setCollapsed}
         setContinuePlaylist={setContinuePlaylist}
         onRefreshScene={onRefreshScene}
+        activeReleaseId={activeReleaseId} // CUSTOM
+        setActiveReleaseId={setActiveReleaseId} // CUSTOM
+        currentTimestamp={currentTimestamp} // CUSTOM
+        markerTimestampCopyRequest={markerTimestampCopyRequest} // CUSTOM
+        markerTimestampCopySelection={markerTimestampCopySelection} // CUSTOM
+        onMarkerTimestampCopyRequest={onMarkerTimestampCopyRequest} // CUSTOM
+        onMarkerTimestampCopySelectionHandled={
+          onMarkerTimestampCopySelectionHandled
+        } // CUSTOM
+        remotePlayer={remotePlayer} // CUSTOM
       />
       <div className={`scene-player-container ${collapsed ? "expanded" : ""}`}>
-        {isPlayable(scene) ? (
+        {activeReleaseId && (
+          <div className="text-center text-muted small py-1" role="status">
+            <FormattedMessage id="release" defaultMessage="Release" />:{" "}
+            {sceneForPlayer?.title || activeReleaseId}
+          </div>
+        )}
+        {activeReleaseId && !sceneForPlayer?.files.length ? (
+          <div className="text-center text-muted p-3" role="status">
+            This release has no video file.
+          </div>
+        ) : sceneForPlayer && isPlayable(sceneForPlayer) ? (
           <ScenePlayer
-            key="ScenePlayer"
-            scene={scene}
+            key={playbackContext?.ownerKey} // CUSTOM: reset media when owner or primary changes
+            scene={sceneForPlayer} // CUSTOM: sceneForPlayer
+            playbackReleaseId={activeReleaseId ?? undefined} // CUSTOM
+            playbackPerformerIds={
+              activeReleaseId
+                ? scene.releases
+                    .find((release) => release.id === activeReleaseId)
+                    ?.performers.map((performer) => performer.id)
+                : undefined
+            } // CUSTOM
             hideScrubberOverride={hideScrubber}
             autoplay={autoplay}
             permitLoop={!continuePlaylist}
             initialTimestamp={initialTimestamp}
             sendSetTimestamp={getSetTimestamp}
+            multiSegmentLoop={multiSegmentLoop} // CUSTOM
+            multiSegmentLoopPresets={multiSegmentLoopPresets} // CUSTOM
+            onMultiSegmentLoopPluginChange={setLoopPlugin} // CUSTOM
+            addMultiSegmentLoopSegments={addMultiSegmentLoopSegments} // CUSTOM
+            onTimeChange={setCurrentTimestamp} // CUSTOM
+            onMarkerClick={onScenePlayerMarkerClick} // CUSTOM
+            onRemotePlayerReady={onRemotePlayerReady} // CUSTOM
+            markerTimestampCopyActive={!!markerTimestampCopyRequest} // CUSTOM
+            markerTimestampRangeCopyActive={
+              markerTimestampCopyRequest?.field === "range"
+            } // CUSTOM
             onComplete={onComplete}
             onNext={() => queueNext(true)}
             onPrevious={() => queuePrevious(true)}

@@ -48,6 +48,67 @@ const (
 // production date must not mask a valid release date.
 const sceneAgeDateExpr = "COALESCE(NULLIF(scenes.production_date, ''), scenes.date)"
 
+func deleteSceneMarkerPerformerAssociations(ctx context.Context, sceneID int, performerIDs []int) error {
+	performerIDs = sliceutil.AppendUniques(nil, performerIDs)
+	if len(performerIDs) == 0 {
+		return nil
+	}
+
+	query := `DELETE FROM scene_marker_performers
+		WHERE performer_id IN ` + getInBinding(len(performerIDs)) + `
+		AND scene_marker_id IN (SELECT id FROM scene_markers WHERE scene_id = ?)`
+
+	args := make([]interface{}, 0, len(performerIDs)+1)
+	for _, performerID := range performerIDs {
+		args = append(args, performerID)
+	}
+	args = append(args, sceneID)
+
+	if _, err := dbWrapper.Exec(ctx, query, args...); err != nil {
+		return fmt.Errorf("deleting scene marker performer associations for scene %d: %w", sceneID, err)
+	}
+
+	return nil
+}
+
+func removedScenePerformerIDs(existing []int, update *models.UpdateIDs) []int {
+	if update == nil {
+		return nil
+	}
+
+	switch update.Mode {
+	case models.RelationshipUpdateModeRemove:
+		return update.IDs
+	case models.RelationshipUpdateModeSet:
+		removed := make([]int, 0, len(existing))
+		for _, performerID := range existing {
+			if !slices.Contains(update.IDs, performerID) {
+				removed = append(removed, performerID)
+			}
+		}
+		return removed
+	default:
+		return nil
+	}
+}
+
+func getRemovedScenePerformerIDs(ctx context.Context, sceneID int, update *models.UpdateIDs) ([]int, error) {
+	if update == nil {
+		return nil, nil
+	}
+
+	if update.Mode != models.RelationshipUpdateModeSet && update.Mode != models.RelationshipUpdateModeRemove {
+		return nil, nil
+	}
+
+	existing, err := scenesPerformersTableMgr.get(ctx, sceneID)
+	if err != nil {
+		return nil, fmt.Errorf("getting existing scene performers for scene %d: %w", sceneID, err)
+	}
+
+	return removedScenePerformerIDs(existing, update), nil
+}
+
 type sceneRow struct {
 	ID                      int         `db:"id" goqu:"skipinsert"`
 	Title                   zero.String `db:"title"`
@@ -343,10 +404,42 @@ func (qb *SceneStore) Create(ctx context.Context, newObject *models.Scene, fileI
 
 	*newObject = *updated
 
+	// CUSTOM: begin - record newly tagged tracker work after the create succeeds
+	afterTags, err := taskProgressTagSnapshotCustom(ctx, "scene", id)
+	if err != nil {
+		return err
+	}
+	if err := recordTaskProgressTagDiffCustom(ctx, "scene", id, nil, afterTags); err != nil {
+		return err
+	}
+	if err := recordTaskProgressOverallSceneChangeCustom(ctx, taskProgressOverallSceneCreatedCustom, id, false, updated.Organized); err != nil {
+		return err
+	}
+	// CUSTOM: end
+
 	return nil
 }
 
 func (qb *SceneStore) UpdatePartial(ctx context.Context, id int, partial models.ScenePartial) (*models.Scene, error) {
+	// CUSTOM: begin - diff logical tag membership instead of physical join writes
+	var beforeTags taskProgressTagSetCustom
+	var beforeOrganized bool
+	if partial.TagIDs != nil {
+		var err error
+		beforeTags, err = taskProgressTagSnapshotCustom(ctx, "scene", id)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if partial.Organized.Set {
+		var err error
+		beforeOrganized, err = taskProgressSceneOrganizedCustom(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+	}
+	// CUSTOM: end
+
 	r := sceneRowRecord{
 		updateRecord{
 			Record: make(exp.Record),
@@ -367,7 +460,18 @@ func (qb *SceneStore) UpdatePartial(ctx context.Context, id int, partial models.
 		}
 	}
 	if partial.PerformerIDs != nil {
-		if err := scenesPerformersTableMgr.modifyJoins(ctx, id, partial.PerformerIDs.IDs, partial.PerformerIDs.Mode); err != nil {
+		removedPerformerIDs, err := getRemovedScenePerformerIDs(ctx, id, partial.PerformerIDs)
+		if err != nil {
+			return nil, err
+		}
+		if err := deleteSceneMarkerPerformerAssociations(ctx, id, removedPerformerIDs); err != nil {
+			return nil, err
+		}
+
+		// CUSTOM: clear advisor scores when the cast change switches rating modes
+		if err := resetSceneAdvisorOnModeChangeCustom(ctx, id, func() error {
+			return scenesPerformersTableMgr.modifyJoins(ctx, id, partial.PerformerIDs.IDs, partial.PerformerIDs.Mode)
+		}); err != nil {
 			return nil, err
 		}
 	}
@@ -382,7 +486,7 @@ func (qb *SceneStore) UpdatePartial(ctx context.Context, id int, partial models.
 		}
 	}
 	if partial.StashIDs != nil {
-		if err := scenesStashIDsTableMgr.modifyJoins(ctx, id, partial.StashIDs.StashIDs, partial.StashIDs.Mode); err != nil {
+		if err := qb.updateStashIDsAndMatchesCustom(ctx, id, partial.StashIDs.StashIDs, partial.StashIDs.Mode); err != nil { // CUSTOM
 			return nil, err
 		}
 	}
@@ -397,10 +501,46 @@ func (qb *SceneStore) UpdatePartial(ctx context.Context, id int, partial models.
 		}
 	}
 
-	return qb.find(ctx, id)
+	updated, err := qb.find(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// CUSTOM: begin - record the final tag-set transition
+	if beforeTags != nil {
+		afterTags, err := taskProgressTagSnapshotCustom(ctx, "scene", id)
+		if err != nil {
+			return nil, err
+		}
+		if err := recordTaskProgressTagDiffCustom(ctx, "scene", id, beforeTags, afterTags); err != nil {
+			return nil, err
+		}
+	}
+	if partial.Organized.Set {
+		if err := recordTaskProgressOverallSceneChangeCustom(ctx, taskProgressOverallSceneUpdatedCustom, id, beforeOrganized, updated.Organized); err != nil {
+			return nil, err
+		}
+	}
+	// CUSTOM: end
+
+	return updated, nil
 }
 
 func (qb *SceneStore) Update(ctx context.Context, updatedObject *models.Scene) error {
+	// CUSTOM: begin - snapshot only when the full update carries tags
+	var beforeTags taskProgressTagSetCustom
+	beforeOrganized, err := taskProgressSceneOrganizedCustom(ctx, updatedObject.ID)
+	if err != nil {
+		return err
+	}
+	if updatedObject.TagIDs.Loaded() {
+		beforeTags, err = taskProgressTagSnapshotCustom(ctx, "scene", updatedObject.ID)
+		if err != nil {
+			return err
+		}
+	}
+	// CUSTOM: end
+
 	var r sceneRow
 	r.fromScene(*updatedObject)
 
@@ -415,7 +555,21 @@ func (qb *SceneStore) Update(ctx context.Context, updatedObject *models.Scene) e
 	}
 
 	if updatedObject.PerformerIDs.Loaded() {
-		if err := scenesPerformersTableMgr.replaceJoins(ctx, updatedObject.ID, updatedObject.PerformerIDs.List()); err != nil {
+		removedPerformerIDs, err := getRemovedScenePerformerIDs(ctx, updatedObject.ID, &models.UpdateIDs{
+			IDs:  updatedObject.PerformerIDs.List(),
+			Mode: models.RelationshipUpdateModeSet,
+		})
+		if err != nil {
+			return err
+		}
+		if err := deleteSceneMarkerPerformerAssociations(ctx, updatedObject.ID, removedPerformerIDs); err != nil {
+			return err
+		}
+
+		// CUSTOM: clear advisor scores when the cast change switches rating modes
+		if err := resetSceneAdvisorOnModeChangeCustom(ctx, updatedObject.ID, func() error {
+			return scenesPerformersTableMgr.replaceJoins(ctx, updatedObject.ID, updatedObject.PerformerIDs.List())
+		}); err != nil {
 			return err
 		}
 	}
@@ -433,7 +587,7 @@ func (qb *SceneStore) Update(ctx context.Context, updatedObject *models.Scene) e
 	}
 
 	if updatedObject.StashIDs.Loaded() {
-		if err := scenesStashIDsTableMgr.replaceJoins(ctx, updatedObject.ID, updatedObject.StashIDs.List()); err != nil {
+		if err := qb.updateStashIDsAndMatchesCustom(ctx, updatedObject.ID, updatedObject.StashIDs.List(), models.RelationshipUpdateModeSet); err != nil { // CUSTOM
 			return err
 		}
 	}
@@ -455,10 +609,36 @@ func (qb *SceneStore) Update(ctx context.Context, updatedObject *models.Scene) e
 		}
 	}
 
+	// CUSTOM: begin - record the final tag-set transition
+	if beforeTags != nil {
+		afterTags, err := taskProgressTagSnapshotCustom(ctx, "scene", updatedObject.ID)
+		if err != nil {
+			return err
+		}
+		if err := recordTaskProgressTagDiffCustom(ctx, "scene", updatedObject.ID, beforeTags, afterTags); err != nil {
+			return err
+		}
+	}
+	if err := recordTaskProgressOverallSceneChangeCustom(ctx, taskProgressOverallSceneUpdatedCustom, updatedObject.ID, beforeOrganized, updatedObject.Organized); err != nil {
+		return err
+	}
+	// CUSTOM: end
+
 	return nil
 }
 
 func (qb *SceneStore) Destroy(ctx context.Context, id int) error {
+	// CUSTOM: begin - deletion completes every directly tagged tracker item
+	beforeTags, err := taskProgressTagSnapshotCustom(ctx, "scene", id)
+	if err != nil {
+		return err
+	}
+	itemLabel, err := taskProgressItemLabelCustom(ctx, "scene", id)
+	if err != nil {
+		return err
+	}
+	// CUSTOM: end
+
 	// must handle image checksums manually
 	if err := qb.destroyCover(ctx, id); err != nil {
 		return err
@@ -467,7 +647,16 @@ func (qb *SceneStore) Destroy(ctx context.Context, id int) error {
 	// scene markers should be handled prior to calling destroy
 	// galleries should be handled prior to calling destroy
 
-	return qb.tableMgr.destroyExisting(ctx, []int{id})
+	if err := qb.tableMgr.destroyExisting(ctx, []int{id}); err != nil {
+		return err
+	}
+
+	// CUSTOM: begin
+	if err := recordTaskProgressTagDiffCustom(ctx, "scene", id, beforeTags, nil, itemLabel); err != nil {
+		return err
+	}
+	return recordTaskProgressOverallSceneChangeCustom(ctx, taskProgressOverallSceneDestroyedCustom, id, false, false)
+	// CUSTOM: end
 }
 
 // returns nil, nil if not found
@@ -618,16 +807,20 @@ func (qb *SceneStore) GetManyFileIDs(ctx context.Context, ids []int) ([][]models
 }
 
 func (qb *SceneStore) FindByFileID(ctx context.Context, fileID models.FileID) ([]*models.Scene, error) {
-	sq := dialect.From(scenesFilesJoinTable).Select(scenesFilesJoinTable.Col(sceneIDColumn)).Where(
-		scenesFilesJoinTable.Col(fileIDColumn).Eq(fileID),
-	)
-
-	ret, err := qb.findBySubquery(ctx, sq)
-	if err != nil {
-		return nil, fmt.Errorf("getting scenes by file id %d: %w", fileID, err)
+	// CUSTOM: begin - collect every distinct family, even when one owner is
+	// direct and another is a release. Deletion relies on this complete set.
+	const query = `SELECT scene_id FROM scenes_files WHERE file_id = ?
+		UNION SELECT r.scene_id FROM scene_release_files rf
+		JOIN scene_releases r ON r.id = rf.release_id WHERE rf.file_id = ?`
+	var ids []int
+	if err := dbWrapper.Select(ctx, &ids, query, fileID, fileID); err != nil {
+		return nil, fmt.Errorf("getting scene families for file %d: %w", fileID, err)
 	}
-
-	return ret, nil
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	return qb.FindMany(ctx, ids)
+	// CUSTOM: end
 }
 
 func (qb *SceneStore) GetManyIDsByFileIDs(ctx context.Context, fileIDs []models.FileID) ([][]int, error) {
@@ -776,16 +969,15 @@ func (qb *SceneStore) FindByPerformerID(ctx context.Context, performerID int) ([
 }
 
 func (qb *SceneStore) FindByGalleryID(ctx context.Context, galleryID int) ([]*models.Scene, error) {
-	sq := dialect.From(galleriesScenesJoinTable).Select(galleriesScenesJoinTable.Col(sceneIDColumn)).Where(
-		galleriesScenesJoinTable.Col(galleryIDColumn).Eq(galleryID),
-	)
-	ret, err := qb.findBySubquery(ctx, sq)
-
+	// CUSTOM: gallery links from releases belong to their parent scene too.
+	ids, err := qb.repo.Gallery.GetSceneIDs(ctx, galleryID)
 	if err != nil {
 		return nil, fmt.Errorf("getting scenes for gallery %d: %w", galleryID, err)
 	}
-
-	return ret, nil
+	if len(ids) == 0 {
+		return nil, nil // matches upstream: no scenes is nil
+	}
+	return qb.FindByIDs(ctx, ids)
 }
 
 func (qb *SceneStore) CountByPerformerID(ctx context.Context, performerID int) (int, error) {
@@ -796,6 +988,7 @@ func (qb *SceneStore) CountByPerformerID(ctx context.Context, performerID int) (
 }
 
 func (qb *SceneStore) OCountByPerformerID(ctx context.Context, performerID int) (int, error) {
+	// CUSTOM: release O events count for the release's own cast.
 	table := qb.table()
 	joinTable := scenesPerformersJoinTable
 	oHistoryTable := goqu.T(scenesODatesTable)
@@ -814,6 +1007,11 @@ func (qb *SceneStore) OCountByPerformerID(ctx context.Context, performerID int) 
 	if err := querySimple(ctx, q, &ret); err != nil {
 		return 0, err
 	}
+	var releaseCount int                                                                                                                                                                                           // CUSTOM
+	if err := dbWrapper.Get(ctx, &releaseCount, `SELECT COUNT(*) FROM scene_release_o_dates o JOIN scene_release_performers p ON p.release_id = o.release_id WHERE p.performer_id = ?`, performerID); err != nil { // CUSTOM
+		return 0, err // CUSTOM
+	} // CUSTOM
+	ret += releaseCount // CUSTOM
 
 	return ret, nil
 }
@@ -837,8 +1035,14 @@ func (qb *SceneStore) OCountByGroupID(ctx context.Context, groupID int) (int, er
 	if err := querySimple(ctx, q, &ret); err != nil {
 		return 0, err
 	}
+	// CUSTOM: begin - plus O's on releases assigned to the group
+	releaseCount, err := releaseOCountByGroupCustom(ctx, groupID)
+	if err != nil {
+		return 0, err
+	}
+	// CUSTOM: end
 
-	return ret, nil
+	return ret + releaseCount, nil // CUSTOM
 }
 
 func (qb *SceneStore) OCountByStudioID(ctx context.Context, studioID int, depth int) (int, error) {
@@ -955,6 +1159,7 @@ func (qb *SceneStore) Duration(ctx context.Context) (float64, error) {
 }
 
 func (qb *SceneStore) PlayDuration(ctx context.Context) (float64, error) {
+	// CUSTOM: include release-owned playback in the library-wide duration.
 	table := qb.table()
 
 	q := dialect.Select(goqu.COALESCE(goqu.SUM("play_duration"), 0)).From(table)
@@ -963,6 +1168,11 @@ func (qb *SceneStore) PlayDuration(ctx context.Context) (float64, error) {
 	if err := querySimple(ctx, q, &ret); err != nil {
 		return 0, err
 	}
+	var releaseDuration float64                                                                                                       // CUSTOM
+	if err := dbWrapper.Get(ctx, &releaseDuration, `SELECT COALESCE(SUM(play_duration),0) FROM scene_release_metadata`); err != nil { // CUSTOM
+		return 0, err // CUSTOM
+	} // CUSTOM
+	ret += releaseDuration // CUSTOM
 
 	return ret, nil
 }
@@ -1179,12 +1389,16 @@ var sceneSortOptions = sortOptions{
 	"code",
 	"date",
 	"production_date",
+	"effective_date", // CUSTOM
+	// CUSTOM: StashDB Matches
+	"stashdb_matches",
 	"file_count",
 	"filesize",
 	"duration",
 	"file_mod_time",
 	"framerate",
 	"group_scene_number",
+	"goat_element_bonus", // CUSTOM
 	"id",
 	"interactive",
 	"interactive_speed",
@@ -1207,6 +1421,22 @@ var sceneSortOptions = sortOptions{
 	"title",
 	"updated_at",
 	"performer_age",
+	"sex_activity_percent",          // CUSTOM
+	"oral_activity_percent",         // CUSTOM
+	"solo_activity_percent",         // CUSTOM
+	"other_activity_percent",        // CUSTOM
+	"outstanding_activity_percent",  // CUSTOM
+	"standard_activity_percent",     // CUSTOM
+	"unclassified_activity_percent", // CUSTOM
+	"unusable_activity_percent",     // CUSTOM
+	"orgasm_count",                  // CUSTOM
+	"really_hot_orgasm_count",       // CUSTOM
+	"facial_count",                  // CUSTOM
+	"really_hot_facial_count",       // CUSTOM
+	"regular_orgasm_count",          // CUSTOM
+	"goat_orgasm_count",             // CUSTOM
+	"regular_facial_count",          // CUSTOM
+	"goat_facial_count",             // CUSTOM
 }
 
 func (qb *SceneStore) setSceneSort(query *queryBuilder, findFilter *models.FindFilterType) error {
@@ -1264,6 +1494,8 @@ func (qb *SceneStore) setSceneSort(query *queryBuilder, findFilter *models.FindF
 	case "group_scene_number":
 		query.joinSort(groupsScenesTable, "scene_group", "scenes.id = scene_group.scene_id")
 		query.sortAndPagination += getSort("scene_index", direction, "scene_group")
+	case "goat_element_bonus": // CUSTOM
+		query.sortAndPagination += qb.sortByGoatElementBonusCustom(direction)
 	case "tag_count":
 		query.sortAndPagination += getCountSort(sceneTable, scenesTagsTable, sceneIDColumn, direction)
 	case "performer_count":
@@ -1320,9 +1552,9 @@ func (qb *SceneStore) setSceneSort(query *queryBuilder, findFilter *models.FindF
 	case "last_played_at":
 		query.sortAndPagination += fmt.Sprintf(" ORDER BY (SELECT MAX(view_date) FROM %s AS sort WHERE sort.%s = %s.id) %s", scenesViewDatesTable, sceneIDColumn, sceneTable, getSortDirection(direction))
 	case "last_o_at":
-		query.sortAndPagination += fmt.Sprintf(" ORDER BY (SELECT MAX(o_date) FROM %s AS sort WHERE sort.%s = %s.id) %s", scenesODatesTable, sceneIDColumn, sceneTable, getSortDirection(direction))
+		query.sortAndPagination += " ORDER BY " + sceneLastOSQLCustom("scenes.id") + " " + getSortDirection(direction) // CUSTOM: plus release O's
 	case "o_counter":
-		query.sortAndPagination += getCountSort(sceneTable, scenesODatesTable, sceneIDColumn, direction)
+		query.sortAndPagination += " ORDER BY " + sceneTotalOCountSQLCustom("scenes.id") + " " + getSortDirection(direction) // CUSTOM: plus release O's
 	case "performer_age":
 		// Looking at the youngest performer by default
 		aggregation := "MIN"
@@ -1335,10 +1567,12 @@ func (qb *SceneStore) setSceneSort(query *queryBuilder, findFilter *models.FindF
 			// When sorting ascending, NULLs are first by default. Coalescing to the MAX int value supported by sqlite
 			fallback = "9223372036854775807"
 		}
+		// CUSTOM: Use effective_date (min of scene date and release dates) for age calculation
+		effectiveDateExpr := EffectiveSceneDateSQLCustom(sceneTable)
 		query.sortAndPagination += fmt.Sprintf(
 			" ORDER BY (SELECT COALESCE(%s(JulianDay(%s) - JulianDay(performers.birthdate)), %s) FROM %s as performers INNER JOIN %s AS aggregation WHERE performers.id = aggregation.%s AND aggregation.%s = %s.id) %s",
 			aggregation,
-			sceneAgeDateExpr,
+			"COALESCE(NULLIF(scenes.production_date, ''), "+effectiveDateExpr+")", // CUSTOM: production date, else effective date (was sceneAgeDateExpr)
 			fallback,
 			performerTable,
 			performersScenesTable,
@@ -1350,8 +1584,32 @@ func (qb *SceneStore) setSceneSort(query *queryBuilder, findFilter *models.FindF
 	case "studio":
 		query.joinSort(studioTable, "", "scenes.studio_id = studios.id")
 		query.sortAndPagination += getSort("name", direction, studioTable)
+	case "effective_date": // CUSTOM
+		query.sortAndPagination += qb.sortByEffectiveDateCustom(query, direction)
+	case "stashdb_matches": // CUSTOM
+		query.sortAndPagination += qb.sortByStashDBMatchesCustom(query, direction)
+	case "sex_activity_percent": // CUSTOM
+		query.sortAndPagination += qb.sortByBatchedActivityPercentCustom(query, activityPercentSexCustom, direction)
+	case "oral_activity_percent": // CUSTOM
+		query.sortAndPagination += qb.sortByBatchedActivityPercentCustom(query, activityPercentOralCustom, direction)
+	case "solo_activity_percent": // CUSTOM
+		query.sortAndPagination += qb.sortByBatchedActivityPercentCustom(query, activityPercentSoloCustom, direction)
+	case "other_activity_percent": // CUSTOM
+		query.sortAndPagination += qb.sortByBatchedActivityPercentCustom(query, activityPercentOtherCustom, direction)
+	case "outstanding_activity_percent": // CUSTOM
+		query.sortAndPagination += qb.sortByBatchedActivityPercentCustom(query, activityPercentOutstandingCustom, direction)
+	case "standard_activity_percent": // CUSTOM
+		query.sortAndPagination += qb.sortByBatchedActivityPercentCustom(query, activityPercentStandardCustom, direction)
+	case "unclassified_activity_percent": // CUSTOM
+		query.sortAndPagination += qb.sortByBatchedActivityPercentCustom(query, activityPercentUnclassifiedCustom, direction)
+	case "unusable_activity_percent": // CUSTOM
+		query.sortAndPagination += qb.sortByBatchedActivityPercentCustom(query, activityPercentUnusableCustom, direction)
 	default:
-		query.sortAndPagination += getSort(sort, direction, "scenes")
+		if markerSort, ok := sceneMarkerCountSortKeysCustom[sort]; ok { // CUSTOM
+			query.sortAndPagination += qb.sortByMarkerCountCustom(query, markerSort, direction)
+		} else {
+			query.sortAndPagination += getSort(sort, direction, "scenes")
+		}
 	}
 
 	// Whatever the sorting, always use title/id as a final sort

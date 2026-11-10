@@ -1,5 +1,7 @@
 fragment SlimGalleryData on Gallery {
   id
+  created_at # CUSTOM: active sort metric on gallery cards
+  updated_at # CUSTOM: active sort metric on gallery cards
   title
   code
   date

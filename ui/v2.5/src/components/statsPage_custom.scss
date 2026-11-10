@@ -1,0 +1,197 @@
+/* CUSTOM: Shared outer layout for every statistics page. */
+.stats-page {
+  margin: 3rem auto 0;
+  width: 100%;
+}
+
+.stats-page-loading {
+  min-height: 16rem;
+}
+
+/* CUSTOM: Shared removable filters and explicit interaction cues. */
+.stats-filter-bar {
+  align-items: center;
+  background: var(--stats-surface);
+  border: 1px solid var(--stats-border-strong);
+  border-radius: var(--app-panel-radius);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  position: sticky;
+  top: 3.5rem;
+  z-index: 10;
+}
+
+.stats-filter-total {
+  font-weight: 700;
+}
+
+.stats-filter-list {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.stats-filter-chip {
+  background: var(--stats-surface-raised);
+  border: 1px solid var(--stats-accent);
+  border-radius: 1rem;
+  color: var(--stats-text);
+  cursor: pointer;
+  min-height: 2rem;
+  overflow-wrap: anywhere;
+  padding: 0.25rem 0.65rem;
+  text-align: left;
+
+  &:hover {
+    background: var(--stats-track);
+  }
+
+  &:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+  }
+}
+
+.stats-interaction-help {
+  color: var(--stats-muted);
+  font-size: 0.875rem;
+  margin: 0.75rem 0;
+}
+
+@media (max-width: 575.98px) {
+  .stats-filter-bar {
+    position: static;
+  }
+}
+
+/* CUSTOM: Statistics destinations take two rows on tablets and one row on
+   desktops. */
+@media (min-width: 992px) {
+  .stats-page .stats-links {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+.stats-studio-selector {
+  align-items: flex-end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  justify-content: flex-end;
+  min-width: min(100%, 18rem);
+
+  .form-group {
+    margin: 0;
+    min-width: min(100%, 18rem);
+  }
+
+  .form-label {
+    color: var(--stats-muted);
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .custom-control {
+    margin-bottom: 0.55rem;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .stats-studio-selector {
+    justify-content: stretch;
+    width: 100%;
+
+    .form-group {
+      width: 100%;
+    }
+  }
+}
+
+/* CUSTOM: shared date range picker beside the studio selector. */
+.stats-header-controls {
+  align-items: flex-end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  justify-content: flex-end;
+}
+
+.stats-date-range-filter {
+  align-items: flex-end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+
+  .form-group {
+    margin: 0;
+    min-width: 9rem;
+  }
+
+  .form-label {
+    color: var(--stats-muted);
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .stats-header-controls,
+  .stats-date-range-filter {
+    justify-content: stretch;
+    width: 100%;
+
+    .form-group {
+      flex: 1 1 8rem;
+    }
+  }
+}
+
+/* CUSTOM: stats destinations in the Black Steel style: steel tiles with a
+   copper edge on the current page. */
+.stats-page .stats-links {
+  gap: 0.6rem;
+  margin-bottom: 1.5rem;
+}
+
+.stats-page .stats-links-item {
+  background: var(--stats-surface);
+  border-color: var(--stats-border);
+  border-radius: var(--app-panel-radius);
+  color: var(--stats-text);
+  flex-direction: row;
+  font-size: 0.85rem;
+  font-weight: 700;
+  gap: 0.6rem;
+  letter-spacing: 0.04em;
+  min-height: 3.5rem;
+  padding: 0.6rem 0.9rem;
+
+  .stats-links-icon {
+    font-size: 1.25rem;
+  }
+
+  .stats-links-mask {
+    height: 1.25rem;
+    width: 1.25rem;
+  }
+
+  &:hover,
+  &:focus {
+    background: var(--stats-surface-raised);
+    border-color: var(--stats-border-strong);
+    color: #fff;
+  }
+
+  &.active {
+    background: var(--stats-surface-raised);
+    border-color: var(--stats-border-strong);
+    box-shadow: inset 0 -2px 0 var(--stats-accent);
+  }
+}

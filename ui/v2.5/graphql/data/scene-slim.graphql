@@ -7,7 +7,18 @@ fragment SlimSceneData on Scene {
   urls
   date
   production_date
+  effective_date # CUSTOM
+  stashdb_matches # CUSTOM
+  release_stashdb_matches # CUSTOM
+  release_o_counter # CUSTOM
+  release_last_o_at # CUSTOM
   rating100
+  # CUSTOM: scene Rating Advisor criteria used by negative insight chips
+  rating_scores {
+    section
+    key
+    raw_value
+  }
   o_counter
   organized
   interactive
@@ -15,7 +26,10 @@ fragment SlimSceneData on Scene {
   resume_time
   play_duration
   play_count
-
+  last_played_at # CUSTOM
+  o_history # CUSTOM
+  created_at # CUSTOM
+  updated_at # CUSTOM
   files {
     ...VideoFileData
   }
@@ -36,11 +50,50 @@ fragment SlimSceneData on Scene {
     id
     title
     seconds
+    end_seconds # CUSTOM
     primary_tag {
       id
       name
+      # CUSTOM: begin
+      parents {
+        id
+      }
+      # CUSTOM: end
     }
+    # CUSTOM: begin
+    tags {
+      id
+      name
+      parents {
+        id
+      }
+    }
+    top_performers {
+      id
+      name
+      image_path
+    }
+    bottom_performers {
+      id
+      name
+      image_path
+    }
+    # CUSTOM: end
   }
+
+  # CUSTOM: flattened marker-tag ancestry for recursive insight classification
+  scene_marker_tag_ancestors {
+    tag_id
+    ancestor_ids
+  }
+
+  # CUSTOM: begin
+  negative_markers {
+    id
+    start_seconds
+    end_seconds
+  }
+  # CUSTOM: end
 
   galleries {
     id
@@ -78,8 +131,16 @@ fragment SlimSceneData on Scene {
     name
     disambiguation
     gender
+    country # CUSTOM: performer-country insight chips
     favorite
     image_path
+    birthdate # CUSTOM: active performer-age sort metric
+    # CUSTOM: begin - scene card performer hover rating highlights
+    rating100
+    rating_tier_tags: tags {
+      id
+    }
+    # CUSTOM: end
   }
 
   stash_ids {

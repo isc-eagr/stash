@@ -1,0 +1,84 @@
+[
+  {
+    "rating": null,
+    "tags": [],
+    "expected": null
+  },
+  {
+    "rating": 0,
+    "tags": [],
+    "expected": "none"
+  },
+  {
+    "rating": 59,
+    "tags": [],
+    "expected": "none"
+  },
+  {
+    "rating": 60,
+    "tags": [],
+    "expected": "bronze"
+  },
+  {
+    "rating": 72,
+    "tags": [],
+    "expected": "bronze"
+  },
+  {
+    "rating": 73,
+    "tags": [],
+    "expected": "silver"
+  },
+  {
+    "rating": 84,
+    "tags": [],
+    "expected": "gold"
+  },
+  {
+    "rating": 90,
+    "tags": [],
+    "expected": "royal_sapphire"
+  },
+  {
+    "rating": null,
+    "tags": ["5"],
+    "expected": "royal_sapphire"
+  },
+  {
+    "rating": 95,
+    "tags": ["1"],
+    "expected": "bronze"
+  },
+  {
+    "rating": 61,
+    "tags": ["1", "2", "3"],
+    "expected": "gold"
+  },
+  {
+    "rating": 61,
+    "tags": ["1", "2", "3", "4"],
+    "expected": "royal_sapphire"
+  },
+  {
+    "rating": 75,
+    "tags": [],
+    "thresholds": {
+      "bronze": 60,
+      "silver": 80,
+      "gold": 70,
+      "royalSapphire": 90
+    },
+    "expected": "gold"
+  },
+  {
+    "rating": 50,
+    "tags": [],
+    "thresholds": {
+      "bronze": 60,
+      "silver": 40,
+      "gold": 84,
+      "royalSapphire": 90
+    },
+    "expected": "silver"
+  }
+]

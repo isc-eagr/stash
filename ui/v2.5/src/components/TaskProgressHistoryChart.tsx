@@ -1,0 +1,250 @@
+import React from "react";
+import { useIntl } from "react-intl";
+import {
+  filterTaskProgressHistoryActivityPoints,
+  formatTaskProgressDate,
+} from "./taskProgress_custom";
+import type {
+  ITaskProgressHistoryEntry,
+  TaskProgressHistoryRange,
+} from "./taskProgress_custom";
+import {
+  progressToday,
+  useProgressText,
+} from "./TaskProgress/progressView_custom";
+import { taskProgressChartSeries } from "./TaskProgress/taskProgressChart_custom";
+import { TaskProgressReportActivity } from "./TaskProgress/TaskProgressReportActivity";
+import { TaskProgressHistoryPeriod } from "./TaskProgress/TaskProgressHistoryPeriod";
+import { TaskProgressHistoryTooltip } from "./TaskProgress/TaskProgressHistoryTooltip";
+import type { TaskProgressHistoryView } from "./TaskProgress/TaskProgressHistoryTooltip";
+import { TaskProgressHistoryTotals } from "./TaskProgress/TaskProgressHistoryTotals";
+import {
+  boundedTaskProgressReportAnchor,
+  taskProgressReportDays,
+  taskProgressReportPeriod,
+} from "./TaskProgress/taskProgressReports_custom";
+import type { TaskProgressReportRange } from "./TaskProgress/taskProgressReports_custom";
+
+interface IProps {
+  history: readonly ITaskProgressHistoryEntry[];
+  title: string;
+  onSelectDay?: (date: string) => void;
+  selectedDate?: string;
+  today?: string;
+  completionOnly?: boolean;
+}
+
+const totalsRanges: readonly TaskProgressHistoryRange[] = [7, 30, "all"];
+const periods = [
+  { key: "month", label: "Monthly" },
+  { key: "year", label: "Yearly" },
+  { key: "totals", label: "Totals trend" },
+] as const;
+type ChartMode = (typeof periods)[number]["key"];
+
+export const TaskProgressHistoryChart: React.FC<IProps> = ({
+  history,
+  title,
+  onSelectDay,
+  selectedDate,
+  today = progressToday(),
+  completionOnly = false,
+}) => {
+  const intl = useIntl();
+  const t = useProgressText();
+  const [range, setRange] = React.useState<TaskProgressHistoryRange>(30);
+  const [mode, setMode] = React.useState<ChartMode>("month");
+  const period: TaskProgressReportRange = mode === "totals" ? "day" : mode;
+  const [anchors, setAnchors] = React.useState<
+    Partial<Record<ChartMode, string>>
+  >({});
+  const selectedAnchor = anchors[mode];
+  const setAnchor = (date: string) =>
+    setAnchors((current) => ({ ...current, [mode]: date }));
+  const [selectedView, setView] =
+    React.useState<TaskProgressHistoryView>("cumulative");
+  const view = completionOnly ? "cumulative" : selectedView;
+  const firstDate = history.map((day) => day.date).sort()[0] ?? today;
+  const anchor = selectedAnchor
+    ? boundedTaskProgressReportAnchor(period, selectedAnchor, firstDate, today)
+    : today;
+  const selected = React.useMemo(
+    () => taskProgressReportPeriod(period, anchor, today),
+    [period, anchor, today]
+  );
+  const points = React.useMemo(
+    () => taskProgressChartSeries(history, period, range, anchor, today),
+    [history, period, range, anchor, today]
+  );
+  const days = React.useMemo(
+    () =>
+      taskProgressReportDays(
+        history.map((day) => ({ ...day, goal_per_day: day.goalPerDay })),
+        selected,
+        today
+      ),
+    [history, selected, today]
+  );
+  const tablePoints = filterTaskProgressHistoryActivityPoints(points);
+  // Scope columns only appear when the range has membership or deletion changes.
+  const hasScopeChanges = tablePoints.some(
+    (point) => point.added > 0 || point.removed > 0
+  );
+  const headings = [
+    "Date",
+    "Completed",
+    "Incoming",
+    ...(hasScopeChanges ? ["Added", "Removed"] : []),
+    "Remaining",
+    "Cumulative",
+    "Goal",
+    "Baseline",
+  ];
+
+  if (!history.length)
+    return (
+      <div className="task-progress-history-chart task-progress-history-chart-empty">
+        {t("No progress history has been recorded yet.")}
+      </div>
+    );
+
+  return (
+    <section
+      className="task-progress-history-chart"
+      aria-label={`${title}: ${t("Activity progression")}`}
+    >
+      <div className="task-progress-history-chart-controls">
+        <div
+          className="task-progress-history-chart-toggle"
+          role="group"
+          aria-label={t("Progress period")}
+        >
+          {periods.map(({ key, label }) => (
+            <button
+              key={key}
+              type="button"
+              aria-pressed={mode === key}
+              className={mode === key ? "active" : undefined}
+              onClick={() => setMode(key)}
+            >
+              {t(label)}
+            </button>
+          ))}
+        </div>
+        {mode === "totals" && (
+          <div
+            className="task-progress-history-chart-toggle"
+            role="group"
+            aria-label={t("History range")}
+          >
+            {totalsRanges.map((option) => (
+              <button
+                key={option}
+                type="button"
+                aria-pressed={range === option}
+                className={range === option ? "active" : undefined}
+                onClick={() => setRange(option)}
+              >
+                {option === "all" ? t("All") : `${option}d`}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <TaskProgressHistoryPeriod
+        range={period}
+        anchor={anchor}
+        firstDate={firstDate}
+        today={today}
+        onChange={setAnchor}
+      />
+      {mode !== "totals" && (
+        <TaskProgressReportActivity
+          range={mode}
+          days={days}
+          selectedDate={selectedDate}
+          onSelectDay={onSelectDay}
+          renderDayTooltip={(date) => {
+            const point = points.find((item) => item.date === date);
+            return point ? (
+              <TaskProgressHistoryTooltip
+                point={point}
+                view={view}
+                showIncoming
+              />
+            ) : undefined;
+          }}
+        />
+      )}
+      {mode === "totals" && points.length > 0 && (
+        <TaskProgressHistoryTotals
+          points={points}
+          title={title}
+          completionOnly={completionOnly}
+          view={view}
+          onView={setView}
+        />
+      )}
+      <details className="task-progress-history-chart-data">
+        <summary>{t("View daily data")}</summary>
+        <div className="table-responsive">
+          <table className="table table-sm">
+            <caption className="sr-only">
+              {title}: {t("Activity progression")}
+            </caption>
+            <thead>
+              <tr>
+                {headings.map((heading) => (
+                  <th key={heading} scope="col">
+                    {t(heading)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {tablePoints.length ? (
+                tablePoints.map((point) => (
+                  <tr key={point.date}>
+                    <th scope="row">
+                      {onSelectDay ? (
+                        <button
+                          className="task-progress-history-chart-date-button"
+                          type="button"
+                          aria-pressed={selectedDate === point.date}
+                          onClick={() => onSelectDay(point.date)}
+                        >
+                          {formatTaskProgressDate(point.date)}
+                        </button>
+                      ) : (
+                        formatTaskProgressDate(point.date)
+                      )}
+                    </th>
+                    {[
+                      point.completed,
+                      point.incoming,
+                      ...(hasScopeChanges ? [point.added, point.removed] : []),
+                      point.remaining,
+                      point.cumulativeCompleted,
+                      point.goalPerDay || undefined,
+                      point.baselineCount,
+                    ].map((value, index) => (
+                      <td key={headings[index + 1]}>
+                        {value === undefined ? "—" : intl.formatNumber(value)}
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={headings.length} className="text-muted">
+                    {t("No activity in this range.")}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </section>
+  );
+};

@@ -1,0 +1,6 @@
+# CUSTOM
+query FindTaskProgressMilestones {
+  findTaskProgressMilestones {
+    ...TaskProgressMilestoneData
+  }
+}

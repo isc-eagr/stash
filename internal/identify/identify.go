@@ -305,6 +305,11 @@ func (t *SceneIdentifier) modifyScene(ctx context.Context, s *models.Scene, resu
 			return err
 		}
 
+		// CUSTOM: refresh StashDB Matches even when nothing else changed.
+		if err := t.setStashDBMatchesCustom(ctx, s.ID, result); err != nil {
+			return err
+		}
+
 		// don't update anything if nothing was set
 		if updater.IsEmpty() {
 			logger.Debugf("Nothing to set for %s", s.Path)

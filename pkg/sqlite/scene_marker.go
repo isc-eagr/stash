@@ -33,7 +33,8 @@ type sceneMarkerRow struct {
 	Title        string     `db:"title"` // TODO: make db schema (and gql schema) nullable
 	Seconds      float64    `db:"seconds"`
 	PrimaryTagID int        `db:"primary_tag_id"`
-	SceneID      int        `db:"scene_id"`
+	SceneID      null.Int   `db:"scene_id"`                                // CUSTOM
+	ReleaseID    null.Int   `db:"release_id" goqu:"skipinsert,skipupdate"` // CUSTOM: managed by conversion until release marker editing is exposed
 	CreatedAt    Timestamp  `db:"created_at"`
 	UpdatedAt    Timestamp  `db:"updated_at"`
 	EndSeconds   null.Float `db:"end_seconds"`
@@ -47,7 +48,11 @@ func (r *sceneMarkerRow) fromSceneMarker(o models.SceneMarker) {
 		r.EndSeconds = null.FloatFrom(*o.EndSeconds)
 	}
 	r.PrimaryTagID = o.PrimaryTagID
-	r.SceneID = o.SceneID
+	r.SceneID = intFromPtr(&o.SceneID)    // CUSTOM
+	r.ReleaseID = intFromPtr(o.ReleaseID) // CUSTOM
+	if o.ReleaseID != nil {
+		r.SceneID = null.Int{} // CUSTOM
+	}
 	r.CreatedAt = Timestamp{Timestamp: o.CreatedAt}
 	r.UpdatedAt = Timestamp{Timestamp: o.UpdatedAt}
 }
@@ -59,9 +64,10 @@ func (r *sceneMarkerRow) resolve() *models.SceneMarker {
 		Seconds:      r.Seconds,
 		EndSeconds:   r.EndSeconds.Ptr(),
 		PrimaryTagID: r.PrimaryTagID,
-		SceneID:      r.SceneID,
-		CreatedAt:    r.CreatedAt.Timestamp,
-		UpdatedAt:    r.UpdatedAt.Timestamp,
+		SceneID:      int(r.SceneID.Int64),                                                            // CUSTOM
+		ReleaseID:    nullIntPtr(r.ReleaseID),                                                         // CUSTOM
+		CreatedAt:    resolveSceneMarkerTimestampCustom(r.CreatedAt.Timestamp, r.UpdatedAt.Timestamp), // CUSTOM
+		UpdatedAt:    resolveSceneMarkerTimestampCustom(r.UpdatedAt.Timestamp, r.CreatedAt.Timestamp), // CUSTOM
 	}
 
 	return ret
@@ -143,10 +149,31 @@ func (qb *SceneMarkerStore) Create(ctx context.Context, newObject *models.SceneM
 
 	*newObject = *updated
 
+	// CUSTOM: begin - the primary marker tag is incoming tracker work
+	afterTags, err := taskProgressTagSnapshotCustom(ctx, "scene_marker", id)
+	if err != nil {
+		return err
+	}
+	if err := recordTaskProgressTagDiffCustom(ctx, "scene_marker", id, nil, afterTags); err != nil {
+		return err
+	}
+	// CUSTOM: end
+
 	return nil
 }
 
 func (qb *SceneMarkerStore) UpdatePartial(ctx context.Context, id int, partial models.SceneMarkerPartial) (*models.SceneMarker, error) {
+	// CUSTOM: begin - primary and secondary tags form one deduplicated membership set
+	var beforeTags taskProgressTagSetCustom
+	if partial.PrimaryTagID.Set || partial.TagIDs != nil {
+		var err error
+		beforeTags, err = taskProgressTagSnapshotCustom(ctx, "scene_marker", id)
+		if err != nil {
+			return nil, err
+		}
+	}
+	// CUSTOM: end
+
 	r := sceneMarkerRowRecord{
 		updateRecord{
 			Record: make(exp.Record),
@@ -167,10 +194,34 @@ func (qb *SceneMarkerStore) UpdatePartial(ctx context.Context, id int, partial m
 		}
 	}
 
-	return qb.find(ctx, id)
+	updated, err := qb.find(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// CUSTOM: begin - diff after both primary and secondary updates have finished
+	if beforeTags != nil {
+		afterTags, err := taskProgressTagSnapshotCustom(ctx, "scene_marker", id)
+		if err != nil {
+			return nil, err
+		}
+		if err := recordTaskProgressTagDiffCustom(ctx, "scene_marker", id, beforeTags, afterTags); err != nil {
+			return nil, err
+		}
+	}
+	// CUSTOM: end
+
+	return updated, nil
 }
 
 func (qb *SceneMarkerStore) Update(ctx context.Context, updatedObject *models.SceneMarker) error {
+	// CUSTOM: begin - full marker updates can change the primary tag
+	beforeTags, err := taskProgressTagSnapshotCustom(ctx, "scene_marker", updatedObject.ID)
+	if err != nil {
+		return err
+	}
+	// CUSTOM: end
+
 	var r sceneMarkerRow
 	r.fromSceneMarker(*updatedObject)
 
@@ -178,11 +229,30 @@ func (qb *SceneMarkerStore) Update(ctx context.Context, updatedObject *models.Sc
 		return err
 	}
 
-	return nil
+	// CUSTOM: begin
+	afterTags, err := taskProgressTagSnapshotCustom(ctx, "scene_marker", updatedObject.ID)
+	if err != nil {
+		return err
+	}
+	return recordTaskProgressTagDiffCustom(ctx, "scene_marker", updatedObject.ID, beforeTags, afterTags)
+	// CUSTOM: end
 }
 
 func (qb *SceneMarkerStore) Destroy(ctx context.Context, id int) error {
-	return sceneMarkerRepository.destroyExisting(ctx, []int{id})
+	// CUSTOM: begin - include primary and secondary tags exactly once on deletion
+	beforeTags, err := taskProgressTagSnapshotCustom(ctx, "scene_marker", id)
+	if err != nil {
+		return err
+	}
+	itemLabel, err := taskProgressItemLabelCustom(ctx, "scene_marker", id)
+	if err != nil {
+		return err
+	}
+	if err := sceneMarkerRepository.destroyExisting(ctx, []int{id}); err != nil {
+		return err
+	}
+	return recordTaskProgressTagDiffCustom(ctx, "scene_marker", id, beforeTags, nil, itemLabel)
+	// CUSTOM: end
 }
 
 // returns nil, nil if not found
@@ -456,8 +526,25 @@ func (qb *SceneMarkerStore) GetTagIDs(ctx context.Context, id int) ([]int, error
 }
 
 func (qb *SceneMarkerStore) UpdateTags(ctx context.Context, id int, tagIDs []int) error {
+	// CUSTOM: begin - preserve primary-tag membership while replacing secondary tags
+	beforeTags, err := taskProgressTagSnapshotCustom(ctx, "scene_marker", id)
+	if err != nil {
+		return err
+	}
+	// CUSTOM: end
+
 	// Delete the existing joins and then create new ones
-	return sceneMarkerRepository.tags.replace(ctx, id, tagIDs)
+	if err := sceneMarkerRepository.tags.replace(ctx, id, tagIDs); err != nil {
+		return err
+	}
+
+	// CUSTOM: begin
+	afterTags, err := taskProgressTagSnapshotCustom(ctx, "scene_marker", id)
+	if err != nil {
+		return err
+	}
+	return recordTaskProgressTagDiffCustom(ctx, "scene_marker", id, beforeTags, afterTags)
+	// CUSTOM: end
 }
 
 func (qb *SceneMarkerStore) Count(ctx context.Context) (int, error) {

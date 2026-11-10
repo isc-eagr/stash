@@ -21,6 +21,18 @@ import { StudioOverlay } from "../Shared/GridCard/StudioOverlay";
 import { GalleryPreviewScrubber } from "./GalleryPreviewScrubber";
 import cx from "classnames";
 import { PatchComponent } from "src/patch";
+import { useConfigurationContext } from "src/hooks/Config"; // CUSTOM
+import {
+  getRatingCardClass,
+  isRatingCardHomePage,
+} from "src/utils/ratingCardStyles_custom"; // CUSTOM
+import { SortMetricBadgeCustom } from "../Shared/SortMetricBadge_custom"; // CUSTOM
+import { getGallerySortMetricCustom } from "./gallerySortMetric_custom"; // CUSTOM
+import {
+  catalogCardSortHighlightClassCustom,
+  hasCatalogCardSortValueCustom,
+  isCatalogCardSortHighlightedCustom,
+} from "../Shared/catalogCardSortHighlight_custom"; // CUSTOM
 
 interface IGalleryPreviewProps {
   gallery: GQL.SlimGalleryDataFragment;
@@ -75,6 +87,8 @@ interface IGalleryCardProps {
   zoomIndex?: number;
   onSelectedChanged?: (selected: boolean, shiftKey: boolean) => void;
   onPreview?: (index: number, ev?: MouseEvent) => void;
+  activeSortBy?: string; // CUSTOM
+  activeSortDirection?: GQL.SortDirectionEnum; // CUSTOM
 }
 
 const GalleryCardPopovers = React.memo(
@@ -101,7 +115,11 @@ const GalleryCardPopovers = React.memo(
     }
 
     function maybeRenderTagPopoverButton() {
-      if (props.gallery.tags.length <= 0) return;
+      const highlighted = isCatalogCardSortHighlightedCustom(
+        props.activeSortBy,
+        "tag_count"
+      );
+      if (props.gallery.tags.length <= 0 && !highlighted) return;
 
       const popoverContent = props.gallery.tags.map((tag) => (
         <TagLink key={tag.id} tag={tag} linkType="gallery" />
@@ -109,7 +127,10 @@ const GalleryCardPopovers = React.memo(
 
       return (
         <HoverPopover
-          className="tag-count"
+          className={cx(
+            "tag-count",
+            catalogCardSortHighlightClassCustom(props.activeSortBy, "tag_count")
+          )} // CUSTOM
           placement="bottom"
           content={popoverContent}
         >
@@ -122,22 +143,40 @@ const GalleryCardPopovers = React.memo(
     }
 
     function maybeRenderPerformerPopoverButton() {
-      if (props.gallery.performers.length <= 0) return;
+      const highlighted = isCatalogCardSortHighlightedCustom(
+        props.activeSortBy,
+        "performer_count"
+      );
+      if (props.gallery.performers.length <= 0 && !highlighted) return;
 
       return (
         <PerformerPopoverButton
           performers={props.gallery.performers}
           linkType="gallery"
+          className={catalogCardSortHighlightClassCustom(
+            props.activeSortBy,
+            "performer_count"
+          )} // CUSTOM
         />
       );
     }
 
     function maybeRenderImagesPopoverButton() {
-      if (!props.gallery.image_count) return;
+      const highlighted = isCatalogCardSortHighlightedCustom(
+        props.activeSortBy,
+        "images_count"
+      );
+      if (!props.gallery.image_count && !highlighted) return;
 
       return (
         <PopoverCountButton
-          className="image-count"
+          className={cx(
+            "image-count",
+            catalogCardSortHighlightClassCustom(
+              props.activeSortBy,
+              "images_count"
+            )
+          )} // CUSTOM
           type="image"
           count={props.gallery.image_count}
           url={NavUtils.makeGalleryImagesUrl(props.gallery)}
@@ -168,7 +207,13 @@ const GalleryCardPopovers = React.memo(
         props.gallery.performers.length > 0 ||
         props.gallery.tags.length > 0 ||
         props.gallery.organized ||
-        props.gallery.image_count > 0
+        props.gallery.image_count > 0 ||
+        isCatalogCardSortHighlightedCustom(
+          props.activeSortBy,
+          "tag_count",
+          "performer_count",
+          "images_count"
+        ) // CUSTOM
       ) {
         return (
           <>
@@ -191,9 +236,38 @@ const GalleryCardPopovers = React.memo(
 
 const GalleryCardDetails = React.memo(
   PatchComponent("GalleryCard.Details", (props: IGalleryCardProps) => {
+    const sortDirection =
+      props.activeSortDirection ?? GQL.SortDirectionEnum.Asc; // CUSTOM
+    const sortMetric = getGallerySortMetricCustom(
+      props.activeSortBy,
+      props.gallery
+    ); // CUSTOM
+    const embeddedSortMetric =
+      isCatalogCardSortHighlightedCustom(
+        props.activeSortBy,
+        "tag_count",
+        "performer_count",
+        "images_count"
+      ) ||
+      (isCatalogCardSortHighlightedCustom(props.activeSortBy, "date") &&
+        hasCatalogCardSortValueCustom(props.gallery.date)) ||
+      (isCatalogCardSortHighlightedCustom(props.activeSortBy, "rating") &&
+        hasCatalogCardSortValueCustom(props.gallery.rating100)); // CUSTOM
     return (
       <div className="gallery-card__details">
-        <span className="gallery-card__date">{props.gallery.date}</span>
+        <SortMetricBadgeCustom
+          metric={embeddedSortMetric ? undefined : sortMetric}
+          sortDirection={sortDirection}
+        />
+        <span
+          className={cx(
+            "gallery-card__date",
+            hasCatalogCardSortValueCustom(props.gallery.date) &&
+              catalogCardSortHighlightClassCustom(props.activeSortBy, "date")
+          )}
+        >
+          {props.gallery.date}
+        </span>
         <TruncatedText
           className="gallery-card__description"
           text={props.gallery.details}
@@ -231,7 +305,14 @@ const GalleryCardImage = React.memo(
           onPreview={onPreview ? (ev) => onPreview(0, ev) : undefined}
           disabled={props.selecting}
         />
-        <RatingBanner rating={props.gallery.rating100} />
+        <RatingBanner
+          rating={props.gallery.rating100}
+          compact
+          className={catalogCardSortHighlightClassCustom(
+            props.activeSortBy,
+            "rating"
+          )}
+        />
       </>
     );
   })
@@ -239,9 +320,28 @@ const GalleryCardImage = React.memo(
 
 export const GalleryCard = React.memo(
   PatchComponent("GalleryCard", (props: IGalleryCardProps) => {
+    // CUSTOM: begin - premium/classic rating card styling
+    const { configuration } = useConfigurationContext();
+    const ratingCardTheme = configuration?.ui?.ratingCardTheme;
+    const goatTagId = configuration?.ui?.roleTagIds?.goatTagId;
+    const ratingCardClass = getRatingCardClass({
+      rating: props.gallery.rating100,
+      tags: props.gallery.tags,
+      goatTagId,
+      theme: ratingCardTheme,
+      thresholds: configuration?.ui?.ratingCardThresholds,
+      overrideTagIds: configuration?.ui?.ratingCardOverrideTagIds,
+      disabled: isRatingCardHomePage(),
+    });
+    // CUSTOM: end
+
     return (
       <GridCard
-        className={`gallery-card zoom-${props.zoomIndex}`}
+        className={cx(
+          "gallery-card",
+          `zoom-${props.zoomIndex}`,
+          ratingCardClass
+        )} // CUSTOM
         url={`/galleries/${props.gallery.id}`}
         width={props.cardWidth}
         title={galleryTitle(props.gallery)}

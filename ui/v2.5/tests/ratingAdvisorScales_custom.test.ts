@@ -1,0 +1,491 @@
+import assert from "node:assert/strict";
+
+import {
+  calculateRatingAdvisorOrgasmBonusCustom,
+  calculateRatingAdvisorRating100Custom,
+  getRatingAdvisorBarSummaryCustom,
+  getRatingAdvisorAdjustmentTooltipLabelCustom,
+  getRatingAdvisorCompletionCustom,
+  getRatingAdvisorCriterionSummariesCustom,
+  getRatingAdvisorAdjustmentSummariesCustom,
+  getRatingAdvisorOEventsCustom,
+  getRatingAdvisorOTrackCustom,
+  formatRatingAdvisorContributionCustom,
+  getRatingAdvisorChoiceHeatLevelCustom,
+  getRatingAdvisorChoiceScoreCustom,
+  getRatingAdvisorTierCustom,
+  getRatingAdvisorTierLadderCustom,
+  getSceneGoatElementBonusFilterChoicesCustom,
+  getSceneOrgasmQualityFilterChoicesCustom,
+  normalizeRatingAdvisorPersistedScoreValueCustom,
+  normalizeRatingAdvisorScoreValueCustom,
+  ratingAdvisorSixLevelChoicesCustom,
+  resolveRatingAdvisorScoresCustom,
+  SCENE_ENERGY_MAX_CUSTOM,
+  SCENE_ENERGY_WEIGHT_CUSTOM,
+  SCENE_GOD_TIER_ORGASM_BONUS_CUSTOM,
+  SCENE_GOAT_ELEMENT_BONUS_CHOICES_CUSTOM,
+  SCENE_NO_ORGASM_PENALTY_CUSTOM,
+  SCENE_ORGASM_QUALITY_CHOICES_CUSTOM,
+  SCENE_USABLE_FACTOR_MAX_CUSTOM,
+  SCENE_USABLE_FACTOR_WEIGHT_CUSTOM,
+} from "../src/components/Shared/ratingAdvisorScales_custom.ts";
+
+assert.equal(calculateRatingAdvisorRating100Custom(-2, 1), 1);
+assert.equal(calculateRatingAdvisorRating100Custom(7.25, 2), 75);
+
+assert.deepEqual(
+  [2, 4, 6, 12, 24].map((count) =>
+    calculateRatingAdvisorOrgasmBonusCustom("scene", count)
+  ),
+  [0, 2, 5, 18, 55],
+  "scene O bonuses award every O using progressive doubling tiers"
+);
+assert.deepEqual(
+  [2, 4, 7, 12, 13].map((count) =>
+    calculateRatingAdvisorOrgasmBonusCustom("performer", count)
+  ),
+  [0, 1, 4, 8, 11],
+  "performer O bonuses award every second O using progressive doubling tiers"
+);
+
+{
+  const track = getRatingAdvisorOTrackCustom("scene", 7);
+  assert.deepEqual(
+    track.map(({ bonus, start, end }) => [bonus, start, end]),
+    [
+      [0, 1, 2],
+      [1, 3, 5],
+      [2, 6, 11],
+      [3, 12, 23],
+    ],
+    "O track always shows tiers through +3"
+  );
+  assert.equal(
+    track.flatMap((tier) => tier.dots).filter((dot) => dot.recorded).length,
+    7,
+    "O track marks recorded O's"
+  );
+}
+assert.deepEqual(
+  [23, 24, 48, 100].map((count) => {
+    const track = getRatingAdvisorOTrackCustom("scene", count);
+    return track[track.length - 1].bonus;
+  }),
+  [3, 4, 5, 6],
+  "O track adds +4 and higher tiers only once reached"
+);
+for (const entityType of ["scene", "performer"] as const) {
+  for (const count of [0, 4, 13, 50]) {
+    assert.equal(
+      getRatingAdvisorOTrackCustom(entityType, count)
+        .flatMap((tier) => tier.dots)
+        .reduce((sum, dot) => sum + (dot.recorded ? dot.earns : 0), 0),
+      calculateRatingAdvisorOrgasmBonusCustom(entityType, count),
+      `${entityType} O track earnings match the O bonus at ${count}`
+    );
+  }
+}
+{
+  // Server order is newest first.
+  const events = [
+    { id: "c", o_date: "2025-03-01T10:00:00Z", release_id: null },
+    { id: "r", o_date: "2025-02-01T10:00:00Z", release_id: "9" },
+    { id: "b", o_date: "2025-01-01T10:00:00Z", release_id: null },
+    { id: "a", o_date: "2025-01-01T10:00:00Z", release_id: null },
+  ];
+  assert.deepEqual(
+    [...getRatingAdvisorOEventsCustom("scene", events)].map(([o, event]) => [
+      o,
+      event.id,
+    ]),
+    [
+      [1, "a"],
+      [2, "b"],
+      [3, "c"],
+    ],
+    "scene O events run oldest first and skip release O's"
+  );
+  assert.deepEqual(
+    [...getRatingAdvisorOEventsCustom("performer", events)].map(
+      ([o, event]) => [o, event.id]
+    ),
+    [
+      [1, "a"],
+      [2, "b"],
+      [3, "r"],
+      [4, "c"],
+    ],
+    "performer O events include release O's"
+  );
+}
+assert.deepEqual(
+  getRatingAdvisorOTrackCustom("performer", 0)[1].dots.map((n) => n.earns),
+  [1, 0, 1],
+  "performer O track only scores every second O"
+);
+
+assert.equal(
+  SCENE_GOD_TIER_ORGASM_BONUS_CUSTOM * 10,
+  10,
+  "scene God-tier orgasms add 10 rating points"
+);
+assert.deepEqual(
+  SCENE_GOAT_ELEMENT_BONUS_CHOICES_CUSTOM.map(({ value, label }) => ({
+    value,
+    label,
+  })),
+  [
+    { value: 0.5, label: "GOAT +5" },
+    { value: 1, label: "GOAT +10" },
+    { value: 1.5, label: "GOAT +15" },
+    { value: 2, label: "GOAT +20" },
+  ]
+);
+assert.deepEqual(getSceneGoatElementBonusFilterChoicesCustom(), [
+  { value: 0.5, label: "GOAT +5" },
+  { value: 1, label: "GOAT +10" },
+  { value: 1.5, label: "GOAT +15" },
+  { value: 2, label: "GOAT +20" },
+]);
+assert.equal(
+  normalizeRatingAdvisorPersistedScoreValueCustom(
+    { max: 2, choices: SCENE_GOAT_ELEMENT_BONUS_CHOICES_CUSTOM },
+    0
+  ),
+  undefined,
+  "a legacy GOAT zero row is treated as an absent bonus"
+);
+assert.equal(
+  normalizeRatingAdvisorPersistedScoreValueCustom(
+    { max: 2, choices: SCENE_GOAT_ELEMENT_BONUS_CHOICES_CUSTOM },
+    0.5
+  ),
+  0.5
+);
+
+const initialGoatScores = [{ key: "goatElement", raw_value: 2 }];
+const queriedGoatScores = [{ key: "goatElement", raw_value: 0.5 }];
+const mutationGoatScores = [{ key: "goatElement", raw_value: 1 }];
+assert.equal(
+  resolveRatingAdvisorScoresCustom(
+    undefined,
+    queriedGoatScores,
+    initialGoatScores
+  ),
+  queriedGoatScores,
+  "a fresh query wins over a stale scene snapshot when reopening the advisor"
+);
+assert.equal(
+  resolveRatingAdvisorScoresCustom(
+    mutationGoatScores,
+    queriedGoatScores,
+    initialGoatScores
+  ),
+  mutationGoatScores,
+  "the mutation response remains authoritative while the advisor is open"
+);
+assert.equal(
+  resolveRatingAdvisorScoresCustom(undefined, undefined, initialGoatScores),
+  initialGoatScores,
+  "the initial scene snapshot is used until fresher scores arrive"
+);
+assert.equal(
+  SCENE_NO_ORGASM_PENALTY_CUSTOM * 10,
+  -20,
+  "missing orgasms subtract 20 rating points from scenes"
+);
+assert.equal(
+  SCENE_ENERGY_MAX_CUSTOM * SCENE_ENERGY_WEIGHT_CUSTOM * 10,
+  20,
+  "regular scene energy contributes at most 20 rating points"
+);
+assert.equal(
+  SCENE_USABLE_FACTOR_MAX_CUSTOM * SCENE_USABLE_FACTOR_WEIGHT_CUSTOM * 10,
+  20,
+  "regular scene usable factor contributes at most 20 rating points"
+);
+assert.deepEqual(SCENE_ORGASM_QUALITY_CHOICES_CUSTOM, [
+  {
+    value: 0,
+    label: "Absent/bad nuts",
+    description: "Qué gacho. No nut, fake nut, or they hid it from you.",
+  },
+  {
+    value: 1,
+    label: "Below average nuts",
+    description: "There's a nut, but it's barely there, or meh.",
+  },
+  {
+    value: 2,
+    label: "Standard nuts",
+    description:
+      "Normalito. A solid nut, hot because nuts are hot but that's it.",
+  },
+  {
+    value: 3,
+    label: "Above average",
+    description:
+      "That nut is delicious. The vato seems to have loved it, or it's a facial which by default falls in this range.",
+  },
+  {
+    value: 4,
+    label: "Outstanding nuts",
+    description:
+      "You thought this kind of nut was only possible in dreams. The amount of mecos and the way the bright white looks on screen, the pulsing, or the way the vato squirms. DAMN!!!",
+  },
+]);
+assert.deepEqual(getSceneOrgasmQualityFilterChoicesCustom(), [
+  { value: 0, label: "Absent/bad nuts" },
+  { value: 1, label: "Below average nuts" },
+  { value: 2, label: "Standard nuts" },
+  { value: 3, label: "Above average" },
+  { value: 4, label: "Outstanding nuts" },
+]);
+
+const choices = ratingAdvisorSixLevelChoicesCustom([
+  { label: "Not Attractive", description: "No pull." },
+  { label: "Some Appeal", description: "A little pull." },
+  { label: "Decent", description: "Decent pull." },
+  { label: "Attractive", description: "Clear pull." },
+  { label: "Very Attractive", description: "Strong pull." },
+  { label: "Perfect", description: "Maximum pull." },
+]);
+
+const faceMetric = {
+  max: 5,
+  weight: 0.6,
+  choices,
+};
+const bottomMetric = {
+  max: 5,
+  weight: 0.2,
+  choices,
+};
+
+assert.deepEqual(
+  choices.map((choice) => choice.value),
+  [0, 1, 2, 3, 4, 5]
+);
+assert.equal(getRatingAdvisorChoiceScoreCustom(faceMetric, 5) * 10, 30);
+assert.equal(getRatingAdvisorChoiceScoreCustom(faceMetric, 4) * 10, 24);
+assert.equal(getRatingAdvisorChoiceScoreCustom(bottomMetric, 5) * 10, 10);
+assert.equal(normalizeRatingAdvisorScoreValueCustom(faceMetric, 4.6), 5);
+assert.equal(normalizeRatingAdvisorScoreValueCustom(faceMetric, 3.2), 3);
+
+const incomplete = getRatingAdvisorCompletionCustom(
+  ["face", "body", "performance"],
+  { face: 0, body: undefined, performance: 4 }
+);
+assert.deepEqual(incomplete, {
+  rated: 2,
+  total: 3,
+  complete: false,
+  percent: 67,
+});
+assert.equal(
+  getRatingAdvisorCompletionCustom(["face"], { face: 0 }).complete,
+  true,
+  "an intentional zero counts as rated"
+);
+
+assert.deepEqual(
+  Array.from({ length: 6 }, (_, index) =>
+    getRatingAdvisorChoiceHeatLevelCustom(index, 6)
+  ),
+  [0, 1, 2, 3, 4, 5]
+);
+assert.deepEqual(
+  Array.from({ length: 4 }, (_, index) =>
+    getRatingAdvisorChoiceHeatLevelCustom(index, 4)
+  ),
+  [0, 2, 3, 5],
+  "shorter scales still span the full gray-to-red range"
+);
+
+assert.deepEqual(getRatingAdvisorBarSummaryCustom(faceMetric), {
+  fillPercent: 0,
+  heatLevel: undefined,
+  choice: undefined,
+  choiceIndex: undefined,
+});
+assert.deepEqual(getRatingAdvisorBarSummaryCustom(faceMetric, 0), {
+  fillPercent: 0,
+  heatLevel: 0,
+  choice: choices[0],
+  choiceIndex: 0,
+});
+assert.deepEqual(getRatingAdvisorBarSummaryCustom(faceMetric, 3.2), {
+  fillPercent: 60,
+  heatLevel: 3,
+  choice: choices[3],
+  choiceIndex: 3,
+});
+assert.deepEqual(getRatingAdvisorBarSummaryCustom(faceMetric, 5), {
+  fillPercent: 100,
+  heatLevel: 5,
+  choice: choices[5],
+  choiceIndex: 5,
+});
+
+const criterionSummaries = getRatingAdvisorCriterionSummariesCustom(
+  [
+    { ...faceMetric, key: "face" },
+    { ...faceMetric, key: "body" },
+    { ...faceMetric, key: "theme" },
+  ],
+  [
+    { section: " Criterion ", key: "face", raw_value: 4 },
+    { section: null, key: "body", raw_value: 2 },
+    { section: "bonus", key: "theme", raw_value: 5 },
+  ]
+);
+assert.deepEqual(
+  criterionSummaries.map(({ metric, summary }) => [
+    metric.key,
+    summary.choiceIndex,
+  ]),
+  [
+    ["face", 4],
+    ["body", 2],
+    ["theme", undefined],
+  ],
+  "criterion summaries read criterion scores only, defaulting a missing section"
+);
+
+const toggle = (value: number) => ({
+  max: Math.max(0, value),
+  choices: [
+    { value: 0, label: "Off", description: "" },
+    { value, label: "On", description: `Helper for ${value}` },
+  ],
+});
+const adjustmentMetrics = [
+  { ...faceMetric, key: "face", title: "Face" },
+  { ...toggle(0.5), key: "theme", title: "Theme", section: "bonus" as const },
+  {
+    ...toggle(0.5),
+    key: "unlikelyTop",
+    title: "Unlikely top",
+    section: "bonus" as const,
+  },
+  {
+    ...toggle(-2),
+    key: "noOrgasm",
+    title: "No nut",
+    section: "penalty" as const,
+  },
+];
+assert.deepEqual(
+  getRatingAdvisorAdjustmentSummariesCustom(
+    adjustmentMetrics,
+    [
+      { section: "criterion", key: "face", raw_value: 5 },
+      { section: "bonus", key: "theme", raw_value: 0.5 },
+      { section: "bonus", key: "unlikelyTop", raw_value: 0 },
+      { section: "penalty", key: "noOrgasm", raw_value: -2 },
+    ],
+    3
+  ),
+  [
+    {
+      key: "orgasm-count-bonus",
+      title: "O count",
+      section: "bonus",
+      contribution: 0.3,
+      description: "",
+    },
+    {
+      key: "theme",
+      title: "Uniform",
+      section: "bonus",
+      contribution: 0.5,
+      description: "Helper for 0.5",
+    },
+    {
+      key: "noOrgasm",
+      title: "No nut",
+      section: "penalty",
+      contribution: -2,
+      description: "Helper for -2",
+    },
+  ],
+  "adjustments skip criteria and zero values and lead with the O Count bonus"
+);
+assert.deepEqual([0.3, 0.5, -2, 0].map(formatRatingAdvisorContributionCustom), [
+  "+3",
+  "+5",
+  "-20",
+  "0",
+]);
+
+assert.equal(
+  getRatingAdvisorAdjustmentTooltipLabelCustom(
+    "theme",
+    "Theme / fantasy / uniform factor"
+  ),
+  "Uniform"
+);
+assert.equal(
+  getRatingAdvisorAdjustmentTooltipLabelCustom(
+    "production",
+    "Production / visual quality"
+  ),
+  "Production"
+);
+assert.equal(
+  getRatingAdvisorAdjustmentTooltipLabelCustom(
+    "extremelyPolished",
+    "Extremely polished penalty"
+  ),
+  "Extremely polished"
+);
+assert.equal(
+  getRatingAdvisorAdjustmentTooltipLabelCustom("unknown", "Fallback"),
+  "Fallback"
+);
+
+// Score Ledger: tier, distance to the next tier, and the tier ladder.
+const ledgerThresholds = {
+  bronze: 60,
+  silver: 73,
+  gold: 84,
+  royalSapphire: 90,
+};
+assert.deepEqual(getRatingAdvisorTierCustom(53, ledgerThresholds), {
+  tier: "plain",
+  label: "No tier",
+  next: { tier: "bronze", label: "Bronze", remaining: 7 },
+});
+assert.deepEqual(getRatingAdvisorTierCustom(84, ledgerThresholds), {
+  tier: "gold",
+  label: "Gold",
+  next: { tier: "royal-sapphire", label: "Royal Sapphire", remaining: 6 },
+});
+assert.deepEqual(getRatingAdvisorTierCustom(95, ledgerThresholds), {
+  tier: "royal-sapphire",
+  label: "Royal Sapphire",
+  next: undefined,
+});
+assert.deepEqual(
+  getRatingAdvisorTierCustom(40, ledgerThresholds, true),
+  { tier: "royal-sapphire", label: "Royal Sapphire", next: undefined },
+  "a GOAT bonus locks Royal Sapphire with no next tier"
+);
+assert.deepEqual(getRatingAdvisorTierLadderCustom(ledgerThresholds), [
+  { tier: "plain", start: 0, width: 60 },
+  { tier: "bronze", start: 60, width: 13 },
+  { tier: "silver", start: 73, width: 11 },
+  { tier: "gold", start: 84, width: 6 },
+  { tier: "royal-sapphire", start: 90, width: 10 },
+]);
+assert.deepEqual(
+  getRatingAdvisorTierLadderCustom({
+    bronze: 60,
+    silver: 73,
+    gold: 84,
+    royalSapphire: 120,
+  }).at(-1),
+  { tier: "royal-sapphire", start: 100, width: 0 },
+  "thresholds above 100 stay on the ladder"
+);

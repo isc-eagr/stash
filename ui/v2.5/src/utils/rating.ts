@@ -82,31 +82,29 @@ export function convertToRatingFormat(
   rating: number | null | undefined,
   ratingSystemOptions: RatingSystemOptions
 ) {
-  if (!rating) {
+  if (rating === null || rating === undefined) {
     return null;
   }
 
   const { type, starPrecision } = ratingSystemOptions;
 
-  const precision =
-    type === RatingSystemType.Decimal
-      ? 0.1
-      : getRatingPrecision(starPrecision ?? RatingStarPrecision.Full);
-  const maxValue = type === RatingSystemType.Decimal ? 10 : 5;
-  const denom = 100 / maxValue;
+  if (type === RatingSystemType.Decimal) {
+    return Math.max(0, Math.round(rating));
+  }
 
-  return round(rating / denom, precision);
+  const precision = getRatingPrecision(
+    starPrecision ?? RatingStarPrecision.Full
+  );
+  return round(Math.max(0, rating) / 20, precision);
 }
 
 export function convertFromRatingFormat(
   rating: number,
   ratingSystem: RatingSystemType | undefined
 ) {
-  const maxValue =
-    (ratingSystem ?? RatingSystemType.Stars) === RatingSystemType.Decimal
-      ? 10
-      : 5;
-  const factor = 100 / maxValue;
+  if ((ratingSystem ?? RatingSystemType.Stars) === RatingSystemType.Decimal) {
+    return Math.max(0, Math.round(rating));
+  }
 
-  return Math.round(rating * factor);
+  return Math.max(0, Math.round(rating * 20));
 }

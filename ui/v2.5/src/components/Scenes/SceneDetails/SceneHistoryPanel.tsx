@@ -19,12 +19,20 @@ import {
   useSceneResetO,
   useSceneResetPlayCount,
   useSceneResetActivity,
+  useSceneDeleteRetroactiveO, // CUSTOM
 } from "src/core/StashService";
 import * as GQL from "src/core/generated-graphql";
 import { useConfigurationContext } from "src/hooks/Config";
 import { useToast } from "src/hooks/Toast";
 import { TextField } from "src/utils/field";
+import { getPlayer } from "src/components/ScenePlayer/util"; // CUSTOM
 import TextUtils from "src/utils/text";
+import { isReleaseMarkerSeekableCustom } from "./sceneReleaseMarkerSeek_custom"; // CUSTOM
+import {
+  useSceneReleaseEditHistoryCustom,
+  useSceneReleaseResetActivityCustom,
+} from "../sceneReleaseActivity_custom"; // CUSTOM
+import { sceneRetroactiveOCountCustom } from "./sceneRetroactiveO_custom"; // CUSTOM
 
 const History: React.FC<{
   className?: string;
@@ -32,10 +40,28 @@ const History: React.FC<{
   unknownDate?: string;
   onRemove: (date: string) => void;
   noneID: string;
-}> = ({ className, history, unknownDate, noneID, onRemove }) => {
+  // CUSTOM: begin - optional parallel video timestamps + seek callback
+  videoTimestamps?: Array<number | null>;
+  maxDuration?: number | null; // CUSTOM
+  retroactiveCount?: number;
+  onRemoveRetroactive?: () => void;
+  // CUSTOM: end
+}> = ({
+  className,
+  history,
+  unknownDate,
+  noneID,
+  onRemove,
+  videoTimestamps,
+  maxDuration, // CUSTOM
+  retroactiveCount = 0, // CUSTOM
+  onRemoveRetroactive, // CUSTOM
+}) => {
+  // CUSTOM: videoTimestamps
   const intl = useIntl();
 
-  if (history.length === 0) {
+  // CUSTOM: retroactive O's count as history
+  if (history.length === 0 && retroactiveCount === 0) {
     return (
       <div>
         <FormattedMessage id={noneID} />
@@ -57,6 +83,33 @@ const History: React.FC<{
         {history.map((playdate, index) => (
           <li key={index}>
             <span>{renderDate(playdate)}</span>
+            {/* CUSTOM: begin - show video position badge */}
+            {(() => {
+              const ts = videoTimestamps?.[index];
+              if (ts === null || ts === undefined) return null;
+              const h = Math.floor(ts / 3600);
+              const m = Math.floor((ts % 3600) / 60);
+              const s = Math.floor(ts % 60);
+              const label =
+                h > 0
+                  ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(
+                      2,
+                      "0"
+                    )}`
+                  : `${m}:${String(s).padStart(2, "0")}`;
+              return (
+                <button
+                  type="button"
+                  className="o-video-ts-badge btn btn-link p-0 ms-2"
+                  onClick={() => getPlayer()?.currentTime(ts)}
+                  title={`Seek to ${label}`}
+                  disabled={!isReleaseMarkerSeekableCustom(ts, maxDuration)} // CUSTOM
+                >
+                  ({label})
+                </button>
+              );
+            })()}
+            {/* CUSTOM: end */}
             <Button
               className="remove-date-button"
               size="sm"
@@ -68,6 +121,22 @@ const History: React.FC<{
             </Button>
           </li>
         ))}
+        {/* CUSTOM: begin - one row per retroactive O (no date) */}
+        {Array.from({ length: retroactiveCount }, (_, index) => (
+          <li key={`retroactive-${index}`}>
+            <span>Retroactive O</span>
+            <Button
+              className="remove-date-button"
+              size="sm"
+              variant="minimal"
+              onClick={() => onRemoveRetroactive?.()}
+              title="Remove retroactive O"
+            >
+              <Icon icon={faTrash} />
+            </Button>
+          </li>
+        ))}
+        {/* CUSTOM: end */}
       </ul>
     </div>
   );
@@ -167,9 +236,14 @@ const DatePickerModal: React.FC<{
 
 interface ISceneHistoryProps {
   scene: GQL.SceneDataFragment;
+  release?: GQL.SceneReleaseDataFragment; // CUSTOM
 }
 
-export const SceneHistoryPanel: React.FC<ISceneHistoryProps> = ({ scene }) => {
+export const SceneHistoryPanel: React.FC<ISceneHistoryProps> = ({
+  scene,
+  release,
+}) => {
+  // CUSTOM
   const intl = useIntl();
   const Toast = useToast();
 
@@ -193,8 +267,26 @@ export const SceneHistoryPanel: React.FC<ISceneHistoryProps> = ({ scene }) => {
   const [incrementOCount] = useSceneIncrementO(scene.id);
   const [decrementOCount] = useSceneDecrementO(scene.id);
   const [resetO] = useSceneResetO(scene.id);
+  const [deleteRetroactiveO] = useSceneDeleteRetroactiveO(scene.id); // CUSTOM
   const [resetResume] = useSceneResetActivity(scene.id, true, false);
   const [resetDuration] = useSceneResetActivity(scene.id, false, true);
+  const [editReleaseHistory] = useSceneReleaseEditHistoryCustom(); // CUSTOM
+  const [resetReleaseActivity] = useSceneReleaseResetActivityCustom(); // CUSTOM
+
+  async function editRelease(
+    kind: "play" | "o",
+    action: "add" | "delete" | "clear",
+    at?: string
+  ) {
+    if (!release) return;
+    try {
+      await editReleaseHistory({
+        variables: { id: release.id, kind, action, at },
+      });
+    } catch (e) {
+      Toast.error(e);
+    }
+  }
 
   function dateStringToISOString(time: string) {
     const date = TextUtils.stringToFuzzyDateTime(time);
@@ -203,6 +295,7 @@ export const SceneHistoryPanel: React.FC<ISceneHistoryProps> = ({ scene }) => {
   }
 
   function handleAddPlayDate(time?: string) {
+    if (release) return void editRelease("play", "add", time); // CUSTOM
     incrementPlayCount({
       variables: {
         id: scene.id,
@@ -212,6 +305,7 @@ export const SceneHistoryPanel: React.FC<ISceneHistoryProps> = ({ scene }) => {
   }
 
   function handleDeletePlayDate(time: string) {
+    if (release) return void editRelease("play", "delete", time); // CUSTOM
     decrementPlayCount({
       variables: {
         id: scene.id,
@@ -222,6 +316,7 @@ export const SceneHistoryPanel: React.FC<ISceneHistoryProps> = ({ scene }) => {
 
   function handleClearPlayDates() {
     setDialogPartial({ playHistory: false });
+    if (release) return void editRelease("play", "clear"); // CUSTOM
     clearPlayCount({
       variables: {
         id: scene.id,
@@ -230,6 +325,7 @@ export const SceneHistoryPanel: React.FC<ISceneHistoryProps> = ({ scene }) => {
   }
 
   function handleAddODate(time?: string) {
+    if (release) return void editRelease("o", "add", time); // CUSTOM
     incrementOCount({
       variables: {
         id: scene.id,
@@ -239,6 +335,7 @@ export const SceneHistoryPanel: React.FC<ISceneHistoryProps> = ({ scene }) => {
   }
 
   function handleDeleteODate(time: string) {
+    if (release) return void editRelease("o", "delete", time); // CUSTOM
     decrementOCount({
       variables: {
         id: scene.id,
@@ -247,8 +344,19 @@ export const SceneHistoryPanel: React.FC<ISceneHistoryProps> = ({ scene }) => {
     });
   }
 
+  // CUSTOM: begin
+  async function handleDeleteRetroactiveO() {
+    try {
+      await deleteRetroactiveO();
+    } catch (e) {
+      Toast.error(e);
+    }
+  }
+  // CUSTOM: end
+
   function handleClearODates() {
     setDialogPartial({ oHistory: false });
+    if (release) return void editRelease("o", "clear"); // CUSTOM
     resetO({
       variables: {
         id: scene.id,
@@ -258,6 +366,12 @@ export const SceneHistoryPanel: React.FC<ISceneHistoryProps> = ({ scene }) => {
 
   async function handleResetResume() {
     try {
+      if (release) {
+        await resetReleaseActivity({
+          variables: { id: release.id, reset_resume: true },
+        });
+        return;
+      } // CUSTOM
       await resetResume({
         variables: {
           id: scene.id,
@@ -281,6 +395,12 @@ export const SceneHistoryPanel: React.FC<ISceneHistoryProps> = ({ scene }) => {
 
   async function handleResetDuration() {
     try {
+      if (release) {
+        await resetReleaseActivity({
+          variables: { id: release.id, reset_duration: true },
+        });
+        return;
+      } // CUSTOM
       await resetDuration({
         variables: {
           id: scene.id,
@@ -353,10 +473,22 @@ export const SceneHistoryPanel: React.FC<ISceneHistoryProps> = ({ scene }) => {
     );
   }
 
-  const playHistory = (scene.play_history ?? []).filter(
+  const playHistory = (
+    release?.play_history ??
+    scene.play_history ??
+    []
+  ).filter(
+    // CUSTOM
     (h) => h != null
   ) as string[];
-  const oHistory = (scene.o_history ?? []).filter((h) => h != null) as string[];
+  const oHistory = (release?.o_history ?? scene.o_history ?? []).filter(
+    (h) => h != null
+  ) as string[]; // CUSTOM
+  // CUSTOM: release O's are always dated
+  const retroactiveOCount = release
+    ? 0
+    : sceneRetroactiveOCountCustom(scene.o_counter, oHistory.length);
+  const totalOCount = oHistory.length + retroactiveOCount; // CUSTOM
 
   const oHistoryMessageID = sfwContentMode ? "o_history_sfw" : "o_history";
   const noneMessageID = sfwContentMode
@@ -366,6 +498,12 @@ export const SceneHistoryPanel: React.FC<ISceneHistoryProps> = ({ scene }) => {
   return (
     <div>
       {maybeRenderDialogs()}
+      {release && (
+        <div className="text-muted small mb-2">
+          Release: {release.title || release.id}
+        </div>
+      )}{" "}
+      {/* CUSTOM */}
       <div className="play-history">
         <div className="history-header">
           <h5>
@@ -398,23 +536,25 @@ export const SceneHistoryPanel: React.FC<ISceneHistoryProps> = ({ scene }) => {
         <History
           history={playHistory ?? []}
           noneID="playdate_recorded_no"
-          unknownDate={scene.created_at}
+          unknownDate={release?.created_at ?? scene.created_at} // CUSTOM
           onRemove={(t) => handleDeletePlayDate(t)}
         />
         <dl className="details-list">
           <TextField
             id="media_info.play_duration"
-            value={TextUtils.secondsToTimestamp(scene.play_duration ?? 0)}
+            value={TextUtils.secondsToTimestamp(
+              release?.play_duration ?? scene.play_duration ?? 0
+            )} // CUSTOM
           />
         </dl>
       </div>
-
       <div className="o-history">
         <div className="history-header">
           <h5>
             <span>
               <FormattedMessage id={oHistoryMessageID} />
-              <Counter count={oHistory.length} hideZero />
+              {/* CUSTOM: includes retroactive O's */}
+              <Counter count={totalOCount} hideZero />
             </span>
             <span>
               <Button
@@ -427,7 +567,7 @@ export const SceneHistoryPanel: React.FC<ISceneHistoryProps> = ({ scene }) => {
                 <Icon icon={faPlus} />
               </Button>
               <HistoryMenu
-                hasHistory={oHistory.length > 0}
+                hasHistory={totalOCount > 0} // CUSTOM
                 showResetResumeDuration={false}
                 onAddDate={() => setDialogPartial({ addO: true })}
                 onClearDates={() => setDialogPartial({ oHistory: true })}
@@ -440,8 +580,12 @@ export const SceneHistoryPanel: React.FC<ISceneHistoryProps> = ({ scene }) => {
         <History
           history={oHistory}
           noneID={noneMessageID}
-          unknownDate={scene.created_at}
+          unknownDate={release?.created_at ?? scene.created_at} // CUSTOM
           onRemove={(t) => handleDeleteODate(t)}
+          videoTimestamps={release?.o_timestamps ?? scene.o_timestamps ?? []} // CUSTOM
+          maxDuration={release?.files[0]?.duration} // CUSTOM
+          retroactiveCount={retroactiveOCount} // CUSTOM
+          onRemoveRetroactive={() => handleDeleteRetroactiveO()} // CUSTOM
         />
       </div>
     </div>

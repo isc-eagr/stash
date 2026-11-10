@@ -11,13 +11,10 @@ import { apolloError } from "src/utils";
 import { mergeStudioStashIDs } from "../utils";
 
 interface IStashSearchResultProps {
-  studio: GQL.SlimStudioDataFragment;
+  studio: GQL.StudioListDataFragment; // CUSTOM
   stashboxStudios: GQL.ScrapedStudioDataFragment[];
   endpoint: string;
-  onStudioTagged: (
-    studio: Pick<GQL.SlimStudioDataFragment, "id"> &
-      Partial<Omit<GQL.SlimStudioDataFragment, "id">>
-  ) => void;
+  onStudioTagged: (studio: Pick<GQL.StudioListDataFragment, "id">) => void; // CUSTOM
   excludedStudioFields: string[];
 }
 

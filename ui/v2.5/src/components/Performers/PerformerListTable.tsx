@@ -1,12 +1,11 @@
 import React from "react";
 import { useIntl } from "react-intl";
-import { Button } from "react-bootstrap";
+import { Button, ButtonGroup } from "react-bootstrap"; // CUSTOM: table presets
 import { Link } from "react-router-dom";
-import * as GQL from "src/core/generated-graphql";
+import { usePerformerUpdate } from "src/core/StashService";
 import { Icon } from "../Shared/Icon";
 import NavUtils from "src/utils/navigation";
 import { faHeart } from "@fortawesome/free-solid-svg-icons";
-import { usePerformerUpdate } from "src/core/StashService";
 import { useTableColumns } from "src/hooks/useTableColumns";
 import { RatingSystem } from "../Shared/Rating/RatingSystem";
 import cx from "classnames";
@@ -20,11 +19,30 @@ import {
 import TextUtils from "src/utils/text";
 import { getCountryByISO } from "src/utils/country";
 import { IColumn, ListTable } from "../List/ListTable";
+import type { PerformerListData } from "./performerTypes_custom"; // CUSTOM
+// CUSTOM: reuse card metrics and the scene table's sorting behavior.
+import * as GQL from "src/core/generated-graphql";
+import {
+  getPerformerSortMetricCustom,
+  getPerformerSortMetricDefinitionCustom,
+} from "./performerSortMetric_custom";
+import { SortMetricValueCustom } from "../Shared/SortMetricBadge_custom";
+import { usePerformerCardRoleStats } from "./performerRoleStats_custom";
+import { useCatalogSortMetricValuesCustom } from "../Shared/catalogSortMetricValues_custom";
+import { sortColumnExtrasCustom } from "../List/listTableSort_custom";
+import {
+  PERFORMER_BROWSE_COLUMNS_CUSTOM,
+  PERFORMER_METRICS_COLUMNS_CUSTOM,
+} from "./performerTableColumns_custom";
 
 interface IPerformerListTableProps {
-  performers: GQL.PerformerDataFragment[];
+  performers: PerformerListData[];
   selectedIds: Set<string>;
   onSelectChange: (id: string, selected: boolean, shiftKey: boolean) => void;
+  // CUSTOM
+  sortBy?: string;
+  sortDirection?: GQL.SortDirectionEnum;
+  onSort?: (sortBy: string) => void;
 }
 
 const TABLE_NAME = "performers";
@@ -33,21 +51,15 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
   props: IPerformerListTableProps
 ) => {
   const intl = useIntl();
-
   const [updatePerformer] = usePerformerUpdate();
-
-  function setRating(v: number | null, performerId: string) {
-    if (performerId) {
-      updatePerformer({
-        variables: {
-          input: {
-            id: performerId,
-            rating100: v,
-          },
-        },
-      });
-    }
-  }
+  // CUSTOM: role totals are shared across the rendered rows, never per-cell queries.
+  const roleStats = usePerformerCardRoleStats(props.performers);
+  const sortValues = useCatalogSortMetricValuesCustom(
+    "performer",
+    props.performers.map((p) => p.id),
+    props.sortBy,
+    props.sortDirection ?? GQL.SortDirectionEnum.Asc
+  );
 
   function setFavorite(v: boolean, performerId: string) {
     if (performerId) {
@@ -62,7 +74,7 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
     }
   }
 
-  const ImageCell = (performer: GQL.PerformerDataFragment) => (
+  const ImageCell = (performer: PerformerListData) => (
     <Link to={`/performers/${performer.id}`}>
       <img
         loading="lazy"
@@ -73,7 +85,7 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
     </Link>
   );
 
-  const NameCell = (performer: GQL.PerformerDataFragment) => (
+  const NameCell = (performer: PerformerListData) => (
     <Link to={`/performers/${performer.id}`}>
       <div className="ellips-data" title={performer.name}>
         {performer.name}
@@ -86,7 +98,7 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
     </Link>
   );
 
-  const AliasesCell = (performer: GQL.PerformerDataFragment) => {
+  const AliasesCell = (performer: PerformerListData) => {
     const aliases = performer.alias_list ? performer.alias_list.join(", ") : "";
     return (
       <span className="ellips-data" title={aliases}>
@@ -95,23 +107,11 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
     );
   };
 
-  const GenderCell = (performer: GQL.PerformerDataFragment) => (
-    <>
-      {performer.gender
-        ? intl.formatMessage({ id: "gender_types." + performer.gender })
-        : ""}
-    </>
+  const RatingCell = (performer: PerformerListData) => (
+    <RatingSystem value={performer.rating100} disabled />
   );
 
-  const RatingCell = (performer: GQL.PerformerDataFragment) => (
-    <RatingSystem
-      value={performer.rating100}
-      onSetRating={(value) => setRating(value, performer.id)}
-      clickToRate
-    />
-  );
-
-  const AgeCell = (performer: GQL.PerformerDataFragment) => (
+  const AgeCell = (performer: PerformerListData) => (
     <span
       title={
         performer.birthdate
@@ -125,11 +125,11 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
     </span>
   );
 
-  const DeathdateCell = (performer: GQL.PerformerDataFragment) => (
+  const DeathdateCell = (performer: PerformerListData) => (
     <>{performer.death_date}</>
   );
 
-  const FavoriteCell = (performer: GQL.PerformerDataFragment) => (
+  const FavoriteCell = (performer: PerformerListData) => (
     <Button
       className={cx(
         "minimal",
@@ -141,7 +141,7 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
     </Button>
   );
 
-  const CountryCell = (performer: GQL.PerformerDataFragment) => {
+  const CountryCell = (performer: PerformerListData) => {
     const { locale } = useIntl();
     return (
       <span className="ellips-data">
@@ -150,115 +150,94 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
     );
   };
 
-  const EthnicityCell = (performer: GQL.PerformerDataFragment) => (
+  const EthnicityCell = (performer: PerformerListData) => (
     <>{performer.ethnicity}</>
   );
 
-  const MeasurementsCell = (performer: GQL.PerformerDataFragment) => (
-    <span className="ellips-data">{performer.measurements}</span>
-  );
-
-  const FakeTitsCell = (performer: GQL.PerformerDataFragment) => (
-    <>{performer.fake_tits}</>
-  );
-
-  const PenisLengthCell = (performer: GQL.PerformerDataFragment) => (
+  const PenisLengthCell = (performer: PerformerListData) => (
     <>{FormatPenisLength(performer.penis_length)}</>
   );
 
-  const CircumcisedCell = (performer: GQL.PerformerDataFragment) => (
+  const CircumcisedCell = (performer: PerformerListData) => (
     <>{FormatCircumcised(performer.circumcised)}</>
   );
 
-  const HairColorCell = (performer: GQL.PerformerDataFragment) => (
+  const HairColorCell = (performer: PerformerListData) => (
     <span className="ellips-data">{performer.hair_color}</span>
   );
 
-  const EyeColorCell = (performer: GQL.PerformerDataFragment) => (
+  const EyeColorCell = (performer: PerformerListData) => (
     <>{performer.eye_color}</>
   );
 
-  const HeightCell = (performer: GQL.PerformerDataFragment) => (
+  const HeightCell = (performer: PerformerListData) => (
     <>{FormatHeight(performer.height_cm)}</>
   );
 
-  const WeightCell = (performer: GQL.PerformerDataFragment) => (
+  const WeightCell = (performer: PerformerListData) => (
     <>{FormatWeight(performer.weight)}</>
   );
 
-  const CareerLengthCell = (performer: GQL.PerformerDataFragment) => (
+  const CareerLengthCell = (performer: PerformerListData) => (
     <>{formatYearRange(performer.career_start, performer.career_end) ?? ""}</>
   );
 
-  const SceneCountCell = (performer: GQL.PerformerDataFragment) => (
+  const SceneCountCell = (performer: PerformerListData) => (
     <Link to={NavUtils.makePerformerScenesUrl(performer)}>
       <span>{performer.scene_count}</span>
     </Link>
   );
 
-  const GalleryCountCell = (performer: GQL.PerformerDataFragment) => (
+  const GalleryCountCell = (performer: PerformerListData) => (
     <Link to={NavUtils.makePerformerGalleriesUrl(performer)}>
       <span>{performer.gallery_count}</span>
     </Link>
   );
 
-  const ImageCountCell = (performer: GQL.PerformerDataFragment) => (
+  const ImageCountCell = (performer: PerformerListData) => (
     <Link to={NavUtils.makePerformerImagesUrl(performer)}>
       <span>{performer.image_count}</span>
     </Link>
   );
 
-  const OCounterCell = (performer: GQL.PerformerDataFragment) => (
+  const OCounterCell = (performer: PerformerListData) => (
     <>{performer.o_counter}</>
   );
 
   interface IColumnSpec {
     value: string;
     label: string;
-    defaultShow?: boolean;
     mandatory?: boolean;
-    render?: (
-      scene: GQL.PerformerDataFragment,
-      index: number
-    ) => React.ReactNode;
+    sortBy?: string; // CUSTOM
+    render?: (scene: PerformerListData, index: number) => React.ReactNode;
   }
 
+  // CUSTOM: presets below replace the upstream defaultShow flags.
   const allColumns: IColumnSpec[] = [
     {
       value: "image",
       label: intl.formatMessage({ id: "image" }),
-      defaultShow: true,
       render: ImageCell,
     },
     {
       value: "name",
       label: intl.formatMessage({ id: "name" }),
       mandatory: true,
-      defaultShow: true,
       render: NameCell,
     },
     {
       value: "aliases",
       label: intl.formatMessage({ id: "aliases" }),
-      defaultShow: true,
       render: AliasesCell,
-    },
-    {
-      value: "gender",
-      label: intl.formatMessage({ id: "gender" }),
-      defaultShow: true,
-      render: GenderCell,
     },
     {
       value: "rating",
       label: intl.formatMessage({ id: "rating" }),
-      defaultShow: true,
       render: RatingCell,
     },
     {
       value: "age",
       label: intl.formatMessage({ id: "age" }),
-      defaultShow: true,
       render: AgeCell,
     },
     {
@@ -269,19 +248,16 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
     {
       value: "favourite",
       label: intl.formatMessage({ id: "favourite" }),
-      defaultShow: true,
       render: FavoriteCell,
     },
     {
       value: "country",
       label: intl.formatMessage({ id: "country" }),
-      defaultShow: true,
       render: CountryCell,
     },
     {
       value: "ethnicity",
       label: intl.formatMessage({ id: "ethnicity" }),
-      defaultShow: true,
       render: EthnicityCell,
     },
     {
@@ -315,50 +291,92 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
       render: CircumcisedCell,
     },
     {
-      value: "measurements",
-      label: intl.formatMessage({ id: "measurements" }),
-      render: MeasurementsCell,
-    },
-    {
-      value: "fake_tits",
-      label: intl.formatMessage({ id: "fake_tits" }),
-      render: FakeTitsCell,
-    },
-    {
       value: "career_length",
       label: intl.formatMessage({ id: "career_length" }),
-      defaultShow: true,
       render: CareerLengthCell,
     },
     {
       value: "scene_count",
       label: intl.formatMessage({ id: "scenes" }),
-      defaultShow: true,
       render: SceneCountCell,
     },
     {
       value: "gallery_count",
       label: intl.formatMessage({ id: "galleries" }),
-      defaultShow: true,
       render: GalleryCountCell,
     },
     {
       value: "image_count",
       label: intl.formatMessage({ id: "images" }),
-      defaultShow: true,
       render: ImageCountCell,
     },
     {
       value: "o_counter",
       label: intl.formatMessage({ id: "o_count" }),
-      defaultShow: true,
       render: OCounterCell,
     },
   ];
 
-  const defaultColumns = allColumns
-    .filter((col) => col.defaultShow)
-    .map((col) => col.value);
+  // CUSTOM: bind existing columns to their actual server sort keys.
+  const columnSorts: Record<string, string> = {
+    name: "name",
+    rating: "rating",
+    height_cm: "height",
+    weight_kg: "weight",
+    penis_length_cm: "penis_length",
+    scene_count: "scenes_count",
+    gallery_count: "galleries_count",
+    image_count: "images_count",
+    o_counter: "o_counter",
+  };
+  allColumns.forEach((column) => {
+    column.sortBy = columnSorts[column.value];
+  });
+  const metricKeys = [
+    "sex_unique_partners",
+    "oral_unique_partners",
+    "facial_unique_partners",
+    "sex_scenes_count",
+    "oral_scenes_count",
+    "solo_scenes_count",
+    "facial_scenes_count",
+    "sex_activity_percent",
+    "oral_activity_percent",
+    "solo_activity_percent",
+  ];
+  if (
+    props.sortBy &&
+    !allColumns.some((c) => c.sortBy === props.sortBy) &&
+    !metricKeys.includes(props.sortBy)
+  )
+    metricKeys.push(props.sortBy);
+  metricKeys.forEach((key) => {
+    const definition = getPerformerSortMetricDefinitionCustom(key);
+    if (!definition || definition.format === "none") return;
+    allColumns.push({
+      value: key,
+      sortBy: key,
+      label: intl.formatMessage({ id: definition.messageID }),
+      render: (performer) => {
+        const metric = getPerformerSortMetricCustom(
+          key,
+          performer,
+          roleStats.get(performer.id),
+          key === props.sortBy ? sortValues.get(performer.id) : undefined
+        );
+        return (
+          <span className="list-table-metric">
+            <SortMetricValueCustom
+              format={definition.format}
+              value={metric?.value}
+            />
+          </span>
+        );
+      },
+    });
+  });
+
+  const defaultColumns = PERFORMER_BROWSE_COLUMNS_CUSTOM; // CUSTOM: compact browsing preset
 
   const { selectedColumns, saveColumns } = useTableColumns(
     TABLE_NAME,
@@ -367,7 +385,7 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
 
   const columnRenderFuncs: Record<
     string,
-    (scene: GQL.PerformerDataFragment, index: number) => React.ReactNode
+    (scene: PerformerListData, index: number) => React.ReactNode
   > = {};
   allColumns.forEach((col) => {
     if (col.render) {
@@ -377,7 +395,7 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
 
   function renderCell(
     column: IColumn,
-    performer: GQL.PerformerDataFragment,
+    performer: PerformerListData,
     index: number
   ) {
     const render = columnRenderFuncs[column.value];
@@ -386,15 +404,41 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
   }
 
   return (
-    <ListTable
-      className="performer-table"
-      items={props.performers}
-      allColumns={allColumns}
-      columns={selectedColumns}
-      setColumns={(c) => saveColumns(c)}
-      selectedIds={props.selectedIds}
-      onSelectChange={props.onSelectChange}
-      renderCell={renderCell}
-    />
+    <>
+      {/* CUSTOM: presets are explicit, so existing saved preferences survive. */}
+      <ButtonGroup size="sm" className="mb-2" aria-label="Table presets">
+        <Button
+          variant="secondary"
+          onClick={() => saveColumns(PERFORMER_BROWSE_COLUMNS_CUSTOM)}
+        >
+          Browse
+        </Button>
+        <Button
+          variant="secondary"
+          onClick={() => saveColumns(PERFORMER_METRICS_COLUMNS_CUSTOM)}
+        >
+          Metrics
+        </Button>
+      </ButtonGroup>
+      <ListTable
+        className="performer-table"
+        items={props.performers}
+        allColumns={allColumns}
+        columns={selectedColumns}
+        setColumns={(c) => saveColumns(c)}
+        selectedIds={props.selectedIds}
+        onSelectChange={props.onSelectChange}
+        renderCell={renderCell}
+        // CUSTOM
+        extraColumns={sortColumnExtrasCustom(
+          allColumns,
+          selectedColumns,
+          props.sortBy
+        )}
+        sortBy={props.sortBy}
+        sortDirection={props.sortDirection}
+        onSort={props.onSort}
+      />
+    </>
   );
 };

@@ -58,6 +58,15 @@ export const PerformerTagsCriterionOption = new BaseTagsCriterionOption(
   withoutEqualsModifierOptions
 );
 
+// CUSTOM: begin
+export type RatingCriterion = {
+  modifier: CriterionModifier;
+  value: number;
+  value2?: number;
+} | null;
+
+// CUSTOM: end
+
 // TODO - this requires using a nested studios_filter which needs to be added separately
 // export const StudioTagsCriterionOption = new BaseTagsCriterionOption(
 //   "studio_tags",

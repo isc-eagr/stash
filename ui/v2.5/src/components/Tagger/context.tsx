@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { initialConfig, ITaggerConfig } from "src/components/Tagger/constants";
 import * as GQL from "src/core/generated-graphql";
 import {
-  queryFindPerformer,
+  queryFindPerformerForTagger, // CUSTOM
   queryFindStudio,
   queryScrapeScene,
   queryScrapeSceneQuery,
@@ -639,7 +639,7 @@ export const TaggerContext: React.FC<React.PropsWithChildren<unknown>> = ({
       return;
 
     try {
-      const queryResult = await queryFindPerformer(performerID);
+      const queryResult = await queryFindPerformerForTagger(performerID); // CUSTOM
       if (queryResult.data.findPerformer) {
         const target = queryResult.data.findPerformer;
 
@@ -688,7 +688,9 @@ export const TaggerContext: React.FC<React.PropsWithChildren<unknown>> = ({
 
         setSearchResults(newSearchResults);
 
-        Toast.success(<span>Added stash-id to performer</span>);
+        // CUSTOM: begin - consistent entity vocabulary.
+        Toast.success(<span>Added stash-id to vato</span>);
+        // CUSTOM: end
       }
     } catch (e) {
       Toast.error(e);

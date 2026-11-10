@@ -1,0 +1,53 @@
+# CUSTOM: Studio site sync steps and report.
+
+type StudioSiteSync {
+  "Site name, such as NakedPapis"
+  name: String!
+  "True when the site downloads members pictures; other sites use folders added by hand"
+  pictures: Boolean!
+}
+
+input StudioSiteSyncInput {
+  studio_id: ID!
+  "Find codes for scenes without one"
+  codes: Boolean!
+  "Fill empty titles, dates, details, links, and covers"
+  metadata: Boolean!
+  "Download missing members pictures; ignored by sites without downloads"
+  pictures: Boolean!
+  "Scan picture folders and create galleries"
+  galleries: Boolean!
+}
+
+"What the latest site sync run for a studio changed; kept in memory until the next run or a restart"
+type StudioSiteSyncReport {
+  job_id: ID!
+  site: String!
+  finished: Boolean!
+  cancelled: Boolean!
+  error: String
+  "Scenes the run looked at, postponed ones left out"
+  checked: Int!
+  postponed: Int!
+  "Scenes the site has no pictures for, or no folder added by hand"
+  no_pictures: Int!
+  scanned_folders: Int!
+  warnings: [String!]!
+  "Scenes the run changed or that need a manual fix"
+  scenes: [StudioSiteSyncSceneChange!]!
+}
+
+type StudioSiteSyncSceneChange {
+  scene_id: ID!
+  "Title after the run; empty when the scene has none"
+  title: String!
+  basename: String!
+  "Code after the run; empty when the scene has none"
+  code: String!
+  "Fields the run wrote: code, title, date, details, urls, cover"
+  filled: [String!]!
+  "Pictures were downloaded"
+  pictures: Boolean!
+  gallery_id: ID
+  issues: [String!]!
+}

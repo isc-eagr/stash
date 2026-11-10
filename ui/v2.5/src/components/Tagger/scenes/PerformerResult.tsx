@@ -67,7 +67,8 @@ const PerformerResult: React.FC<IPerformerResultProps> = ({
   ageFromDate,
 }) => {
   const { data: performerData, loading: stashLoading } =
-    GQL.useFindPerformerQuery({
+    GQL.useFindPerformerForTaggerQuery({
+      // CUSTOM: avoid role totals in stored-ID lookup
       variables: { id: performer.stored_id ?? "" },
       skip: !performer.stored_id,
     });
@@ -117,7 +118,10 @@ const PerformerResult: React.FC<IPerformerResultProps> = ({
     selectPerformer(undefined);
   };
 
-  if (stashLoading) return <div>Loading performer</div>;
+  if (stashLoading)
+    // CUSTOM: begin - consistent entity vocabulary.
+    return <div>Loading vato</div>;
+  // CUSTOM: end
 
   if (matchedPerformer && matchedStashID) {
     return (

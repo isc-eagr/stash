@@ -1,4 +1,9 @@
+import {
+  usePerformerStudioCount,
+  usePerformerMarkerCount,
+} from "../performerDetailCounts_custom"; // CUSTOM
 import React, { useEffect, useMemo, useState } from "react";
+import type { ApolloQueryResult } from "@apollo/client"; // CUSTOM
 import { Button, Tabs, Tab, Col, Row } from "react-bootstrap";
 import { FormattedMessage, useIntl } from "react-intl";
 import { useHistory, Redirect, RouteComponentProps } from "react-router-dom";
@@ -6,6 +11,7 @@ import { Helmet } from "react-helmet";
 import cx from "classnames";
 import Mousetrap from "mousetrap";
 import * as GQL from "src/core/generated-graphql";
+import "src/components/Shared/statsPanel_custom.scss"; // CUSTOM
 import {
   useFindPerformer,
   usePerformerUpdate,
@@ -14,10 +20,15 @@ import {
 } from "src/core/StashService";
 import { DetailsEditNavbar } from "src/components/Shared/DetailsEditNavbar";
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
+// CUSTOM: Button imported above; removed unused ButtonGroup and duplicate import of react-bootstrap
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { useToast } from "src/hooks/Toast";
 import { useConfigurationContext } from "src/hooks/Config";
-import { RatingSystem } from "src/components/Shared/Rating/RatingSystem";
+import { RatingAdvisorButton } from "src/components/Shared/RatingAdvisor_custom"; // CUSTOM
+import { PerformerSceneAverageRating } from "../PerformerSceneRatingAdvisor_custom"; // CUSTOM
+import { RatingCriteriaStrip } from "src/components/Shared/RatingCriteriaStrip_custom"; // CUSTOM
+import { Icon } from "src/components/Shared/Icon"; // CUSTOM
+import { faUser } from "@fortawesome/free-solid-svg-icons"; // CUSTOM
 import {
   CompressedPerformerDetailsPanel,
   PerformerDetailsPanel,
@@ -26,11 +37,16 @@ import { PerformerScenesPanel } from "./PerformerScenesPanel";
 import { PerformerGalleriesPanel } from "./PerformerGalleriesPanel";
 import { PerformerGroupsPanel } from "./PerformerGroupsPanel";
 import { PerformerImagesPanel } from "./PerformerImagesPanel";
+import { PerformerMarkersPanel } from "./PerformerMarkersPanel"; // CUSTOM
 import { PerformerAppearsWithPanel } from "./performerAppearsWithPanel";
+// CUSTOM: begin
+import { PerformerAppearsWithByRolePanel } from "./PerformerAppearsWithByRolePanel";
+import { PerformerStudiosPanel } from "./PerformerStudiosPanel";
+import { PerformerStatsPanel } from "./PerformerStatsPanel";
+// CUSTOM: end
 import { PerformerEditPanel } from "./PerformerEditPanel";
 import { PerformerMergeModal } from "../PerformerMergeDialog";
 import { PerformerSubmitButton } from "./PerformerSubmitButton";
-import { useRatingKeybinds } from "src/hooks/keybinds";
 import { DetailImage } from "src/components/Shared/DetailImage";
 import { useLoadStickyHeader } from "src/hooks/detailsPanel";
 import { useScrollToTopOnMount } from "src/hooks/scrollToTop";
@@ -50,10 +66,22 @@ import { PatchComponent } from "src/patch";
 import { ILightboxImage } from "src/hooks/Lightbox/types";
 import { goBackOrReplace } from "src/utils/history";
 import { OCounterButton } from "src/components/Shared/CountButton";
+// CUSTOM: begin
+import { PerformerCategoryStrip } from "./PerformerCategoryStrip";
+import { ActivityStatsCharts } from "src/components/Shared/ActivityStatsCharts_custom"; // CUSTOM
+import { Counter } from "src/components/Shared/Counter";
+import { PerformerImageManager } from "./PerformerImageManager";
+import { PerformerVersatility } from "./PerformerVersatility_custom"; // CUSTOM
+import {
+  usePerformerCardRoleStats,
+  withExactPerformerMarkerCounts,
+} from "../performerRoleStats_custom"; // CUSTOM
+// CUSTOM: end
 
 interface IProps {
   performer: GQL.PerformerDataFragment;
   tabKey?: TabKey;
+  refetch: () => Promise<ApolloQueryResult<GQL.FindPerformerProfileQuery>>; // CUSTOM
 }
 
 interface IPerformerParams {
@@ -67,7 +95,13 @@ const validTabs = [
   "galleries",
   "images",
   "groups",
+  // CUSTOM: begin
+  "markers",
+  "studios",
+  "stats",
+  // CUSTOM: end
   "appearswith",
+  "appearswithbyrole", // CUSTOM
 ] as const;
 type TabKey = (typeof validTabs)[number];
 
@@ -80,6 +114,19 @@ const PerformerTabs: React.FC<{
   performer: GQL.PerformerDataFragment;
   abbreviateCounter: boolean;
 }> = ({ tabKey, performer, abbreviateCounter }) => {
+  // CUSTOM: begin - count-only queries for tab badges.
+  const studiosCount = usePerformerStudioCount(performer.id);
+  const performerMarkersCount = usePerformerMarkerCount(performer.id);
+  // CUSTOM: end
+
+  // CUSTOM: begin - fetch exact lightweight co-performer count for "Partners" tab
+  const { data: coPerformerCountData } = GQL.usePerformerCoPerformerCountQuery({
+    variables: { performer_id: performer.id },
+  });
+  const uniqueCoPerformerCount =
+    coPerformerCountData?.performerCoPerformerCount ?? 0;
+  // CUSTOM: end
+
   const populatedDefaultTab = useMemo(() => {
     let ret: TabKey = "scenes";
     if (performer.scene_count === 0) {
@@ -153,7 +200,6 @@ const PerformerTabs: React.FC<{
           performer={performer}
         />
       </Tab>
-
       <Tab
         eventKey="images"
         title={
@@ -169,7 +215,6 @@ const PerformerTabs: React.FC<{
           performer={performer}
         />
       </Tab>
-
       <Tab
         eventKey="groups"
         title={
@@ -185,22 +230,90 @@ const PerformerTabs: React.FC<{
           performer={performer}
         />
       </Tab>
-
+      {/* CUSTOM: begin - Markers tab */}
       <Tab
-        eventKey="appearswith"
+        eventKey="markers"
+        title={
+          <>
+            <FormattedMessage id="markers" defaultMessage="Markers" />
+            <Counter
+              count={performerMarkersCount}
+              abbreviateCounter={abbreviateCounter}
+              hideZero
+            />
+          </>
+        }
+      >
+        <PerformerMarkersPanel
+          active={activeTabKey === "markers"}
+          performer={performer}
+        />
+      </Tab>
+      {/* CUSTOM: end */}
+
+      {/* CUSTOM: begin - hidden appears-with, appears-with-by-role, studios tabs */}
+      {/* HIDDEN: This tab is hidden in this fork but kept for upstream merge compatibility */}
+      {false && (
+        <Tab
+          eventKey="appearswith"
+          title={
+            <TabTitleCounter
+              messageID="appears_with"
+              count={performer.performer_count}
+              abbreviateCounter={abbreviateCounter}
+            />
+          }
+        >
+          <PerformerAppearsWithPanel
+            active={activeTabKey === "appearswith"}
+            performer={performer}
+          />
+        </Tab>
+      )}
+      <Tab
+        eventKey="appearswithbyrole"
+        title={
+          <>
+            <FormattedMessage
+              id="appears_with_by_role"
+              defaultMessage="Partners"
+            />
+            {uniqueCoPerformerCount > 0 && (
+              <Counter
+                abbreviateCounter={abbreviateCounter}
+                count={uniqueCoPerformerCount}
+              />
+            )}
+          </>
+        }
+      >
+        <PerformerAppearsWithByRolePanel
+          active={activeTabKey === "appearswithbyrole"}
+          performer={performer}
+        />
+      </Tab>
+      <Tab
+        eventKey="studios"
         title={
           <TabTitleCounter
-            messageID="appears_with"
-            count={performer.performer_count}
+            messageID="studios"
+            count={studiosCount}
             abbreviateCounter={abbreviateCounter}
           />
         }
       >
-        <PerformerAppearsWithPanel
-          active={activeTabKey === "appearswith"}
+        <PerformerStudiosPanel
+          active={activeTabKey === "studios"}
           performer={performer}
         />
       </Tab>
+      <Tab eventKey="stats" title="Stats">
+        <PerformerStatsPanel
+          active={activeTabKey === "stats"}
+          performer={performer}
+        />
+      </Tab>
+      {/* CUSTOM: end */}
     </Tabs>
   );
 };
@@ -211,34 +324,75 @@ interface IPerformerHeaderImageProps {
   encodingImage: boolean;
   lightboxImages: ILightboxImage[];
   performer: GQL.PerformerDataFragment;
+  refetch: () => Promise<ApolloQueryResult<GQL.FindPerformerProfileQuery>>; // CUSTOM
 }
 
 const PerformerHeaderImage: React.FC<IPerformerHeaderImageProps> =
   PatchComponent(
     "PerformerHeaderImage",
-    ({ encodingImage, activeImage, lightboxImages, performer }) => {
+    // CUSTOM: begin - PerformerImageManager, currentImage state
+    ({ encodingImage, activeImage, performer, refetch }) => {
+      const [currentImage, setCurrentImage] = React.useState(activeImage);
+
+      React.useEffect(() => {
+        setCurrentImage(activeImage);
+      }, [activeImage]);
+
+      // Build lightbox images with current image as the displayed one
+      const currentLightboxImages = React.useMemo(
+        () => [{ paths: { thumbnail: currentImage, image: currentImage } }],
+        [currentImage]
+      );
+
       return (
         <HeaderImage encodingImage={encodingImage}>
-          {!!activeImage && (
-            <LightboxLink images={lightboxImages}>
-              <DetailImage
-                className="performer"
-                src={activeImage}
-                alt={performer.name}
-              />
-            </LightboxLink>
-          )}
+          <div className="d-flex flex-column align-items-center">
+            {!!currentImage && (
+              <PerformerImageManager
+                performer={performer}
+                onImageChange={setCurrentImage}
+                refetch={refetch}
+              >
+                <LightboxLink images={currentLightboxImages}>
+                  <DetailImage
+                    className="performer"
+                    src={currentImage}
+                    alt={performer.name}
+                  />
+                </LightboxLink>
+              </PerformerImageManager>
+            )}
+          </div>
         </HeaderImage>
       );
     }
   );
+// CUSTOM: end
 
 const PerformerPage: React.FC<IProps> = PatchComponent(
   "PerformerPage",
-  ({ performer, tabKey }) => {
+  ({ performer, tabKey, refetch }) => {
+    // CUSTOM: added refetch
     const Toast = useToast();
     const history = useHistory();
     const intl = useIntl();
+    const roleStatPerformers = useMemo(
+      () => [{ id: performer.id }],
+      [performer.id]
+    ); // CUSTOM
+    const roleStatsByPerformer = usePerformerCardRoleStats(roleStatPerformers); // CUSTOM
+    const roleStats = withExactPerformerMarkerCounts(
+      roleStatsByPerformer.get(performer.id),
+      performer
+    ); // CUSTOM
+    const { data: castSplitData } = GQL.useFindPerformerSceneTypeCastSplitQuery(
+      { variables: { id: performer.id } }
+    ); // CUSTOM
+    const hasActivityStats = // CUSTOM
+      performer.activity_stats.sex_seconds +
+        performer.activity_stats.oral_seconds +
+        performer.activity_stats.solo_seconds >
+      0;
 
     // Configuration settings
     const { configuration } = useConfigurationContext();
@@ -255,6 +409,13 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
     const [image, setImage] = useState<string | null>();
     const [encodingImage, setEncodingImage] = useState<boolean>(false);
     const loadStickyHeader = useLoadStickyHeader();
+    const openVatoOStats = () => {
+      window.open(
+        `/ostats/vato/${performer.id}`,
+        "_blank",
+        "noopener,noreferrer"
+      );
+    }; // CUSTOM
 
     const activeImage = useMemo(() => {
       const performerImage = performer.image_path;
@@ -313,12 +474,6 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
         />
       );
     }
-
-    useRatingKeybinds(
-      true,
-      configuration?.ui.ratingSystemOptions?.type,
-      setRating
-    );
 
     // set up hotkeys
     useEffect(() => {
@@ -386,25 +541,14 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
       }
     }
 
-    function setRating(v: number | null) {
-      if (performer.id) {
-        updatePerformer({
-          variables: {
-            input: {
-              id: performer.id,
-              rating100: v,
-            },
-          },
-        });
-      }
-    }
-
     if (isDestroying)
+      // CUSTOM: begin - consistent entity vocabulary.
       return (
         <LoadingIndicator
-          message={`Deleting performer ${performer.id}: ${performer.name}`}
+          message={`Deleting vato ${performer.id}: ${performer.name}`}
         />
       );
+    // CUSTOM: end
 
     const headerClassName = cx("detail-header", {
       edit: isEditing,
@@ -430,85 +574,169 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
               encodingImage={encodingImage}
               lightboxImages={lightboxImages}
               performer={performer}
+              refetch={refetch} // CUSTOM
             />
-            <div className="row">
+            <div
+              className="row performer-header-content" // CUSTOM
+            >
               <div className="performer-head col">
-                <DetailTitle
-                  name={performer.name}
-                  disambiguation={performer.disambiguation ?? undefined}
-                  classNamePrefix="performer"
-                >
+                {/* CUSTOM: begin - name and ratings with his rating criteria
+                and count tiles beside them */}
+                <div className="performer-head-top">
+                  <div className="performer-head-identity">
+                    <DetailTitle
+                      name={performer.name}
+                      disambiguation={performer.disambiguation ?? undefined}
+                      classNamePrefix="performer"
+                    >
+                      {!isEditing && (
+                        <ExpandCollapseButton
+                          collapsed={collapsed}
+                          setCollapsed={(v) => setCollapsed(v)}
+                        />
+                      )}
+                      <span className="name-icons">
+                        <FavoriteIcon
+                          favorite={performer.favorite}
+                          onToggleFavorite={(v) => setFavorite(v)}
+                        />
+                        <ExternalLinkButtons
+                          urls={performer.urls ?? undefined}
+                        />
+                      </span>
+                    </DetailTitle>
+                    <AliasList aliases={performer.alias_list} />
+                    <div className="quality-group">
+                      <RatingAdvisorButton
+                        entityType="performer"
+                        entityId={performer.id}
+                        rating100={performer.rating100}
+                        ratingScores={performer.rating_scores}
+                        onRatingSaved={refetch}
+                      />{" "}
+                      {/* CUSTOM */}
+                      <PerformerSceneAverageRating performerId={performer.id} />
+                      {!!performer.o_counter && (
+                        // CUSTOM: begin
+                        <OCounterButton
+                          value={performer.o_counter}
+                          onIncrement={openVatoOStats}
+                          onValueClicked={openVatoOStats}
+                        />
+                        // CUSTOM: end
+                      )}
+                    </div>
+                  </div>
                   {!isEditing && (
-                    <ExpandCollapseButton
-                      collapsed={collapsed}
-                      setCollapsed={(v) => setCollapsed(v)}
+                    <RatingCriteriaStrip
+                      className="rating-panel rating-panel--vato"
+                      entityId={performer.id}
+                      entityType="performer"
+                      header={
+                        <h4 className="rating-panel__title">
+                          <Icon icon={faUser} />
+                          Vato rating
+                        </h4>
+                      }
+                      oCount={performer.o_counter}
+                      ratingScores={performer.rating_scores}
                     />
-                  )}
-                  <span className="name-icons">
-                    <FavoriteIcon
-                      favorite={performer.favorite}
-                      onToggleFavorite={(v) => setFavorite(v)}
-                    />
-                    <ExternalLinkButtons urls={performer.urls ?? undefined} />
-                  </span>
-                </DetailTitle>
-                <AliasList aliases={performer.alias_list} />
-                <div className="quality-group">
-                  <RatingSystem
-                    value={performer.rating100}
-                    onSetRating={(value) => setRating(value)}
-                    clickToRate
-                    withoutContext
-                  />
-                  {!!performer.o_counter && (
-                    <OCounterButton value={performer.o_counter} />
                   )}
                 </div>
-                {!isEditing && (
-                  <PerformerDetailsPanel
-                    performer={performer}
-                    collapsed={collapsed}
-                    fullWidth={!collapsed && !compactExpandedDetails}
-                  />
-                )}
-                {isEditing ? (
-                  <PerformerEditPanel
-                    performer={performer}
-                    isVisible={isEditing}
-                    onSubmit={onSave}
-                    onCancel={() => toggleEditing()}
-                    setImage={setImage}
-                    setEncodingImage={setEncodingImage}
-                  />
-                ) : (
-                  <Col>
-                    <Row xs={8}>
-                      <DetailsEditNavbar
-                        objectName={
-                          performer?.name ??
-                          intl.formatMessage({ id: "performer" })
+                {/* CUSTOM: end */}
+                {/* CUSTOM: begin - details and buttons beside his versatility */}
+                <div className="performer-head-body">
+                  <div className="performer-head-details">
+                    {/* CUSTOM: end */}
+                    {!isEditing && (
+                      <PerformerDetailsPanel
+                        performer={performer}
+                        collapsed={collapsed}
+                        fullWidth={!collapsed && !compactExpandedDetails}
+                      />
+                    )}
+                    {isEditing ? (
+                      <PerformerEditPanel
+                        performer={performer}
+                        isVisible={isEditing}
+                        onSubmit={onSave}
+                        onCancel={() => toggleEditing()}
+                        setImage={setImage}
+                        setEncodingImage={setEncodingImage}
+                      />
+                    ) : (
+                      <Col>
+                        <Row xs={8}>
+                          <DetailsEditNavbar
+                            objectName={
+                              performer?.name ??
+                              intl.formatMessage({ id: "performer" })
+                            }
+                            onToggleEdit={() => toggleEditing()}
+                            onDelete={onDelete}
+                            onAutoTag={onAutoTag}
+                            autoTagDisabled={performer.ignore_auto_tag}
+                            isNew={false}
+                            isEditing={false}
+                            onSave={() => {}}
+                            onImageChange={() => {}}
+                            classNames="mb-2"
+                            customButtons={
+                              <>
+                                {renderMergeButton()}
+                                <div>
+                                  <PerformerSubmitButton
+                                    performer={performer}
+                                  />
+                                </div>
+                              </>
+                            }
+                          ></DetailsEditNavbar>
+                        </Row>
+                      </Col>
+                    )}
+                    {/* CUSTOM: begin */}
+                  </div>
+                  {!isEditing && (
+                    <div className="performer-header-activity stats-panel-custom">
+                      {/* Scene Types tiles, then the marker-time Activity Type bar, then his versatility */}
+                      <PerformerCategoryStrip
+                        performer={performer}
+                        globalStatsOverride={roleStats} // retain exact marker badge values
+                        tiles="full"
+                        castSplit={
+                          castSplitData?.findPerformer?.scene_type_cast_split
                         }
-                        onToggleEdit={() => toggleEditing()}
-                        onDelete={onDelete}
-                        onAutoTag={onAutoTag}
-                        autoTagDisabled={performer.ignore_auto_tag}
-                        isNew={false}
-                        isEditing={false}
-                        onSave={() => {}}
-                        onImageChange={() => {}}
-                        classNames="mb-2"
-                        customButtons={
-                          <>
-                            {renderMergeButton()}
-                            <div>
-                              <PerformerSubmitButton performer={performer} />
-                            </div>
-                          </>
-                        }
-                      ></DetailsEditNavbar>
-                    </Row>
-                  </Col>
-                )}
+                        flushMargins
+                      />
+                      {hasActivityStats && (
+                        <ActivityStatsCharts
+                          className="performer-header-activity-type"
+                          legend
+                          only="activity"
+                          stats={performer.activity_stats}
+                        />
+                      )}
+                      {roleStats && (
+                        <PerformerVersatility
+                          className="performer-versatility--detail"
+                          performer={performer} // partner counts link to role-filtered scenes
+                          oralBottomedPartners={
+                            roleStats.oral_with_bottom_count
+                          }
+                          oralToppedPartners={roleStats.oral_with_top_count}
+                          sexBottomedPartners={roleStats.sex_with_bottom_count}
+                          sexToppedPartners={roleStats.sex_with_top_count}
+                          facialBottomedPartners={
+                            roleStats.facial_with_bottom_count
+                          }
+                          facialToppedPartners={roleStats.facial_with_top_count}
+                        />
+                      )}
+                    </div>
+                  )}
+                </div>
+                {/* CUSTOM: end */}
               </div>
             </div>
           </div>
@@ -542,14 +770,25 @@ const PerformerLoader: React.FC<RouteComponentProps<IPerformerParams>> = ({
   match,
 }) => {
   const { id, tab } = match.params;
-  const { data, loading, error } = useFindPerformer(id);
+  const { data, loading, error, refetch } = useFindPerformer(id); // CUSTOM: added refetch
 
   useScrollToTopOnMount();
+
+  // CUSTOM: begin - wrap refetch to force network-only fetch
+  // Wrap refetch to force network-only fetch (bypass Apollo cache)
+  const forceRefetch = React.useCallback(async () => {
+    return refetch({
+      fetchPolicy: "network-only",
+    } as unknown as Parameters<typeof refetch>[0]);
+  }, [refetch]);
+  // CUSTOM: end
 
   if (loading) return <LoadingIndicator />;
   if (error) return <ErrorMessage error={error.message} />;
   if (!data?.findPerformer)
-    return <ErrorMessage error={`No performer found with id ${id}.`} />;
+    // CUSTOM: begin - consistent entity vocabulary.
+    return <ErrorMessage error={`No vato found with id ${id}.`} />;
+  // CUSTOM: end
 
   if (tab && !isTabKey(tab)) {
     return (
@@ -566,6 +805,7 @@ const PerformerLoader: React.FC<RouteComponentProps<IPerformerParams>> = ({
     <PerformerPage
       performer={data.findPerformer}
       tabKey={tab as TabKey | undefined}
+      refetch={forceRefetch} // CUSTOM
     />
   );
 };

@@ -25,10 +25,12 @@ import { SettingsButton } from "./SettingsButton";
 import {
   faBars,
   faChartColumn,
+  faClock,
   faFilm,
   faHeart,
   faImage,
   faImages,
+  faListCheck, // CUSTOM
   faMapMarkerAlt,
   faPlayCircle,
   faQuestionCircle,
@@ -60,7 +62,7 @@ const messages = defineMessages({
   },
   groups: {
     id: "groups",
-    defaultMessage: "Groups",
+    defaultMessage: "Movies", // CUSTOM
   },
   markers: {
     id: "markers",
@@ -68,7 +70,7 @@ const messages = defineMessages({
   },
   performers: {
     id: "performers",
-    defaultMessage: "Performers",
+    defaultMessage: "Vatos",
   },
   studios: {
     id: "studios",
@@ -94,13 +96,19 @@ const messages = defineMessages({
     id: "statistics",
     defaultMessage: "Statistics",
   },
+  // CUSTOM: begin
+  geviLatest: {
+    id: "gevi_latest",
+    defaultMessage: "GEVI Latest",
+  },
+  // CUSTOM: end
 });
 
 const allMenuItems: IMenuItem[] = [
   {
     name: "scenes",
     message: messages.scenes,
-    href: "/scenes",
+    href: "/scenes?z=2",
     icon: faPlayCircle,
     hotkey: "g s",
     userCreatable: true,
@@ -255,6 +263,7 @@ export const MainNavbar: React.FC = () => {
   useEffect(() => {
     Mousetrap.bind("?", () => openManual());
     Mousetrap.bind("g z", () => goto("/settings"));
+    Mousetrap.bind("g e", () => goto("/gevi-latest")); // CUSTOM
 
     menuItems.forEach((item) => {
       Mousetrap.bind(item.hotkey, () => goto(item.href));
@@ -267,6 +276,7 @@ export const MainNavbar: React.FC = () => {
     return () => {
       Mousetrap.unbind("?");
       Mousetrap.unbind("g z");
+      Mousetrap.unbind("g e"); // CUSTOM
       menuItems.forEach((item) => {
         Mousetrap.unbind(item.hotkey);
       });
@@ -325,6 +335,37 @@ export const MainNavbar: React.FC = () => {
             <Icon icon={faChartColumn} />
           </Button>
         </NavLink>
+        {/* CUSTOM: begin */}
+        <NavLink
+          className="nav-utility"
+          exact
+          to="/task-progress"
+          onClick={handleDismiss}
+        >
+          <Button
+            className="minimal d-flex align-items-center h-100"
+            title={intl.formatMessage({
+              id: "task_progress",
+              defaultMessage: "Task Progress",
+            })}
+          >
+            <Icon icon={faListCheck} />
+          </Button>
+        </NavLink>
+        <NavLink
+          className="nav-utility"
+          exact
+          to="/gevi-latest"
+          onClick={handleDismiss}
+        >
+          <Button
+            className="minimal d-flex align-items-center h-100"
+            title={intl.formatMessage(messages.geviLatest)}
+          >
+            <Icon icon={faClock} />
+          </Button>
+        </NavLink>
+        {/* CUSTOM: end */}
         <NavLink
           className="nav-utility"
           exact

@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"strconv" // CUSTOM: needed for performer ID conversion
 
 	"github.com/stashapp/stash/internal/api/loaders"
 	"github.com/stashapp/stash/internal/api/urlbuilders"
@@ -83,9 +84,9 @@ func (r *studioResolver) Tags(ctx context.Context, obj *models.Studio) (ret []*m
 	return ret, firstError(errs)
 }
 
-func (r *studioResolver) SceneCount(ctx context.Context, obj *models.Studio, depth *int) (ret int, err error) {
+func (r *studioResolver) SceneCount(ctx context.Context, obj *models.Studio, depth *int, performerID *string) (ret int, err error) { // CUSTOM: added performerID
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = scene.CountByStudioID(ctx, r.repository.Scene, obj.ID, depth)
+		ret, err = scene.CountByStudioID(ctx, r.repository.Scene, obj.ID, depth, performerID) // CUSTOM: pass performerID
 		return err
 	}); err != nil {
 		return 0, err
@@ -94,8 +95,18 @@ func (r *studioResolver) SceneCount(ctx context.Context, obj *models.Studio, dep
 	return ret, nil
 }
 
-func (r *studioResolver) ImageCount(ctx context.Context, obj *models.Studio, depth *int) (ret int, err error) {
+func (r *studioResolver) ImageCount(ctx context.Context, obj *models.Studio, depth *int, performerID *string) (ret int, err error) { // CUSTOM: added performerID
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		// CUSTOM: performer-specific image count
+		if performerID != nil {
+			perfID, err := strconv.Atoi(*performerID)
+			if err != nil {
+				return err
+			}
+			ret, err = image.CountByStudioIDAndPerformerID(ctx, r.repository.Image, obj.ID, perfID, depth)
+			return err
+		}
+		// END CUSTOM
 		ret, err = image.CountByStudioID(ctx, r.repository.Image, obj.ID, depth)
 		return err
 	}); err != nil {
@@ -105,8 +116,18 @@ func (r *studioResolver) ImageCount(ctx context.Context, obj *models.Studio, dep
 	return ret, nil
 }
 
-func (r *studioResolver) GalleryCount(ctx context.Context, obj *models.Studio, depth *int) (ret int, err error) {
+func (r *studioResolver) GalleryCount(ctx context.Context, obj *models.Studio, depth *int, performerID *string) (ret int, err error) { // CUSTOM: added performerID
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		// CUSTOM: performer-specific gallery count
+		if performerID != nil {
+			perfID, err := strconv.Atoi(*performerID)
+			if err != nil {
+				return err
+			}
+			ret, err = gallery.CountByStudioIDAndPerformerID(ctx, r.repository.Gallery, obj.ID, perfID, depth)
+			return err
+		}
+		// END CUSTOM
 		ret, err = gallery.CountByStudioID(ctx, r.repository.Gallery, obj.ID, depth)
 		return err
 	}); err != nil {
@@ -127,9 +148,9 @@ func (r *studioResolver) PerformerCount(ctx context.Context, obj *models.Studio,
 	return ret, nil
 }
 
-func (r *studioResolver) GroupCount(ctx context.Context, obj *models.Studio, depth *int) (ret int, err error) {
+func (r *studioResolver) GroupCount(ctx context.Context, obj *models.Studio, depth *int, performerID *string) (ret int, err error) { // CUSTOM: added performerID
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = group.CountByStudioID(ctx, r.repository.Group, obj.ID, depth)
+		ret, err = group.CountByStudioID(ctx, r.repository.Group, obj.ID, depth, performerID) // CUSTOM: pass performerID
 		return err
 	}); err != nil {
 		return 0, err
@@ -150,11 +171,11 @@ func (r *studioResolver) SceneMarkerCount(ctx context.Context, obj *models.Studi
 }
 
 // deprecated
-func (r *studioResolver) MovieCount(ctx context.Context, obj *models.Studio, depth *int) (ret int, err error) {
-	return r.GroupCount(ctx, obj, depth)
+func (r *studioResolver) MovieCount(ctx context.Context, obj *models.Studio, depth *int) (ret int, err error) { // CUSTOM: calls GroupCount with nil performerID
+	return r.GroupCount(ctx, obj, depth, nil) // CUSTOM: pass nil performerID for deprecated path
 }
 
-func (r *studioResolver) OCounter(ctx context.Context, obj *models.Studio, depth *int) (ret int, err error) {
+func (r *studioResolver) OCounter(ctx context.Context, obj *models.Studio, depth *int, performerID *string) (ret int, err error) { // CUSTOM: added performerID
 	var res_scene int
 	var res_image int
 	depthVal := 0
@@ -162,11 +183,11 @@ func (r *studioResolver) OCounter(ctx context.Context, obj *models.Studio, depth
 		depthVal = *depth
 	}
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		res_scene, err = r.repository.Scene.OCountByStudioID(ctx, obj.ID, depthVal)
+		res_scene, err = r.repository.Scene.OCountByStudioIDCustom(ctx, obj.ID, &depthVal, performerID) // CUSTOM: performer scope and release O's
 		if err != nil {
 			return err
 		}
-		res_image, err = r.repository.Image.OCountByStudioID(ctx, obj.ID, depthVal)
+		res_image, err = r.repository.Image.OCountByStudioIDCustom(ctx, obj.ID, &depthVal, performerID) // CUSTOM: performer scope
 		return err
 	}); err != nil {
 		return 0, err

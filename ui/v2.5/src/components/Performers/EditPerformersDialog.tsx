@@ -6,17 +6,11 @@ import * as GQL from "src/core/generated-graphql";
 import { ModalComponent } from "../Shared/Modal";
 import { useToast } from "src/hooks/Toast";
 import { MultiSet } from "../Shared/MultiSet";
-import { RatingSystem } from "../Shared/Rating/RatingSystem";
 import {
   getAggregateInputValue,
   getAggregateState,
   getAggregateStateObject,
 } from "src/utils/bulkUpdate";
-import {
-  genderStrings,
-  genderToString,
-  stringToGender,
-} from "src/utils/gender";
 import {
   circumcisedStrings,
   circumcisedToString,
@@ -39,8 +33,6 @@ interface IListOperationProps {
 const performerFields = [
   "favorite",
   "disambiguation",
-  "rating100",
-  "gender",
   "birthdate",
   "death_date",
   "career_start",
@@ -50,8 +42,6 @@ const performerFields = [
   "eye_color",
   // "height",
   // "weight",
-  "measurements",
-  "fake_tits",
   "penis_length",
   "circumcised",
   "hair_color",
@@ -82,7 +72,6 @@ export const EditPerformersDialog: React.FC<IListOperationProps> = (
   const [updateInput, setUpdateInput] = useState<GQL.BulkPerformerUpdateInput>(
     {}
   );
-  const genderOptions = [""].concat(genderStrings);
   const circumcisedOptions = [""].concat(circumcisedStrings);
 
   const unsetDisabled = props.selected.length < 2;
@@ -128,19 +117,6 @@ export const EditPerformersDialog: React.FC<IListOperationProps> = (
       tag_ids: tagIds,
     };
 
-    // we don't have unset functionality for the rating star control
-    // so need to determine if we are setting a rating or not
-    performerInput.rating100 = getAggregateInputValue(
-      updateInput.rating100,
-      aggregateState.rating100
-    );
-
-    // gender dropdown doesn't have unset functionality
-    // so need to determine what we are setting
-    performerInput.gender = getAggregateInputValue(
-      updateInput.gender,
-      aggregateState.gender
-    );
     performerInput.circumcised = getAggregateInputValue(
       updateInput.circumcised,
       aggregateState.circumcised
@@ -262,16 +238,6 @@ export const EditPerformersDialog: React.FC<IListOperationProps> = (
         isRunning={isUpdating}
       >
         <Form>
-          <BulkUpdateFormGroup name="rating">
-            <RatingSystem
-              value={updateInput.rating100}
-              onSetRating={(value) =>
-                setUpdateField({ rating100: value ?? undefined })
-              }
-              disabled={isUpdating}
-            />
-          </BulkUpdateFormGroup>
-
           <Form.Group controlId="favorite">
             <IndeterminateCheckbox
               setChecked={(checked) => setUpdateField({ favorite: checked })}
@@ -279,25 +245,6 @@ export const EditPerformersDialog: React.FC<IListOperationProps> = (
               label={intl.formatMessage({ id: "favourite" })}
             />
           </Form.Group>
-
-          <BulkUpdateFormGroup name="gender">
-            <Form.Control
-              as="select"
-              className="input-control"
-              value={genderToString(updateInput.gender)}
-              onChange={(event) =>
-                setUpdateField({
-                  gender: stringToGender(event.currentTarget.value),
-                })
-              }
-            >
-              {genderOptions.map((opt) => (
-                <option value={opt} key={opt}>
-                  {opt}
-                </option>
-              ))}
-            </Form.Control>
-          </BulkUpdateFormGroup>
 
           <BulkUpdateFormGroup name="disambiguation">
             <BulkUpdateTextInput
@@ -378,15 +325,6 @@ export const EditPerformersDialog: React.FC<IListOperationProps> = (
               unsetDisabled={unsetDisabled}
             />
           </BulkUpdateFormGroup>
-          <BulkUpdateFormGroup name="measurements">
-            <BulkUpdateTextInput
-              value={updateInput.measurements}
-              valueChanged={(newValue) =>
-                setUpdateField({ measurements: newValue })
-              }
-              unsetDisabled={unsetDisabled}
-            />
-          </BulkUpdateFormGroup>
           <BulkUpdateFormGroup name="penis_length">
             <BulkUpdateTextInput
               value={penis_length}
@@ -414,15 +352,6 @@ export const EditPerformersDialog: React.FC<IListOperationProps> = (
             </Form.Control>
           </BulkUpdateFormGroup>
 
-          <BulkUpdateFormGroup name="fake_tits">
-            <BulkUpdateTextInput
-              value={updateInput.fake_tits}
-              valueChanged={(newValue) =>
-                setUpdateField({ fake_tits: newValue })
-              }
-              unsetDisabled={unsetDisabled}
-            />
-          </BulkUpdateFormGroup>
           <BulkUpdateFormGroup name="tattoos">
             <BulkUpdateTextInput
               value={updateInput.tattoos}

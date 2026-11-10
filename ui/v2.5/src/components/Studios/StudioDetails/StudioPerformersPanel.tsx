@@ -16,11 +16,12 @@ export const StudioPerformersPanel: React.FC<IStudioPerformersPanel> = ({
   studio,
   showChildStudioContent,
 }) => {
+  const studioDepth = showChildStudioContent ? -1 : 0;
   const studioCriterion = new StudiosCriterion();
   studioCriterion.value = {
     items: [{ id: studio.id!, label: studio.name || `Studio ${studio.id}` }],
     excluded: [],
-    depth: 0,
+    depth: studioDepth,
   };
 
   const extraCriteria = {
@@ -28,6 +29,11 @@ export const StudioPerformersPanel: React.FC<IStudioPerformersPanel> = ({
     images: [studioCriterion],
     galleries: [studioCriterion],
     groups: [studioCriterion],
+    studio: {
+      id: studio.id,
+      label: studio.name || `Studio ${studio.id}`,
+      depth: studioDepth,
+    },
   };
 
   const filterHook = useStudioFilterHook(studio, showChildStudioContent);

@@ -12,6 +12,19 @@ import { RatingBanner } from "../Shared/RatingBanner";
 import { faPlayCircle, faTag } from "@fortawesome/free-solid-svg-icons";
 import { RelatedGroupPopoverButton } from "./RelatedGroupPopover";
 import { OCounterButton } from "../Shared/CountButton";
+import cx from "classnames"; // CUSTOM
+import { useConfigurationContext } from "src/hooks/Config"; // CUSTOM
+import {
+  getRatingCardClass,
+  isRatingCardHomePage,
+} from "src/utils/ratingCardStyles_custom"; // CUSTOM
+import { SortMetricBadgeCustom } from "../Shared/SortMetricBadge_custom"; // CUSTOM
+import { getGroupSortMetricCustom } from "./groupSortMetric_custom"; // CUSTOM
+import {
+  catalogCardSortHighlightClassCustom,
+  hasCatalogCardSortValueCustom,
+  isCatalogCardSortHighlightedCustom,
+} from "../Shared/catalogCardSortHighlight_custom"; // CUSTOM
 
 const Description: React.FC<{
   sceneNumber?: number;
@@ -46,6 +59,9 @@ interface IProps {
   onSelectedChanged?: (selected: boolean, shiftKey: boolean) => void;
   fromGroupId?: string;
   onMove?: (srcIds: string[], targetId: string, after: boolean) => void;
+  activeSortBy?: string; // CUSTOM
+  activeSortDirection?: GQL.SortDirectionEnum; // CUSTOM
+  activeSortValue?: string | null; // CUSTOM
 }
 
 export const GroupCard: React.FC<IProps> = PatchComponent(
@@ -60,7 +76,25 @@ export const GroupCard: React.FC<IProps> = PatchComponent(
     onSelectedChanged,
     fromGroupId,
     onMove,
+    activeSortBy,
+    activeSortDirection,
+    activeSortValue,
   }) => {
+    // CUSTOM: begin - premium/classic rating card styling
+    const { configuration } = useConfigurationContext();
+    const ratingCardTheme = configuration?.ui?.ratingCardTheme;
+    const goatTagId = configuration?.ui?.roleTagIds?.goatTagId;
+    const ratingCardClass = getRatingCardClass({
+      rating: group.rating100,
+      tags: group.tags,
+      goatTagId,
+      theme: ratingCardTheme,
+      thresholds: configuration?.ui?.ratingCardThresholds,
+      overrideTagIds: configuration?.ui?.ratingCardOverrideTagIds,
+      disabled: isRatingCardHomePage(),
+    });
+    // CUSTOM: end
+
     const groupDescription = useMemo(() => {
       if (!fromGroupId) {
         return undefined;
@@ -72,9 +106,30 @@ export const GroupCard: React.FC<IProps> = PatchComponent(
 
       return containingGroup?.description ?? undefined;
     }, [fromGroupId, group.containing_groups]);
+    const sortDirection = activeSortDirection ?? GQL.SortDirectionEnum.Asc; // CUSTOM
+    const sortMetric = getGroupSortMetricCustom(
+      activeSortBy,
+      group,
+      activeSortValue
+    ); // CUSTOM
+    const embeddedSortMetric =
+      isCatalogCardSortHighlightedCustom(
+        activeSortBy,
+        "tag_count",
+        "scenes_count",
+        "o_counter"
+      ) ||
+      (isCatalogCardSortHighlightedCustom(activeSortBy, "date") &&
+        hasCatalogCardSortValueCustom(group.date)) ||
+      (isCatalogCardSortHighlightedCustom(activeSortBy, "rating") &&
+        hasCatalogCardSortValueCustom(group.rating100)); // CUSTOM
 
     function maybeRenderScenesPopoverButton() {
-      if (group.scenes.length === 0) return;
+      const highlighted = isCatalogCardSortHighlightedCustom(
+        activeSortBy,
+        "scenes_count"
+      );
+      if (group.scenes.length === 0 && !highlighted) return;
 
       const popoverContent = group.scenes.map((scene) => (
         <SceneLink key={scene.id} scene={scene} />
@@ -82,20 +137,27 @@ export const GroupCard: React.FC<IProps> = PatchComponent(
 
       return (
         <HoverPopover
-          className="scene-count"
+          className={cx(
+            "scene-count",
+            catalogCardSortHighlightClassCustom(activeSortBy, "scenes_count")
+          )} // CUSTOM
           placement="bottom"
           content={popoverContent}
         >
           <Button className="minimal">
             <Icon icon={faPlayCircle} />
-            <span>{group.scenes.length}</span>
+            <span>{group.scene_count}</span> {/* CUSTOM: exact sort value */}
           </Button>
         </HoverPopover>
       );
     }
 
     function maybeRenderTagPopoverButton() {
-      if (group.tags.length <= 0) return;
+      const highlighted = isCatalogCardSortHighlightedCustom(
+        activeSortBy,
+        "tag_count"
+      );
+      if (group.tags.length <= 0 && !highlighted) return;
 
       const popoverContent = group.tags.map((tag) => (
         <TagLink key={tag.id} linkType="group" tag={tag} />
@@ -103,7 +165,12 @@ export const GroupCard: React.FC<IProps> = PatchComponent(
 
       return (
         <HoverPopover placement="bottom" content={popoverContent}>
-          <Button className="minimal tag-count">
+          <Button
+            className={cx(
+              "minimal tag-count",
+              catalogCardSortHighlightClassCustom(activeSortBy, "tag_count")
+            )}
+          >
             <Icon icon={faTag} />
             <span>{group.tags.length}</span>
           </Button>
@@ -112,9 +179,21 @@ export const GroupCard: React.FC<IProps> = PatchComponent(
     }
 
     function maybeRenderOCounter() {
-      if (!group.o_counter) return;
+      const highlighted = isCatalogCardSortHighlightedCustom(
+        activeSortBy,
+        "o_counter"
+      );
+      if (!group.o_counter && !highlighted) return;
 
-      return <OCounterButton value={group.o_counter} />;
+      return (
+        <OCounterButton
+          className={catalogCardSortHighlightClassCustom(
+            activeSortBy,
+            "o_counter"
+          )}
+          value={group.o_counter ?? 0}
+        />
+      );
     }
 
     function maybeRenderPopoverButtonGroup() {
@@ -123,8 +202,15 @@ export const GroupCard: React.FC<IProps> = PatchComponent(
         groupDescription ||
         group.scenes.length > 0 ||
         group.tags.length > 0 ||
+        group.o_counter || // CUSTOM
         group.containing_groups.length > 0 ||
-        group.sub_group_count > 0
+        group.sub_group_count > 0 ||
+        isCatalogCardSortHighlightedCustom(
+          activeSortBy,
+          "tag_count",
+          "scenes_count",
+          "o_counter"
+        ) // CUSTOM
       ) {
         return (
           <>
@@ -149,7 +235,7 @@ export const GroupCard: React.FC<IProps> = PatchComponent(
 
     return (
       <GridCard
-        className={`group-card zoom-${zoomIndex}`}
+        className={cx("group-card", `zoom-${zoomIndex}`, ratingCardClass)} // CUSTOM
         objectId={group.id}
         onMove={onMove}
         url={`/groups/${group.id}`}
@@ -164,12 +250,31 @@ export const GroupCard: React.FC<IProps> = PatchComponent(
               alt={group.name ?? ""}
               src={group.front_image_path ?? ""}
             />
-            <RatingBanner rating={group.rating100} />
+            <RatingBanner
+              rating={group.rating100}
+              compact
+              className={catalogCardSortHighlightClassCustom(
+                activeSortBy,
+                "rating"
+              )}
+            />
           </>
         }
         details={
           <div className="group-card__details">
-            <span className="group-card__date">{group.date}</span>
+            <SortMetricBadgeCustom
+              metric={embeddedSortMetric ? undefined : sortMetric}
+              sortDirection={sortDirection}
+            />
+            <span
+              className={cx(
+                "group-card__date",
+                hasCatalogCardSortValueCustom(group.date) &&
+                  catalogCardSortHighlightClassCustom(activeSortBy, "date")
+              )}
+            >
+              {group.date}
+            </span>
             <TruncatedText
               className="group-card__description"
               text={group.synopsis}

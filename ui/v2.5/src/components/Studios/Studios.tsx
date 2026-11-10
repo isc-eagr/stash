@@ -19,7 +19,8 @@ const StudioRoutes: React.FC = () => {
       <Switch>
         <Route exact path="/studios" component={Studios} />
         <Route exact path="/studios/new" component={StudioCreate} />
-        <Route path="/studios/:id/:tab?" component={Studio} />
+        {/* CUSTOM: studio SceneStats release drilldown */}
+        <Route path="/studios/:id/:tab?/:year?/:month?" component={Studio} />
       </Switch>
     </>
   );

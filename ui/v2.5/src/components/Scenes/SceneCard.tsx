@@ -6,12 +6,11 @@ import * as GQL from "src/core/generated-graphql";
 import { Icon } from "../Shared/Icon";
 import { GalleryLink, TagLink, SceneMarkerLink } from "../Shared/TagLink";
 import { HoverPopover } from "../Shared/HoverPopover";
-import { TruncatedText } from "../Shared/TruncatedText";
 import NavUtils from "src/utils/navigation";
 import TextUtils from "src/utils/text";
 import { SceneQueue } from "src/models/sceneQueue";
 import { useConfigurationContext } from "src/hooks/Config";
-import { PerformerPopoverButton } from "../Shared/PerformerPopoverButton";
+import { SceneCardPerformerPopover } from "./SceneCardPerformerPopover_custom"; // CUSTOM
 import { GridCard } from "../Shared/GridCard/GridCard";
 import { RatingBanner } from "../Shared/RatingBanner";
 import { FormattedMessage } from "react-intl";
@@ -31,6 +30,34 @@ import { GroupTag } from "../Groups/GroupTag";
 import { FileSize } from "../Shared/FileSize";
 import { OCounterButton } from "../Shared/CountButton";
 import { defaultPreviewVolume } from "src/core/config";
+import {
+  getRatingCardClass,
+  hasRoyalSapphireSceneMarker,
+  isRatingCardHomePage,
+} from "src/utils/ratingCardStyles_custom"; // CUSTOM
+import { SceneCardInsights } from "./SceneCardInsights_custom"; // CUSTOM
+import { SceneActivityBar } from "./SceneActivityBar_custom"; // CUSTOM
+import { SceneRatingStrip } from "./SceneRatingStrip_custom"; // CUSTOM
+import { SceneOutstandingCaption } from "./SceneOutstandingCaption_custom"; // CUSTOM
+import { getSceneActivityMetrics } from "./sceneActivityMetricsData_custom"; // CUSTOM
+import {
+  getSceneActivityBarCustom,
+  sceneActivityBarShowsSortCustom,
+} from "./sceneActivityBarData_custom"; // CUSTOM
+import type { SceneCardInsightPerformerRoleStats } from "./sceneCardInsightsData_custom"; // CUSTOM
+import { SortMetricBadgeCustom } from "../Shared/SortMetricBadge_custom"; // CUSTOM
+import { getSceneSortMetricCustom } from "./sceneSortMetric_custom"; // CUSTOM
+import { StashDBMatchesCardButton } from "./SceneDetails/StashDBMatchesCount"; // CUSTOM
+import {
+  sceneOTotalCustom,
+  sceneStashDBMatchesTotalCustom,
+  sceneTotalHintCustom,
+} from "./sceneReleaseTotals_custom"; // CUSTOM
+import {
+  catalogCardSortHighlightClassCustom,
+  hasCatalogCardSortValueCustom,
+  isCatalogCardSortHighlightedCustom,
+} from "../Shared/catalogCardSortHighlight_custom"; // CUSTOM
 
 interface IScenePreviewProps {
   isPortrait: boolean;
@@ -56,20 +83,27 @@ export const ScenePreview: React.FC<IScenePreviewProps> = React.memo(
   }) => {
     const videoEl = useRef<HTMLVideoElement>(null);
 
+    // CUSTOM: begin - keep one observer per preview and release it on unmount.
     useEffect(() => {
+      const observedVideo = videoEl.current;
+      if (!observedVideo) return;
+
       const observer = new IntersectionObserver((entries) => {
         entries.forEach((entry) => {
           if (entry.intersectionRatio > 0)
             // Catch is necessary due to DOMException if user hovers before clicking on page
-            videoEl.current?.play()?.catch(() => {});
-          else videoEl.current?.pause();
+            observedVideo.play().catch(() => {});
+          else observedVideo.pause();
         });
       });
 
-      if (videoEl.current) observer.observe(videoEl.current);
-
-      return () => observer.disconnect();
+      observer.observe(observedVideo);
+      return () => {
+        observer.disconnect();
+        observedVideo.pause();
+      };
     }, []);
+    // CUSTOM: end
 
     useEffect(() => {
       if (videoEl?.current?.volume)
@@ -86,6 +120,8 @@ export const ScenePreview: React.FC<IScenePreviewProps> = React.memo(
         />
         <video
           disableRemotePlayback
+          // CUSTOM: hide browser PiP hover buttons on previews.
+          disablePictureInPicture
           playsInline
           muted={!soundActive}
           className="scene-card-preview-video"
@@ -116,18 +152,26 @@ interface ISceneCardProps {
   zoomIndex?: number;
   onSelectedChanged?: (selected: boolean, shiftKey: boolean) => void;
   fromGroupId?: string;
+  activeSortBy?: string; // CUSTOM
+  activeSortDirection?: GQL.SortDirectionEnum; // CUSTOM
+  roleStatsByPerformer?: ReadonlyMap<
+    string,
+    SceneCardInsightPerformerRoleStats
+  >; // CUSTOM
+  roleStatsPending?: boolean; // CUSTOM
 }
 
 const Description: React.FC<{
   sceneNumber?: number;
-}> = ({ sceneNumber }) => {
+  className?: string; // CUSTOM
+}> = ({ sceneNumber, className }) => {
   if (!sceneNumber) return null;
 
   return (
     <>
       <hr />
       {sceneNumber !== undefined && (
-        <span className="scene-group-scene-number">
+        <span className={cx("scene-group-scene-number", className)}>
           <FormattedMessage id="scene" /> #{sceneNumber}
         </span>
       )}
@@ -154,7 +198,11 @@ const SceneCardPopovers = React.memo(
     }, [props.fromGroupId, props.scene.groups]);
 
     function maybeRenderTagPopoverButton() {
-      if (props.scene.tags.length <= 0) return;
+      const highlighted = isCatalogCardSortHighlightedCustom(
+        props.activeSortBy,
+        "tag_count"
+      );
+      if (props.scene.tags.length <= 0 && !highlighted) return;
 
       const popoverContent = props.scene.tags.map((tag) => (
         <TagLink key={tag.id} tag={tag} />
@@ -162,7 +210,10 @@ const SceneCardPopovers = React.memo(
 
       return (
         <HoverPopover
-          className="tag-count"
+          className={cx(
+            "tag-count",
+            catalogCardSortHighlightClassCustom(props.activeSortBy, "tag_count")
+          )} // CUSTOM
           placement="bottom"
           content={popoverContent}
         >
@@ -175,12 +226,20 @@ const SceneCardPopovers = React.memo(
     }
 
     function maybeRenderPerformerPopoverButton() {
-      if (props.scene.performers.length <= 0) return;
+      const highlighted = isCatalogCardSortHighlightedCustom(
+        props.activeSortBy,
+        "performer_count"
+      );
+      if (props.scene.performers.length <= 0 && !highlighted) return;
 
+      // CUSTOM
       return (
-        <PerformerPopoverButton
-          performers={props.scene.performers}
-          linkType="scene"
+        <SceneCardPerformerPopover
+          scene={props.scene}
+          className={catalogCardSortHighlightClassCustom(
+            props.activeSortBy,
+            "performer_count"
+          )}
         />
       );
     }
@@ -229,8 +288,26 @@ const SceneCardPopovers = React.memo(
     }
 
     function maybeRenderOCounter() {
-      if (props.scene.o_counter) {
-        return <OCounterButton value={props.scene.o_counter} />;
+      const highlighted = isCatalogCardSortHighlightedCustom(
+        props.activeSortBy,
+        "o_counter"
+      );
+      const oTotal = sceneOTotalCustom(props.scene); // CUSTOM: plus release O's
+      if (oTotal.total || highlighted) {
+        const hint = sceneTotalHintCustom(oTotal);
+        return (
+          <OCounterButton
+            className={cx(
+              catalogCardSortHighlightClassCustom(
+                props.activeSortBy,
+                "o_counter"
+              ),
+              hint.className
+            )}
+            value={oTotal.total}
+            valueTitle={hint.title}
+          />
+        );
       }
     }
 
@@ -262,7 +339,16 @@ const SceneCardPopovers = React.memo(
             overlay={<Tooltip id="organised-tooltip">{"Organized"}</Tooltip>}
             placement="bottom"
           >
-            <div className="organized">
+            {/* CUSTOM: highlight the organized icon when it owns the sort. */}
+            <div
+              className={cx(
+                "organized",
+                catalogCardSortHighlightClassCustom(
+                  props.activeSortBy,
+                  "organized"
+                )
+              )}
+            >
               <Button className="minimal">
                 <Icon icon={faBox} />
               </Button>
@@ -292,34 +378,62 @@ const SceneCardPopovers = React.memo(
     }
 
     function maybeRenderPopoverButtonGroup() {
-      if (
+      const highlightsVisiblePopoverMetric = isCatalogCardSortHighlightedCustom(
+        props.activeSortBy,
+        "tag_count",
+        "performer_count",
+        "o_counter",
+        "group_scene_number"
+      ); // CUSTOM
+      // CUSTOM: keep insights visible even when the card has no popover controls
+      const shouldRenderPopoverGroup =
         !props.compact &&
         (props.scene.tags.length > 0 ||
           props.scene.performers.length > 0 ||
           props.scene.groups.length > 0 ||
           props.scene.scene_markers.length > 0 ||
-          props.scene?.o_counter ||
+          sceneOTotalCustom(props.scene).total > 0 || // CUSTOM: plus release O's
           props.scene.galleries.length > 0 ||
           props.scene.organized ||
-          sceneNumber !== undefined)
-      ) {
-        return (
-          <>
-            <Description sceneNumber={sceneNumber} />
-            <hr />
+          !!sceneStashDBMatchesTotalCustom(props.scene) || // CUSTOM
+          sceneNumber !== undefined ||
+          highlightsVisiblePopoverMetric);
+
+      return (
+        <>
+          {shouldRenderPopoverGroup && (
+            <Description
+              sceneNumber={sceneNumber}
+              className={catalogCardSortHighlightClassCustom(
+                props.activeSortBy,
+                "group_scene_number"
+              )}
+            />
+          )}
+          {shouldRenderPopoverGroup && (
             <ButtonGroup className="card-popovers">
               {maybeRenderTagPopoverButton()}
               {maybeRenderPerformerPopoverButton()}
               {maybeRenderGroupPopoverButton()}
               {maybeRenderSceneMarkerPopoverButton()}
               {maybeRenderOCounter()}
+
               {maybeRenderGallery()}
+              {/* CUSTOM */}
+              <StashDBMatchesCardButton
+                className={catalogCardSortHighlightClassCustom(
+                  props.activeSortBy,
+                  "stashdb_matches"
+                )}
+                total={sceneStashDBMatchesTotalCustom(props.scene)}
+                stashIDs={props.scene.stash_ids}
+              />
               {maybeRenderOrganized()}
               {maybeRenderDupeCopies()}
             </ButtonGroup>
-          </>
-        );
-      }
+          )}
+        </>
+      );
     }
 
     return <>{maybeRenderPopoverButtonGroup()}</>;
@@ -328,17 +442,118 @@ const SceneCardPopovers = React.memo(
 
 const SceneCardDetails = React.memo(
   PatchComponent("SceneCard.Details", (props: ISceneCardProps) => {
+    const { configuration } = useConfigurationContext(); // CUSTOM
+    const sortDirection =
+      props.activeSortDirection ?? GQL.SortDirectionEnum.Asc; // CUSTOM
+    const roleTagIds = configuration?.ui?.roleTagIds;
+    const activityMetrics = useMemo(
+      () => getSceneActivityMetrics(props.scene, roleTagIds ?? {}),
+      [props.scene, roleTagIds]
+    ); // CUSTOM
+    const activityBar = useMemo(
+      () => getSceneActivityBarCustom(activityMetrics),
+      [activityMetrics]
+    ); // CUSTOM
+    const sortMetric = getSceneSortMetricCustom(
+      props.activeSortBy,
+      props.scene,
+      sortDirection,
+      roleTagIds ?? {},
+      props.fromGroupId,
+      activityMetrics
+    ); // CUSTOM
+    const file = props.scene.files[0];
+    const contextualGroupSceneNumber = props.fromGroupId
+      ? props.scene.groups.find(
+          (sceneGroup) => sceneGroup.group.id === props.fromGroupId
+        )?.scene_index
+      : undefined; // CUSTOM
+    const embeddedSortMetric =
+      sceneActivityBarShowsSortCustom(props.activeSortBy, activityBar) ||
+      (!props.compact &&
+        isCatalogCardSortHighlightedCustom(
+          props.activeSortBy,
+          "tag_count",
+          "performer_count",
+          "o_counter"
+        )) ||
+      (!props.compact &&
+        ((isCatalogCardSortHighlightedCustom(
+          props.activeSortBy,
+          "stashdb_matches"
+        ) &&
+          !!sceneStashDBMatchesTotalCustom(props.scene)) ||
+          (isCatalogCardSortHighlightedCustom(
+            props.activeSortBy,
+            "organized"
+          ) &&
+            props.scene.organized))) ||
+      (!props.compact &&
+        (contextualGroupSceneNumber ?? 0) > 0 &&
+        isCatalogCardSortHighlightedCustom(
+          props.activeSortBy,
+          "group_scene_number"
+        )) ||
+      (isCatalogCardSortHighlightedCustom(props.activeSortBy, "title") &&
+        props.scene.title !== "" &&
+        !!objectTitle(props.scene)) ||
+      (isCatalogCardSortHighlightedCustom(
+        props.activeSortBy,
+        "effective_date"
+      ) &&
+        hasCatalogCardSortValueCustom(props.scene.effective_date)) ||
+      (isCatalogCardSortHighlightedCustom(props.activeSortBy, "duration") &&
+        (file?.duration ?? 0) > 0) ||
+      (isCatalogCardSortHighlightedCustom(props.activeSortBy, "resolution") &&
+        !!file?.width &&
+        !!file.height) ||
+      (isCatalogCardSortHighlightedCustom(
+        props.activeSortBy,
+        "interactive_speed"
+      ) &&
+        hasCatalogCardSortValueCustom(props.scene.interactive_speed)) ||
+      (isCatalogCardSortHighlightedCustom(props.activeSortBy, "rating") &&
+        hasCatalogCardSortValueCustom(props.scene.rating100)); // CUSTOM
+
     return (
       <div className="scene-card__details">
-        <span className="scene-card__date">{props.scene.date}</span>
+        <SortMetricBadgeCustom
+          metric={embeddedSortMetric ? undefined : sortMetric}
+          sortDirection={sortDirection}
+        />
+        {/* CUSTOM: effective_date; date and insights share a line */}
+        <div className="scene-meta-line">
+          <span
+            className={cx(
+              "scene-card__date",
+              hasCatalogCardSortValueCustom(props.scene.effective_date) &&
+                catalogCardSortHighlightClassCustom(
+                  props.activeSortBy,
+                  "effective_date"
+                )
+            )}
+          >
+            {props.scene.effective_date ?? props.scene.date}
+          </span>
+          <SceneCardInsights
+            scene={props.scene}
+            roleStatsByPerformer={props.roleStatsByPerformer}
+            roleStatsPending={props.roleStatsPending}
+          />
+        </div>
+        {/* CUSTOM: activity bar and rating strip replace the activity boxes */}
+        <SceneActivityBar
+          sceneId={props.scene.id}
+          bar={activityBar}
+          activity={activityMetrics?.activity ?? []}
+          activeSortBy={props.activeSortBy}
+          outstandingBatteries
+        />
+        <SceneRatingStrip scene={props.scene} nutReportInline />
         <span className="file-path extra-scene-info">
           {objectPath(props.scene)}
         </span>
-        <TruncatedText
-          className="scene-card__description"
-          text={props.scene.details}
-          lineCount={3}
-        />
+        {/* CUSTOM: scene descriptions remain exclusive to scene detail pages */}
       </div>
     );
   })
@@ -358,10 +573,11 @@ const SceneCardOverlays = React.memo(
 
 interface ISceneSpecsOverlay {
   scene: GQL.SlimSceneDataFragment;
+  activeSortBy?: string; // CUSTOM
 }
 
 export const SceneSpecsOverlay: React.FC<ISceneSpecsOverlay> = React.memo(
-  PatchComponent("SceneCard.SceneSpecs", ({ scene }) => {
+  PatchComponent("SceneCard.SceneSpecs", ({ scene, activeSortBy }) => {
     const file = scene.files?.[0];
     if (!file) return null;
     return (
@@ -370,14 +586,24 @@ export const SceneSpecsOverlay: React.FC<ISceneSpecsOverlay> = React.memo(
           <FileSize size={file.size} />
         </span>
         {file.width && file.height ? (
-          <span className="overlay-resolution">
+          <span
+            className={cx(
+              "overlay-resolution",
+              catalogCardSortHighlightClassCustom(activeSortBy, "resolution")
+            )}
+          >
             {TextUtils.resolution(file.width, file.height)}
           </span>
         ) : (
           ""
         )}
         {file.duration > 0 ? (
-          <span className="overlay-duration">
+          <span
+            className={cx(
+              "overlay-duration",
+              catalogCardSortHighlightClassCustom(activeSortBy, "duration")
+            )}
+          >
             {TextUtils.secondsToTimestamp(file.duration)}
           </span>
         ) : (
@@ -401,7 +627,15 @@ const SceneCardImage = React.memo(
 
     function maybeRenderInteractiveSpeedOverlay() {
       return (
-        <div className="scene-interactive-speed-overlay">
+        <div
+          className={cx(
+            "scene-interactive-speed-overlay",
+            catalogCardSortHighlightClassCustom(
+              props.activeSortBy,
+              "interactive_speed"
+            )
+          )}
+        >
           {props.scene.interactive_speed ?? ""}
         </div>
       );
@@ -441,9 +675,25 @@ const SceneCardImage = React.memo(
           onScrubberClick={onScrubberClick}
           disabled={props.selecting}
         />
-        <RatingBanner rating={props.scene.rating100} />
-        <SceneSpecsOverlay scene={props.scene} />
+        {/* CUSTOM: the rating criteria strip below replaces the hover summary */}
+        {props.scene.rating100 !== undefined &&
+        props.scene.rating100 !== null ? (
+          <RatingBanner
+            rating={props.scene.rating100}
+            compact
+            className={catalogCardSortHighlightClassCustom(
+              props.activeSortBy,
+              "rating"
+            )}
+          />
+        ) : null}
+        <SceneSpecsOverlay
+          scene={props.scene}
+          activeSortBy={props.activeSortBy}
+        />
         {maybeRenderInteractiveSpeedOverlay()}
+        {/* CUSTOM: outstanding activity caption */}
+        <SceneOutstandingCaption scene={props.scene} />
       </>
     );
   })
@@ -474,6 +724,26 @@ export const SceneCard = React.memo(
       return "";
     }
 
+    // CUSTOM: begin - rating-based card styling
+    function getRatingClass() {
+      return getRatingCardClass({
+        rating: props.scene.rating100,
+        tags: props.scene.tags,
+        goatTagId: configuration?.ui?.roleTagIds?.goatTagId,
+        theme: configuration?.ui?.ratingCardTheme,
+        thresholds: configuration?.ui?.ratingCardThresholds,
+        overrideTagIds: configuration?.ui?.ratingCardOverrideTagIds,
+        ratingScores: props.scene.rating_scores, // CUSTOM
+        sceneHasRoyalSapphireBonus: hasRoyalSapphireSceneMarker(
+          props.scene.scene_markers,
+          configuration?.ui?.roleTagIds?.goatTagId,
+          props.scene.scene_marker_tag_ancestors
+        ), // CUSTOM
+        disabled: isRatingCardHomePage(),
+      });
+    }
+    // CUSTOM: end
+
     const cont = configuration?.interface.continuePlaylistDefault ?? false;
 
     const sceneLink = props.queue
@@ -482,12 +752,21 @@ export const SceneCard = React.memo(
           continue: cont,
         })
       : `/scenes/${props.scene.id}`;
+    const cardTitle = objectTitle(props.scene); // CUSTOM: highlight title sorts in place
 
     return (
       <GridCard
-        className={`scene-card ${zoomIndex()} ${filelessClass()}`}
+        className={`scene-card ${zoomIndex()} ${filelessClass()} ${getRatingClass()}`} // CUSTOM: getRatingClass
         url={sceneLink}
-        title={objectTitle(props.scene)}
+        title={
+          cardTitle &&
+          props.scene.title !== "" &&
+          isCatalogCardSortHighlightedCustom(props.activeSortBy, "title") ? (
+            <span className="catalog-sort-highlight">{cardTitle}</span>
+          ) : (
+            cardTitle
+          )
+        } // CUSTOM
         width={props.width}
         linkClassName="scene-card-link"
         thumbnailSectionClassName="video-section"

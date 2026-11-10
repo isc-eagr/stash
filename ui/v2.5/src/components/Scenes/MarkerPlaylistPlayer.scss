@@ -1,0 +1,916 @@
+/* CUSTOM: Browser media controls and the nested playlist DOM require targeted override selectors. */
+/* stylelint-disable declaration-no-important, max-nesting-depth, selector-no-vendor-prefix -- preserve native fullscreen suppression and component state styling */
+// Hide native video controls in fullscreen mode (all browsers)
+.marker-playlist-player video::-webkit-media-controls {
+  display: none !important;
+}
+
+.marker-playlist-player video::-webkit-media-controls-enclosure {
+  display: none !important;
+}
+
+.marker-playlist-player video::-webkit-media-controls-panel {
+  display: none !important;
+}
+
+.marker-playlist-player video::-webkit-media-controls-overlay-play-button {
+  display: none !important;
+}
+
+.marker-playlist-player video::-webkit-media-controls-start-playback-button {
+  display: none !important;
+}
+
+.marker-playlist-player video:fullscreen::-webkit-media-controls {
+  display: none !important;
+}
+
+.marker-playlist-player video:fullscreen::-webkit-media-controls-enclosure {
+  display: none !important;
+}
+
+.marker-playlist-player video:fullscreen::-webkit-media-controls-panel {
+  display: none !important;
+}
+
+.marker-playlist-player
+  video:fullscreen::-webkit-media-controls-overlay-play-button {
+  display: none !important;
+}
+
+.marker-playlist-player
+  video:fullscreen::-webkit-media-controls-start-playback-button {
+  display: none !important;
+}
+
+.marker-playlist-player video:fullscreen {
+  outline: none !important;
+}
+
+.marker-playlist-player video::-moz-media-controls {
+  display: none !important;
+}
+
+.marker-playlist-player video::-ms-media-controls {
+  display: none !important;
+}
+
+.marker-playlist-player video::backdrop {
+  background: black !important;
+}
+
+@import "video.js/dist/video-js.css";
+
+.marker-playlist-player {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  padding: 1rem;
+
+  &.empty {
+    align-items: center;
+    justify-content: center;
+  }
+
+  .player-header {
+    align-items: center;
+    display: flex;
+    flex-shrink: 0;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.25rem;
+
+    .player-header-left,
+    .player-header-right {
+      align-items: center;
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .save-playlist-btn,
+    .load-playlist-btn,
+    .toggle-playlist-btn {
+      color: #fff;
+      text-decoration: none;
+
+      &:hover {
+        color: #ddd;
+      }
+    }
+  }
+
+  .marker-playlist-dropdown {
+    max-height: 400px;
+    overflow-y: auto;
+
+    .playlist-dropdown-item {
+      align-items: center;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      padding: 0.5rem 1rem;
+
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+      }
+
+      .playlist-name {
+        cursor: pointer;
+        flex: 1;
+      }
+
+      .delete-playlist-btn {
+        background: none;
+        border: none;
+        color: #dc3545;
+        cursor: pointer;
+        font-size: 1.2rem;
+        line-height: 1;
+        padding: 0 0.5rem;
+
+        &:hover {
+          color: #c82333;
+        }
+
+        &:focus {
+          outline: none;
+        }
+      }
+    }
+  }
+
+  .player-container {
+    display: flex;
+    flex: 1;
+    gap: 1rem;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .video-section {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+    overflow: hidden;
+
+    &.full-width {
+      flex: 1;
+    }
+
+    .video-wrapper {
+      align-items: center;
+      background-color: #000;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      flex: 1;
+      justify-content: center;
+      min-height: 0;
+      overflow: hidden;
+      position: relative;
+      // Horizontal swipes go to the player; also disables double-tap zoom.
+      touch-action: pan-y pinch-zoom;
+
+      // When the wrapper is fullscreen
+      &:fullscreen,
+      &.pseudo-fullscreen {
+        aspect-ratio: auto;
+        border-radius: 0;
+        height: 100vh;
+        height: 100dvh;
+        max-height: none;
+        width: 100vw;
+      }
+
+      /* CUSTOM: viewport fallback where element fullscreen is unavailable (iPhone) */
+      &.pseudo-fullscreen {
+        inset: 0;
+        position: fixed;
+        z-index: 1060;
+      }
+
+      .video-player {
+        height: 100%;
+        max-height: 100%;
+        max-width: 100%;
+        object-fit: contain;
+        width: 100%;
+      }
+
+      .video-overlay-controls {
+        display: flex;
+        gap: 0.5rem;
+        opacity: 0.7;
+        position: absolute;
+        right: 1rem;
+        top: 1rem;
+        transition: opacity 0.3s;
+        z-index: 10;
+
+        &:hover {
+          opacity: 1;
+        }
+
+        .play-pause-btn {
+          border-radius: 50%;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+          font-size: 1.2rem;
+          height: 50px;
+          width: 50px;
+        }
+
+        .fullscreen-btn {
+          border-radius: 4px;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+          height: 50px;
+          width: 50px;
+        }
+      }
+
+      /* CUSTOM: previous/next marker in normal and fullscreen modes */
+      .marker-nav-btn {
+        align-items: center;
+        background: rgba(0, 0, 0, 0.55);
+        border: none;
+        border-radius: 50%;
+        color: #fff;
+        cursor: pointer;
+        display: flex;
+        font-size: 1.4rem;
+        height: 56px;
+        justify-content: center;
+        opacity: 0.75;
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        transition: background 0.2s, opacity 0.3s;
+        width: 56px;
+        z-index: 10000;
+
+        &:hover {
+          background: rgba(0, 0, 0, 0.85);
+          opacity: 1;
+        }
+
+        &:focus-visible {
+          box-shadow: 0 0 0 3px rgba(108, 152, 198, 0.75);
+          outline: none;
+        }
+
+        &.prev {
+          left: 1.5rem;
+        }
+
+        &.next {
+          right: 1.5rem;
+        }
+      }
+
+      /* CUSTOM: shared normal/fullscreen replay and O-record controls */
+      .marker-event-controls {
+        bottom: 1.5rem;
+        display: flex;
+        gap: 0.5rem;
+        position: absolute;
+        right: 1.5rem;
+        z-index: 10000;
+      }
+
+      /* CUSTOM: visible within the browser fullscreen element. */
+      .marker-player-toast {
+        background: rgba(53, 168, 83, 0.94);
+        border: 1px solid rgba(174, 255, 193, 0.72);
+        border-radius: 0.45rem;
+        box-shadow: 0 0.3rem 1rem rgba(0, 0, 0, 0.35);
+        color: #fff;
+        font-weight: 800;
+        left: 50%;
+        padding: 0.65rem 1rem;
+        pointer-events: none;
+        position: absolute;
+        top: 1.5rem;
+        transform: translateX(-50%);
+        z-index: 10001;
+
+        &.error {
+          background: rgba(185, 60, 60, 0.94);
+          border-color: rgba(255, 180, 180, 0.72);
+        }
+      }
+
+      .marker-loop-btn,
+      .marker-record-o-btn {
+        align-items: center;
+        background: rgba(0, 0, 0, 0.55);
+        border: none;
+        border-radius: 50%;
+        color: #fff;
+        cursor: pointer;
+        display: flex;
+        font-size: 1.1rem;
+        height: 48px;
+        justify-content: center;
+        transition: background 0.2s, color 0.2s, transform 0.2s;
+        width: 48px;
+
+        &:hover {
+          background: rgba(0, 0, 0, 0.85);
+          transform: scale(1.06);
+        }
+
+        &:focus-visible {
+          box-shadow: 0 0 0 3px rgba(108, 152, 198, 0.75);
+          outline: none;
+        }
+      }
+
+      .marker-loop-btn {
+        &.active {
+          background: #6c98c6;
+
+          &:hover {
+            background: #5a86b4;
+          }
+        }
+      }
+
+      .marker-record-o-btn {
+        font-weight: 900;
+
+        &:disabled {
+          cursor: wait;
+          opacity: 0.65;
+          transform: none;
+        }
+      }
+    }
+
+    .now-playing {
+      background-color: rgba(0, 0, 0, 0.8);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      gap: 0.5rem;
+      padding: 0.75rem 1rem;
+
+      .now-playing-top {
+        align-items: center;
+        display: flex;
+        gap: 0.75rem;
+      }
+
+      .now-playing-scene {
+        align-items: center;
+        display: flex;
+        gap: 0.5rem;
+      }
+
+      .now-playing-performers {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+      }
+
+      .marker-number {
+        background-color: rgba(255, 255, 255, 0.2);
+        border-radius: 4px;
+        flex-shrink: 0;
+        font-size: 0.8rem;
+        padding: 0.2rem 0.5rem;
+      }
+
+      .marker-title {
+        color: #fff;
+        font-size: 1rem;
+        font-weight: bold;
+      }
+
+      .single-loop-badge {
+        background-color: #6c98c6;
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        transition: background-color 0.2s;
+
+        &:hover {
+          background-color: #5a86b4;
+        }
+      }
+
+      .scene-label {
+        color: #999;
+        flex-shrink: 0;
+        font-size: 0.85rem;
+      }
+
+      .scene-title-link {
+        color: #6c98c6;
+        font-size: 1.1rem;
+        font-weight: bold;
+        text-decoration: none;
+        transition: color 0.2s;
+
+        &:hover {
+          color: #8ab4d9;
+          text-decoration: underline;
+        }
+      }
+
+      .marker-performers {
+        color: #bbb;
+        display: inline-flex;
+        flex-wrap: wrap;
+        font-size: 0.85rem;
+        gap: 0.35rem;
+      }
+
+      .performer-icon-top {
+        color: #7a9d7a;
+      }
+
+      .performer-icon-bottom {
+        color: #7a9db8;
+      }
+    }
+  }
+
+  .playlist-section {
+    background-color: rgba(0, 0, 0, 0.4);
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    max-width: 350px;
+    min-width: 280px;
+    overflow: hidden;
+    width: 30%;
+
+    .playlist-header {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 0.75rem 1rem;
+
+      h6 {
+        color: #fff;
+        margin: 0;
+      }
+
+      small {
+        display: block;
+        margin-top: 0.25rem;
+      }
+    }
+
+    .marker-list {
+      flex: 1;
+      overflow-y: auto;
+
+      .marker-item {
+        /* CUSTOM: compact marker card layout */
+        align-items: flex-start;
+        background-color: transparent;
+        border: none;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        color: #fff;
+        cursor: pointer;
+        display: flex;
+        gap: 0.5rem;
+        padding: 0.375rem 0.5rem;
+
+        &:hover {
+          background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        &.active {
+          background-color: rgba(108, 152, 198, 0.2);
+          border-left: 3px solid #6c98c6;
+        }
+
+        /* CUSTOM: markers whose file failed to load */
+        &.failed {
+          .marker-preview,
+          .marker-info {
+            opacity: 0.5;
+          }
+
+          .marker-failed-icon {
+            color: #e0a84f;
+            margin-right: 0.3rem;
+          }
+        }
+
+        .marker-drag-handle {
+          align-self: stretch;
+          margin: -0.375rem 0 -0.375rem -0.5rem;
+          width: 1.5rem;
+        }
+
+        .marker-preview {
+          flex-shrink: 0;
+          height: 44px;
+          position: relative;
+          width: 70px;
+
+          img {
+            border-radius: 2px;
+            height: 100%;
+            object-fit: cover;
+            width: 100%;
+          }
+
+          .marker-number-badge {
+            background-color: rgba(0, 0, 0, 0.8);
+            border-radius: 2px;
+            bottom: 2px;
+            color: #fff;
+            font-size: 0.7rem;
+            font-weight: bold;
+            left: 2px;
+            padding: 1px 4px;
+            position: absolute;
+          }
+        }
+
+        .marker-info {
+          align-content: start;
+          display: grid;
+          flex: 1;
+          gap: 0.1rem;
+          min-width: 0;
+          overflow: hidden;
+          padding-top: 0.05rem;
+
+          .marker-title {
+            font-size: 0.8rem;
+            font-weight: bold;
+            line-height: 1.15;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .scene-title {
+            color: #888;
+            font-size: 0.7rem;
+            line-height: 1.15;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .marker-detail-row {
+            align-items: center;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.2rem 0.35rem;
+            min-width: 0;
+          }
+
+          .marker-performer-roles {
+            align-items: center;
+            display: flex;
+            flex: 1 1 6rem;
+            flex-wrap: wrap;
+            gap: 0.2rem;
+            min-width: 0;
+          }
+
+          .marker-times {
+            color: #aaa;
+            flex-shrink: 0;
+            font-family: monospace;
+            font-size: 0.7rem;
+            margin: 0;
+            white-space: nowrap;
+
+            .duration {
+              color: #666;
+              margin-left: 0.25rem;
+            }
+          }
+
+          .marker-performers {
+            color: #999;
+            display: inline-flex;
+            flex-wrap: wrap;
+            font-size: 0.7rem;
+            gap: 0.15rem;
+            margin: 0;
+            max-width: 100%;
+
+            .marker-performer-hover-trigger,
+            .marker-performer-chip.compact {
+              max-width: 100%;
+              min-width: 0;
+            }
+
+            .marker-performer-chip.compact {
+              font-size: 0.7rem;
+              gap: 0.2rem;
+              padding: 0.16rem 0.35rem;
+            }
+          }
+
+          .performer-icon-top {
+            color: #7a9d7a;
+          }
+
+          .performer-icon-bottom {
+            color: #7a9db8;
+          }
+        }
+
+        .marker-action-btns {
+          align-self: center;
+          display: flex;
+          flex-direction: column;
+          flex-shrink: 0;
+          gap: 0.2rem;
+          margin-left: auto;
+
+          .btn {
+            align-items: center;
+            border-radius: 4px;
+            display: flex;
+            font-size: 0.65rem;
+            height: 1.3rem;
+            justify-content: center;
+            padding: 0;
+            width: 1.75rem;
+          }
+
+          .single-loop-btn {
+            &.btn-primary {
+              background-color: #6c98c6;
+              border-color: #6c98c6;
+
+              &:hover {
+                background-color: #5a86b4;
+                border-color: #5a86b4;
+              }
+            }
+
+            &.btn-outline-secondary {
+              background-color: rgba(255, 255, 255, 0.05);
+              border-color: transparent;
+              color: #8da2b5;
+              opacity: 0.65;
+
+              &:hover {
+                background-color: rgba(255, 255, 255, 0.12);
+                color: #fff;
+                opacity: 1;
+              }
+            }
+          }
+
+          .remove-marker-btn {
+            background-color: rgba(255, 255, 255, 0.05);
+            border-color: transparent;
+            color: #e67c7c;
+            opacity: 0.65;
+
+            &:hover {
+              background-color: rgba(220, 53, 69, 0.18);
+              color: #ff9b9b;
+              opacity: 1;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+// Fullscreen performer overlay - positioned inside the video-wrapper
+.fullscreen-performer-overlay {
+  animation: fadeIn 0.3s ease-in-out;
+  bottom: 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  left: 50%;
+  pointer-events: auto;
+  position: absolute;
+  transform: translateX(-50%);
+  z-index: 9999;
+
+  &.normal-mode {
+    bottom: 1rem;
+  }
+
+  .performer-info {
+    align-items: center;
+    backdrop-filter: blur(4px);
+    background-color: rgba(0, 0, 0, 0.75);
+    border-radius: 8px;
+    color: #fff;
+    display: flex;
+    flex-wrap: wrap;
+    font-size: 1.25rem;
+    font-weight: 500;
+    gap: 0.4rem;
+    padding: 0.55rem 0.75rem;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+    white-space: nowrap;
+
+    .performer-icon {
+      font-size: 1.1rem;
+    }
+
+    &.top {
+      .performer-icon {
+        color: #7ac4db;
+      }
+    }
+
+    &.bottom {
+      .performer-icon {
+        color: #7adb7a;
+      }
+    }
+  }
+}
+
+/* CUSTOM: begin - marker player performer hover chips */
+.marker-performer-chip {
+  align-items: center;
+  border-radius: 999px;
+  color: #fff;
+  display: inline-flex;
+  gap: 0.35rem;
+  line-height: 1.2;
+  max-width: min(18rem, 70vw);
+  overflow: visible;
+  padding: 0.35rem 0.7rem;
+  position: relative;
+  text-decoration: none;
+
+  &:hover {
+    color: #fff;
+    filter: brightness(1.12);
+    text-decoration: none;
+  }
+
+  &.top {
+    background: rgba(45, 125, 160, 0.82);
+  }
+
+  &.bottom {
+    background: rgba(40, 130, 70, 0.82);
+  }
+
+  &.compact {
+    font-size: 0.8rem;
+    line-height: 1.2;
+    padding: 0.24rem 0.5rem;
+  }
+
+  > span:not(.performer-chip-inline-preview) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.marker-performer-chip:hover .performer-chip-inline-preview {
+  display: block;
+}
+
+/* CUSTOM: end */
+/* stylelint-enable declaration-no-important, max-nesting-depth, selector-no-vendor-prefix */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* CUSTOM: the page scrolls while the player is fullscreen on iPhone */
+body.marker-player-pseudo-fullscreen {
+  overflow: hidden;
+}
+
+// Phones (portrait, and landscape where height is the constraint): stack the
+// player above the playlist and let the page scroll instead of squeezing the
+// video into a fixed-height column.
+@media (max-width: 768px), (max-height: 500px) {
+  .marker-playlist-player {
+    height: auto;
+    padding: 0.5rem;
+
+    .player-container {
+      flex-direction: column;
+      gap: 0.5rem;
+      overflow: visible;
+    }
+
+    .video-section {
+      flex: none;
+      overflow: visible;
+
+      .video-wrapper {
+        aspect-ratio: 16 / 9;
+        flex: none;
+        // Navbar plus the playlist header buttons above the player.
+        max-height: calc(100vh - 7.5rem);
+        max-height: calc(100dvh - 7.5rem);
+        width: 100%;
+
+        .video-overlay-controls {
+          right: 0.5rem;
+          top: 0.5rem;
+
+          .play-pause-btn,
+          .fullscreen-btn {
+            height: 40px;
+            padding: 0;
+            width: 40px;
+          }
+        }
+
+        .marker-nav-btn {
+          font-size: 1.1rem;
+          height: 44px;
+          width: 44px;
+
+          &.prev {
+            left: 0.5rem;
+          }
+
+          &.next {
+            right: 0.5rem;
+          }
+        }
+
+        .marker-event-controls {
+          bottom: 0.5rem;
+          right: 0.5rem;
+        }
+
+        .marker-loop-btn,
+        .marker-record-o-btn {
+          height: 40px;
+          width: 40px;
+        }
+      }
+
+      .now-playing {
+        padding: 0.5rem 0.75rem;
+
+        .scene-title-link {
+          font-size: 1rem;
+        }
+      }
+    }
+
+    .playlist-section {
+      max-height: 60vh;
+      max-width: none;
+      min-width: 0;
+      width: 100%;
+    }
+  }
+
+  .fullscreen-performer-overlay {
+    bottom: 3.5rem;
+    max-width: calc(100% - 7rem);
+
+    &.normal-mode {
+      bottom: 0.5rem;
+    }
+
+    .performer-info {
+      font-size: 0.95rem;
+      padding: 0.35rem 0.5rem;
+      white-space: normal;
+    }
+  }
+}
+
+/* CUSTOM: phones drop performer chips everywhere in the player and get a
+   larger drag target. Narrow desktop windows keep the chips. */
+@media (max-width: 768px) and (pointer: coarse),
+  (max-height: 500px) and (pointer: coarse) {
+  .marker-playlist-player {
+    // Selectors match the depth of the rules that show them.
+    .fullscreen-performer-overlay,
+    .video-section .now-playing .now-playing-performers,
+    .playlist-section
+      .marker-list
+      .marker-item
+      .marker-info
+      .marker-performer-roles {
+      display: none;
+    }
+
+    .playlist-section .marker-list .marker-item .marker-drag-handle {
+      width: 2rem;
+    }
+  }
+}

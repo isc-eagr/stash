@@ -1,6 +1,8 @@
+import { getAppLocaleCustom } from "src/utils/appLocale_custom"; // CUSTOM
 import cloneDeep from "lodash-es/cloneDeep";
 import React, { useMemo } from "react";
 import { Form } from "react-bootstrap";
+import { useIntl } from "react-intl"; // CUSTOM: moved import
 import {
   CriterionValue,
   ModifierCriterion,
@@ -14,7 +16,10 @@ import {
   ModifierValue,
   modifierValueToModifier,
 } from "./LabeledIdFilter";
-import { useIntl } from "react-intl";
+import {
+  formatMetallicRatingOptionLabel,
+  metallicRatingIncludeNonMetallicValue,
+} from "src/models/list-filter/criteria/metallic-rating_custom"; // CUSTOM
 
 interface IOptionsFilter {
   criterion: ModifierCriterion<CriterionValue>;
@@ -25,6 +30,9 @@ export const OptionFilter: React.FC<IOptionsFilter> = ({
   criterion,
   setCriterion,
 }) => {
+  const intl = useIntl();
+  const criterionType = criterion.criterionOption.type; // CUSTOM
+
   function onSelect(v: string) {
     const c = cloneDeep(criterion);
     if (c.value === v) {
@@ -36,18 +44,44 @@ export const OptionFilter: React.FC<IOptionsFilter> = ({
     setCriterion(c);
   }
 
+  // CUSTOM: begin - translated labels for custom_filters options
+  function getOptionLabel(optionValue: string): string {
+    if (criterionType === "metallic_rating") {
+      return formatMetallicRatingOptionLabel(optionValue);
+    }
+
+    // Try to find a translated label for custom_filters options
+    if (criterionType === "custom_filters") {
+      const messageId = `custom_filters.${optionValue}`;
+      const translated = intl.formatMessage({ id: messageId });
+      // If we got the translation key back, the message doesn't exist
+      if (translated !== messageId) {
+        return translated;
+      }
+    }
+    // Fall back to the raw value
+    return optionValue;
+  }
+  // CUSTOM: end
+
   const { options } = criterion.modifierCriterionOption();
+  const visibleOptions = options?.filter(
+    (o) =>
+      criterionType !== "metallic_rating" ||
+      o.toString() !== metallicRatingIncludeNonMetallicValue ||
+      criterion.modifier === CriterionModifier.Excludes
+  );
 
   return (
     <div className="option-list-filter">
-      {options?.map((o) => (
+      {visibleOptions?.map((o) => (
         <Form.Check
           id={`${criterion.getId()}-${o.toString()}`}
           key={o.toString()}
           onChange={() => onSelect(o.toString())}
           checked={criterion.value === o.toString()}
           type="radio"
-          label={o.toString()}
+          label={getOptionLabel(o.toString())} // CUSTOM
         />
       ))}
     </div>
@@ -63,6 +97,8 @@ export const OptionListFilter: React.FC<IOptionsListFilter> = ({
   criterion,
   setCriterion,
 }) => {
+  const criterionType = criterion.criterionOption.type; // CUSTOM
+
   function onSelect(v: string) {
     const c = cloneDeep(criterion);
     const cv = c.value as string[];
@@ -77,17 +113,32 @@ export const OptionListFilter: React.FC<IOptionsListFilter> = ({
 
   const { options } = criterion.modifierCriterionOption();
   const value = criterion.value as string[];
+  const visibleOptions = options?.filter(
+    (o) =>
+      criterionType !== "metallic_rating" ||
+      o.toString() !== metallicRatingIncludeNonMetallicValue ||
+      criterion.modifier === CriterionModifier.Excludes
+  );
 
   return (
     <div className="option-list-filter">
-      {options?.map((o) => (
+      {visibleOptions?.map((o) => (
         <Form.Check
           id={`${criterion.getId()}-${o.toString()}`}
           key={o.toString()}
           onChange={() => onSelect(o.toString())}
-          checked={value.includes(o.toString())}
+          checked={
+            criterionType === "metallic_rating" &&
+            o.toString() === metallicRatingIncludeNonMetallicValue
+              ? !value.includes(metallicRatingIncludeNonMetallicValue)
+              : value.includes(o.toString())
+          }
           type="checkbox"
-          label={o.toString()}
+          label={
+            criterionType === "metallic_rating"
+              ? formatMetallicRatingOptionLabel(o.toString())
+              : o.toString()
+          }
         />
       ))}
     </div>
@@ -117,6 +168,7 @@ export const SidebarOptionFilter: React.FC<ISidebarFilter> = ({
   const criterion = criteria.length > 0 ? criteria[0] : null;
   const { options: criterionOptions = [] } = option;
   const currentValues = criteria.flatMap((c) => c.value as string[]);
+  const currentModifier = criterion?.modifier ?? option.defaultModifier;
 
   const hasNullModifiers =
     option.modifierOptions.includes(CriterionModifier.IsNull) &&
@@ -141,13 +193,43 @@ export const SidebarOptionFilter: React.FC<ISidebarFilter> = ({
       ];
     }
 
-    return criterionOptions
+    const selectedOptions = criterionOptions
+      .filter(
+        (o) =>
+          option.type !== "metallic_rating" ||
+          o.toString() !== metallicRatingIncludeNonMetallicValue
+      )
       .filter((o) => currentValues.includes(o.toString()))
       .map((o) => ({
         id: o.toString(),
-        label: o.toLocaleString(),
+        label:
+          option.type === "metallic_rating"
+            ? formatMetallicRatingOptionLabel(o.toString())
+            : o.toLocaleString(getAppLocaleCustom()),
       }));
-  }, [criterion, currentValues, criterionOptions, intl]);
+
+    if (
+      option.type === "metallic_rating" &&
+      currentModifier === CriterionModifier.Excludes &&
+      !currentValues.includes(metallicRatingIncludeNonMetallicValue)
+    ) {
+      selectedOptions.push({
+        id: metallicRatingIncludeNonMetallicValue,
+        label: formatMetallicRatingOptionLabel(
+          metallicRatingIncludeNonMetallicValue
+        ),
+      });
+    }
+
+    return selectedOptions;
+  }, [
+    criterion,
+    currentValues,
+    currentModifier,
+    criterionOptions,
+    intl,
+    option.type,
+  ]);
 
   const modifierCandidates: Option[] = useMemo(() => {
     if (!hasNullModifiers) return [];
@@ -176,14 +258,34 @@ export const SidebarOptionFilter: React.FC<ISidebarFilter> = ({
 
   const options = useMemo(() => {
     const o = criterionOptions
-      .filter((oo) => !currentValues.includes(oo.toString()))
+      .filter(
+        (oo) =>
+          option.type !== "metallic_rating" ||
+          oo.toString() !== metallicRatingIncludeNonMetallicValue ||
+          currentModifier === CriterionModifier.Excludes
+      )
+      .filter((oo) =>
+        option.type === "metallic_rating" &&
+        oo.toString() === metallicRatingIncludeNonMetallicValue
+          ? currentValues.includes(metallicRatingIncludeNonMetallicValue)
+          : !currentValues.includes(oo.toString())
+      )
       .map((oo) => ({
         id: oo.toString(),
-        label: oo.toString(),
+        label:
+          option.type === "metallic_rating"
+            ? formatMetallicRatingOptionLabel(oo.toString())
+            : oo.toString(),
       }));
 
     return [...modifierCandidates, ...o];
-  }, [criterionOptions, currentValues, modifierCandidates]);
+  }, [
+    criterionOptions,
+    currentValues,
+    currentModifier,
+    modifierCandidates,
+    option.type,
+  ]);
 
   function onSelect(item: Option) {
     const newCriterion = criterion ? criterion.clone() : option.makeCriterion();
@@ -196,6 +298,17 @@ export const SidebarOptionFilter: React.FC<ISidebarFilter> = ({
     }
 
     const cv = newCriterion.value as string[];
+    if (
+      option.type === "metallic_rating" &&
+      item.id === metallicRatingIncludeNonMetallicValue
+    ) {
+      newCriterion.value = cv.filter(
+        (value) => value !== metallicRatingIncludeNonMetallicValue
+      );
+      setFilter(filter.replaceCriteria(option.type, [newCriterion]));
+      return;
+    }
+
     if (cv.includes(item.id)) {
       return;
     } else {
@@ -211,6 +324,21 @@ export const SidebarOptionFilter: React.FC<ISidebarFilter> = ({
         ? criterion.clone()
         : option.makeCriterion();
       newCriterion.modifier = option.defaultModifier;
+      setFilter(filter.replaceCriteria(option.type, [newCriterion]));
+      return;
+    }
+
+    if (
+      option.type === "metallic_rating" &&
+      item.id === metallicRatingIncludeNonMetallicValue
+    ) {
+      const newCriterion = criterion
+        ? criterion.clone()
+        : option.makeCriterion();
+      const cv = newCriterion.value as string[];
+      if (!cv.includes(metallicRatingIncludeNonMetallicValue)) {
+        newCriterion.value = [...cv, metallicRatingIncludeNonMetallicValue];
+      }
       setFilter(filter.replaceCriteria(option.type, [newCriterion]));
       return;
     }

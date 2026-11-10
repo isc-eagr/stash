@@ -1,0 +1,17 @@
+# CUSTOM: queue the StashDB Changes check.
+mutation CheckStashDBChanges($input: StashDBChangesCheckInput!) {
+  checkStashDBChanges(input: $input)
+}
+
+# CUSTOM: write StashDB values for report fields; returns what is left.
+mutation ApplyStashDBSceneChanges($input: StashDBChangesApplyInput!) {
+  applyStashDBSceneChanges(input: $input) {
+    ...StashDBSceneChangeData
+  }
+}
+
+mutation ApplyStashDBPerformerChanges($input: StashDBChangesApplyInput!) {
+  applyStashDBPerformerChanges(input: $input) {
+    ...StashDBPerformerChangeData
+  }
+}

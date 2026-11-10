@@ -1,0 +1,258 @@
+# CUSTOM: All custom queries and mutations.
+# This file uses 'extend type' to add to the upstream Query and Mutation types
+# without modifying the upstream schema.graphql file.
+# See CUSTOM_FEATURES.md for documentation.
+
+extend type Query {
+  "Find distinct negative marker names from all scenes"
+  sceneNegativeMarkerNames: [String!]!
+
+  "Find all marker playlists"
+  findMarkerPlaylists: [MarkerPlaylist!]!
+
+  "Get distinct performer ethnicities"
+  performerEthnicities: [String!]!
+
+  "Get marker roles for every performer in a scene"
+  scenePerformerMarkerRoles(scene_id: ID!): [ScenePerformerMarkerRoles!]!
+
+  "Find all database-backed task progress trackers"
+  findTaskProgressTrackers: [TaskProgressTracker!]!
+
+  "Get the live state of a paired scene player"
+  remotePlaybackState(player_id: String!): RemotePlaybackState
+
+  "Report of the latest StashDB Matches refresh; null before the first run"
+  stashDBMatchesReport: StashDBMatchesReport
+
+  "Latest StashDB Changes check of scenes and performers"
+  stashDBChangesReport: StashDBChangesReport!
+
+  "Latest site sync report for a studio since the last restart; null before its first run"
+  studioSiteSyncReport(studio_id: ID!): StudioSiteSyncReport
+}
+
+type RemotePlaybackState {
+  loop_enabled: Boolean!
+  loop_segments: [RemoteLoopSegment!]!
+  selected_segment_ids: [String!]!
+  loop_revision: String!
+  server_id: String!
+  player_id: String!
+  session_id: String!
+  scene_id: ID!
+  "The release playing on the scene, if any; its O's go to the release"
+  release_id: ID
+  scene_title: String!
+  video_timestamp: Float!
+  duration: Float!
+  playback_rate: Float!
+  status: String!
+  updated_at: String!
+}
+
+input RemotePlaybackStateInput {
+  loop_enabled: Boolean! = false
+  loop_segments: [RemoteLoopSegmentInput!]! = []
+  selected_segment_ids: [String!]! = []
+  loop_revision: String! = ""
+  player_id: String!
+  session_id: String!
+  scene_id: ID!
+  release_id: ID
+  scene_title: String!
+  video_timestamp: Float!
+  duration: Float!
+  playback_rate: Float!
+  status: String!
+}
+
+input RemotePlaybackORequestInput {
+  command_id: String!
+  player_id: String!
+  session_id: String!
+  expected_scene_id: ID!
+}
+
+type RemotePlaybackCommand {
+  selected_segment_ids: [String!]
+  loop_revision: String
+  command_id: String!
+  player_id: String!
+  session_id: String!
+  expected_scene_id: ID!
+  video_timestamp: Float!
+}
+
+# CUSTOM: Temporary remote loop selection, scoped to the published configuration.
+type RemoteLoopSegment {
+  id: String!
+  start: Float!
+  end: Float!
+  title: String!
+}
+
+input RemoteLoopSegmentInput {
+  id: String!
+  start: Float!
+  end: Float!
+  title: String!
+}
+
+input RemoteLoopSelectionInput {
+  player_id: String!
+  session_id: String!
+  expected_scene_id: ID!
+  loop_revision: String!
+  selected_segment_ids: [String!]!
+}
+
+extend type Mutation {
+  remotePlaybackSelectSegments(input: RemoteLoopSelectionInput!): Boolean!
+}
+
+input RemotePlaybackORecordInput {
+  command_id: String!
+  player_id: String!
+  session_id: String!
+  scene_id: ID!
+  "Must match the release the player reported"
+  release_id: ID
+  video_timestamp: Float!
+}
+
+type RemotePlaybackOResult {
+  command_id: String!
+  player_id: String!
+  scene_id: ID!
+  release_id: ID
+  video_timestamp: Float!
+  count: Int!
+  recorded_at: String!
+}
+
+type ScenePerformerMarkerRoles {
+  performer_id: ID!
+  roles: [String!]!
+}
+
+extend type Mutation {
+  "Create a five-minute, one-use mobile pairing code (normal Stash login still required)"
+  remotePlaybackPairingCreate(player_id: String!): String!
+  "Exchange a one-use pairing code for a remembered browser identity"
+  remotePlaybackPairingRedeem(token: String!): String!
+  saveSceneMultiSegmentLoopPreset(
+    input: SceneMultiSegmentLoopPresetInput!
+  ): MultiSegmentLoopPreset!
+  deleteSceneMultiSegmentLoopPreset(scene_id: ID!, name: String!): Boolean!
+
+  # Negative markers - time ranges to skip during playback
+  sceneNegativeMarkerCreate(
+    input: SceneNegativeMarkerCreateInput!
+  ): SceneNegativeMarker!
+  sceneNegativeMarkerUpdate(
+    input: SceneNegativeMarkerUpdateInput!
+  ): SceneNegativeMarker!
+  sceneNegativeMarkerDestroy(id: ID!): Boolean!
+
+  taskProgressTrackerCreate(
+    input: TaskProgressTrackerCreateInput!
+  ): TaskProgressTracker!
+  taskProgressTrackerUpdate(
+    input: TaskProgressTrackerUpdateInput!
+  ): TaskProgressTracker!
+  taskProgressTrackerDestroy(id: ID!): Boolean!
+  taskProgressTrackersReorder(ids: [ID!]!): [TaskProgressTracker!]!
+
+  markerPlaylistCreate(input: MarkerPlaylistCreateInput!): MarkerPlaylist!
+  markerPlaylistDestroy(id: ID!): Boolean!
+
+  "Refresh StashDB Matches for every scene linked to StashDB. Returns the job ID."
+  refreshStashDBMatches: ID!
+
+  "Compare StashDB-linked scenes and/or performers with StashDB. Returns the job ID."
+  checkStashDBChanges(input: StashDBChangesCheckInput!): ID!
+  """
+  Write a scene's StashDB values for the given report fields and return the
+  entry with what is left.
+  """
+  applyStashDBSceneChanges(input: StashDBChangesApplyInput!): StashDBSceneChange!
+  "Write a performer's StashDB values for the given report fields."
+  applyStashDBPerformerChanges(
+    input: StashDBChangesApplyInput!
+  ): StashDBPerformerChange!
+
+  "Run the chosen site sync steps for a studio. Returns the job ID."
+  studioSiteSync(input: StudioSiteSyncInput!): ID!
+
+  "Create a new release for a scene"
+  sceneReleaseCreate(input: SceneReleaseCreateInput!): SceneRelease
+  "Update an existing scene release"
+  sceneReleaseUpdate(input: SceneReleaseUpdateInput!): SceneRelease
+  "Delete a scene release. Files will be reassigned to the parent scene."
+  sceneReleaseDestroy(input: SceneReleaseDestroyInput!): Boolean!
+  "Add a file to an existing scene release"
+  sceneReleaseAddFile(input: SceneReleaseAddFileInput!): SceneRelease
+  "Remove a file from an existing scene release"
+  sceneReleaseRemoveFile(input: SceneReleaseRemoveFileInput!): SceneRelease
+  "Convert an existing scene into a release of another scene"
+  convertSceneToRelease(input: ConvertSceneToReleaseInput!): SceneRelease
+  "Convert a release into a new scene"
+  convertReleaseToScene(input: ConvertReleaseToSceneInput!): Scene
+
+  "Upload an additional image for a performer. Returns the new PerformerImage."
+  performerImageUpload(performer_id: ID!, image: String!): PerformerImage!
+  "Delete an additional performer image by ID. Returns true if successful."
+  performerImageDelete(id: ID!): Boolean!
+  "Set an additional image as the default performer image. Returns the updated Performer."
+  performerImageSetDefault(id: ID!): Performer!
+
+  "Record an O at the current video player position (adds timestamp to the O record)"
+  sceneRecordOAtTimestamp(
+    id: ID!
+    video_timestamp: Float!
+  ): HistoryMutationResult!
+  "Record an O without a date or video timestamp"
+  sceneAddRetroactiveO(id: ID!): HistoryMutationResult!
+  "Remove one O without a date"
+  sceneDeleteRetroactiveO(id: ID!): HistoryMutationResult!
+
+  "Save resume position and elapsed playback time for a release"
+  sceneReleaseSaveActivity(id: ID!, resume_time: Float, play_duration: Float): Boolean!
+  "Record one play for a release"
+  sceneReleaseAddPlay(id: ID!): Int!
+  "Record one O for a release at its video timestamp"
+  sceneReleaseRecordOAtTimestamp(id: ID!, video_timestamp: Float!): Int!
+  "Add, remove one matching event, or clear release-owned play/O history"
+  sceneReleaseEditHistory(id: ID!, kind: String!, action: String!, at: Timestamp): Boolean!
+  "Reset release resume position and/or accumulated playback duration"
+  sceneReleaseResetActivity(id: ID!, reset_resume: Boolean, reset_duration: Boolean): Boolean!
+  "Create or replace a marker owned by a release"
+  sceneReleaseMarkerSave(input: SceneReleaseMarkerInput!): SceneMarker!
+  "Delete only a marker owned by this release"
+  sceneReleaseMarkerDestroy(release_id: ID!, marker_id: ID!): Boolean!
+  sceneReleaseNegativeMarkerSave(input: SceneReleaseNegativeMarkerInput!): SceneNegativeMarker!
+  sceneReleaseNegativeMarkerDestroy(release_id: ID!, marker_id: ID!): Boolean!
+  sceneReleaseLoopPresetSave(input: SceneReleaseLoopPresetInput!): MultiSegmentLoopPreset!
+  sceneReleaseLoopPresetDestroy(release_id: ID!, name: String!): Boolean!
+
+  "Publish the current state of a player paired with the remote O page"
+  remotePlaybackUpdate(input: RemotePlaybackStateInput!): RemotePlaybackState!
+  "Remove a player session immediately instead of waiting for its heartbeat to expire"
+  remotePlaybackDisconnect(player_id: String!, session_id: String!): Boolean!
+  "Ask the paired player to sample its authoritative timestamp"
+  remotePlaybackRequestO(
+    input: RemotePlaybackORequestInput!
+  ): RemotePlaybackCommand!
+  "Record the O after the paired player samples its local video timestamp"
+  remotePlaybackRecordO(
+    input: RemotePlaybackORecordInput!
+  ): RemotePlaybackOResult!
+}
+
+extend type Subscription {
+  "O-record commands delivered to the authoritative player"
+  remotePlaybackCommandSubscribe(player_id: String!): RemotePlaybackCommand!
+  "Successful O-record confirmations delivered to the mobile remote"
+  remotePlaybackOResultSubscribe(player_id: String!): RemotePlaybackOResult!
+}

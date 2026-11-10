@@ -17,6 +17,8 @@ import { ExportDialog } from "../Shared/ExportDialog";
 import { DeleteEntityDialog } from "../Shared/DeleteEntityDialog";
 import { IPerformerCardExtraCriteria } from "./PerformerCard";
 import { PerformerListTable } from "./PerformerListTable";
+import { sortFilterByColumnCustom } from "../List/listTableSort_custom"; // CUSTOM
+import { PERFORMER_TABLE_ASCENDING_SORTS_CUSTOM } from "./performerTableColumns_custom"; // CUSTOM
 import { EditPerformersDialog } from "./EditPerformersDialog";
 import { cmToImperial, cmToInches, kgToLbs } from "src/utils/units";
 import TextUtils from "src/utils/text";
@@ -56,8 +58,7 @@ import { Button } from "react-bootstrap";
 import cx from "classnames";
 import { FavoritePerformerCriterionOption } from "src/models/list-filter/criteria/favorite";
 import { SidebarBooleanFilter } from "../List/Filters/BooleanFilter";
-import { SidebarOptionFilter } from "../List/Filters/OptionFilter";
-import { GenderCriterionOption } from "src/models/list-filter/criteria/gender";
+import type { PerformerListData } from "./performerTypes_custom"; // CUSTOM
 
 export const FormatHeight = (height?: number | null) => {
   const intl = useIntl();
@@ -200,14 +201,23 @@ interface IPerformerList {
 }
 
 const PerformerList: React.FC<{
-  performers: GQL.PerformerDataFragment[];
+  performers: PerformerListData[];
   filter: ListFilterModel;
   selectedIds: Set<string>;
   onSelectChange: (id: string, selected: boolean, shiftKey: boolean) => void;
   extraCriteria?: IPerformerCardExtraCriteria;
+  onSort?: (sortBy: string) => void; // CUSTOM
 }> = PatchComponent(
   "PerformerList",
-  ({ performers, filter, selectedIds, onSelectChange, extraCriteria }) => {
+  ({
+    performers,
+    filter,
+    selectedIds,
+    onSelectChange,
+    extraCriteria,
+    onSort,
+  }) => {
+    // CUSTOM
     if (performers.length === 0 && filter.displayMode !== DisplayMode.Tagger) {
       return null;
     }
@@ -220,6 +230,8 @@ const PerformerList: React.FC<{
           selectedIds={selectedIds}
           onSelectChange={onSelectChange}
           extraCriteria={extraCriteria}
+          activeSortBy={filter.sortBy}
+          activeSortDirection={filter.sortDirection}
         />
       );
     }
@@ -229,6 +241,10 @@ const PerformerList: React.FC<{
           performers={performers}
           selectedIds={selectedIds}
           onSelectChange={onSelectChange}
+          // CUSTOM
+          sortBy={filter.sortBy}
+          sortDirection={filter.sortDirection}
+          onSort={onSort}
         />
       );
     }
@@ -297,13 +313,6 @@ const SidebarContent: React.FC<{
           filter={filter}
           setFilter={setFilter}
           sectionID="favourite"
-        />
-        <SidebarOptionFilter
-          title={<FormattedMessage id="gender" />}
-          option={GenderCriterionOption}
-          filter={filter}
-          setFilter={setFilter}
-          sectionID="gender"
         />
         <SidebarAgeFilter
           title={<FormattedMessage id="age" />}
@@ -637,6 +646,16 @@ export const FilteredPerformerList = PatchComponent(
                   selectedIds={selectedIds}
                   onSelectChange={onSelectChange}
                   extraCriteria={extraCriteria}
+                  // CUSTOM: table headers use the same filter state as the sort menu.
+                  onSort={(sortBy) =>
+                    setFilter(
+                      sortFilterByColumnCustom(
+                        filter,
+                        sortBy,
+                        PERFORMER_TABLE_ASCENDING_SORTS_CUSTOM
+                      )
+                    )
+                  }
                 />
               </LoadedContent>
 

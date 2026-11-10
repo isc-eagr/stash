@@ -8,6 +8,10 @@ import { FormattedMessage, useIntl } from "react-intl";
 import { PhotographerLink } from "src/components/Shared/Link";
 import { PatchComponent } from "../../../patch";
 import { CustomFields } from "src/components/Shared/CustomFields";
+import {
+  usePerformerCardRoleStats,
+  withExactPerformerMarkerCounts,
+} from "src/components/Performers/performerRoleStats_custom"; // CUSTOM
 interface IImageDetailProps {
   image: GQL.ImageDataFragment;
 }
@@ -16,6 +20,9 @@ export const ImageDetailPanel: React.FC<IImageDetailProps> = PatchComponent(
   "ImageDetailPanel",
   (props) => {
     const intl = useIntl();
+    const roleStatsByPerformer = usePerformerCardRoleStats(
+      props.image.performers
+    ); // CUSTOM
 
     function renderDetails() {
       if (!props.image.details) return;
@@ -55,6 +62,10 @@ export const ImageDetailPanel: React.FC<IImageDetailProps> = PatchComponent(
           key={performer.id}
           performer={performer}
           ageFromDate={props.image.date ?? undefined}
+          roleStats={withExactPerformerMarkerCounts(
+            roleStatsByPerformer.get(performer.id),
+            performer
+          )} // CUSTOM: keep exact marker badges
         />
       ));
 

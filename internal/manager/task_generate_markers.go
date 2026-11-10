@@ -19,9 +19,14 @@ type GenerateMarkersTask struct {
 	Overwrite           bool
 	fileNamingAlgorithm models.HashAlgorithm
 
-	VideoPreview bool
-	ImagePreview bool
-	Screenshot   bool
+	VideoPreview               bool
+	ImagePreview               bool
+	Screenshot                 bool
+	DeleteSimpleMarkerPreviews bool // CUSTOM: delete previews for simple marker preview skip tags
+
+	simpleMarkerPreviewTagIDs          map[int]struct{} // CUSTOM
+	simpleMarkerSecondaryTagIDs        map[int][]int    // CUSTOM
+	simpleMarkerPreviewExclusionsReady bool             // CUSTOM
 
 	generator *generate.Generator
 }
@@ -59,7 +64,13 @@ func (t *GenerateMarkersTask) generateSpecificMarker(ctx context.Context, marker
 			return fmt.Errorf("scene with id %d not found", marker.SceneID)
 		}
 
-		return scene.LoadPrimaryFile(ctx, r.File)
+		if err := scene.LoadPrimaryFile(ctx, r.File); err != nil {
+			return err
+		}
+
+		// CUSTOM
+		t.prepareSimpleMarkerPreviewExclusions(ctx, []*models.SceneMarker{marker})
+		return nil
 	}); err != nil {
 		logger.Errorf("error finding scene for marker generation: %v", err)
 		return
@@ -88,6 +99,11 @@ func (t *GenerateMarkersTask) generateSceneMarkers(ctx context.Context, scene *m
 	if err := r.WithReadTxn(ctx, func(ctx context.Context) error {
 		var err error
 		sceneMarkers, err = r.SceneMarker.FindBySceneID(ctx, scene.ID)
+		if err != nil {
+			return err
+		}
+		// CUSTOM
+		t.prepareSimpleMarkerPreviewExclusions(ctx, sceneMarkers)
 		return err
 	}); err != nil {
 		logger.Errorf("error getting scene markers: %s", err.Error())
@@ -130,18 +146,28 @@ func (t *GenerateMarkersTask) generateMarker(videoFile *models.VideoFile, scene 
 
 	g := t.generator
 
-	if t.VideoPreview {
-		if err := g.MarkerPreviewVideo(context.TODO(), videoFile.Path, sceneHash, seconds, sceneMarker.EndSeconds, instance.Config.GetPreviewAudio(), instance.Config.GetMaxMarkerPreviewDuration(), instance.Config.GetDefaultMarkerPreviewDuration()); err != nil {
-			logger.Errorf("[generator] failed to generate marker video for scene (%d) marker (%d) at %s: %v", scene.ID, sceneMarker.ID, formatSeconds(float64(sceneMarker.Seconds)), err)
-			logErrorOutput(err)
+	// CUSTOM: begin - skip video/webp previews for simple configured markers
+	skipPreviewGeneration := t.shouldSkipSimpleMarkerPreviews(sceneMarker)
+	if skipPreviewGeneration {
+		if t.DeleteSimpleMarkerPreviews {
+			t.deleteSimpleMarkerPreviewFiles(sceneHash, int(seconds))
 		}
-	}
+	} else {
+		// CUSTOM: end
+		if t.VideoPreview {
+			if err := g.MarkerPreviewVideo(context.TODO(), videoFile.Path, sceneHash, seconds, sceneMarker.EndSeconds, instance.Config.GetPreviewAudio(), instance.Config.GetMaxMarkerPreviewDuration(), instance.Config.GetDefaultMarkerPreviewDuration()); err != nil {
+				logger.Errorf("[generator] failed to generate marker video for scene (%d) marker (%d) at %s: %v", scene.ID, sceneMarker.ID, formatSeconds(float64(sceneMarker.Seconds)), err)
+				logErrorOutput(err)
+			}
+		}
 
-	if t.ImagePreview {
-		if err := g.SceneMarkerWebp(context.TODO(), videoFile.Path, sceneHash, seconds); err != nil {
-			logger.Errorf("[generator] failed to generate marker image for scene (%d) marker (%d) at %s: %v", scene.ID, sceneMarker.ID, formatSeconds(float64(sceneMarker.Seconds)), err)
-			logErrorOutput(err)
+		if t.ImagePreview {
+			if err := g.SceneMarkerWebp(context.TODO(), videoFile.Path, sceneHash, seconds); err != nil {
+				logger.Errorf("[generator] failed to generate marker image for scene (%d) marker (%d) at %s: %v", scene.ID, sceneMarker.ID, formatSeconds(float64(sceneMarker.Seconds)), err)
+				logErrorOutput(err)
+			}
 		}
+		// CUSTOM
 	}
 
 	if t.Screenshot {
@@ -167,8 +193,18 @@ func (t *GenerateMarkersTask) markersNeeded(ctx context.Context) int {
 	}
 
 	sceneHash := t.Scene.GetHash(t.fileNamingAlgorithm)
+	t.prepareSimpleMarkerPreviewExclusions(ctx, sceneMarkers)
 	for _, sceneMarker := range sceneMarkers {
 		seconds := int(sceneMarker.Seconds)
+
+		// CUSTOM: begin - simple configured marker previews are intentionally skipped
+		if t.shouldSkipSimpleMarkerPreviews(sceneMarker) {
+			if t.simpleMarkerNeedsWork(sceneHash, seconds) {
+				markers++
+			}
+			continue
+		}
+		// CUSTOM: end
 
 		if t.Overwrite || !t.markerExists(sceneHash, seconds) {
 			markers++

@@ -16,6 +16,21 @@ type StudioFilterType struct {
 	IsMissing *string `json:"is_missing"`
 	// Filter by rating expressed as 1-100
 	Rating100 *IntCriterionInput `json:"rating100"`
+	// Filter by metallic card style after rating thresholds and tag overrides
+	MetallicRating *MultiCriterionInput `json:"metallic_rating"` // CUSTOM
+	// Filter by configured activity percentages
+	ActivityPercentages         *ActivityPercentFilterInput `json:"activity_percentages"`          // CUSTOM
+	QualityPercentages          *QualityPercentFilterInput  `json:"quality_percentages"`           // CUSTOM
+	RatingCriteria              *RatingCriteriaFilterInput  `json:"rating_criteria"`               // CUSTOM
+	PerformerRatingCriteria     *RatingCriteriaFilterInput  `json:"performer_rating_criteria"`     // CUSTOM
+	SexActivityPercent          *IntCriterionInput          `json:"sex_activity_percent"`          // CUSTOM
+	OralActivityPercent         *IntCriterionInput          `json:"oral_activity_percent"`         // CUSTOM
+	SoloActivityPercent         *IntCriterionInput          `json:"solo_activity_percent"`         // CUSTOM
+	OtherActivityPercent        *IntCriterionInput          `json:"other_activity_percent"`        // CUSTOM
+	OutstandingActivityPercent  *IntCriterionInput          `json:"outstanding_activity_percent"`  // CUSTOM
+	StandardActivityPercent     *IntCriterionInput          `json:"standard_activity_percent"`     // CUSTOM
+	UnclassifiedActivityPercent *IntCriterionInput          `json:"unclassified_activity_percent"` // CUSTOM
+	UnusableActivityPercent     *IntCriterionInput          `json:"unusable_activity_percent"`     // CUSTOM
 	// Filter to only include studios with these tags
 	Tags *HierarchicalMultiCriterionInput `json:"tags"`
 	// Filter by tag count

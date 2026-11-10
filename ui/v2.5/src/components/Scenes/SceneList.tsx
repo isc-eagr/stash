@@ -28,6 +28,8 @@ import { LoadedContent } from "../List/PagedList";
 import { useCloseEditDelete, useFilterOperations } from "../List/util";
 import { ListOperations } from "../List/ListOperationButtons";
 import { useFilteredItemList } from "../List/ItemList";
+import { sortFilterByColumnCustom } from "../List/listTableSort_custom"; // CUSTOM
+import { SCENE_TABLE_ASCENDING_SORTS_CUSTOM } from "./sceneListTableColumns_custom"; // CUSTOM
 import {
   Sidebar,
   SidebarPane,
@@ -59,35 +61,54 @@ import { useZoomKeybinds } from "../List/ZoomSlider";
 import { FilteredListToolbar } from "../List/FilteredListToolbar";
 import { FilterTags } from "../List/FilterTags";
 import { SidebarFolderFilter } from "../List/Filters/FolderFilter";
+import { SceneViewerQueueIndicator } from "./SceneViewerQueueIndicator"; // CUSTOM
+import { useSceneViewerQueue } from "src/hooks/SceneViewerQueue"; // CUSTOM
+import { useOrgasmTagDescendantIds } from "./useOrgasmTagDescendantIds_custom"; // CUSTOM
 
-function renderMetadataByline(result: GQL.FindScenesQueryResult) {
+// CUSTOM: begin - allow scoped lists to append aggregates to scene totals.
+function renderMetadataByline(
+  result: GQL.FindScenesQueryResult,
+  additionalMetadataByline?: React.ReactNode
+) {
   const duration = result?.data?.findScenes?.duration;
   const size = result?.data?.findScenes?.filesize;
 
-  if (!duration && !size) {
+  if (!duration && !size && !additionalMetadataByline) {
     return;
   }
 
-  const separator = duration && size ? " - " : "";
+  const parts: React.ReactNode[] = [];
+  if (duration) {
+    parts.push(
+      <span className="scenes-duration" key="scene-duration">
+        {TextUtils.secondsAsTimeString(duration, 3)}
+        {additionalMetadataByline ? " scenes" : ""}
+      </span>
+    );
+  }
+  if (additionalMetadataByline) parts.push(additionalMetadataByline);
+  if (size) {
+    parts.push(
+      <span className="scenes-size" key="scene-size">
+        <FileSize size={size} />
+      </span>
+    );
+  }
 
   return (
     <span className="scenes-stats">
       &nbsp;(
-      {duration ? (
-        <span className="scenes-duration">
-          {TextUtils.secondsAsTimeString(duration, 3)}
-        </span>
-      ) : undefined}
-      {separator}
-      {size ? (
-        <span className="scenes-size">
-          <FileSize size={size} />
-        </span>
-      ) : undefined}
+      {parts.map((part, index) => (
+        <React.Fragment key={index}>
+          {index > 0 && " - "}
+          {part}
+        </React.Fragment>
+      ))}
       )
     </span>
   );
 }
+// CUSTOM: end
 
 function usePlayScene() {
   const history = useHistory();
@@ -185,9 +206,11 @@ const SceneList: React.FC<{
   selectedIds: Set<string>;
   onSelectChange: (id: string, selected: boolean, shiftKey: boolean) => void;
   fromGroupId?: string;
+  onSort?: (sortBy: string) => void; // CUSTOM
 }> = PatchComponent(
   "SceneList",
-  ({ scenes, filter, selectedIds, onSelectChange, fromGroupId }) => {
+  ({ scenes, filter, selectedIds, onSelectChange, fromGroupId, onSort }) => {
+    // CUSTOM: onSort
     const queue = useMemo(
       () => SceneQueue.fromListFilterModel(filter),
       [filter]
@@ -206,6 +229,8 @@ const SceneList: React.FC<{
           selectedIds={selectedIds}
           onSelectChange={onSelectChange}
           fromGroupId={fromGroupId}
+          activeSortBy={filter.sortBy} // CUSTOM
+          activeSortDirection={filter.sortDirection} // CUSTOM
         />
       );
     }
@@ -216,6 +241,10 @@ const SceneList: React.FC<{
           queue={queue}
           selectedIds={selectedIds}
           onSelectChange={onSelectChange}
+          // CUSTOM: header sorting
+          sortBy={filter.sortBy}
+          sortDirection={filter.sortDirection}
+          onSort={onSort}
         />
       );
     }
@@ -358,6 +387,7 @@ interface IFilteredScenes {
   view?: View;
   alterQuery?: boolean;
   fromGroupId?: string;
+  additionalMetadataByline?: React.ReactNode; // CUSTOM
 }
 
 export const FilteredSceneList = PatchComponent(
@@ -366,10 +396,86 @@ export const FilteredSceneList = PatchComponent(
     const intl = useIntl();
     const history = useHistory();
     const location = useLocation();
+    const { clearQueue } = useSceneViewerQueue(); // CUSTOM
+
+    const { configuration } = useConfigurationContext();
 
     const searchFocus = useFocus();
 
-    const { filterHook, defaultSort, view, alterQuery, fromGroupId } = props;
+    const {
+      filterHook,
+      defaultSort,
+      view,
+      alterQuery,
+      fromGroupId,
+      additionalMetadataByline, // CUSTOM
+    } = props;
+
+    // CUSTOM: begin - clear scene viewer queue when leaving the scene list
+    useEffect(() => {
+      return () => {
+        clearQueue();
+      };
+    }, [clearQueue]);
+    // CUSTOM: end
+
+    // CUSTOM: begin - auto-exclude second camera tag on orgasm marker filter
+    const configuredOrgasmTagId = configuration?.ui?.roleTagIds?.orgasmTagId;
+    const configuredSecondCameraTagId =
+      configuration?.ui?.roleTagIds?.secondCameraTagId;
+
+    const orgasmDescendantsResult = useOrgasmTagDescendantIds(
+      configuredOrgasmTagId,
+      view !== View.Scenes
+    );
+
+    const orgasmTagIdSet = useMemo(() => {
+      const set = new Set<string>();
+      if (configuredOrgasmTagId) set.add(configuredOrgasmTagId);
+      for (const t of orgasmDescendantsResult.data?.findTags?.tags ?? []) {
+        set.add(t.id);
+      }
+      return set;
+    }, [configuredOrgasmTagId, orgasmDescendantsResult.data]);
+
+    const effectiveFilterHook = useCallback(
+      (filter: ListFilterModel) => {
+        const next = filterHook ? filterHook(filter) : filter;
+
+        if (view !== View.Scenes) {
+          return next;
+        }
+
+        if (!configuredOrgasmTagId || !configuredSecondCameraTagId) {
+          return next;
+        }
+
+        if (orgasmTagIdSet.size === 0) {
+          return next;
+        }
+
+        for (const c of next.criteria) {
+          if (c.criterionOption.type !== "scene_markers") continue;
+
+          (
+            c as unknown as { __autoExcludeOnMarkerRule?: unknown }
+          ).__autoExcludeOnMarkerRule = {
+            matchTagIdSet: orgasmTagIdSet,
+            excludeTagIdsOnMarker: [configuredSecondCameraTagId],
+          };
+        }
+
+        return next;
+      },
+      [
+        filterHook,
+        view,
+        configuredOrgasmTagId,
+        configuredSecondCameraTagId,
+        orgasmTagIdSet,
+      ]
+    );
+    // CUSTOM: end
 
     // States
     const {
@@ -392,7 +498,7 @@ export const FilteredSceneList = PatchComponent(
           useResult: useFindScenes,
           getCount: (r) => r.data?.findScenes.count ?? 0,
           getItems: (r) => r.data?.findScenes.scenes ?? [],
-          filterHook,
+          filterHook: effectiveFilterHook, // CUSTOM: effectiveFilterHook
         },
       });
 
@@ -476,8 +582,10 @@ export const FilteredSceneList = PatchComponent(
     const metadataByline = useMemo(() => {
       if (cachedResult.loading) return null;
 
-      return renderMetadataByline(cachedResult) ?? null;
-    }, [cachedResult]);
+      return (
+        renderMetadataByline(cachedResult, additionalMetadataByline) ?? null
+      );
+    }, [additionalMetadataByline, cachedResult]);
 
     const queue = useMemo(
       () => SceneQueue.fromListFilterModel(filter),
@@ -485,6 +593,15 @@ export const FilteredSceneList = PatchComponent(
     );
 
     const playRandom = usePlayRandom(effectiveFilter, totalCount);
+    // CUSTOM: list table header sorting
+    const onSort = (sortBy: string) =>
+      setFilter(
+        sortFilterByColumnCustom(
+          filter,
+          sortBy,
+          SCENE_TABLE_ASCENDING_SORTS_CUSTOM
+        )
+      );
     const playSelected = usePlaySelected(selectedIds);
     const playFirst = usePlayFirst();
 
@@ -654,7 +771,7 @@ export const FilteredSceneList = PatchComponent(
                 <SidebarContent
                   filter={filter}
                   setFilter={setFilter}
-                  filterHook={filterHook}
+                  filterHook={effectiveFilterHook} // CUSTOM: effectiveFilterHook
                   showEditFilter={showEditFilter}
                   view={view}
                   sidebarOpen={showSidebar}
@@ -676,14 +793,26 @@ export const FilteredSceneList = PatchComponent(
                   operationComponent={operations}
                   view={view}
                   zoomable
+                  extraToolbarContent={
+                    <SceneViewerQueueIndicator
+                      className="ml-2"
+                      selectedScenes={selectedItems}
+                      onQueued={onSelectNone}
+                    />
+                  }
                 />
 
                 <FilterTags
                   view={view}
                   criteria={filter.criteria}
-                  onEditCriterion={(c) =>
-                    showEditFilter(c.criterionOption.type)
-                  }
+                  onEditCriterion={(c) => {
+                    // CUSTOM: begin - multi-instance criteria comment
+                    // For multi-instance criteria, need to pass the actual criterion
+                    // showEditFilter only supports passing type string, so multi-instance won't work well here
+                    // This is a limitation - the user should use the Edit Filter button instead
+                    // CUSTOM: end
+                    showEditFilter(c.criterionOption.type);
+                  }}
                   onRemoveCriterion={removeCriterion}
                   onRemoveAll={clearAllCriteria}
                 />
@@ -711,6 +840,7 @@ export const FilteredSceneList = PatchComponent(
                     selectedIds={selectedIds}
                     onSelectChange={onSelectChange}
                     fromGroupId={fromGroupId}
+                    onSort={onSort} // CUSTOM
                   />
                 </LoadedContent>
 

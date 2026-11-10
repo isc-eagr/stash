@@ -17,6 +17,15 @@ query FindTag($id: ID!) {
   }
 }
 
+# CUSTOM: lazy detail-only aggregate shown with the Scenes-tab totals.
+query TagMarkerDuration($id: ID!) {
+  findTag(id: $id) {
+    id
+    scene_marker_duration
+    scene_marker_duration_all: scene_marker_duration(depth: -1)
+  }
+}
+
 query FindTagsForSelect(
   $filter: FindFilterType
   $tag_filter: TagFilterType

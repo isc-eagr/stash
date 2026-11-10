@@ -26,7 +26,39 @@ type FileDuplicationCriterionInput struct {
 	Phash *bool `json:"phash"`
 }
 
+// CUSTOM: begin
+// CustomSceneFilterInput is the input for custom scene filters
+type CustomSceneFilterInput struct {
+	// The filter type: multiple_orgasms, versatile_scenes, circular_oral, simultaneous_orgasm, self_facial
+	Type string `json:"type"`
+	// The tag ID for 'sex' markers
+	SexTagID *string `json:"sex_tag_id"`
+	// The tag ID for 'orgasm' markers
+	OrgasmTagID *string `json:"orgasm_tag_id"`
+	// The tag ID for 'oral' markers
+	OralTagID *string `json:"oral_tag_id"`
+	// The tag ID for 'facial' markers
+	FacialTagID *string `json:"facial_tag_id"`
+}
+
+// SceneTypeFilterInput is the input for filtering scenes by type (sex, oral, solo, facial)
+type SceneTypeFilterInput struct {
+	// Selected scene types to filter by
+	Types []string `json:"types"`
+	// The tag ID for 'sex' markers
+	SexTagID *string `json:"sex_tag_id"`
+	// The tag ID for 'oral' markers
+	OralTagID *string `json:"oral_tag_id"`
+	// The tag ID for 'solo' markers
+	SoloTagID *string `json:"solo_tag_id"`
+	// The tag ID for 'facial' markers
+	FacialTagID *string `json:"facial_tag_id"`
+}
+
+// CUSTOM: end
+
 type SceneFilterType struct {
+	InsightSceneIDs []string `json:"insight_scene_ids"` // CUSTOM: Playground tier drilldown snapshot.
 	OperatorFilter[SceneFilterType]
 	ID       *IntCriterionInput    `json:"id"`
 	Title    *StringCriterionInput `json:"title"`
@@ -45,8 +77,25 @@ type SceneFilterType struct {
 	Path *StringCriterionInput `json:"path"`
 	// Filter by file count
 	FileCount *IntCriterionInput `json:"file_count"`
+	// Filter by release count
+	ReleaseCount *IntCriterionInput `json:"release_count"` // CUSTOM
 	// Filter by rating expressed as 1-100
 	Rating100 *IntCriterionInput `json:"rating100"`
+	// Filter by metallic card style after rating thresholds and tag overrides
+	MetallicRating *MultiCriterionInput `json:"metallic_rating"` // CUSTOM
+	// Filter by stored rating criteria, bonuses, and penalties
+	RatingCriteria *RatingCriteriaFilterInput `json:"rating_criteria"` // CUSTOM
+	// Filter by configured activity percentages
+	ActivityPercentages         *ActivityPercentFilterInput `json:"activity_percentages"`          // CUSTOM
+	QualityPercentages          *QualityPercentFilterInput  `json:"quality_percentages"`           // CUSTOM
+	SexActivityPercent          *IntCriterionInput          `json:"sex_activity_percent"`          // CUSTOM
+	OralActivityPercent         *IntCriterionInput          `json:"oral_activity_percent"`         // CUSTOM
+	SoloActivityPercent         *IntCriterionInput          `json:"solo_activity_percent"`         // CUSTOM
+	OtherActivityPercent        *IntCriterionInput          `json:"other_activity_percent"`        // CUSTOM
+	OutstandingActivityPercent  *IntCriterionInput          `json:"outstanding_activity_percent"`  // CUSTOM
+	StandardActivityPercent     *IntCriterionInput          `json:"standard_activity_percent"`     // CUSTOM
+	UnclassifiedActivityPercent *IntCriterionInput          `json:"unclassified_activity_percent"` // CUSTOM
+	UnusableActivityPercent     *IntCriterionInput          `json:"unusable_activity_percent"`     // CUSTOM
 	// Filter by organized
 	Organized *bool `json:"organized"`
 	// Filter by o-counter
@@ -69,6 +118,17 @@ type SceneFilterType struct {
 	Duration *IntCriterionInput `json:"duration"`
 	// Filter to only include scenes which have markers. `true` or `false`
 	HasMarkers *string `json:"has_markers"`
+	// CUSTOM: begin
+	// Filter to only include scenes with markers that have assigned performers. `true` or `false`
+	HasMarkerPerformers *string `json:"has_marker_performers"`
+	// Custom scene filters: predefined complex filters.
+	// Options: 'multiple_orgasms', 'versatile_scenes'
+	CustomFilters *CustomSceneFilterInput `json:"custom_filters"`
+	// Filter by scene type based on marker tags
+	SceneType *SceneTypeFilterInput `json:"scene_type"`
+	// Filter by scene marker tags with optional performer role criteria
+	SceneMarkerTags *SceneMarkerTagsCriterionInput `json:"scene_marker_tags"`
+	// CUSTOM: end
 	// Filter to only include scenes missing this property
 	IsMissing *string `json:"is_missing"`
 	// Filter to only include scenes with this studio
@@ -91,6 +151,16 @@ type SceneFilterType struct {
 	PerformerAge *IntCriterionInput `json:"performer_age"`
 	// Filter to only include scenes with these performers
 	Performers *MultiCriterionInput `json:"performers"`
+	// CUSTOM: begin
+	// Filter by performer ethnicity
+	PerformerEthnicity *StringCriterionInput `json:"performer_ethnicity"`
+	// Filter by performer ethnicity
+	PerformerCountry *StringCriterionInput `json:"performer_country"`
+	// Filter by performer rating (1-100)
+	PerformerRating *IntCriterionInput `json:"performer_rating"`
+	// When true, all linked performers must satisfy performer_rating; when false, any matching performer is sufficient
+	PerformerRatingAll *bool `json:"performer_rating_all"`
+	// CUSTOM: end
 	// Filter by performer count
 	PerformerCount *IntCriterionInput `json:"performer_count"`
 	// Filter by StashID
@@ -121,6 +191,10 @@ type SceneFilterType struct {
 	Date *DateCriterionInput `json:"date"`
 	// Filter by production date
 	ProductionDate *DateCriterionInput `json:"production_date"`
+	// Filter by effective date (earliest date among scene date and release dates)
+	EffectiveDate *DateCriterionInput `json:"effective_date"` // CUSTOM
+	// Filter by StashDB Matches
+	StashDBMatches *IntCriterionInput `json:"stashdb_matches"` // CUSTOM
 	// Filter by related galleries that meet this criteria
 	GalleriesFilter *GalleryFilterType `json:"galleries_filter"`
 	// Filter by related performers that meet this criteria
@@ -200,6 +274,8 @@ type SceneCreateInput struct {
 	// Files must not already be primary for another scene.
 	FileIds      []string       `json:"file_ids"`
 	CustomFields map[string]any `json:"custom_fields,omitempty"`
+
+	StashDBMatches *int `json:"stashdb_matches"` // CUSTOM
 }
 
 type SceneUpdateInput struct {
@@ -230,6 +306,8 @@ type SceneUpdateInput struct {
 	PlayCount     *int           `json:"play_count"`
 	PrimaryFileID *string        `json:"primary_file_id"`
 	CustomFields  *CustomFieldsInput
+
+	StashDBMatches *int `json:"stashdb_matches"` // CUSTOM
 }
 
 type SceneDestroyInput struct {

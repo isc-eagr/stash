@@ -1,0 +1,96 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+
+const statsSource = readFileSync(
+  new URL(
+    "../src/components/Scenes/SceneDetails/SceneStatsPanel.tsx",
+    import.meta.url
+  ),
+  "utf8"
+);
+const matrixSource = readFileSync(
+  new URL(
+    "../src/components/Scenes/OutstandingActivityMatrix_custom.tsx",
+    import.meta.url
+  ),
+  "utf8"
+);
+const matrixStyles = readFileSync(
+  new URL(
+    "../src/components/Scenes/outstandingActivityMatrix_custom.scss",
+    import.meta.url
+  ),
+  "utf8"
+);
+const sceneStatsMatrixSource = readFileSync(
+  new URL(
+    "../src/components/SceneStats/SceneStatsActivityMatrix_custom.tsx",
+    import.meta.url
+  ),
+  "utf8"
+);
+const performerStatsSource = readFileSync(
+  new URL(
+    "../src/components/Performers/PerformerDetails/PerformerStatsPanel.tsx",
+    import.meta.url
+  ),
+  "utf8"
+);
+
+const compactPanel = statsSource.indexOf("scene-stats-overview-grid");
+const detailsModal = statsSource.indexOf("<ModalComponent", compactPanel);
+const matrixTable = statsSource.indexOf(
+  "<OutstandingActivityMatrixTable",
+  detailsModal
+);
+
+assert.ok(compactPanel >= 0 && detailsModal > compactPanel);
+assert.ok(
+  matrixTable > detailsModal,
+  "the activity matrix should render inside the Detailed Stats modal"
+);
+assert.match(
+  statsSource,
+  /\{ key: "activity" as const, label: "Activity Matrix" \}/,
+  "Detailed Stats should expose a dedicated Activity Matrix tab"
+);
+assert.match(
+  matrixSource,
+  /backgroundImage: column\.imagePath/,
+  "matrix performer headers should render performer pictures"
+);
+assert.match(
+  matrixSource,
+  /<span>\{column\.name\}<\/span>/,
+  "matrix performer headers should retain performer names"
+);
+assert.doesNotMatch(
+  matrixSource,
+  /Time and marker occurrences by performer/,
+  "the activity matrix should not render redundant helper copy"
+);
+assert.match(
+  matrixStyles,
+  /\.outstanding-activity-performer-image\s*\{[\s\S]*?aspect-ratio:\s*2 \/ 3;[\s\S]*?border-radius:\s*0\.25rem;[\s\S]*?width:\s*3rem;/,
+  "activity headers should match the Interaction Matrix portrait geometry"
+);
+assert.match(
+  matrixSource,
+  /showPercent &&/,
+  "the shared matrix should make percentage evidence optional"
+);
+assert.match(
+  sceneStatsMatrixSource,
+  /showPercent=\{false\}/,
+  "global and studio matrices should omit scoped scene-time percentages"
+);
+assert.match(
+  performerStatsSource,
+  /<SceneStatsActivityMatrix[\s\S]*?active=\{active\}[\s\S]*?performerId=\{performer\.id\}[\s\S]*?performerName=\{performer\.name\}/,
+  "performer Stats should render an Activity Matrix scoped to that performer"
+);
+assert.ok(
+  performerStatsSource.indexOf("<SceneStatsActivityMatrix") >
+    performerStatsSource.indexOf("<PerformerSceneRatingAdvisorStats"),
+  "performer Activity Matrix should render below Scene Rating Averages"
+);

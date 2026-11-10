@@ -79,6 +79,9 @@ type Loaders struct {
 	FolderByID            *FolderLoader
 	FolderParentFolderIDs *FolderRelatedFolderIDsLoader
 	FolderSubFolderIDs    *FolderRelatedFolderIDsLoader
+
+	SceneMarkerRelations *BatchLoaderCustom[int, SceneMarkerRelationsCustom]      // CUSTOM
+	SceneReleaseTotals   *BatchLoaderCustom[int, models.SceneReleaseTotalsCustom] // CUSTOM
 }
 
 type Middleware struct {
@@ -234,6 +237,19 @@ func (m Middleware) Middleware(next http.Handler) http.Handler {
 				maxBatch: maxBatch,
 				fetch:    m.fetchScenesOHistory(ctx),
 			},
+			// CUSTOM: batch the tags and role-performer relationships shared by
+			// every SceneMarkerData instance in this GraphQL request.
+			SceneMarkerRelations: newBatchLoaderCustom(
+				m.fetchSceneMarkerRelationsCustom(ctx),
+				wait,
+				maxBatch,
+			),
+			// CUSTOM: release O's and StashDB Matches summed per scene card.
+			SceneReleaseTotals: newBatchLoaderCustom(
+				m.fetchSceneReleaseTotalsCustom(ctx),
+				wait,
+				maxBatch,
+			),
 		}
 
 		newCtx := context.WithValue(r.Context(), loadersCtxKey, ldrs)

@@ -40,6 +40,20 @@ export type FrontPageContent = ISavedFilterRow | ICustomFilter;
 export const defaultMaxOptionsShown = 200;
 export const defaultPreviewVolume = 25;
 
+// CUSTOM: begin - studio site sync settings, read by the backend task
+export interface IStudioSiteSyncConfig {
+  username?: string;
+  password?: string;
+  picsPath?: string;
+}
+
+// Field keys match StashDBFieldChange.field.
+export interface IStashDBChangesConfig {
+  excludedSceneFields?: string[];
+  excludedPerformerFields?: string[];
+}
+// CUSTOM: end
+
 export interface IUIConfig {
   // unknown to prevent direct access - use getFrontPageContent
   frontPageContent?: unknown;
@@ -91,6 +105,19 @@ export interface IUIConfig {
 
   showAbLoopControls?: boolean;
 
+  // CUSTOM: begin
+  // Optional scene-player controls are hidden unless explicitly shown.
+  showScenePlayerChromecastControl?: boolean;
+  showScenePlayerStreamControl?: boolean;
+  showScenePlayerAutostartControl?: boolean;
+  // if true, multi-segment loop controls will be shown below the scene player
+  showMultiSegmentLoopControls?: boolean;
+  // if true, the scene Markers tab uses the upstream grouped primary-tag layout
+  showOfficialSceneMarkerLayout?: boolean;
+  // if false, the O keyboard shortcut is disabled on scene details
+  enableSceneOHotkey?: boolean;
+  // CUSTOM: end
+
   // maximum number of items to shown in the dropdown list - defaults to 200
   // upper limit of 1000
   maxOptionsShown?: number;
@@ -117,6 +144,65 @@ export interface IUIConfig {
   taggerConfig?: ITaggerConfig;
 
   title?: string;
+
+  // CUSTOM: begin
+  // Selectable application-wide visual theme
+  applicationTheme?: "default" | "masculine-black";
+  // Styling option for rating-highlighted scene and performer cards
+  ratingCardTheme?: "premium" | "classic";
+  ratingCardThresholds?: {
+    scene?: {
+      bronze?: number;
+      silver?: number;
+      gold?: number;
+      royalSapphire?: number;
+    };
+    performer?: {
+      bronze?: number;
+      silver?: number;
+      gold?: number;
+      royalSapphire?: number;
+    };
+    // Legacy flat shape from early configurable threshold builds.
+    bronze?: number;
+    silver?: number;
+    gold?: number;
+    royalSapphire?: number;
+  };
+  ratingCardOverrideTagIds?: {
+    bronzeTagId?: string;
+    silverTagId?: string;
+    goldTagId?: string;
+    royalSapphireTagId?: string;
+  };
+  // CUSTOM: begin - scene card insight thresholds
+  sceneCardInsightThresholds?: {
+    visibleInsightLimit?: number;
+    rareRoleMaximumPercent?: number;
+  };
+  // CUSTOM: end
+  // CUSTOM: studio site sync logins and pictures folders, keyed by site
+  studioSiteSync?: Record<string, IStudioSiteSyncConfig | undefined>;
+  // CUSTOM: fields hidden from the StashDB Changes report
+  stashdbChanges?: IStashDBChangesConfig;
+  simpleMarkerPreviewExcludedTagIds?: string[]; // Extra primary-only marker tags that skip video/webp preview generation
+
+  // Tag IDs used for scene marker role categorization
+  // These determine which marker tags represent each role category
+  roleTagIds?: {
+    sexTagId?: string; // Tag ID for sex markers
+    oralTagId?: string; // Tag ID for oral markers
+    soloTagId?: string; // Tag ID for solo markers
+    facialTagId?: string; // Tag ID for facial markers
+    orgasmTagId?: string; // Tag ID for orgasm markers
+    feetTagId?: string; // Tag ID for feet markers
+    secondCameraTagId?: string; // Tag ID for 2nd camera markers (excluded from orgasm/facial counts)
+    reallyHotTagId?: string; // Tag ID for "really hot" qualifier (gold facial icon when combined with facial)
+    goatTagId?: string; // Tag ID for GOAT card styling override
+    oStatsExcludedTagIds?: string[]; // Tag IDs hidden from O Stats marker-tag charts
+    outstandingActivityCommonTagIds?: string[]; // CUSTOM: exact tags hidden from the thumbnail caption (subtags still show)
+  };
+  // CUSTOM: end
 }
 
 export function getFrontPageContent(

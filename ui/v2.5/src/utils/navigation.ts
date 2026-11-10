@@ -11,6 +11,10 @@ import {
   TagsCriterion,
   TagsCriterionOption,
 } from "src/models/list-filter/criteria/tags";
+import {
+  MarkerPerformersCriterion, // CUSTOM
+  MarkerPerformersCriterionOption, // CUSTOM
+} from "src/models/list-filter/criteria/marker-performers";
 import { ListFilterModel } from "src/models/list-filter/filter";
 import {
   ContainingGroupsCriterionOption,
@@ -33,6 +37,57 @@ import { IntlShape } from "react-intl";
 import { galleryTitle } from "src/core/galleries";
 import { MarkersScenesCriterion } from "src/models/list-filter/criteria/scenes";
 import { objectTitle } from "src/core/files";
+// CUSTOM: begin - import all custom navigation functions
+import {
+  makePerformersEthnicityUrl,
+  makePerformersEthnicityAnyMetallicRatingUrl,
+  makePerformersEthnicityMetallicRatingUrl,
+  makePerformersEthnicityRatingUrl,
+  makePerformersEthnicityRatingRangeUrl,
+  makePerformersMetallicRatingUrl,
+  makePerformerStudioScenesUrl,
+  makeStudioSexScenesUrl,
+  makeStudioOralScenesUrl,
+  makeStudioSoloScenesUrl,
+  makeStudioFacialScenesUrl,
+  makeStudioDetailSexScenesUrl,
+  makeStudioDetailOralScenesUrl,
+  makeStudioDetailSoloScenesUrl,
+  makeStudioDetailFacialScenesUrl,
+  makeGlobalSexScenesUrl,
+  makeGlobalOralScenesUrl,
+  makeGlobalSoloScenesUrl,
+  makeGlobalFacialScenesUrl,
+  makePerformerStudioSexScenesUrl,
+  makePerformerStudioOralScenesUrl,
+  makePerformerStudioSoloScenesUrl,
+  makePerformerStudioFacialScenesUrl,
+  makePerformerStudioGroupsUrl,
+  makePerformerStudioImagesUrl,
+  makePerformerStudioGalleriesUrl,
+  makeStudioUniquePerformersUrl,
+  makeStudioDetailUniquePerformersUrl,
+  makePerformerDetailSexScenesUrl,
+  makePerformerDetailOralScenesUrl,
+  makePerformerDetailSoloScenesUrl,
+  makePerformerDetailFacialScenesUrl,
+  makePerformerMarkerScenesUrl,
+  makePerformerMarkerScenesWithRoleUrl,
+  makeStudioMarkerScenesUrl,
+  makeStudioMarkersUrl,
+  makePerformerStudioMarkerScenesUrl,
+  makeTagPerformersBySceneTagsUrl,
+  makeSceneMarkersUrl,
+  makeScenesWithMarkerTagUrl,
+  makeScenesWithExclusiveMarkerTagUrl,
+  makePerformerOrgasmMarkersUrl,
+  makePerformerFeetMarkersUrl,
+  makePerformerFacialMarkersWithRoleUrl,
+  makePerformerPartnerPerformersUrl,
+  makePerformerAllPartnersUrl,
+  withStudioScope,
+} from "./navigation_custom";
+// CUSTOM: end
 
 function addExtraCriteria(dest: Criterion[], src?: Criterion[]) {
   if (src && src.length > 0) {
@@ -49,7 +104,7 @@ const makePerformerScenesUrl = (
   const filter = new ListFilterModel(GQL.FilterMode.Scenes, undefined);
   const criterion = new PerformersCriterion();
   criterion.value.items = [
-    { id: performer.id, label: performer.name || `Performer ${performer.id}` },
+    { id: performer.id, label: performer.name || `Vato ${performer.id}` },
   ];
 
   if (extraPerformer) {
@@ -70,7 +125,7 @@ const makePerformerImagesUrl = (
   const filter = new ListFilterModel(GQL.FilterMode.Images, undefined);
   const criterion = new PerformersCriterion();
   criterion.value.items = [
-    { id: performer.id, label: performer.name || `Performer ${performer.id}` },
+    { id: performer.id, label: performer.name || `Vato ${performer.id}` },
   ];
 
   if (extraPerformer) {
@@ -97,7 +152,7 @@ const makePerformerGalleriesUrl = (
   const filter = new ListFilterModel(GQL.FilterMode.Galleries, undefined);
   const criterion = new PerformersCriterion();
   criterion.value.items = [
-    { id: performer.id, label: performer.name || `Performer ${performer.id}` },
+    { id: performer.id, label: performer.name || `Vato ${performer.id}` },
   ];
 
   if (extraPerformer) {
@@ -118,7 +173,7 @@ const makePerformerGroupsUrl = (
   const filter = new ListFilterModel(GQL.FilterMode.Groups, undefined);
   const criterion = new PerformersCriterion();
   criterion.value.items = [
-    { id: performer.id, label: performer.name || `Performer ${performer.id}` },
+    { id: performer.id, label: performer.name || `Vato ${performer.id}` },
   ];
 
   if (extraPerformer) {
@@ -137,7 +192,7 @@ const makePerformerSceneMarkersUrl = (
   const filter = new ListFilterModel(GQL.FilterMode.SceneMarkers, undefined);
   const criterion = new PerformersCriterion();
   criterion.value.items = [
-    { id: performer.id, label: performer.name || `Performer ${performer.id}` },
+    { id: performer.id, label: performer.name || `Vato ${performer.id}` },
   ];
 
   filter.criteria.push(criterion);
@@ -296,9 +351,44 @@ function makeTagFilter(mode: GQL.FilterMode, tag: INamedObject) {
   return filter.makeQueryParameters();
 }
 
-const makeTagScenesUrl = (tag: INamedObject) => {
+// CUSTOM: begin - added optional performer parameter for scene marker filtering
+const makeTagScenesUrl = (tag: INamedObject, performer?: INamedObject) => {
+  if (!tag.id) return "#";
+
+  // If a performer is provided, build a Scene Marker filter
+  // that links the performer and tag through scene_marker_performers
+  if (performer?.id) {
+    const filter = new ListFilterModel(GQL.FilterMode.SceneMarkers, undefined);
+
+    const tagCriterion = new TagsCriterion(TagsCriterionOption);
+    tagCriterion.modifier = GQL.CriterionModifier.IncludesAll;
+    tagCriterion.value = {
+      items: [{ id: tag.id, label: tag.name || `Tag ${tag.id}` }],
+      excluded: [],
+      depth: 0,
+    };
+    filter.criteria.push(tagCriterion);
+
+    const performersCriterion = new PerformersCriterion();
+    performersCriterion.modifier = GQL.CriterionModifier.IncludesAll;
+    performersCriterion.value = {
+      items: [
+        {
+          id: performer.id,
+          label: performer.name || `Vato ${performer.id}`,
+        },
+      ],
+      excluded: [],
+    };
+    filter.criteria.push(performersCriterion);
+
+    const params = filter.makeQueryParameters();
+    return `/scenes/markers?${params}`;
+  }
+
   return `/scenes?${makeTagFilter(GQL.FilterMode.Scenes, tag)}`;
 };
+// CUSTOM: end
 
 const makeTagPerformersUrl = (tag: INamedObject) => {
   return `/performers?${makeTagFilter(GQL.FilterMode.Performers, tag)}`;
@@ -308,9 +398,35 @@ const makeTagStudiosUrl = (tag: INamedObject) => {
   return `/studios?${makeTagFilter(GQL.FilterMode.Studios, tag)}`;
 };
 
+// CUSTOM: begin - use marker_performers so TagCard marker links match the Markers filter UI
 const makeTagSceneMarkersUrl = (tag: INamedObject) => {
-  return `/scenes/markers?${makeTagFilter(GQL.FilterMode.SceneMarkers, tag)}`;
+  const filter = new ListFilterModel(GQL.FilterMode.SceneMarkers, undefined);
+  const criterion = new MarkerPerformersCriterion(
+    MarkerPerformersCriterionOption
+  );
+  criterion.modifier = GQL.CriterionModifier.Equals;
+  criterion.value = {
+    tag_ids: [{ id: tag.id, label: tag.name || `Tag ${tag.id}` }],
+    include_subtags: false,
+    require_overlap: false,
+    performer_mode: "AND",
+    top_performer_ids: [],
+    top_any_count: 0,
+    top_ethnicities: [],
+    top_countries: [],
+    top_rating: null,
+    bottom_performer_ids: [],
+    bottom_any_count: 0,
+    bottom_ethnicities: [],
+    bottom_countries: [],
+    bottom_rating: null,
+    unnamed_performers: [],
+  };
+  filter.criteria.push(criterion);
+  filter.sortBy = "title";
+  return `/scenes/markers?${filter.makeQueryParameters()}`;
 };
+// CUSTOM: end
 
 const makeTagGalleriesUrl = (tag: INamedObject) => {
   return `/galleries?${makeTagFilter(GQL.FilterMode.Galleries, tag)}`;
@@ -484,11 +600,62 @@ const NavUtils = {
   makePerformerGroupsUrl,
   makePerformerSceneMarkersUrl,
   makePerformersCountryUrl,
+  // CUSTOM: begin
+  makePerformersEthnicityUrl,
+  makePerformersEthnicityAnyMetallicRatingUrl,
+  makePerformersEthnicityMetallicRatingUrl,
+  makePerformersEthnicityRatingUrl,
+  makePerformersEthnicityRatingRangeUrl,
+  makePerformersMetallicRatingUrl,
+  makePerformerStudioScenesUrl,
+  // CUSTOM: end
   makeStudioScenesUrl,
+  // CUSTOM: begin
+  makeStudioSexScenesUrl,
+  makeStudioOralScenesUrl,
+  makeStudioSoloScenesUrl,
+  makeStudioFacialScenesUrl,
+  makeStudioDetailSexScenesUrl,
+  makeStudioDetailOralScenesUrl,
+  makeStudioDetailSoloScenesUrl,
+  makeStudioDetailFacialScenesUrl,
+  makePerformerDetailSexScenesUrl,
+  makePerformerDetailOralScenesUrl,
+  makePerformerDetailSoloScenesUrl,
+  makePerformerDetailFacialScenesUrl,
+  makePerformerMarkerScenesUrl,
+  makePerformerMarkerScenesWithRoleUrl,
+  makePerformerPartnerPerformersUrl,
+  makePerformerAllPartnersUrl,
+  makePerformerOrgasmMarkersUrl,
+  makePerformerFeetMarkersUrl,
+  makePerformerFacialMarkersWithRoleUrl,
+  withStudioScope,
+  makeStudioMarkerScenesUrl,
+  makeStudioMarkersUrl,
+  makePerformerStudioMarkerScenesUrl,
+  makeGlobalSexScenesUrl,
+  makeGlobalOralScenesUrl,
+  makeGlobalSoloScenesUrl,
+  makeGlobalFacialScenesUrl,
+  makePerformerStudioSexScenesUrl,
+  makePerformerStudioOralScenesUrl,
+  makePerformerStudioSoloScenesUrl,
+  makePerformerStudioFacialScenesUrl,
+  // CUSTOM: end
   makeStudioImagesUrl,
   makeStudioGalleriesUrl,
   makeStudioGroupsUrl: makeStudioGroupsUrl,
+  // CUSTOM: begin
+  makePerformerStudioGroupsUrl,
+  makePerformerStudioImagesUrl,
+  makePerformerStudioGalleriesUrl,
+  // CUSTOM: end
   makeStudioPerformersUrl,
+  // CUSTOM: begin
+  makeStudioUniquePerformersUrl,
+  makeStudioDetailUniquePerformersUrl,
+  // CUSTOM: end
   makeTagUrl,
   makeGroupUrl,
   makeParentTagsUrl,
@@ -496,6 +663,7 @@ const NavUtils = {
   makeTagSceneMarkersUrl,
   makeTagScenesUrl,
   makeTagPerformersUrl,
+  makeTagPerformersBySceneTagsUrl, // CUSTOM
   makeTagStudiosUrl,
   makeTagGalleriesUrl,
   makeTagImagesUrl,
@@ -513,6 +681,11 @@ const NavUtils = {
   makeContainingGroupsUrl,
   makeSubGroupsUrl,
   makeSceneMarkersSceneUrl,
+  // CUSTOM: begin
+  makeSceneMarkersUrl,
+  makeScenesWithMarkerTagUrl,
+  makeScenesWithExclusiveMarkerTagUrl,
+  // CUSTOM: end
 };
 
 export default NavUtils;

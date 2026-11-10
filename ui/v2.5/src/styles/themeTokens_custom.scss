@@ -1,0 +1,16 @@
+/* CUSTOM: Theme surfaces derive from the upstream Sass palette. */
+:root {
+  --app-bg: #{$body-bg};
+  --app-surface: #{$card-bg};
+  --app-surface-raised: #{$secondary};
+  --app-border: #414c53;
+  --app-border-strong: #{$muted-gray};
+  --app-track: #{$dark-text};
+  --app-text: #{$text-color};
+  --app-muted: #{$text-muted};
+  --app-accent: #{$link-color};
+  --app-accent-ink: #101317;
+  --app-control-radius: 0.25rem;
+  --app-card-radius: 0.25rem;
+  --app-panel-radius: 0.5rem;
+}

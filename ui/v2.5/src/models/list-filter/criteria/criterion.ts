@@ -48,7 +48,10 @@ const modifierMessageIDs = {
   [CriterionModifier.Equals]: "criterion_modifier.equals",
   [CriterionModifier.NotEquals]: "criterion_modifier.not_equals",
   [CriterionModifier.GreaterThan]: "criterion_modifier.greater_than",
+  [CriterionModifier.GreaterThanEquals]:
+    "criterion_modifier.greater_than_equals", // CUSTOM
   [CriterionModifier.LessThan]: "criterion_modifier.less_than",
+  [CriterionModifier.LessThanEquals]: "criterion_modifier.less_than_equals", // CUSTOM
   [CriterionModifier.IsNull]: "criterion_modifier.is_null",
   [CriterionModifier.NotNull]: "criterion_modifier.not_null",
   [CriterionModifier.Includes]: "criterion_modifier.includes",

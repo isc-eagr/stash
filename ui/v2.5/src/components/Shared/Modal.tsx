@@ -22,6 +22,7 @@ interface IModal {
   disabled?: boolean;
   modalProps?: ModalProps;
   dialogClassName?: string;
+  closeButton?: boolean; // CUSTOM
   footerButtons?: React.ReactNode;
   leftFooterButtons?: React.ReactNode;
 }
@@ -40,18 +41,27 @@ export const ModalComponent: React.FC<React.PropsWithChildren<IModal>> = ({
   disabled,
   modalProps,
   dialogClassName,
+  closeButton, // CUSTOM
   footerButtons,
   leftFooterButtons,
 }) => (
   <Modal
-    className="ModalComponent"
-    keyboard={false}
-    onHide={onHide ?? defaultOnHide}
-    show={show}
-    dialogClassName={dialogClassName}
     {...modalProps}
+    className="ModalComponent"
+    // CUSTOM: Dismissal is available when idle and blocked while an action runs.
+    keyboard={!isRunning && (modalProps?.keyboard ?? true)}
+    backdrop={isRunning ? "static" : (modalProps?.backdrop ?? true)}
+    onHide={
+      isRunning
+        ? defaultOnHide
+        : (onHide ?? cancel?.onClick ?? accept?.onClick ?? defaultOnHide)
+    }
+    show={show}
+    // CUSTOM: keep modalProps.dialogClassName now that the spread comes first.
+    dialogClassName={dialogClassName ?? modalProps?.dialogClassName}
   >
-    <Modal.Header>
+    {/* CUSTOM: optional header close button */}
+    <Modal.Header closeButton={!isRunning && (closeButton ?? !cancel)}>
       {icon ? <Icon icon={icon} /> : ""}
       <span>{header ?? ""}</span>
     </Modal.Header>
@@ -63,7 +73,7 @@ export const ModalComponent: React.FC<React.PropsWithChildren<IModal>> = ({
         {cancel ? (
           <Button
             disabled={isRunning}
-            variant={cancel.variant ?? "primary"}
+            variant={cancel.variant ?? "secondary"}
             onClick={cancel.onClick}
             className="ml-2"
           >
@@ -81,7 +91,8 @@ export const ModalComponent: React.FC<React.PropsWithChildren<IModal>> = ({
         <Button
           disabled={isRunning || disabled}
           variant={accept?.variant ?? "primary"}
-          onClick={accept?.onClick}
+          // CUSTOM: A plain Close button uses the same dismissal handler.
+          onClick={accept?.onClick ?? onHide ?? cancel?.onClick}
           className="ml-2"
         >
           {isRunning ? (

@@ -1,0 +1,32 @@
+# CUSTOM: All custom SceneMarker fields.
+# This file uses 'extend type/input' to add fields to the upstream SceneMarker types
+# without modifying the upstream scene-marker.graphql file.
+# See CUSTOM_FEATURES.md for documentation.
+
+extend type SceneMarker {
+  "Owning release, when this marker belongs to a scene release."
+  release_id: ID
+  "Top performers associated with this marker (active/top role). Only performers assigned to the parent scene are selectable."
+  top_performers: [Performer!]!
+  "Bottom performers associated with this marker (passive/bottom role). Only performers assigned to the parent scene are selectable."
+  bottom_performers: [Performer!]!
+}
+
+extend type FindSceneMarkersResultType {
+  "Summed length of all timed markers matching the current filter."
+  duration: Float!
+}
+
+extend input SceneMarkerCreateInput {
+  "Top performer IDs (active/top role). Must be performers already assigned to the scene."
+  top_performer_ids: [ID!]
+  "Bottom performer IDs (passive/bottom role). Must be performers already assigned to the scene."
+  bottom_performer_ids: [ID!]
+}
+
+extend input SceneMarkerUpdateInput {
+  "Top performer IDs (active/top role). Must be performers already assigned to the scene."
+  top_performer_ids: [ID!]
+  "Bottom performer IDs (passive/bottom role). Must be performers already assigned to the scene."
+  bottom_performer_ids: [ID!]
+}

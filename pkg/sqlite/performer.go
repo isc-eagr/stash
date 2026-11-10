@@ -266,6 +266,8 @@ func (qb *PerformerStore) selectDataset() *goqu.SelectDataset {
 }
 
 func (qb *PerformerStore) Create(ctx context.Context, newObject *models.CreatePerformerInput) error {
+	defaultPerformerGenderCustom(newObject) // CUSTOM
+
 	var r performerRow
 	r.fromPerformer(*newObject.Performer)
 
@@ -311,10 +313,31 @@ func (qb *PerformerStore) Create(ctx context.Context, newObject *models.CreatePe
 
 	*newObject.Performer = *updated
 
+	// CUSTOM: begin - record initially tagged performers as incoming work
+	afterTags, err := taskProgressTagSnapshotCustom(ctx, "performer", id)
+	if err != nil {
+		return err
+	}
+	if err := recordTaskProgressTagDiffCustom(ctx, "performer", id, nil, afterTags); err != nil {
+		return err
+	}
+	// CUSTOM: end
+
 	return nil
 }
 
 func (qb *PerformerStore) UpdatePartial(ctx context.Context, id int, partial models.PerformerPartial) (*models.Performer, error) {
+	// CUSTOM: begin - diff logical membership around tag updates
+	var beforeTags taskProgressTagSetCustom
+	if partial.TagIDs != nil {
+		var err error
+		beforeTags, err = taskProgressTagSnapshotCustom(ctx, "performer", id)
+		if err != nil {
+			return nil, err
+		}
+	}
+	// CUSTOM: end
+
 	r := performerRowRecord{
 		updateRecord{
 			Record: make(exp.Record),
@@ -356,10 +379,38 @@ func (qb *PerformerStore) UpdatePartial(ctx context.Context, id int, partial mod
 		return nil, err
 	}
 
-	return qb.find(ctx, id)
+	updated, err := qb.find(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// CUSTOM: begin
+	if beforeTags != nil {
+		afterTags, err := taskProgressTagSnapshotCustom(ctx, "performer", id)
+		if err != nil {
+			return nil, err
+		}
+		if err := recordTaskProgressTagDiffCustom(ctx, "performer", id, beforeTags, afterTags); err != nil {
+			return nil, err
+		}
+	}
+	// CUSTOM: end
+
+	return updated, nil
 }
 
 func (qb *PerformerStore) Update(ctx context.Context, updatedObject *models.UpdatePerformerInput) error {
+	// CUSTOM: begin - snapshot only when this full update carries tags
+	var beforeTags taskProgressTagSetCustom
+	if updatedObject.TagIDs.Loaded() {
+		var err error
+		beforeTags, err = taskProgressTagSnapshotCustom(ctx, "performer", updatedObject.ID)
+		if err != nil {
+			return err
+		}
+	}
+	// CUSTOM: end
+
 	var r performerRow
 	r.fromPerformer(*updatedObject.Performer)
 
@@ -395,16 +446,44 @@ func (qb *PerformerStore) Update(ctx context.Context, updatedObject *models.Upda
 		return err
 	}
 
+	// CUSTOM: begin
+	if beforeTags != nil {
+		afterTags, err := taskProgressTagSnapshotCustom(ctx, "performer", updatedObject.ID)
+		if err != nil {
+			return err
+		}
+		if err := recordTaskProgressTagDiffCustom(ctx, "performer", updatedObject.ID, beforeTags, afterTags); err != nil {
+			return err
+		}
+	}
+	// CUSTOM: end
+
 	return nil
 }
 
 func (qb *PerformerStore) Destroy(ctx context.Context, id int) error {
+	// CUSTOM: begin - deletion completes the performer for all matching trackers
+	beforeTags, err := taskProgressTagSnapshotCustom(ctx, "performer", id)
+	if err != nil {
+		return err
+	}
+	itemLabel, err := taskProgressItemLabelCustom(ctx, "performer", id)
+	if err != nil {
+		return err
+	}
+	// CUSTOM: end
+
 	// must handle image checksums manually
 	if err := qb.destroyImage(ctx, id); err != nil {
 		return err
 	}
 
-	return performerRepository.destroyExisting(ctx, []int{id})
+	if err := performerRepository.destroyExisting(ctx, []int{id}); err != nil {
+		return err
+	}
+
+	// CUSTOM
+	return recordTaskProgressTagDiffCustom(ctx, "performer", id, beforeTags, nil, itemLabel)
 }
 
 // returns nil, nil if not found
@@ -643,7 +722,7 @@ func (qb *PerformerStore) makeQuery(ctx context.Context, performerFilter *models
 	}
 
 	var err error
-	query.sortAndPagination, err = qb.getPerformerSort(findFilter)
+	query.sortAndPagination, err = qb.getPerformerSort(findFilter, performerFilter) // CUSTOM: pass performerFilter for studio-scoped sorting
 	if err != nil {
 		return nil, err
 	}
@@ -696,7 +775,10 @@ var selectPerformerLastOAtSQL = utils.StrFormat(
 		"SELECT {o_date} FROM {performers_scenes} s "+
 		"LEFT JOIN {scenes} ON {scenes}.id = s.{scene_id} "+
 		"LEFT JOIN {scenes_o_dates} ON {scenes_o_dates}.{scene_id} = {scenes}.id "+
-		"WHERE s.{performer_id} = {performers}.id"+
+		"WHERE s.{performer_id} = {performers}.id "+
+		"UNION ALL SELECT o.o_date FROM scene_release_performers rp "+ // CUSTOM
+		"JOIN scene_release_o_dates o ON o.release_id = rp.release_id "+ // CUSTOM
+		"WHERE rp.performer_id = {performers}.id"+ // CUSTOM
 		")",
 	map[string]interface{}{
 		"performer_id":      performerIDColumn,
@@ -742,7 +824,10 @@ var selectPerformerLastPlayedAtSQL = utils.StrFormat(
 		"SELECT {view_date} FROM {performers_scenes} s "+
 		"LEFT JOIN {scenes} ON {scenes}.id = s.{scene_id} "+
 		"LEFT JOIN {scenes_view_dates} ON {scenes_view_dates}.{scene_id} = {scenes}.id "+
-		"WHERE s.{performer_id} = {performers}.id"+
+		"WHERE s.{performer_id} = {performers}.id "+
+		"UNION ALL SELECT v.view_date FROM scene_release_performers rp "+ // CUSTOM
+		"JOIN scene_release_view_dates v ON v.release_id = rp.release_id "+ // CUSTOM
+		"WHERE rp.performer_id = {performers}.id"+ // CUSTOM
 		")",
 	map[string]interface{}{
 		"performer_id":      performerIDColumn,
@@ -829,9 +914,37 @@ var performerSortOptions = sortOptions{
 	"tag_count",
 	"updated_at",
 	"weight",
+	// CUSTOM: begin - role-based metric sort options
+	"average_scene_rating",
+	"sex_scenes_count",
+	"oral_scenes_count",
+	"facial_scenes_count",
+	"solo_scenes_count",
+	"sex_activity_percent",
+	"oral_activity_percent",
+	"solo_activity_percent",
+	"sex_top_activity_percent",
+	"sex_bottom_activity_percent",
+	"oral_top_activity_percent",
+	"oral_bottom_activity_percent",
+	"orgasm_count",
+	"feet_markers_count",
+	"facial_given_count",
+	"facial_received_count",
+	"facial_count",
+	"sex_unique_partners",
+	"oral_unique_partners",
+	"facial_unique_partners",
+	"sex_topped_partners",
+	"oral_topped_partners",
+	"facial_topped_partners",
+	"sex_bottomed_partners",
+	"oral_bottomed_partners",
+	"facial_bottomed_partners",
+	// CUSTOM: end
 }
 
-func (qb *PerformerStore) getPerformerSort(findFilter *models.FindFilterType) (string, error) {
+func (qb *PerformerStore) getPerformerSort(findFilter *models.FindFilterType, performerFilter *models.PerformerFilterType) (string, error) { // CUSTOM: added performerFilter for studio-scoped sorting
 	var sort string
 	var direction string
 	if findFilter == nil {
@@ -846,6 +959,13 @@ func (qb *PerformerStore) getPerformerSort(findFilter *models.FindFilterType) (s
 	if err := performerSortOptions.validateSort(sort); err != nil {
 		return "", err
 	}
+
+	// CUSTOM: begin - compute studio SQL for studio-scoped custom sorts
+	// When a studio filter is active, the 'studio' CTE is defined in the WITH clause.
+	// We pass a SQL snippet to custom sort functions so they can filter scene_markers
+	// by scenes in that studio, making the sort studio-scoped instead of global.
+	studioSQL := activityPercentPerformerStudioSQLCustom(performerFilter)
+	// CUSTOM: end
 
 	sortQuery := ""
 	switch sort {
@@ -871,6 +991,60 @@ func (qb *PerformerStore) getPerformerSort(findFilter *models.FindFilterType) (s
 		sortQuery += qb.sortByLastOAt(direction)
 	case "latest_scene":
 		sortQuery += qb.sortByLatestScene(direction)
+	// CUSTOM: begin - role-based metric sort options
+	case "average_scene_rating":
+		sortQuery += qb.sortBySceneAverageRatingCustom(direction)
+	case "sex_scenes_count":
+		sortQuery += qb.sortByPerformerSexSceneCount(direction, studioSQL)
+	case "oral_scenes_count":
+		sortQuery += qb.sortByPerformerOralSceneCount(direction, studioSQL)
+	case "facial_scenes_count":
+		sortQuery += qb.sortByPerformerFacialSceneCount(direction, studioSQL)
+	case "solo_scenes_count":
+		sortQuery += qb.sortByPerformerSoloSceneCount(direction, studioSQL)
+	case "sex_activity_percent":
+		sortQuery += qb.sortByActivityPercentCustom(activityPercentSexCustom, direction, studioSQL)
+	case "oral_activity_percent":
+		sortQuery += qb.sortByActivityPercentCustom(activityPercentOralCustom, direction, studioSQL)
+	case "solo_activity_percent":
+		sortQuery += qb.sortByActivityPercentCustom(activityPercentSoloCustom, direction, studioSQL)
+	case "sex_top_activity_percent":
+		sortQuery += qb.sortByActivityRolePercentCustom(activityPercentSexCustom, "top", direction, studioSQL)
+	case "sex_bottom_activity_percent":
+		sortQuery += qb.sortByActivityRolePercentCustom(activityPercentSexCustom, "bottom", direction, studioSQL)
+	case "oral_top_activity_percent":
+		sortQuery += qb.sortByActivityRolePercentCustom(activityPercentOralCustom, "top", direction, studioSQL)
+	case "oral_bottom_activity_percent":
+		sortQuery += qb.sortByActivityRolePercentCustom(activityPercentOralCustom, "bottom", direction, studioSQL)
+	case "orgasm_count":
+		sortQuery += qb.sortByPerformerOrgasmCount(direction, studioSQL)
+	case "feet_markers_count": // CUSTOM
+		sortQuery += qb.sortByPerformerFeetMarkerCount(direction, studioSQL)
+	case "facial_given_count": // CUSTOM
+		sortQuery += qb.sortByPerformerFacialMarkerCount("top", direction, studioSQL)
+	case "facial_received_count": // CUSTOM
+		sortQuery += qb.sortByPerformerFacialMarkerCount("bottom", direction, studioSQL)
+	case "facial_count": // CUSTOM
+		sortQuery += qb.sortByPerformerFacialCountCustom(direction, studioSQL)
+	case "sex_unique_partners":
+		sortQuery += qb.sortByPerformerUniquePartners("sex", direction, studioSQL)
+	case "oral_unique_partners":
+		sortQuery += qb.sortByPerformerUniquePartners("oral", direction, studioSQL)
+	case "facial_unique_partners":
+		sortQuery += qb.sortByPerformerUniquePartners("facial", direction, studioSQL)
+	case "sex_topped_partners":
+		sortQuery += qb.sortByPerformerRolePartners("sex", "top", direction, studioSQL)
+	case "oral_topped_partners":
+		sortQuery += qb.sortByPerformerRolePartners("oral", "top", direction, studioSQL)
+	case "facial_topped_partners":
+		sortQuery += qb.sortByPerformerRolePartners("facial", "top", direction, studioSQL)
+	case "sex_bottomed_partners":
+		sortQuery += qb.sortByPerformerRolePartners("sex", "bottom", direction, studioSQL)
+	case "oral_bottomed_partners":
+		sortQuery += qb.sortByPerformerRolePartners("oral", "bottom", direction, studioSQL)
+	case "facial_bottomed_partners":
+		sortQuery += qb.sortByPerformerRolePartners("facial", "bottom", direction, studioSQL)
+	// CUSTOM: end
 	default:
 		sortQuery += getSort(sort, direction, "performers")
 	}
@@ -997,6 +1171,27 @@ AND NOT EXISTS(SELECT 1 FROM `+table+` o WHERE o.`+idColumn+` = `+table+`.`+idCo
 			return err
 		}
 	}
+
+	// CUSTOM: begin
+	// scene_marker_performers has role as part of its uniqueness, so merge per marker/role.
+	if _, err := dbWrapper.Exec(ctx, `UPDATE OR IGNORE scene_marker_performers
+SET performer_id = ?
+WHERE performer_id IN `+inBinding+`
+AND NOT EXISTS(
+	SELECT 1 FROM scene_marker_performers o
+	WHERE o.scene_marker_id = scene_marker_performers.scene_marker_id
+	AND o.role = scene_marker_performers.role
+	AND o.performer_id = ?
+)`,
+		args...,
+	); err != nil {
+		return err
+	}
+
+	if _, err := dbWrapper.Exec(ctx, `DELETE FROM scene_marker_performers WHERE performer_id IN `+inBinding, srcArgs...); err != nil {
+		return err
+	}
+	// CUSTOM: end
 
 	for _, id := range source {
 		err := qb.Destroy(ctx, id)

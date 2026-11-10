@@ -1,0 +1,17 @@
+"A bounded page of recorded O events, newest first."
+type SceneOEventPage {
+  count: Int!
+  page: Int!
+  events: [SceneOEvent!]!
+}
+
+extend type Query {
+  "Recorded O events across the library or studio scope, filtered by O date."
+  sceneOEvents(
+    page: Int! = 1
+    per_page: Int! = 25
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+  ): SceneOEventPage!
+}

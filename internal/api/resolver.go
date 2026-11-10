@@ -8,11 +8,14 @@ import (
 	"strconv"
 
 	"github.com/99designs/gqlgen/graphql"
+	"github.com/stashapp/stash/internal/api/loaders" // CUSTOM: batch SceneMarkerTags primary tags
 	"github.com/stashapp/stash/internal/build"
 	"github.com/stashapp/stash/internal/manager"
+	"github.com/stashapp/stash/internal/manager/config" // CUSTOM: needed for Stats role tag computation
 	"github.com/stashapp/stash/pkg/logger"
 	"github.com/stashapp/stash/pkg/models"
 	"github.com/stashapp/stash/pkg/plugin/hook"
+	"github.com/stashapp/stash/pkg/scene" // CUSTOM: needed for Stats scene category counts
 	"github.com/stashapp/stash/pkg/scraper"
 )
 
@@ -190,6 +193,7 @@ func (r *queryResolver) Stats(ctx context.Context) (*StatsResultType, error) {
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		repo := r.repository
 		sceneQB := repo.Scene
+		sceneMarkerQB := repo.SceneMarker // CUSTOM: needed for scene category counts
 		imageQB := repo.Image
 		galleryQB := repo.Gallery
 		studioQB := repo.Studio
@@ -274,6 +278,48 @@ func (r *queryResolver) Stats(ctx context.Context) (*StatsResultType, error) {
 			return err
 		}
 
+		// CUSTOM: Get scene category counts using roleTagIds configuration (tag IDs)
+		uiConfig := config.GetInstance().GetUIConfiguration()
+		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
+
+		var sexTagID, oralTagID, soloTagID, facialTagID int
+
+		if roleTagIds != nil {
+			if sexID, ok := roleTagIds["sexTagId"].(string); ok && sexID != "" {
+				sexTagID, _ = strconv.Atoi(sexID)
+			}
+			if oralID, ok := roleTagIds["oralTagId"].(string); ok && oralID != "" {
+				oralTagID, _ = strconv.Atoi(oralID)
+			}
+			if soloID, ok := roleTagIds["soloTagId"].(string); ok && soloID != "" {
+				soloTagID, _ = strconv.Atoi(soloID)
+			}
+			if facialID, ok := roleTagIds["facialTagId"].(string); ok && facialID != "" {
+				facialTagID, _ = strconv.Atoi(facialID)
+			}
+		}
+
+		sexSceneCount, err := scene.CountScenesWithMarkerTag(ctx, sceneMarkerQB, sexTagID)
+		if err != nil {
+			return err
+		}
+
+		oralSceneCount, err := scene.CountScenesWithMarkerTagExcluding(ctx, sceneMarkerQB, oralTagID, sexTagID)
+		if err != nil {
+			return err
+		}
+
+		soloSceneCount, err := scene.CountScenesWithMarkerTagExcludingMultiple(ctx, sceneMarkerQB, soloTagID, []int{sexTagID, oralTagID})
+		if err != nil {
+			return err
+		}
+
+		facialSceneCount, err := scene.CountScenesWithMarkerTag(ctx, sceneMarkerQB, facialTagID)
+		if err != nil {
+			return err
+		}
+		// END CUSTOM
+
 		ret = StatsResultType{
 			SceneCount:        scenesCount,
 			ScenesSize:        scenesSize,
@@ -290,6 +336,10 @@ func (r *queryResolver) Stats(ctx context.Context) (*StatsResultType, error) {
 			TotalPlayDuration: totalPlayDuration,
 			TotalPlayCount:    totalPlayCount,
 			ScenesPlayed:      uniqueScenePlayCount,
+			SexSceneCount:     sexSceneCount,    // CUSTOM
+			OralSceneCount:    oralSceneCount,   // CUSTOM
+			SoloSceneCount:    soloSceneCount,   // CUSTOM
+			FacialSceneCount:  facialSceneCount, // CUSTOM
 		}
 
 		return nil
@@ -375,37 +425,42 @@ func (r *queryResolver) SceneMarkerTags(ctx context.Context, scene_id string) ([
 
 	var keys []int
 	tags := make(map[int]*SceneMarkerTag)
+	var sceneMarkers []*models.SceneMarker // CUSTOM
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		sceneMarkers, err := r.repository.SceneMarker.FindBySceneID(ctx, sceneID)
+		var err error                                                            // CUSTOM
+		sceneMarkers, err = r.repository.SceneMarker.FindBySceneID(ctx, sceneID) // CUSTOM
 		if err != nil {
 			return err
 		}
-
-		tqb := r.repository.Tag
-		for _, sceneMarker := range sceneMarkers {
-			markerPrimaryTag, err := tqb.Find(ctx, sceneMarker.PrimaryTagID)
-			if err != nil {
-				return err
-			}
-
-			if markerPrimaryTag == nil {
-				return fmt.Errorf("tag with id %d not found", sceneMarker.PrimaryTagID)
-			}
-
-			_, hasKey := tags[markerPrimaryTag.ID]
-			if !hasKey {
-				sceneMarkerTag := &SceneMarkerTag{Tag: markerPrimaryTag}
-				tags[markerPrimaryTag.ID] = sceneMarkerTag
-				keys = append(keys, markerPrimaryTag.ID)
-			}
-			tags[markerPrimaryTag.ID].SceneMarkers = append(tags[markerPrimaryTag.ID].SceneMarkers, sceneMarker)
-		}
-
 		return nil
 	}); err != nil {
 		return nil, err
 	}
+
+	// CUSTOM: begin - resolve all primary tags in one dataloader batch instead
+	// of issuing one tag query per marker.
+	primaryTagIDs := make([]int, len(sceneMarkers))
+	for i, sceneMarker := range sceneMarkers {
+		primaryTagIDs[i] = sceneMarker.PrimaryTagID
+	}
+	markerPrimaryTags, errs := loaders.From(ctx).TagByID.LoadAll(primaryTagIDs)
+	if err := firstError(errs); err != nil {
+		return nil, err
+	}
+	for i, sceneMarker := range sceneMarkers {
+		markerPrimaryTag := markerPrimaryTags[i]
+		if markerPrimaryTag == nil {
+			return nil, fmt.Errorf("tag with id %d not found", sceneMarker.PrimaryTagID)
+		}
+
+		if _, hasKey := tags[markerPrimaryTag.ID]; !hasKey {
+			tags[markerPrimaryTag.ID] = &SceneMarkerTag{Tag: markerPrimaryTag}
+			keys = append(keys, markerPrimaryTag.ID)
+		}
+		tags[markerPrimaryTag.ID].SceneMarkers = append(tags[markerPrimaryTag.ID].SceneMarkers, sceneMarker)
+	}
+	// CUSTOM: end
 
 	// Sort so that primary tags that show up earlier in the video are first.
 	sort.Slice(keys, func(i, j int) bool {

@@ -5,6 +5,7 @@ import { BrowserRouter } from "react-router-dom";
 import { App } from "./App";
 import { getClient } from "./core/StashService";
 import { baseURL, getPlatformURL } from "./core/createClient";
+import { installRatingCardMotionObserverCustom } from "./utils/ratingCardMotion_custom"; // CUSTOM
 import "./index.scss";
 import * as serviceWorker from "./serviceWorker";
 
@@ -29,6 +30,8 @@ flushSync(() => {
     </>
   );
 });
+
+installRatingCardMotionObserverCustom(); // CUSTOM
 
 const script = document.createElement("script");
 script.src = getPlatformURL("javascript").toString();

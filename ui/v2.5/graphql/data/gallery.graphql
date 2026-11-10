@@ -34,7 +34,11 @@ fragment GalleryData on Gallery {
   }
 
   performers {
-    ...PerformerData
+    ...PerformerListData # CUSTOM: card role totals load in one batch
+    # CUSTOM: retain exact marker badge counts used before batching.
+    facial_marker_top_count
+    facial_marker_bottom_count
+    feet_marker_count
   }
   scenes {
     ...SlimSceneData

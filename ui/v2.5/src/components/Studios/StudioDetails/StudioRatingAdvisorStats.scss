@@ -1,0 +1,145 @@
+.studio-rating-advisor-stats {
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  margin-top: 2.5rem;
+  padding: 2rem 0 1rem;
+}
+
+.studio-rating-advisor-title {
+  align-items: flex-end;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+
+  h2 {
+    font-size: 1.35rem;
+    margin: 0 0 0.35rem;
+  }
+
+  p {
+    color: var(--text-muted, #aeb5bd);
+    margin: 0;
+  }
+}
+
+.studio-rating-advisor-overall-average {
+  align-items: baseline;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 0.3rem;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+
+  span {
+    color: var(--text-muted, #aeb5bd);
+    font-size: 0.78rem;
+  }
+
+  strong {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.studio-rating-advisor-overall-average {
+  flex: 0 0 auto;
+  padding: 0.65rem 0.8rem;
+}
+
+/* Rubric strips stack so their criteria line up for comparison. */
+.studio-rating-advisor-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  max-width: 44rem;
+}
+
+.studio-rating-advisor-section {
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 0.5rem;
+  min-width: 0;
+  padding: 0.55rem 0.7rem 0.6rem;
+}
+
+.studio-rating-advisor-section-header {
+  align-items: baseline;
+  display: flex;
+  gap: 0.6rem;
+  margin-bottom: 0.45rem;
+
+  h3 {
+    font-size: 0.92rem;
+    margin: 0;
+  }
+
+  span {
+    color: var(--text-muted, #aeb5bd);
+    flex: 1 1 auto;
+    font-size: 0.75rem;
+  }
+
+  strong {
+    font-size: 0.92rem;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* The section already frames the strip. */
+.rating-criteria-strip.rating-criteria-strip--average {
+  background: none;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.studio-rating-advisor-empty {
+  color: var(--text-muted, #aeb5bd);
+  font-size: 0.8rem;
+  padding: 0.35rem 0;
+}
+
+/* CUSTOM: begin - lazy studio-card rating average popovers */
+.studio-rating-advisor-popover-trigger {
+  display: inline-flex;
+}
+
+.studio-rating-advisor-popover {
+  box-sizing: border-box;
+  max-width: calc(100vw - 2rem);
+  width: min(calc(100vw - 2rem), 26rem);
+
+  .studio-rating-advisor-popover-card {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: min(
+      calc(100vh - 2rem),
+      var(--hover-popover-max-height, calc(100vh - 2rem))
+    );
+    min-width: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 0.6rem;
+    width: 100%;
+  }
+
+  .studio-rating-advisor-popover-error {
+    color: var(--text-muted, #aeb5bd);
+    padding: 0.75rem;
+  }
+}
+
+.hover-popover-content.popover.studio-rating-advisor-popover {
+  max-width: calc(100vw - 2rem);
+}
+
+/* CUSTOM: end */
+
+@media (max-width: 767.98px) {
+  .studio-rating-advisor-title {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

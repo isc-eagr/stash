@@ -6,11 +6,14 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom"; // CUSTOM
+import { faThumbsUp } from "@fortawesome/free-solid-svg-icons"; // CUSTOM
 import videojs, { VideoJsPlayer, VideoJsPlayerOptions } from "video.js";
 import useScript from "src/hooks/useScript";
 import "videojs-contrib-dash";
 import "videojs-mobile-ui";
-import "videojs-seek-buttons";
+import "videojs-seek-buttons"; // CUSTOM: still needed for BigButtonGroup on touch devices
+import "./seek-buttons"; // CUSTOM: our custom seek buttons with menu for control bar
 import { UAParser } from "ua-parser-js";
 import "./live";
 import "./PlaylistButtons";
@@ -19,6 +22,10 @@ import "./persist-volume";
 import "./autostart-button";
 import MarkersPlugin, { type IMarker } from "./markers";
 void MarkersPlugin;
+import type {
+  SceneMarkerTimestampBoundary,
+  SceneMarkerTimestampSourceKind,
+} from "./sceneMarkerTimestampCopy_custom"; // CUSTOM
 import "./vtt-thumbnails";
 import "./big-buttons";
 import "./track-activity";
@@ -30,10 +37,19 @@ import {
   useSceneSaveActivity,
   useSceneIncrementPlayCount,
   useConfigureInterface,
+  useSceneRecordOAtTimestamp, // CUSTOM
 } from "src/core/StashService";
+import { useToast } from "src/hooks/Toast"; // CUSTOM
+import {
+  useSceneReleaseSaveActivityCustom,
+  useSceneReleaseAddPlayCustom,
+  useSceneReleaseRecordOCustom,
+} from "src/components/Scenes/sceneReleaseActivity_custom"; // CUSTOM
 
 import * as GQL from "src/core/generated-graphql";
 import { ScenePlayerScrubber } from "./ScenePlayerScrubber";
+import { Icon } from "src/components/Shared/Icon"; // CUSTOM
+import { SweatDrops } from "src/components/Shared/SweatDrops"; // CUSTOM
 import { useConfigurationContext } from "src/hooks/Config";
 import {
   ConnectionState,
@@ -42,6 +58,11 @@ import {
 import { SceneInteractiveStatus } from "src/hooks/Interactive/status";
 import { languageMap } from "src/utils/caption";
 import { VIDEO_PLAYER_ID } from "./util";
+import { formatORecordedToastCustom } from "../Scenes/oRecordToast_custom"; // CUSTOM
+import {
+  getScenePlayerORecordTargetCustom,
+  SCENE_PLAYER_O_IDLE_MS,
+} from "./scenePlayerORecord_custom"; // CUSTOM
 
 // @ts-expect-error
 import airplay from "@silvermine/videojs-airplay";
@@ -50,6 +71,40 @@ import chromecast from "@silvermine/videojs-chromecast";
 import abLoopPlugin from "videojs-abloop";
 import ScreenUtils from "src/utils/screen";
 import { PatchComponent } from "src/patch";
+// CUSTOM: begin - custom imports (multi-segment loop, performer image overlay)
+// Multi-segment loop plugin
+import "./multi-segment-loop";
+import type MultiSegmentLoopPlugin from "./multi-segment-loop";
+import type { ILoopSegmentInput } from "./multi-segment-loop";
+import type { IMultiSegmentLoopController } from "./useMultiSegmentLoop_custom";
+import type { IMultiSegmentLoopPresets } from "./useMultiSegmentLoopPresets_custom";
+import { MultiSegmentLoopButtons } from "./MultiSegmentLoopButtons";
+import {
+  MultiSegmentLoopOverlay,
+  type ILoopOverlayPosition,
+} from "./MultiSegmentLoopOverlay";
+import { showMultiSegmentLoopControlsCustom } from "./multiSegmentLoopSettings_custom";
+import { sceneMarkerLoopSegmentCustom } from "./sceneMarkerLoopSegment_custom"; // CUSTOM
+import { markerTitle } from "src/core/markers"; // CUSTOM
+import { scenePlayerGalleryIDsCustom } from "./scenePlayerGalleryIDs_custom"; // CUSTOM
+import { scenePlayerControlClassesCustom } from "./scenePlayerControlVisibility_custom"; // CUSTOM
+import {
+  shouldAutostartSceneCustom,
+  seekScenePlayerTimestampCustom,
+} from "./scenePlayerAutostart_custom"; // CUSTOM
+import {
+  findContainingOrNextPlaybackRange,
+  getPlaybackBoundaryDelayMs,
+  isPlaybackBoundaryDue,
+  mergePlaybackRanges,
+} from "./playbackBoundary_custom"; // CUSTOM
+
+// Performer image overlay components
+import { PerformerImageSelectModal } from "./PerformerImageSelectModal";
+import { PerformerImageOverlay } from "./PerformerImageOverlay";
+import { getSceneMarkerTimelineHoverPerformers } from "./sceneMarkerTimelineHover_custom";
+import { isSceneMarkerTimelineRoyalSapphire } from "./sceneMarkerTimelineStyle_custom";
+// CUSTOM: end
 
 // register videojs plugins
 airplay(videojs);
@@ -203,58 +258,112 @@ function handleHotkeys(player: VideoJsPlayer, event: videojs.KeyboardEvent) {
 type MarkerFragment = Pick<GQL.SceneMarker, "title" | "seconds"> & {
   primary_tag: Pick<GQL.Tag, "name">;
   tags: Array<Pick<GQL.Tag, "name">>;
+  performers?: Array<Pick<GQL.Performer, "name">>; // CUSTOM
+  top_performers?: Array<Pick<GQL.Performer, "id" | "name" | "image_path">>; // CUSTOM
+  bottom_performers?: Array<Pick<GQL.Performer, "id" | "name" | "image_path">>; // CUSTOM
 };
 
 function getMarkerTitle(marker: MarkerFragment) {
+  let ret = ""; // CUSTOM: restructured to append performer info
+
   if (marker.title) {
-    return marker.title;
+    ret = marker.title;
+  } else {
+    ret = marker.primary_tag.name;
+    if (marker.tags.length) {
+      ret += `, ${marker.tags.map((t) => t.name).join(", ")}`;
+    }
   }
 
-  let ret = marker.primary_tag.name;
-  if (marker.tags.length) {
-    ret += `, ${marker.tags.map((t) => t.name).join(", ")}`;
-  }
+  // CUSTOM: Performer names with roles are now shown in the tooltip with arrows
 
   return ret;
 }
 
 interface IScenePlayerProps {
   scene: GQL.SceneDataFragment;
+  playbackReleaseId?: string; // CUSTOM: activity belongs to the selected release
+  playbackPerformerIds?: string[]; // CUSTOM: release overlay uses release cast
   hideScrubberOverride: boolean;
   autoplay?: boolean;
   permitLoop?: boolean;
   initialTimestamp: number;
   sendSetTimestamp: (setTimestamp: (value: number) => void) => void;
+  // CUSTOM: begin - loop state is owned by the scene page and shared with its Loop tab
+  multiSegmentLoop?: IMultiSegmentLoopController;
+  multiSegmentLoopPresets?: IMultiSegmentLoopPresets;
+  onMultiSegmentLoopPluginChange?: (plugin?: MultiSegmentLoopPlugin) => void;
+  addMultiSegmentLoopSegments?: (segments: ILoopSegmentInput[]) => void;
+  // CUSTOM: end
+  onTimeChange?: (time: number) => void; // CUSTOM
+  onMarkerClick?: (
+    markerId: string,
+    seconds: number,
+    boundary?: SceneMarkerTimestampBoundary,
+    sourceKind?: SceneMarkerTimestampSourceKind
+  ) => void; // CUSTOM
+  markerTimestampCopyActive?: boolean; // CUSTOM
+  markerTimestampRangeCopyActive?: boolean; // CUSTOM
   onComplete: () => void;
   onNext: () => void;
   onPrevious: () => void;
+  onRemotePlayerReady?: (ready: boolean) => void; // CUSTOM
 }
 
 export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
   "ScenePlayer",
   ({
     scene,
+    playbackReleaseId, // CUSTOM
+    playbackPerformerIds, // CUSTOM
     hideScrubberOverride,
     autoplay,
     permitLoop = true,
     initialTimestamp: _initialTimestamp,
     sendSetTimestamp,
+    multiSegmentLoop, // CUSTOM
+    multiSegmentLoopPresets, // CUSTOM
+    onMultiSegmentLoopPluginChange, // CUSTOM
+    addMultiSegmentLoopSegments, // CUSTOM
+    onTimeChange, // CUSTOM
+    onMarkerClick, // CUSTOM
+    markerTimestampCopyActive = false, // CUSTOM
+    markerTimestampRangeCopyActive = false, // CUSTOM
     onComplete,
     onNext,
     onPrevious,
+    onRemotePlayerReady, // CUSTOM
   }) => {
     const { configuration } = useConfigurationContext();
     const interfaceConfig = configuration?.interface;
     const uiConfig = configuration?.ui;
     const videoRef = useRef<HTMLDivElement>(null);
+    const addMarkerSegmentsRef = useRef(addMultiSegmentLoopSegments); // CUSTOM
+    addMarkerSegmentsRef.current = addMultiSegmentLoopSegments; // CUSTOM
     const [_player, setPlayer] = useState<VideoJsPlayer>();
     const sceneId = useRef<string>();
     const [sceneSaveActivity] = useSceneSaveActivity();
     const [sceneIncrementPlayCount] = useSceneIncrementPlayCount();
+    // CUSTOM: begin - keep release playback writes on the selected owner
+    const [releaseSaveActivity] = useSceneReleaseSaveActivityCustom();
+    const [releaseAddPlay] = useSceneReleaseAddPlayCustom();
+    const [releaseRecordO] = useSceneReleaseRecordOCustom();
+    // CUSTOM: end
     const [updateInterfaceConfig] = useConfigureInterface();
+    const [recordOAtTimestamp, { loading: isRecordingO }] =
+      useSceneRecordOAtTimestamp(scene.id); // CUSTOM
+    const Toast = useToast(); // CUSTOM
 
     const [time, setTime] = useState(0);
     const [ready, setReady] = useState(false);
+
+    // CUSTOM: prevent the parent remote publisher from sampling the previous
+    // scene while Video.js switches the shared player source.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: CUSTOM: re-runs when scene.id change
+    useEffect(() => {
+      onRemotePlayerReady?.(false);
+      return () => onRemotePlayerReady?.(false);
+    }, [scene.id, onRemotePlayerReady]);
 
     const {
       interactive: interactiveClient,
@@ -266,6 +375,28 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
 
     const [fullscreen, setFullscreen] = useState(false);
     const [showScrubber, setShowScrubber] = useState(false);
+    const [showORecordOverlay, setShowORecordOverlay] = useState(true); // CUSTOM
+    const [recordedOToast, setRecordedOToast] = useState<string>(); // CUSTOM
+    const recordedOToastTimeoutRef = useRef<number>(); // CUSTOM
+    // CUSTOM: begin - loop controls, negative marker, performer overlay state
+    const [loopControlEl, setLoopControlEl] = useState<HTMLElement>();
+    const [loopEditorOpen, setLoopEditorOpen] = useState(false);
+    const [loopOverlayPosition, setLoopOverlayPosition] =
+      useState<ILoopOverlayPosition>();
+    const closeLoopEditor = useCallback(() => setLoopEditorOpen(false), []);
+    const showLoopControls = showMultiSegmentLoopControlsCustom(uiConfig);
+
+    // Negative marker skipping - enabled by default
+    const [negativeMarkerSkipEnabled, setNegativeMarkerSkipEnabled] =
+      useState(true);
+
+    // Performer image overlay state
+    const [showImageOverlayModal, setShowImageOverlayModal] = useState(false);
+    const [selectedOverlayImages, setSelectedOverlayImages] = useState<
+      { id: string; url: string }[]
+    >([]);
+    const [overlaysVisible, setOverlaysVisible] = useState(true);
+    // CUSTOM: end
 
     const started = useRef(false);
     const auto = useRef(false);
@@ -273,6 +404,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
     // one-shot play effect, so it survives source failover (e.g. transcode fallback)
     const autostartIntent = useRef(false);
     const interactiveReady = useRef(false);
+    const markerRenderFrame = useRef<number>(); // CUSTOM
     const minimumPlayPercent = uiConfig?.minimumPlayPercent ?? 0;
     const trackActivity = uiConfig?.trackActivity ?? true;
     const vrTag = uiConfig?.vrTag ?? undefined;
@@ -303,6 +435,72 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       return _player;
     }, [_player]);
 
+    // CUSTOM: begin - record an O at the exact active scene-player timestamp
+    const showFullscreenORecordedToast = useCallback((message: string) => {
+      setRecordedOToast(message);
+      if (recordedOToastTimeoutRef.current) {
+        clearTimeout(recordedOToastTimeoutRef.current);
+      }
+      recordedOToastTimeoutRef.current = window.setTimeout(() => {
+        setRecordedOToast(undefined);
+      }, 3000);
+    }, []);
+
+    useEffect(
+      () => () => {
+        if (recordedOToastTimeoutRef.current) {
+          clearTimeout(recordedOToastTimeoutRef.current);
+        }
+      },
+      []
+    );
+
+    const handlePlayerRecordO = useCallback(async () => {
+      const player = getPlayer();
+      const target = getScenePlayerORecordTargetCustom(
+        scene.id,
+        player?.currentTime() ?? Number.NaN
+      );
+      if (!target || isRecordingO) return;
+
+      try {
+        if (playbackReleaseId) {
+          await releaseRecordO({
+            variables: {
+              id: playbackReleaseId,
+              video_timestamp: target.videoTimestamp,
+            },
+          });
+        } else {
+          await recordOAtTimestamp({
+            variables: {
+              id: target.sceneId,
+              video_timestamp: target.videoTimestamp,
+            },
+          });
+        }
+        const message = formatORecordedToastCustom(target.videoTimestamp);
+        if (fullscreen) {
+          showFullscreenORecordedToast(message);
+        } else {
+          Toast.success(message);
+        }
+      } catch (error) {
+        Toast.error(error);
+      }
+    }, [
+      Toast,
+      fullscreen,
+      getPlayer,
+      isRecordingO,
+      recordOAtTimestamp,
+      releaseRecordO,
+      playbackReleaseId,
+      scene.id,
+      showFullscreenORecordedToast,
+    ]);
+    // CUSTOM: end
+
     useEffect(() => {
       if (hideScrubberOverride || fullscreen) {
         setShowScrubber(false);
@@ -323,19 +521,25 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
     useEffect(() => {
       sendSetTimestamp((value: number) => {
         const player = getPlayer();
-        if (player && value >= 0) {
-          if (player.hasStarted() && player.paused()) {
-            player.currentTime(value);
-          } else {
-            player.play()?.then(() => {
-              player.currentTime(value);
-            });
-          }
-        }
+        seekScenePlayerTimestampCustom(player, value); // CUSTOM: preserve playback state when seeking
       });
 
       return () => sendSetTimestamp(() => {});
     }, [sendSetTimestamp, getPlayer]);
+
+    // CUSTOM: begin - expose current playback position to scene detail panels
+    useEffect(() => {
+      onTimeChange?.(time);
+    }, [onTimeChange, time]);
+    // CUSTOM: end
+
+    // CUSTOM: begin - share the loop plugin with the scene page while this player lives
+    useEffect(() => {
+      if (!_player || !onMultiSegmentLoopPluginChange) return;
+      onMultiSegmentLoopPluginChange(_player.multiSegmentLoop());
+      return () => onMultiSegmentLoopPluginChange(undefined);
+    }, [_player, onMultiSegmentLoopPluginChange]);
+    // CUSTOM: end
 
     // Initialize VideoJS player
     useEffect(() => {
@@ -369,7 +573,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         },
         nativeControlsForTouch: false,
         playbackRates: [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2],
-        inactivityTimeout: 700,
+        inactivityTimeout: SCENE_PLAYER_O_IDLE_MS, // CUSTOM: two-second O-control idle timeout
         preload: "none",
         playsinline: true,
         techOrder: ["chromecast", "html5"],
@@ -390,9 +594,10 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
           sourceSelector: {},
           persistVolume: {},
           bigButtons: {},
-          seekButtons: {
-            forward: 10,
-            back: 10,
+          seekButtonsMenu: {
+            // CUSTOM: renamed from seekButtons
+            forward: 5, // CUSTOM
+            back: 5, // CUSTOM
           },
           skipButtons: {},
           trackActivity: {},
@@ -410,6 +615,13 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
             pauseBeforeLooping: false,
             createButtons: uiConfig?.showAbLoopControls ?? false,
           },
+          // CUSTOM: begin - multi-segment loop plugin config
+          multiSegmentLoop: {
+            segments: [],
+            enabled: false,
+            currentSegmentIndex: 0,
+          },
+          // CUSTOM: end
           mediaSession: {},
           wakeSentinel: {},
         },
@@ -461,6 +673,218 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       skipButtons.setForwardHandler(onNext);
       skipButtons.setBackwardHandler(onPrevious);
     }, [getPlayer, onNext, onPrevious]);
+
+    // CUSTOM: begin - loop button host, negative marker skip, performer image overlay buttons
+    // Host for the loop buttons, placed left of the playback rate button
+    useEffect(() => {
+      const controlBar = _player?.el()?.querySelector(".vjs-control-bar");
+      if (!controlBar || !showLoopControls) return;
+
+      const host = document.createElement("div");
+      host.className = "vjs-control vjs-multi-segment-loop-control";
+      const playbackRateBtn = controlBar.querySelector(".vjs-playback-rate");
+      const fullscreenBtn = controlBar.querySelector(".vjs-fullscreen-control");
+      controlBar.insertBefore(host, playbackRateBtn ?? fullscreenBtn);
+      setLoopControlEl(host);
+
+      return () => {
+        host.remove();
+        setLoopControlEl(undefined);
+        setLoopEditorOpen(false);
+      };
+    }, [_player, showLoopControls]);
+
+    // Create negative marker skip toggle button in control bar
+    useEffect(() => {
+      const player = getPlayer();
+      if (!player) return;
+
+      const controlBar = player.el()?.querySelector(".vjs-control-bar");
+      if (!controlBar) return;
+
+      const negativeMarkers = scene.negative_markers ?? [];
+
+      // Remove existing button if present
+      const existingBtn = controlBar.querySelector(
+        ".vjs-negative-marker-skip-btn"
+      );
+      if (existingBtn) {
+        existingBtn.remove();
+      }
+
+      // Only show button if there are negative markers
+      if (negativeMarkers.length === 0) return;
+
+      // Create the skip toggle button
+      const skipButton = document.createElement("div");
+      skipButton.className = "vjs-negative-marker-skip-btn vjs-button";
+      skipButton.setAttribute("role", "button");
+      skipButton.tabIndex = 0;
+      skipButton.setAttribute("title", "Toggle Skip Negative Markers");
+
+      const skipIcon = document.createElement("span");
+      skipIcon.className = "vjs-icon-placeholder";
+      skipIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="16" height="16" fill="currentColor"><path d="M52.5 440.6c-9.5 7.9-22.8 9.7-34.1 4.4S0 428.4 0 416V96C0 83.6 7.2 72.3 18.4 67s24.5-3.6 34.1 4.4l192 160L224 224V96c0-12.4 7.2-23.7 18.4-29s24.5-3.6 34.1 4.4l192 160c7.3 6.1 11.5 15.1 11.5 24.6s-4.2 18.5-11.5 24.6l-192 160c-9.5 7.9-22.8 9.7-34.1 4.4s-18.4-16.6-18.4-29V288l-20.5 17.1-192 160z"/></svg>`;
+      skipButton.appendChild(skipIcon);
+
+      // Apply initial state
+      if (negativeMarkerSkipEnabled) {
+        skipButton.classList.add("vjs-negative-skip-active");
+      }
+
+      // Click handler
+      skipButton.addEventListener("click", (e) => {
+        e.stopPropagation();
+        setNegativeMarkerSkipEnabled((prev) => {
+          const newState = !prev;
+          if (newState) {
+            skipButton.classList.add("vjs-negative-skip-active");
+          } else {
+            skipButton.classList.remove("vjs-negative-skip-active");
+          }
+          return newState;
+        });
+      });
+
+      // Insert before the multi-segment loop button or the playback rate
+      const loopControl = controlBar.querySelector(
+        ".vjs-multi-segment-loop-control"
+      ); // CUSTOM
+      if (loopControl) {
+        controlBar.insertBefore(skipButton, loopControl);
+      } else {
+        const playbackRateBtn = controlBar.querySelector(".vjs-playback-rate");
+        if (playbackRateBtn) {
+          controlBar.insertBefore(skipButton, playbackRateBtn);
+        } else {
+          controlBar.appendChild(skipButton);
+        }
+      }
+    }, [getPlayer, scene.negative_markers, negativeMarkerSkipEnabled]);
+
+    // Create performer image overlay button in control bar
+    useEffect(() => {
+      const player = getPlayer();
+      if (!player) return;
+
+      const controlBar = player.el()?.querySelector(".vjs-control-bar");
+      if (!controlBar) return;
+
+      // Check if button already exists
+      if (controlBar.querySelector(".vjs-performer-image-overlay-btn")) return;
+
+      // Create the image select button
+      const overlayButton = document.createElement("div");
+      overlayButton.className = "vjs-performer-image-overlay-btn vjs-button";
+      overlayButton.setAttribute("role", "button");
+      overlayButton.tabIndex = 0;
+      overlayButton.setAttribute("title", "Select Vato Images");
+
+      const iconSpan = document.createElement("span");
+      iconSpan.className = "vjs-icon-placeholder";
+      iconSpan.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="16" height="16" fill="currentColor"><path d="M0 96C0 60.7 28.7 32 64 32H448c35.3 0 64 28.7 64 64V416c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V96zM323.8 202.5c-4.5-6.6-11.9-10.5-19.8-10.5s-15.4 3.9-19.8 10.5l-87 127.6L170.7 297c-4.6-5.7-11.5-9-18.7-9s-14.2 3.3-18.7 9l-64 80c-5.8 7.2-6.9 17.1-2.9 25.4s12.4 13.6 21.6 13.6h96 32H424c8.9 0 17.1-4.9 21.2-12.8s3.6-17.4-1.4-24.7l-120-176zM112 192a48 48 0 1 0 0-96 48 48 0 1 0 0 96z"/></svg>`;
+      overlayButton.appendChild(iconSpan);
+
+      // Click handler - open the image selection modal
+      overlayButton.addEventListener("click", (e) => {
+        e.stopPropagation();
+        setShowImageOverlayModal(true);
+      });
+
+      // Create the show/hide toggle button
+      const toggleButton = document.createElement("div");
+      toggleButton.className = "vjs-performer-image-toggle-btn vjs-button";
+      toggleButton.setAttribute("role", "button");
+      toggleButton.tabIndex = 0;
+      toggleButton.setAttribute("title", "Toggle Image Visibility");
+      toggleButton.style.display = "none"; // Hidden until images are selected
+
+      const toggleIconSpan = document.createElement("span");
+      toggleIconSpan.className = "vjs-icon-placeholder";
+      // Eye icon for visibility toggle
+      toggleIconSpan.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512" width="16" height="16" fill="currentColor"><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM144 256a144 144 0 1 1 288 0 144 144 0 1 1 -288 0zm144-64c0 35.3-28.7 64-64 64c-7.1 0-13.9-1.2-20.3-3.3c-5.5-1.8-11.9 1.6-11.7 7.4c.3 6.9 1.3 13.8 3.2 20.7c13.7 51.2 66.4 81.6 117.6 67.9s81.6-66.4 67.9-117.6c-11.1-41.5-47.8-69.4-88.6-71.1c-5.8-.2-9.2 6.1-7.4 11.7c2.1 6.4 3.3 13.2 3.3 20.3z"/></svg>`;
+      toggleButton.appendChild(toggleIconSpan);
+
+      // Click handler - toggle visibility
+      toggleButton.addEventListener("click", (e) => {
+        e.stopPropagation();
+        setOverlaysVisible((prev) => !prev);
+      });
+
+      // Insert before playback rate button (same position pattern as multi-segment loop)
+      const playbackRateBtn = controlBar.querySelector(".vjs-playback-rate");
+      const loopControl = controlBar.querySelector(
+        ".vjs-multi-segment-loop-control"
+      ); // CUSTOM
+
+      // Insert both buttons together - overlay button first, then toggle button right after it
+      if (loopControl?.nextSibling) {
+        controlBar.insertBefore(overlayButton, loopControl.nextSibling);
+        // Insert toggle right after overlay button
+        if (overlayButton.nextSibling) {
+          controlBar.insertBefore(toggleButton, overlayButton.nextSibling);
+        } else {
+          controlBar.appendChild(toggleButton);
+        }
+      } else if (playbackRateBtn) {
+        controlBar.insertBefore(overlayButton, playbackRateBtn);
+        controlBar.insertBefore(toggleButton, playbackRateBtn);
+      } else {
+        const fullscreenBtn = controlBar.querySelector(
+          ".vjs-fullscreen-control"
+        );
+        if (fullscreenBtn) {
+          controlBar.insertBefore(overlayButton, fullscreenBtn);
+          controlBar.insertBefore(toggleButton, fullscreenBtn);
+        } else {
+          controlBar.appendChild(overlayButton);
+          controlBar.appendChild(toggleButton);
+        }
+      }
+    }, [getPlayer]);
+
+    // Update performer image overlay buttons based on state
+    useEffect(() => {
+      const player = getPlayer();
+      if (!player) return;
+
+      const controlBar = player.el()?.querySelector(".vjs-control-bar");
+      const overlayBtn = controlBar?.querySelector(
+        ".vjs-performer-image-overlay-btn"
+      ) as HTMLElement | null;
+      const toggleBtn = controlBar?.querySelector(
+        ".vjs-performer-image-toggle-btn"
+      ) as HTMLElement | null;
+
+      // Show/hide toggle button based on whether images are selected
+      if (toggleBtn) {
+        toggleBtn.style.display =
+          selectedOverlayImages.length > 0 ? "" : "none";
+
+        // Update toggle button appearance based on visibility state
+        if (overlaysVisible) {
+          toggleBtn.classList.remove("hidden-state");
+          // CUSTOM: begin - consistent entity vocabulary.
+          toggleBtn.setAttribute("title", "Hide Vato Images");
+          // CUSTOM: end
+        } else {
+          toggleBtn.classList.add("hidden-state");
+          // CUSTOM: begin - consistent entity vocabulary.
+          toggleBtn.setAttribute("title", "Show Vato Images");
+          // CUSTOM: end
+        }
+      }
+
+      // Update button active state based on selected images
+      if (overlayBtn) {
+        if (selectedOverlayImages.length > 0) {
+          overlayBtn.classList.add("active");
+        } else {
+          overlayBtn.classList.remove("active");
+        }
+      }
+    }, [getPlayer, selectedOverlayImages.length, overlaysVisible]);
+    // CUSTOM: end
 
     useEffect(() => {
       if (scene.interactive && interactiveInitialised) {
@@ -523,24 +947,40 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
 
       function loadstart(this: VideoJsPlayer) {
         setReady(true);
+        onRemotePlayerReady?.(true); // CUSTOM
       }
 
       function fullscreenchange(this: VideoJsPlayer) {
         setFullscreen(this.isFullscreen());
       }
 
+      // CUSTOM: begin - match the player overlay to the two-second Video.js idle state
+      function useractive() {
+        setShowORecordOverlay(true);
+      }
+
+      function userinactive() {
+        setShowORecordOverlay(false);
+      }
+      // CUSTOM: end
+
       player.on("canplay", canplay);
       player.on("playing", playing);
       player.on("loadstart", loadstart);
       player.on("fullscreenchange", fullscreenchange);
+      player.on("useractive", useractive); // CUSTOM
+      player.on("userinactive", userinactive); // CUSTOM
 
       return () => {
         player.off("canplay", canplay);
         player.off("playing", playing);
         player.off("loadstart", loadstart);
         player.off("fullscreenchange", fullscreenchange);
+        player.off("useractive", useractive); // CUSTOM
+        player.off("userinactive", userinactive); // CUSTOM
+        onRemotePlayerReady?.(false); // CUSTOM
       };
-    }, [getPlayer]);
+    }, [getPlayer, onRemotePlayerReady]);
 
     // delay before second play event after a play event to adjust for video player issues
     const DELAY_FOR_SECOND_PLAY_MS = 1000;
@@ -582,6 +1022,135 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         clearTimeout(playingTimer.current);
       };
     }, [getPlayer, interactiveClient, scene]);
+
+    // CUSTOM: begin - precise negative marker skip logic
+    useEffect(() => {
+      const maybePlayer = getPlayer();
+      if (!maybePlayer) return;
+      const player: VideoJsPlayer = maybePlayer;
+
+      const negativeRanges = mergePlaybackRanges(
+        (scene.negative_markers ?? []).map((marker) => ({
+          start: marker.start_seconds,
+          end: marker.end_seconds,
+        }))
+      );
+      if (negativeRanges.length === 0) return;
+
+      let boundaryTimer: number | null = null;
+      let scheduledBoundary: number | null = null;
+
+      function clearBoundaryTimer() {
+        if (boundaryTimer !== null) {
+          window.clearTimeout(boundaryTimer);
+          boundaryTimer = null;
+        }
+        scheduledBoundary = null;
+      }
+
+      function skipRange(range: { start: number; end: number }) {
+        clearBoundaryTimer();
+        player.currentTime(range.end);
+      }
+
+      function scheduleNextBoundary(force: boolean = false) {
+        if (!negativeMarkerSkipEnabled || player.paused()) {
+          clearBoundaryTimer();
+          return;
+        }
+
+        const currentTime = player.currentTime();
+        const range = findContainingOrNextPlaybackRange(
+          negativeRanges,
+          currentTime
+        );
+        if (!range) {
+          clearBoundaryTimer();
+          return;
+        }
+
+        if (currentTime >= range.start) {
+          skipRange(range);
+          return;
+        }
+
+        if (
+          !force &&
+          boundaryTimer !== null &&
+          scheduledBoundary === range.start
+        ) {
+          return;
+        }
+
+        clearBoundaryTimer();
+        scheduledBoundary = range.start;
+        const delay = getPlaybackBoundaryDelayMs(
+          currentTime,
+          range.start,
+          player.playbackRate()
+        );
+
+        boundaryTimer = window.setTimeout(() => {
+          boundaryTimer = null;
+          scheduledBoundary = null;
+
+          if (!negativeMarkerSkipEnabled || player.paused()) return;
+
+          const boundaryRange = findContainingOrNextPlaybackRange(
+            negativeRanges,
+            player.currentTime()
+          );
+          if (
+            boundaryRange &&
+            isPlaybackBoundaryDue(player.currentTime(), boundaryRange.start)
+          ) {
+            skipRange(boundaryRange);
+          } else {
+            // Playback can stall while the wall-clock timer continues.
+            scheduleNextBoundary(true);
+          }
+        }, delay);
+      }
+
+      function checkNegativeMarkers(this: VideoJsPlayer) {
+        if (!negativeMarkerSkipEnabled) return;
+        if (this.paused()) return;
+
+        const currentTime = this.currentTime();
+        const range = findContainingOrNextPlaybackRange(
+          negativeRanges,
+          currentTime
+        );
+        if (range && currentTime >= range.start) {
+          skipRange(range);
+        } else {
+          scheduleNextBoundary();
+        }
+      }
+
+      function rescheduleNextBoundary() {
+        scheduleNextBoundary(true);
+      }
+
+      player.on("timeupdate", checkNegativeMarkers);
+      player.on("playing", checkNegativeMarkers);
+      player.on("ratechange", rescheduleNextBoundary);
+      player.on("seeked", rescheduleNextBoundary);
+      player.on("pause", clearBoundaryTimer);
+      player.on("waiting", clearBoundaryTimer);
+      rescheduleNextBoundary();
+
+      return () => {
+        clearBoundaryTimer();
+        player.off("timeupdate", checkNegativeMarkers);
+        player.off("playing", checkNegativeMarkers);
+        player.off("ratechange", rescheduleNextBoundary);
+        player.off("seeked", rescheduleNextBoundary);
+        player.off("pause", clearBoundaryTimer);
+        player.off("waiting", clearBoundaryTimer);
+      };
+    }, [getPlayer, scene.negative_markers, negativeMarkerSkipEnabled]);
+    // CUSTOM: end
 
     useEffect(() => {
       const player = getPlayer();
@@ -715,14 +1284,15 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       player.load();
       player.focus();
 
-      // Check the autostart button plugin for user preference
-      const autostartButton = player.autostartButton();
-      const buttonEnabled = autostartButton.getEnabled();
-      auto.current =
-        autoplay ||
-        buttonEnabled ||
-        (interfaceConfig?.autostartVideo ?? false) ||
-        _initialTimestamp > 0;
+      // CUSTOM: queue and timestamp links cannot bypass disabled Auto Start settings.
+      auto.current = shouldAutostartSceneCustom(
+        {
+          autostartVideo: interfaceConfig?.autostartVideo,
+          autostartVideoOnPlaySelected:
+            interfaceConfig?.autostartVideoOnPlaySelected,
+        },
+        !!autoplay || _initialTimestamp > 0
+      );
       autostartIntent.current = auto.current;
 
       // let the source selector know whether playback is intended, so it doesn't
@@ -749,6 +1319,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       interactiveClient,
       autoplay,
       interfaceConfig?.autostartVideo,
+      interfaceConfig?.autostartVideoOnPlaySelected, // CUSTOM
       uiConfig?.alwaysStartFromBeginning,
       uiConfig?.disableMobileMediaAutoRotateEnabled,
       _initialTimestamp,
@@ -765,24 +1336,132 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       const player = getPlayer();
       if (!player) return;
 
-      const markerData = scene.scene_markers.map((marker) => ({
-        title: getMarkerTitle(marker),
-        seconds: marker.seconds,
-        end_seconds: marker.end_seconds ?? null,
-        primaryTag: marker.primary_tag,
-      }));
+      // CUSTOM: begin - match timeline hover context to chronological highlight popovers
+      const markerData = scene.scene_markers.map((marker) => {
+        const hoverPerformers = getSceneMarkerTimelineHoverPerformers(
+          marker,
+          scene.scene_markers
+        );
+        const isRoyalSapphire = isSceneMarkerTimelineRoyalSapphire(marker, {
+          goatTagId: uiConfig?.roleTagIds?.goatTagId,
+          royalSapphireTagId:
+            uiConfig?.ratingCardOverrideTagIds?.royalSapphireTagId,
+        });
+        const ratingCardTheme =
+          uiConfig?.ratingCardTheme === "classic" ? "classic" : "premium";
+
+        return {
+          id: marker.id,
+          title: getMarkerTitle(marker),
+          seconds: marker.seconds,
+          end_seconds: marker.end_seconds ?? null,
+          primaryTag: marker.primary_tag,
+          tags: marker.tags?.map((tag) => ({ id: tag.id, name: tag.name })),
+          isRoyalSapphire,
+          ratingCardClass: isRoyalSapphire
+            ? `rating-card-theme-${ratingCardTheme} rating-royal-sapphire`
+            : undefined,
+          top_performers: marker.top_performers?.map((performer) => ({
+            id: performer.id,
+            name: performer.name,
+            image_path: performer.image_path,
+          })),
+          bottom_performers: marker.bottom_performers?.map((performer) => ({
+            id: performer.id,
+            name: performer.name,
+            image_path: performer.image_path,
+          })),
+          hover_performers: hoverPerformers?.map(
+            ({
+              performer,
+              topTags,
+              bottomTags,
+              topOverlapTagIDs,
+              bottomOverlapTagIDs,
+            }) => ({
+              id: performer.id,
+              name: performer.name ?? "",
+              image_path: performer.image_path,
+              top_tags: topTags.map((tag) => ({
+                id: tag.id,
+                name: tag.name ?? "",
+                isOverlap: topOverlapTagIDs.has(tag.id),
+              })),
+              bottom_tags: bottomTags.map((tag) => ({
+                id: tag.id,
+                name: tag.name ?? "",
+                isOverlap: bottomOverlapTagIDs.has(tag.id),
+              })),
+            })
+          ),
+        };
+      });
+      // CUSTOM: end
 
       const markers = player!.markers();
+      if (markerRenderFrame.current !== undefined) {
+        window.cancelAnimationFrame(markerRenderFrame.current);
+      }
+      markers.clearMarkers();
+      markers.setTimestampCopyMode(
+        markerTimestampCopyActive,
+        markerTimestampRangeCopyActive
+      ); // CUSTOM
+      markers.setOnMarkerClick((marker, seconds, boundary) => {
+        if (marker.id) {
+          const sourceKind: SceneMarkerTimestampSourceKind =
+            "start_seconds" in marker ? "negative-marker" : "scene-marker";
+          onMarkerClick?.(marker.id, seconds, boundary, sourceKind); // CUSTOM
+        }
+      });
+      // CUSTOM: use the same segment conversion and page loop API as the Markers panel.
+      markers.setOnMarkerAddToLoop((marker) => {
+        const sceneMarker = scene.scene_markers.find(
+          (item) => item.id === marker.id
+        );
+        if (!sceneMarker) return;
+        addMarkerSegmentsRef.current?.([
+          sceneMarkerLoopSegmentCustom(sceneMarker, markerTitle(sceneMarker)),
+        ]);
+      });
+
+      // CUSTOM: temporarily repeat the marker without editing the scene's loop.
+      markers.setOnMarkerRepeat(
+        (marker) => {
+          if (!marker.id) return;
+          player!
+            .multiSegmentLoop()
+            .toggleMarkerRepeat(
+              marker.id,
+              sceneMarkerLoopSegmentCustom(marker, marker.title)
+            );
+        },
+        (marker) =>
+          player!.multiSegmentLoop().getSnapshot().markerRepeatId === marker.id
+      );
+
+      // CUSTOM: provide known duration so markers render before playback (preload=none means player.duration() is 0 until play)
+      if (file?.duration) {
+        markers.setFallbackDuration(file.duration);
+      }
 
       const uniqueTagNames = markerData
         .map((marker) => marker.primaryTag.name)
         .filter((value, index, self) => self.indexOf(value) === index);
+      // CUSTOM: match the configured solo role by ID for its shared scrubber color.
+      const soloTagId = uiConfig?.roleTagIds?.soloTagId;
+      const soloTagNames = soloTagId
+        ? markerData
+            .filter((marker) => marker.primaryTag.id === soloTagId)
+            .map((marker) => marker.primaryTag.name)
+        : [];
 
       // Wait for colors
-      markers.findColors(uniqueTagNames);
+      markers.findColors(uniqueTagNames, soloTagNames); // CUSTOM
 
       const showRangeTags =
-        !ScreenUtils.isMobile() && (uiConfig?.showRangeMarkers ?? true);
+        markerTimestampCopyActive ||
+        (!ScreenUtils.isMobile() && (uiConfig?.showRangeMarkers ?? true)); // CUSTOM: copy picker needs selectable marker ranges
       const timestampMarkers: IMarker[] = [];
       const rangeMarkers: IMarker[] = [];
 
@@ -800,11 +1479,45 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         }
       }
 
-      requestAnimationFrame(() => {
+      markerRenderFrame.current = window.requestAnimationFrame(() => {
+        markerRenderFrame.current = undefined;
         markers.addDotMarkers(timestampMarkers);
         markers.addRangeMarkers(rangeMarkers);
+
+        // CUSTOM: begin - add negative markers (displayed in red)
+        const negativeMarkers = scene.negative_markers ?? [];
+        if (negativeMarkers.length > 0) {
+          markers.addNegativeMarkers(
+            negativeMarkers.map((m) => ({
+              id: m.id,
+              name: m.name,
+              start_seconds: m.start_seconds,
+              end_seconds: m.end_seconds,
+            }))
+          );
+        }
+        // CUSTOM: end
+
+        // CUSTOM: begin - add O timestamp markers (gold glowing dots)
+        const oTimestampEntries = (scene.o_timestamps ?? [])
+          .map((ts, i) =>
+            ts !== null && ts !== undefined
+              ? { ts, date: (scene.o_history ?? [])[i] ?? "" }
+              : null
+          )
+          .filter((x): x is { ts: number; date: string } => x !== null);
+        markers.addOTimestampMarkers(oTimestampEntries);
+        // CUSTOM: end
       });
-    }, [getPlayer, scene, uiConfig]);
+    }, [
+      getPlayer,
+      scene,
+      uiConfig,
+      file,
+      onMarkerClick,
+      markerTimestampCopyActive,
+      markerTimestampRangeCopyActive,
+    ]); // CUSTOM
 
     useEffect(() => {
       const player = getPlayer();
@@ -821,15 +1534,23 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         loadMarkers();
       };
 
-      // Ensure markers are added after player is fully ready and sources are loaded
-      if (player.readyState() >= 1) {
-        loadMarkers();
-      } else {
+      // CUSTOM: begin - always load markers immediately so indicators are visible before play is pressed.
+      // With preload=none, readyState is 0 until the user presses play, so the old else-branch (only
+      // registering loadedmetadata) meant markers never appeared until playback started.
+      // We now always call loadMarkers() right away (using the fallback duration from scene file data),
+      // and also register loadedmetadata so markers are re-drawn with the real duration once metadata loads.
+      loadMarkers();
+      if (player.readyState() < 1) {
         player.on("loadedmetadata", handleLoadMetadata);
       }
+      // CUSTOM: end
 
       return () => {
         player.off("loadedmetadata", handleLoadMetadata);
+        if (markerRenderFrame.current !== undefined) {
+          window.cancelAnimationFrame(markerRenderFrame.current);
+          markerRenderFrame.current = undefined;
+        }
         const markers = player!.markers();
         markers.clearMarkers();
       };
@@ -842,6 +1563,17 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       async function saveActivity(resumeTime: number, playDuration: number) {
         if (!scene.id) return;
 
+        if (playbackReleaseId) {
+          await releaseSaveActivity({
+            variables: {
+              id: playbackReleaseId,
+              play_duration: playDuration,
+              resume_time: resumeTime,
+            },
+          });
+          return;
+        }
+
         await sceneSaveActivity({
           variables: {
             id: scene.id,
@@ -853,6 +1585,11 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
 
       async function incrementPlayCount() {
         if (!scene.id) return;
+
+        if (playbackReleaseId) {
+          await releaseAddPlay({ variables: { id: playbackReleaseId } });
+          return;
+        }
 
         await sceneIncrementPlayCount({
           variables: {
@@ -873,6 +1610,9 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       minimumPlayPercent,
       sceneIncrementPlayCount,
       sceneSaveActivity,
+      playbackReleaseId,
+      releaseSaveActivity,
+      releaseAddPlay,
     ]);
 
     // Sync autostart button with config changes
@@ -980,6 +1720,18 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       const player = getPlayer();
       if (!player) return;
 
+      // CUSTOM: begin - don't intercept keyboard events when typing in input fields
+      const target = event.target as HTMLElement;
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable ||
+        target.closest(".multi-segment-loop-overlay")
+      ) {
+        return;
+      }
+      // CUSTOM: end
+
       if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
         return;
       }
@@ -1001,10 +1753,46 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         className={cx("VideoPlayer", {
           portrait: isPortrait,
           "no-file": !file,
+          ...scenePlayerControlClassesCustom(uiConfig), // CUSTOM
         })}
         onKeyDownCapture={onKeyDown}
       >
-        <div className="video-wrapper" ref={videoRef} />
+        <div className="video-wrapper" ref={videoRef}>
+          {/* CUSTOM: lower-right O overlay shared by normal and fullscreen playback */}
+          {_player?.el() &&
+            createPortal(
+              <button
+                type="button"
+                className={cx("scene-player-record-o-overlay", {
+                  "is-hidden": !showORecordOverlay,
+                })}
+                disabled={isRecordingO}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  void handlePlayerRecordO();
+                }}
+                title="Record O at current video time"
+                aria-label="Record O at current video time"
+              >
+                {!interfaceConfig?.sfwContentMode ? (
+                  <SweatDrops />
+                ) : (
+                  <Icon icon={faThumbsUp} />
+                )}
+              </button>,
+              _player.el()!
+            )}
+          {/* CUSTOM: fullscreen-safe O-record confirmation */}
+          {recordedOToast &&
+            _player?.el() &&
+            createPortal(
+              <div className="scene-player-o-recorded-toast" role="status">
+                {recordedOToast}
+              </div>,
+              _player.el()!
+            )}
+          {/* CUSTOM: end */}
+        </div>
         {scene.interactive &&
           (interactiveState !== ConnectionState.Ready ||
             getPlayer()?.paused()) && <SceneInteractiveStatus />}
@@ -1015,8 +1803,59 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
             time={time}
             onSeek={onScrubberSeek}
             onScroll={onScrubberScroll}
+            onMarkerClick={onMarkerClick} // CUSTOM
+            timestampCopyActive={markerTimestampCopyActive} // CUSTOM
+            timestampRangeCopyActive={markerTimestampRangeCopyActive} // CUSTOM
           />
         )}
+        {/* CUSTOM: begin - multi-segment loop controls, performer image overlay modal, performer image overlays */}
+        {loopControlEl && multiSegmentLoop && (
+          <MultiSegmentLoopButtons
+            container={loopControlEl}
+            loop={multiSegmentLoop}
+            presetCount={multiSegmentLoopPresets?.presets.length ?? 0}
+            editorOpen={loopEditorOpen}
+            onEditorOpenChange={setLoopEditorOpen}
+          />
+        )}
+        {loopEditorOpen && _player?.el() && multiSegmentLoop && (
+          <MultiSegmentLoopOverlay
+            container={_player.el() as HTMLElement}
+            loop={multiSegmentLoop}
+            presets={multiSegmentLoopPresets}
+            position={loopOverlayPosition}
+            onPositionChange={setLoopOverlayPosition}
+            modalContainer={
+              fullscreen ? (_player.el() as HTMLElement) : undefined
+            }
+            onClose={closeLoopEditor}
+          />
+        )}
+        {/* Performer Image Overlay Modal */}
+        {showImageOverlayModal &&
+          createPortal(
+            <PerformerImageSelectModal
+              performerIds={
+                playbackPerformerIds ?? scene.performers.map((p) => p.id)
+              }
+              galleryIds={scenePlayerGalleryIDsCustom(scene, playbackReleaseId)} // CUSTOM
+              selectedImages={selectedOverlayImages}
+              onConfirm={(images) => setSelectedOverlayImages(images)}
+              onClose={() => setShowImageOverlayModal(false)}
+              isFullscreen={fullscreen}
+            />,
+            fullscreen && _player?.el() ? _player.el()! : document.body
+          )}
+        {/* Performer Image Overlays */}
+        {selectedOverlayImages.length > 0 && (
+          <PerformerImageOverlay
+            images={selectedOverlayImages}
+            portalTarget={(_player?.el() as HTMLElement) ?? null}
+            isFullscreen={fullscreen}
+            overlaysVisible={overlaysVisible}
+          />
+        )}
+        {/* CUSTOM: end */}
       </div>
     );
   }

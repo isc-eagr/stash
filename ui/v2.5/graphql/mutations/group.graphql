@@ -12,7 +12,8 @@ mutation GroupUpdate($input: GroupUpdateInput!) {
 
 mutation BulkGroupUpdate($input: BulkGroupUpdateInput!) {
   bulkGroupUpdate(input: $input) {
-    ...GroupData
+    # CUSTOM: keep bulk edit responses lightweight; callers refetch impacted lists.
+    id
   }
 }
 

@@ -7,12 +7,6 @@ import {
   ModifierCriterion,
 } from "../../../models/list-filter/criteria/criterion";
 import { RatingSystem } from "src/components/Shared/Rating/RatingSystem";
-import { RatingStars } from "src/components/Shared/Rating/RatingStars";
-import {
-  defaultRatingStarPrecision,
-  defaultRatingSystemOptions,
-} from "src/utils/rating";
-import { useConfigurationContext } from "src/hooks/Config";
 import {
   RatingCriterion,
   RatingCriterionOption,
@@ -52,7 +46,9 @@ export const RatingFilter: React.FC<IRatingFilterProps> = ({
     criterion.modifier === CriterionModifier.Equals ||
     criterion.modifier === CriterionModifier.NotEquals ||
     criterion.modifier === CriterionModifier.GreaterThan ||
-    criterion.modifier === CriterionModifier.LessThan
+    criterion.modifier === CriterionModifier.GreaterThanEquals || // CUSTOM
+    criterion.modifier === CriterionModifier.LessThan ||
+    criterion.modifier === CriterionModifier.LessThanEquals // CUSTOM
   ) {
     return getRatingSystem("value");
   }
@@ -120,10 +116,6 @@ export const SidebarRatingFilter: React.FC<ISidebarFilter> = ({
     [noneLabel]
   );
 
-  const { configuration: config } = useConfigurationContext();
-  const ratingSystemOptions =
-    config?.ui.ratingSystemOptions ?? defaultRatingSystemOptions;
-
   const options: Option[] = useMemo(() => {
     return [anyOption, noneOption];
   }, [anyOption, noneOption]);
@@ -181,14 +173,11 @@ export const SidebarRatingFilter: React.FC<ISidebarFilter> = ({
     setFilter(filter.replaceCriteria(option.type, [newCriterion]));
   }
 
-  const ratingStars = (
+  const ratingNumber = (
     <div className="no-icon-margin">
-      <RatingStars
+      <RatingSystem
         value={ratingValue}
         onSetRating={onRatingValueChange}
-        precision={
-          ratingSystemOptions.starPrecision ?? defaultRatingStarPrecision
-        }
         orMore
       />
     </div>
@@ -203,8 +192,8 @@ export const SidebarRatingFilter: React.FC<ISidebarFilter> = ({
         onUnselect={onUnselect}
         selected={selected}
         singleValue
-        preCandidates={ratingValue === null ? ratingStars : undefined}
-        preSelected={ratingValue !== null ? ratingStars : undefined}
+        preCandidates={ratingValue === null ? ratingNumber : undefined}
+        preSelected={ratingValue !== null ? ratingNumber : undefined}
         sectionID={sectionID}
       />
       <div></div>

@@ -21,6 +21,8 @@ type ImageFilterType struct {
 	FileCount *IntCriterionInput `json:"file_count"`
 	// Filter by rating expressed as 1-100
 	Rating100 *IntCriterionInput `json:"rating100"`
+	// Filter by metallic card style after rating thresholds and tag overrides
+	MetallicRating *MultiCriterionInput `json:"metallic_rating"` // CUSTOM
 	// Filter by date
 	Date *DateCriterionInput `json:"date"`
 	// Filter by url
@@ -51,6 +53,16 @@ type ImageFilterType struct {
 	PerformerFavorite *bool `json:"performer_favorite"`
 	// Filter images by performer age at time of image
 	PerformerAge *IntCriterionInput `json:"performer_age"`
+	// CUSTOM: begin
+	// Filter images by performers' rating (1-100)
+	PerformerRating *IntCriterionInput `json:"performer_rating"`
+	// When true, all linked performers must satisfy the performer_rating condition; when false, at least one performer must satisfy it (default: true).
+	PerformerRatingAll *bool `json:"performer_rating_all"`
+	// Filter by performer country
+	PerformerCountry *StringCriterionInput `json:"performer_country"`
+	// Filter by performer ethnicity
+	PerformerEthnicity *StringCriterionInput `json:"performer_ethnicity"`
+	// CUSTOM: end
 	// Filter to only include images with these galleries
 	Galleries *MultiCriterionInput `json:"galleries"`
 	// Filter by related galleries that meet this criteria

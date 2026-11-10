@@ -1,3 +1,4 @@
+import { runDeletionCustom } from "src/components/Shared/deletion_custom"; // CUSTOM
 import React, { useState } from "react";
 import { mutateDeleteFiles } from "src/core/StashService";
 import { ModalComponent } from "./Modal";
@@ -44,18 +45,19 @@ export const DeleteFilesDialog: React.FC<IDeleteSceneDialogProps> = (
   const context = React.useContext(ConfigurationContext);
   const config = context?.configuration;
 
-  async function onDelete() {
-    setIsDeleting(true);
-    try {
-      await mutateDeleteFiles(props.selected.map((f) => f.id));
-      Toast.success(toastMessage);
-      props.onClose(true);
-    } catch (e) {
-      Toast.error(e);
-      props.onClose(false);
-    }
-    setIsDeleting(false);
+  // CUSTOM: share success/failure and retry behavior across all deletion dialogs.
+  function onDelete() {
+    return runDeletionCustom({
+      action: () => mutateDeleteFiles(props.selected.map((f) => f.id)),
+      onSuccess: () => {
+        Toast.success(toastMessage);
+      },
+      onError: Toast.error,
+      setRunning: setIsDeleting,
+      onApplied: props.onClose,
+    });
   }
+  // CUSTOM: end
 
   function renderDeleteFileAlert() {
     const deletedFiles = props.selected.map((f) => f.path);

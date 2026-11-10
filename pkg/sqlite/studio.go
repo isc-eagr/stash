@@ -233,10 +233,31 @@ func (qb *StudioStore) Create(ctx context.Context, newObject *models.CreateStudi
 	}
 
 	*newObject.Studio = *updated
+
+	// CUSTOM: begin - record initially tagged studios as incoming work
+	afterTags, err := taskProgressTagSnapshotCustom(ctx, "studio", id)
+	if err != nil {
+		return err
+	}
+	if err := recordTaskProgressTagDiffCustom(ctx, "studio", id, nil, afterTags); err != nil {
+		return err
+	}
+	// CUSTOM: end
 	return nil
 }
 
 func (qb *StudioStore) UpdatePartial(ctx context.Context, input models.StudioPartial) (*models.Studio, error) {
+	// CUSTOM: begin - diff logical membership around tag updates
+	var beforeTags taskProgressTagSetCustom
+	if input.TagIDs != nil {
+		var err error
+		beforeTags, err = taskProgressTagSnapshotCustom(ctx, "studio", input.ID)
+		if err != nil {
+			return nil, err
+		}
+	}
+	// CUSTOM: end
+
 	r := studioRowRecord{
 		updateRecord{
 			Record: make(exp.Record),
@@ -277,11 +298,39 @@ func (qb *StudioStore) UpdatePartial(ctx context.Context, input models.StudioPar
 		return nil, err
 	}
 
-	return qb.find(ctx, input.ID)
+	updated, err := qb.find(ctx, input.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	// CUSTOM: begin
+	if beforeTags != nil {
+		afterTags, err := taskProgressTagSnapshotCustom(ctx, "studio", input.ID)
+		if err != nil {
+			return nil, err
+		}
+		if err := recordTaskProgressTagDiffCustom(ctx, "studio", input.ID, beforeTags, afterTags); err != nil {
+			return nil, err
+		}
+	}
+	// CUSTOM: end
+
+	return updated, nil
 }
 
 // This is only used by the Import/Export functionality
 func (qb *StudioStore) Update(ctx context.Context, updatedObject *models.UpdateStudioInput) error {
+	// CUSTOM: begin - snapshot only when this full update carries tags
+	var beforeTags taskProgressTagSetCustom
+	if updatedObject.TagIDs.Loaded() {
+		var err error
+		beforeTags, err = taskProgressTagSnapshotCustom(ctx, "studio", updatedObject.ID)
+		if err != nil {
+			return err
+		}
+	}
+	// CUSTOM: end
+
 	var r studioRow
 	r.fromStudio(*updatedObject.Studio)
 
@@ -315,16 +364,44 @@ func (qb *StudioStore) Update(ctx context.Context, updatedObject *models.UpdateS
 		return err
 	}
 
+	// CUSTOM: begin
+	if beforeTags != nil {
+		afterTags, err := taskProgressTagSnapshotCustom(ctx, "studio", updatedObject.ID)
+		if err != nil {
+			return err
+		}
+		if err := recordTaskProgressTagDiffCustom(ctx, "studio", updatedObject.ID, beforeTags, afterTags); err != nil {
+			return err
+		}
+	}
+	// CUSTOM: end
+
 	return nil
 }
 
 func (qb *StudioStore) Destroy(ctx context.Context, id int) error {
+	// CUSTOM: begin - deletion completes the studio for all matching trackers
+	beforeTags, err := taskProgressTagSnapshotCustom(ctx, "studio", id)
+	if err != nil {
+		return err
+	}
+	itemLabel, err := taskProgressItemLabelCustom(ctx, "studio", id)
+	if err != nil {
+		return err
+	}
+	// CUSTOM: end
+
 	// must handle image checksums manually
 	if err := qb.destroyImage(ctx, id); err != nil {
 		return err
 	}
 
-	return studioRepository.destroyExisting(ctx, []int{id})
+	if err := studioRepository.destroyExisting(ctx, []int{id}); err != nil {
+		return err
+	}
+
+	// CUSTOM
+	return recordTaskProgressTagDiffCustom(ctx, "studio", id, beforeTags, nil, itemLabel)
 }
 
 // returns nil, nil if not found
@@ -582,7 +659,7 @@ func (qb *StudioStore) makeQuery(ctx context.Context, studioFilter *models.Studi
 	}
 
 	var err error
-	query.sortAndPagination, err = qb.getStudioSort(findFilter)
+	query.sortAndPagination, err = qb.getStudioSortCustom(&query, findFilter) // CUSTOM: batch quality metrics over filtered studios
 	if err != nil {
 		return nil, err
 	}
@@ -620,23 +697,11 @@ func (qb *StudioStore) QueryCount(ctx context.Context, studioFilter *models.Stud
 }
 
 func (qb *StudioStore) sortByScenesDuration(direction string) string {
-	return fmt.Sprintf(` ORDER BY (
-		SELECT COALESCE(SUM(video_files.duration), 0)
-		FROM %s
-		LEFT JOIN %s ON %s.%s = %s.id
-		LEFT JOIN video_files ON video_files.file_id = %s.file_id
-		WHERE %s.%s = %s.id
-	) %s`, sceneTable, scenesFilesTable, scenesFilesTable, sceneIDColumn, sceneTable, scenesFilesTable, sceneTable, studioIDColumn, studioTable, getSortDirection(direction))
+	return fmt.Sprintf(" ORDER BY %s %s", studioScenesDurationExprCustom(), getSortDirection(direction)) // CUSTOM
 }
 
 func (qb *StudioStore) sortByScenesSize(direction string) string {
-	return fmt.Sprintf(` ORDER BY (
-		SELECT COALESCE(SUM(%s.size), 0)
-		FROM %s
-		LEFT JOIN %s ON %s.%s = %s.id
-		LEFT JOIN %s ON %s.id = %s.file_id
-		WHERE %s.%s = %s.id
-	) %s`, fileTable, sceneTable, scenesFilesTable, scenesFilesTable, sceneIDColumn, sceneTable, fileTable, fileTable, scenesFilesTable, sceneTable, studioIDColumn, studioTable, getSortDirection(direction))
+	return fmt.Sprintf(" ORDER BY %s %s", studioScenesSizeExprCustom(), getSortDirection(direction)) // CUSTOM
 }
 
 // used for sorting on performer latest scene
@@ -691,6 +756,11 @@ func (qb *StudioStore) sortByOCounter(direction string) string {
 		), 0) + COALESCE((
 			SELECT SUM(o_counter) FROM %[5]s
 			WHERE %[5]s.%[2]s = %[1]s.id
+		), 0) + COALESCE((
+			-- CUSTOM: plus O's on releases credited to the studio
+			SELECT COUNT(*) FROM scene_release_o_dates rod
+			INNER JOIN scene_releases r ON r.id = rod.release_id
+			WHERE r.studio_id = %[1]s.id
 		), 0)
 	) %[6]s`, studioTable, studioIDColumn, sceneTable, scenesODatesTable, imageTable, getSortDirection(direction))
 }
@@ -710,6 +780,11 @@ func (qb *StudioStore) sortByOCounterAll(direction string) string {
 		), 0) + COALESCE((
 			SELECT SUM(o_counter) FROM %[5]s
 			WHERE %[5]s.%[2]s IN (SELECT id FROM sub_studios)
+		), 0) + COALESCE((
+			-- CUSTOM: plus O's on releases credited to the studio tree
+			SELECT COUNT(*) FROM scene_release_o_dates rod
+			INNER JOIN scene_releases r ON r.id = rod.release_id
+			WHERE r.studio_id IN (SELECT id FROM sub_studios)
 		), 0)
 	) %[6]s`, studioTable, studioIDColumn, sceneTable, scenesODatesTable, imageTable, getSortDirection(direction))
 }
@@ -730,6 +805,47 @@ var studioSortOptions = sortOptions{
 	"scenes_duration",
 	"scenes_size",
 	"scene_markers_count",
+	"sex_scenes_count",                         // CUSTOM
+	"oral_scenes_count",                        // CUSTOM
+	"solo_scenes_count",                        // CUSTOM
+	"sex_activity_percent",                     // CUSTOM
+	"oral_activity_percent",                    // CUSTOM
+	"solo_activity_percent",                    // CUSTOM
+	"other_activity_percent",                   // CUSTOM
+	"outstanding_activity_percent",             // CUSTOM
+	"standard_activity_percent",                // CUSTOM
+	"unclassified_activity_percent",            // CUSTOM
+	"unusable_activity_percent",                // CUSTOM
+	"rating_criteria_solo_performer_appeal",    // CUSTOM
+	"rating_criteria_solo_performance",         // CUSTOM
+	"rating_criteria_solo_usability",           // CUSTOM
+	"rating_criteria_top_attractiveness",       // CUSTOM
+	"rating_criteria_bottom_attractiveness",    // CUSTOM
+	"rating_criteria_chemistry",                // CUSTOM
+	"rating_criteria_payoff",                   // CUSTOM
+	"rating_criteria_standout",                 // CUSTOM
+	"rating_criteria_group_top_attractiveness", // CUSTOM
+	"rating_criteria_group_energy",             // CUSTOM
+	"rating_criteria_group_payoff",             // CUSTOM
+	"rating_criteria_group_usability",          // CUSTOM
+	"average_solo_scene_rating",                // CUSTOM
+	"average_standard_scene_rating",            // CUSTOM
+	"average_threesome_scene_rating",           // CUSTOM
+	"average_group_scene_rating",               // CUSTOM
+	"average_performer_rating",                 // CUSTOM
+	"average_overall_scene_rating",             // CUSTOM
+	"royal_sapphire_scenes_count",              // CUSTOM
+	"gold_scenes_count",                        // CUSTOM
+	"silver_scenes_count",                      // CUSTOM
+	"bronze_scenes_count",                      // CUSTOM
+	"no_metallic_scenes_count",                 // CUSTOM
+	"facial_scenes_count",                      // CUSTOM
+	"standard_facial_count",                    // CUSTOM
+	"really_hot_facial_count",                  // CUSTOM
+	"goat_facial_count",                        // CUSTOM
+	"facial_count",                             // CUSTOM
+	"unique_performers_count",                  // CUSTOM
+	"average_stashdb_matches",                  // CUSTOM
 	"random",
 	"rating",
 	"tag_count",
@@ -780,8 +896,48 @@ func (qb *StudioStore) getStudioSort(findFilter *models.FindFilterType) (string,
 		sortQuery += qb.sortByPerformerCount(direction)
 	case "performer_count_all":
 		sortQuery += qb.sortByPerformerCountAll(direction)
+	case "sex_scenes_count": // CUSTOM
+		sortQuery += qb.sortBySexSceneCount(direction)
+	case "oral_scenes_count": // CUSTOM
+		sortQuery += qb.sortByOralSceneCount(direction)
+	case "solo_scenes_count": // CUSTOM
+		sortQuery += qb.sortBySoloSceneCount(direction)
+	case "sex_activity_percent": // CUSTOM
+		sortQuery += qb.sortByActivityPercentCustom(activityPercentSexCustom, direction)
+	case "oral_activity_percent": // CUSTOM
+		sortQuery += qb.sortByActivityPercentCustom(activityPercentOralCustom, direction)
+	case "solo_activity_percent": // CUSTOM
+		sortQuery += qb.sortByActivityPercentCustom(activityPercentSoloCustom, direction)
+	case "other_activity_percent": // CUSTOM
+		sortQuery += qb.sortByActivityPercentCustom(activityPercentOtherCustom, direction)
+	case "outstanding_activity_percent": // CUSTOM
+		sortQuery += qb.sortByActivityPercentCustom(activityPercentOutstandingCustom, direction)
+	case "standard_activity_percent": // CUSTOM
+		sortQuery += qb.sortByActivityPercentCustom(activityPercentStandardCustom, direction)
+	case "unclassified_activity_percent": // CUSTOM
+		sortQuery += qb.sortByActivityPercentCustom(activityPercentUnclassifiedCustom, direction)
+	case "unusable_activity_percent": // CUSTOM
+		sortQuery += qb.sortByActivityPercentCustom(activityPercentUnusableCustom, direction)
+	case "facial_scenes_count": // CUSTOM
+		sortQuery += qb.sortByFacialSceneCount(direction)
+	case "facial_count": // CUSTOM
+		sortQuery += studioSortMetricOrderClauseCustom(studioFacialCountExprCustom(), direction)
+	case "unique_performers_count": // CUSTOM
+		sortQuery += qb.sortByUniquePerformerCount(direction)
+	case studioAverageStashDBMatchesSortCustom: // CUSTOM
+		sortQuery += qb.sortByAverageStashDBMatchesCustom(direction)
 	default:
-		sortQuery += getSort(sort, direction, "studios")
+		if tier, ok := studioMetallicSceneSortKeysCustom[sort]; ok { // CUSTOM
+			sortQuery += qb.sortByMetallicSceneCountCustom(tier, direction)
+		} else if variant, ok := studioFacialMarkerSortKeysCustom[sort]; ok { // CUSTOM
+			sortQuery += qb.sortByFacialMarkerCountCustom(variant, direction)
+		} else if ratingKey, ok := studioRatingCriteriaSortKeysCustom[sort]; ok { // CUSTOM
+			sortQuery += qb.sortByRatingCriteriaAverageCustom(ratingKey, direction)
+		} else if category, ok := studioRatingAdvisorAverageSortKeysCustom[sort]; ok { // CUSTOM
+			sortQuery += qb.sortByRatingAdvisorAverageCustom(category, direction)
+		} else {
+			sortQuery += getSort(sort, direction, "studios")
+		}
 	}
 
 	// Whatever the sorting, always use name/id as a final sort

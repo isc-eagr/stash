@@ -1,3 +1,4 @@
+import { runDeletionCustom } from "src/components/Shared/deletion_custom"; // CUSTOM
 import React, { useState } from "react";
 import { Form } from "react-bootstrap";
 import { useGalleryDestroy } from "src/core/StashService";
@@ -56,17 +57,19 @@ export const DeleteGalleriesDialog: React.FC<IDeleteGalleryDialogProps> = (
     };
   }
 
-  async function onDelete() {
-    setIsDeleting(true);
-    try {
-      await deleteGallery();
-      Toast.success(toastMessage);
-    } catch (e) {
-      Toast.error(e);
-    }
-    setIsDeleting(false);
-    props.onClose(true);
+  // CUSTOM: share success/failure and retry behavior across all deletion dialogs.
+  function onDelete() {
+    return runDeletionCustom({
+      action: () => deleteGallery(),
+      onSuccess: () => {
+        Toast.success(toastMessage);
+      },
+      onError: Toast.error,
+      setRunning: setIsDeleting,
+      onApplied: props.onClose,
+    });
   }
+  // CUSTOM: end
 
   function maybeRenderDeleteFileAlert() {
     if (!deleteFile) {

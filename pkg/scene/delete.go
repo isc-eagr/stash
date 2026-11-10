@@ -122,6 +122,45 @@ func (s *Service) Destroy(ctx context.Context, scene *models.Scene, fileDeleter 
 		}
 	}
 
+	// CUSTOM: begin - Delete all releases associated with the scene
+	releaseQB := s.SceneReleaseRepository
+	if releaseQB != nil {
+		releases, err := releaseQB.FindBySceneID(ctx, scene.ID)
+		if err != nil {
+			return err
+		}
+		for _, release := range releases {
+			// CUSTOM: generated assets for release-only files have their own
+			// fingerprint; the parent scene's hash cannot find them.
+			if deleteGenerated { // CUSTOM
+				files, err := releaseQB.GetFiles(ctx, release.ID) // CUSTOM
+				if err != nil {                                   // CUSTOM
+					return err // CUSTOM
+				} // CUSTOM
+				for _, video := range files { // CUSTOM
+					owners, err := s.Repository.FindByFileID(ctx, video.ID) // CUSTOM
+					if err != nil {                                         // CUSTOM
+						return err // CUSTOM
+					} // CUSTOM
+					if len(owners) == 1 { // CUSTOM: shared files retain generated media
+						if err := fileDeleter.MarkGeneratedFiles(sceneForReleaseGeneratedFilesCustom(video)); err != nil { // CUSTOM
+							return err // CUSTOM
+						} // CUSTOM
+					} // CUSTOM
+				} // CUSTOM
+			} // CUSTOM
+			// CUSTOM: Return release files before deletion so the ordinary scene
+			// deletion path can see and handle every file in this family.
+			if err := releaseQB.AssignFilesToScene(ctx, release.ID, scene.ID); err != nil {
+				return err
+			}
+			if err := releaseQB.Destroy(ctx, release.ID); err != nil {
+				return err
+			}
+		}
+	}
+	// CUSTOM: end
+
 	if deleteFile {
 		if err := s.deleteFiles(ctx, scene, fileDeleter); err != nil {
 			return err

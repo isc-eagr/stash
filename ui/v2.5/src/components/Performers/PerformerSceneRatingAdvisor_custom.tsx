@@ -1,0 +1,114 @@
+import { getAppLocaleCustom } from "src/utils/appLocale_custom"; // CUSTOM
+import React from "react";
+import { faStar } from "@fortawesome/free-solid-svg-icons";
+import { OverlayTrigger, Tooltip } from "react-bootstrap";
+import { ErrorMessage } from "src/components/Shared/ErrorMessage";
+import { Icon } from "src/components/Shared/Icon";
+import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
+import {
+  RatingAdvisorStatsContent,
+  studioRatingAdvisorSectionDefinitions,
+} from "src/components/Studios/StudioDetails/StudioRatingAdvisorStats";
+import type { StudioRatingAdvisorSectionKey } from "src/components/Studios/StudioDetails/StudioRatingAdvisorStats";
+import * as GQL from "src/core/generated-graphql";
+
+type PerformerSceneRatingAdvisorSectionKey = Exclude<
+  StudioRatingAdvisorSectionKey,
+  "performers"
+>;
+
+export const performerSceneRatingAdvisorSectionKeys: PerformerSceneRatingAdvisorSectionKey[] =
+  ["solo_scenes", "sex_scenes", "threesome_scenes", "group_scenes"];
+
+type PerformerRatingAdvisorStatsData =
+  GQL.PerformerRatingAdvisorStatsQuery["performerRatingAdvisorStats"];
+
+function formatSceneAverageRating(value: number) {
+  return value.toLocaleString(getAppLocaleCustom(), {
+    maximumFractionDigits: 1,
+  });
+}
+
+export const PerformerSceneAverageRating: React.FC<{
+  performerId: string;
+}> = ({ performerId }) => {
+  const { data, error } = GQL.usePerformerRatingAdvisorStatsQuery({
+    variables: { performerId },
+  });
+  const average =
+    data?.performerRatingAdvisorStats.overall_scene_average_rating100;
+  if (error || average === null || average === undefined) return null;
+
+  const formattedAverage = formatSceneAverageRating(average);
+  const tooltip = "Scene Average Rating";
+
+  return (
+    <OverlayTrigger
+      placement="top"
+      overlay={
+        <Tooltip id={`performer-${performerId}-scene-average-rating-tooltip`}>
+          {tooltip}
+        </Tooltip>
+      }
+    >
+      <span
+        aria-label={`${tooltip}: ${formattedAverage} out of 100.`}
+        className="performer-scene-average-rating"
+      >
+        <Icon icon={faStar} />
+        <span className="performer-scene-average-rating-value">
+          {formattedAverage}
+        </span>
+        <span className="performer-scene-average-rating-label">Scene avg</span>
+      </span>
+    </OverlayTrigger>
+  );
+};
+
+export function getVisiblePerformerSceneRatingAdvisorDefinitions(
+  stats?: PerformerRatingAdvisorStatsData
+) {
+  return studioRatingAdvisorSectionDefinitions.filter((definition) => {
+    const key = definition.key as PerformerSceneRatingAdvisorSectionKey;
+    return (
+      performerSceneRatingAdvisorSectionKeys.includes(key) &&
+      !!stats &&
+      stats[key].entity_count > 0
+    );
+  });
+}
+
+export const PerformerSceneRatingAdvisorStats: React.FC<{
+  active: boolean;
+  performerId: string;
+}> = ({ active, performerId }) => {
+  const { data, loading, error } = GQL.usePerformerRatingAdvisorStatsQuery({
+    variables: { performerId },
+    skip: !active,
+  });
+
+  if (loading && !data) {
+    return (
+      <LoadingIndicator message="Pulling up his scene averages…" inline small />
+    );
+  }
+  if (error) {
+    return <ErrorMessage error={error.message} />;
+  }
+
+  const stats = data?.performerRatingAdvisorStats;
+  if (!stats) return null;
+  if (getVisiblePerformerSceneRatingAdvisorDefinitions(stats).length === 0) {
+    return null;
+  }
+
+  return (
+    <RatingAdvisorStatsContent
+      description="Each bar only counts this vato's scenes rated on that criterion."
+      hideEmptySceneSections
+      sectionKeys={performerSceneRatingAdvisorSectionKeys}
+      stats={stats}
+      title="Scene Rating Advisor Averages"
+    />
+  );
+};

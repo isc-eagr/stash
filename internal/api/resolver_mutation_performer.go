@@ -417,6 +417,12 @@ func (r *mutationResolver) PerformerUpdate(ctx context.Context, input models.Per
 		if err != nil {
 			return err
 		}
+		// CUSTOM: an explicit manual rating leaves advisor ownership.
+		if updatedPerformer.Rating.Set {
+			if err := r.repository.RatingScore.DeleteByEntity(ctx, models.RatingEntityPerformer, performerID); err != nil {
+				return err
+			}
+		}
 
 		// update image table
 		if imageIncluded {
@@ -553,6 +559,12 @@ func (r *mutationResolver) BulkPerformerUpdate(ctx context.Context, input BulkPe
 			if err != nil {
 				return err
 			}
+			// CUSTOM: an explicit manual rating leaves advisor ownership.
+			if updatedPerformer.Rating.Set {
+				if err := r.repository.RatingScore.DeleteByEntity(ctx, models.RatingEntityPerformer, performerID); err != nil {
+					return err
+				}
+			}
 
 			ret = append(ret, performer)
 		}
@@ -585,7 +597,27 @@ func (r *mutationResolver) PerformerDestroy(ctx context.Context, input Performer
 	}
 
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
-		return r.repository.Performer.Destroy(ctx, id)
+		scenes, err := r.repository.Scene.FindByPerformerID(ctx, id)
+		if err != nil {
+			return err
+		}
+		var sceneIDs []int
+		for _, scene := range scenes {
+			if scene != nil {
+				sceneIDs = append(sceneIDs, scene.ID)
+			}
+		}
+		previousModes, err := r.sceneRatingModesCustom(ctx, sceneIDs)
+		if err != nil {
+			return err
+		}
+		if err := r.repository.Performer.Destroy(ctx, id); err != nil {
+			return err
+		}
+		if err := r.repository.RatingScore.DeleteByEntity(ctx, models.RatingEntityPerformer, id); err != nil {
+			return err
+		}
+		return r.resetSceneAdvisorsIfModeChangedCustom(ctx, previousModes)
 	}); err != nil {
 		return false, err
 	}
@@ -603,13 +635,32 @@ func (r *mutationResolver) PerformersDestroy(ctx context.Context, performerIDs [
 
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
 		qb := r.repository.Performer
+		var affectedSceneIDs []int
+		for _, id := range ids {
+			scenes, err := r.repository.Scene.FindByPerformerID(ctx, id)
+			if err != nil {
+				return err
+			}
+			for _, scene := range scenes {
+				if scene != nil {
+					affectedSceneIDs = append(affectedSceneIDs, scene.ID)
+				}
+			}
+		}
+		previousModes, err := r.sceneRatingModesCustom(ctx, affectedSceneIDs)
+		if err != nil {
+			return err
+		}
 		for _, id := range ids {
 			if err := qb.Destroy(ctx, id); err != nil {
 				return err
 			}
+			if err := r.repository.RatingScore.DeleteByEntity(ctx, models.RatingEntityPerformer, id); err != nil {
+				return err
+			}
 		}
 
-		return nil
+		return r.resetSceneAdvisorsIfModeChangedCustom(ctx, previousModes)
 	}); err != nil {
 		return false, err
 	}
@@ -672,6 +723,22 @@ func (r *mutationResolver) PerformerMerge(ctx context.Context, input PerformerMe
 	var dest *models.Performer
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
 		qb := r.repository.Performer
+		var affectedSceneIDs []int
+		for _, performerID := range append(append([]int{}, srcIDs...), destID) {
+			scenes, err := r.repository.Scene.FindByPerformerID(ctx, performerID)
+			if err != nil {
+				return err
+			}
+			for _, scene := range scenes {
+				if scene != nil {
+					affectedSceneIDs = append(affectedSceneIDs, scene.ID)
+				}
+			}
+		}
+		previousModes, err := r.sceneRatingModesCustom(ctx, affectedSceneIDs)
+		if err != nil {
+			return err
+		}
 
 		dest, err = qb.Find(ctx, destID)
 		if err != nil {
@@ -689,6 +756,22 @@ func (r *mutationResolver) PerformerMerge(ctx context.Context, input PerformerMe
 
 		if err := qb.Merge(ctx, srcIDs, destID); err != nil {
 			return fmt.Errorf("merging performers: %w", err)
+		}
+		for _, sourceID := range srcIDs {
+			if err := r.repository.RatingScore.DeleteByEntity(ctx, models.RatingEntityPerformer, sourceID); err != nil {
+				return err
+			}
+		}
+		if values.Rating.Set {
+			if err := r.repository.RatingScore.DeleteByEntity(ctx, models.RatingEntityPerformer, destID); err != nil {
+				return err
+			}
+		}
+		if err := r.resetSceneAdvisorsIfModeChangedCustom(ctx, previousModes); err != nil {
+			return err
+		}
+		if err := r.recalculateRatingIfAdvisorScoresExist(ctx, models.RatingEntityPerformer, destID); err != nil {
+			return err
 		}
 
 		if len(imageData) > 0 {

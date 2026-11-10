@@ -1,6 +1,8 @@
 # Full fragment for detail views - includes recursive counts
 fragment GroupData on Group {
   id
+  created_at # CUSTOM: keep detail group cards compatible with list cards
+  updated_at # CUSTOM: keep detail group cards compatible with list cards
   name
   aliases
   duration
@@ -47,6 +49,8 @@ fragment GroupData on Group {
 # The _all fields (depth: -1) cause 10+ second queries on large databases
 fragment ListGroupData on Group {
   id
+  created_at # CUSTOM: active sort metric on group cards
+  updated_at # CUSTOM: active sort metric on group cards
   name
   aliases
   duration

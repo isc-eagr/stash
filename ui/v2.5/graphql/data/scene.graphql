@@ -7,7 +7,24 @@ fragment SceneData on Scene {
   urls
   date
   production_date
+  effective_date # CUSTOM
+  stashdb_matches # CUSTOM
+  release_stashdb_matches # CUSTOM
+  release_o_counter # CUSTOM
+  release_last_o_at # CUSTOM
   rating100
+  rating_scores {
+    id
+    entity_type
+    entity_id
+    section
+    key
+    raw_value
+    weighted_value
+    label
+    created_at
+    updated_at
+  }
   o_counter
   organized
   interactive
@@ -25,7 +42,7 @@ fragment SceneData on Scene {
 
   play_history
   o_history
-
+  o_timestamps # CUSTOM
   files {
     ...VideoFileData
   }
@@ -46,9 +63,21 @@ fragment SceneData on Scene {
     ...SceneMarkerData
   }
 
+  # CUSTOM: flattened marker-tag ancestry for recursive insight classification
+  scene_marker_tag_ancestors {
+    tag_id
+    ancestor_ids
+  }
+
   galleries {
     ...SlimGalleryData
   }
+
+  # CUSTOM: begin
+  direct_galleries {
+    ...SlimGalleryData
+  }
+  # CUSTOM: end
 
   studio {
     ...SlimStudioData
@@ -66,7 +95,11 @@ fragment SceneData on Scene {
   }
 
   performers {
-    ...PerformerData
+    ...PerformerListData # CUSTOM: role totals load through the batched scene card query
+    # CUSTOM: exact metallic-rating override evidence for detail insights
+    rating_tier_tags: tags {
+      id
+    }
   }
 
   stash_ids {
@@ -82,7 +115,151 @@ fragment SceneData on Scene {
   }
 
   custom_fields
+
+  # CUSTOM: begin
+  multi_segment_loop_presets {
+    id
+    scene_id
+    name
+    enabled
+    current_segment_index
+    segments {
+      start
+      end
+      title
+    }
+    created_at
+    updated_at
+  }
+
+  negative_markers {
+    id
+    scene_id
+    name
+    start_seconds
+    end_seconds
+    created_at
+    updated_at
+  }
+
+  releases {
+    ...SceneReleaseData
+  }
+  # CUSTOM: end
 }
+
+# CUSTOM: begin
+fragment SceneReleaseData on SceneRelease {
+  id
+  title
+  code
+  details
+  director
+  url
+  urls
+  date
+  organized
+  resume_time
+  play_duration
+  interactive
+  interactive_speed
+  captions {
+    language_code
+    caption_type
+  }
+  performers {
+    id
+    name
+    alias_list
+    disambiguation
+    image_path
+    birthdate
+    death_date
+  }
+  tags {
+    ...SlimTagData
+    id
+    name
+    sort_name
+    aliases
+    image_path
+    stash_ids {
+      endpoint
+      stash_id
+      updated_at
+    }
+  }
+  groups {
+    scene_index
+    group {
+      ...SelectGroupData
+    }
+  }
+  stash_ids {
+    endpoint
+    stash_id
+    updated_at
+  }
+  stashdb_matches # CUSTOM
+  custom_fields
+  play_history
+  o_history
+  o_timestamps
+  scene_markers {
+    ...SceneMarkerData
+  }
+  negative_markers {
+    id
+    scene_id
+    name
+    start_seconds
+    end_seconds
+    created_at
+    updated_at
+  }
+  multi_segment_loop_presets {
+    id
+    scene_id
+    name
+    enabled
+    current_segment_index
+    segments {
+      start
+      end
+      title
+    }
+    created_at
+    updated_at
+  }
+  play_order
+  created_at
+  updated_at
+  studio {
+    ...SlimStudioData
+  }
+  paths {
+    screenshot
+    preview
+    webp
+    vtt
+    sprite
+    funscript
+    interactive_heatmap
+    caption
+  }
+  files {
+    ...VideoFileData
+  }
+  galleries {
+    ...SlimGalleryData
+  }
+  streams {
+    url
+    mime_type
+    label
+  }
+}
+# CUSTOM: end
 
 fragment SelectSceneData on Scene {
   id
@@ -98,5 +275,20 @@ fragment SelectSceneData on Scene {
   }
   paths {
     screenshot
+  }
+}
+
+# CUSTOM: minimal normalized-cache view used by count-only History mutations.
+fragment SceneHistoryCacheData on Scene {
+  id
+  play_count
+  play_history
+  last_played_at
+  play_duration
+  o_counter
+  o_history
+  o_timestamps
+  performers {
+    id
   }
 }

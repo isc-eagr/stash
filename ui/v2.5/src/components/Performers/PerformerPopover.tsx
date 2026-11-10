@@ -2,7 +2,11 @@ import React from "react";
 import { ErrorMessage } from "../Shared/ErrorMessage";
 import { LoadingIndicator } from "../Shared/LoadingIndicator";
 import { HoverPopover } from "../Shared/HoverPopover";
-import { useFindPerformer } from "../../core/StashService";
+import * as GQL from "src/core/generated-graphql"; // CUSTOM
+import {
+  usePerformerCardRoleStats,
+  withExactPerformerMarkerCounts,
+} from "./performerRoleStats_custom"; // CUSTOM
 import { PerformerCard } from "./PerformerCard";
 import { useConfigurationContext } from "../../hooks/Config";
 import { Placement } from "react-bootstrap/esm/Overlay";
@@ -17,11 +21,22 @@ const PerformerPopoverCardByID: React.FC<{
   id: string;
   cardExtras?: React.ReactNode;
 }> = ({ id, cardExtras }) => {
-  const { data, loading: isLoading, error } = useFindPerformer(id);
+  const {
+    data,
+    loading: isLoading,
+    error,
+  } = GQL.useFindPerformerForCardQuery({
+    variables: { id },
+  }); // CUSTOM
+  const statsPerformers = React.useMemo(
+    () => (data?.findPerformer ? [data.findPerformer] : []),
+    [data?.findPerformer]
+  ); // CUSTOM
+  const roleStatsByPerformer = usePerformerCardRoleStats(statsPerformers); // CUSTOM
 
   if (isLoading)
     return (
-      <div className="tag-popover-card-placeholder">
+      <div className="tag-popover-card-placeholder performer-popover-card-placeholder">
         <LoadingIndicator card={true} message={""} />
       </div>
     );
@@ -33,8 +48,15 @@ const PerformerPopoverCardByID: React.FC<{
 
   return (
     <>
-      <div className="tag-popover-card">
-        <PerformerCard performer={performer} zoomIndex={0} />
+      <div className="tag-popover-card performer-popover-card">
+        <PerformerCard
+          performer={performer}
+          roleStats={withExactPerformerMarkerCounts(
+            roleStatsByPerformer.get(performer.id),
+            performer
+          )} // CUSTOM: keep exact marker badges
+          zoomIndex={0}
+        />
       </div>
       {cardExtras}
     </>

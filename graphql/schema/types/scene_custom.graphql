@@ -1,0 +1,164 @@
+# CUSTOM: All custom Scene fields, types, and inputs.
+# This file uses 'extend type' to add fields to the upstream Scene type
+# without modifying the upstream scene.graphql file.
+# See CUSTOM_FEATURES.md for documentation.
+
+extend type Scene {
+  "The earliest date among the scene's own date and all release dates"
+  effective_date: String
+
+  "Only galleries directly associated with this scene (excluding release galleries)"
+  direct_galleries: [Gallery!]!
+
+  multi_segment_loop_presets: [MultiSegmentLoopPreset!]!
+
+  "Negative markers - time ranges to skip during playback"
+  negative_markers: [SceneNegativeMarker!]!
+
+  "Alternate releases of this scene (e.g., from different studios)"
+  releases: [SceneRelease!]!
+
+  "Video timestamps (seconds, parallel to o_history, null for entries recorded without a video position)"
+  o_timestamps: [Float]!
+
+  "Flattened tag ancestry for every direct scene-marker tag"
+  scene_marker_tag_ancestors: [SceneMarkerTagAncestors!]!
+
+  "Users who matched this scene on StashDB (summed PHASH submissions); null until scraped"
+  stashdb_matches: Int
+
+  "O events recorded on this scene's releases; o_counter counts only the scene's own"
+  release_o_counter: Int!
+
+  "Latest dated O on this scene's releases"
+  release_last_o_at: Time
+
+  "StashDB Matches summed across this scene's releases; null when none has a count"
+  release_stashdb_matches: Int
+}
+
+extend type ScrapedScene {
+  "Users who matched this scene on StashDB (summed PHASH submissions); only set by stashdb.org"
+  stashdb_matches: Int
+}
+
+extend input SceneCreateInput {
+  stashdb_matches: Int
+}
+
+extend input SceneUpdateInput {
+  "Null clears the stored value"
+  stashdb_matches: Int
+}
+
+extend input SceneMergeInput {
+  "Releases to keep from the destination and sources; the others are deleted and their files move to the destination. Omit to keep all."
+  release_ids: [ID!]
+  "Negative markers to keep from the destination and sources. Omit to keep all but exact duplicates."
+  negative_marker_ids: [ID!]
+  "Loop presets to keep from the destination and sources. Omit to keep all but identical same-name presets."
+  loop_preset_ids: [ID!]
+  "Scene whose rating and Rating Advisor answers the destination keeps"
+  rating_scene_id: ID
+  "Scene whose StashDB Matches count the destination keeps"
+  stashdb_matches_scene_id: ID
+}
+
+type StashDBMatchesReport {
+  started_at: Time!
+  finished_at: Time!
+  checked: Int!
+  changed: Int!
+  unchanged: Int!
+  "Linked scenes StashDB no longer has"
+  not_found: Int!
+  "Scenes skipped because their request failed"
+  failed: Int!
+  "True when the job was stopped before checking every scene"
+  cancelled: Boolean!
+  changes: [StashDBMatchesChange!]!
+  "StashDB endpoint checked; null for reports saved before submission checks"
+  endpoint: String
+  "Successfully checked scenes with no PHASH submitted by the configured API-key account"
+  unsubmitted: [StashDBUnsubmittedScene!]!
+}
+
+type StashDBUnsubmittedScene {
+  "The release's parent scene when release is set"
+  scene: Scene!
+  "Set when the StashDB link belongs to this release"
+  release: SceneRelease
+  stash_id: ID!
+  matches: Int!
+}
+
+type StashDBMatchesChange {
+  "The release's parent scene when release is set"
+  scene: Scene!
+  "Set when the count belongs to this release"
+  release: SceneRelease
+  "Null for a first-time count"
+  previous: Int
+  current: Int!
+}
+
+type SceneMarkerTagAncestors {
+  tag_id: ID!
+  ancestor_ids: [ID!]!
+}
+
+type MultiSegmentLoopSegment {
+  start: Float!
+  end: Float!
+  title: String
+}
+
+type MultiSegmentLoopPreset {
+  id: ID!
+  scene_id: ID!
+  name: String!
+  enabled: Boolean!
+  current_segment_index: Int!
+  segments: [MultiSegmentLoopSegment!]!
+  created_at: Time!
+  updated_at: Time!
+}
+
+input MultiSegmentLoopSegmentInput {
+  start: Float!
+  end: Float!
+  title: String
+}
+
+input SceneMultiSegmentLoopPresetInput {
+  scene_id: ID!
+  name: String!
+  enabled: Boolean!
+  current_segment_index: Int!
+  segments: [MultiSegmentLoopSegmentInput!]!
+}
+
+# Negative markers - time ranges to skip during playback
+type SceneNegativeMarker {
+  id: ID!
+  scene_id: ID!
+  name: String!
+  start_seconds: Float!
+  end_seconds: Float!
+  created_at: Time!
+  updated_at: Time!
+}
+
+input SceneNegativeMarkerCreateInput {
+  scene_id: ID!
+  name: String!
+  start_seconds: Float!
+  end_seconds: Float!
+}
+
+input SceneNegativeMarkerUpdateInput {
+  id: ID!
+  name: String
+  start_seconds: Float
+  end_seconds: Float
+}

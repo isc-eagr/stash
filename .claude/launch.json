@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "stash-dev-backend-9998",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "cd .local && set STASH_CONFIG_FILE=config.yml && go run ../cmd/stash --port 9998"
+      ],
+      "port": 9998
+    },
+    {
+      "name": "stash-dev-ui-9998",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "cd ui/v2.5 && set VITE_APP_PLATFORM_PORT=9998&& npm.cmd start -- --port 3010 --strictPort"
+      ],
+      "port": 3010
+    }
+  ]
+}

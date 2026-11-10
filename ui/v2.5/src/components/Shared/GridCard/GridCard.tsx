@@ -1,4 +1,10 @@
-import React, { MutableRefObject, useMemo, useRef, useState } from "react";
+import React, {
+  MutableRefObject,
+  useMemo,
+  useRef,
+  useState,
+  useEffect, // CUSTOM
+} from "react";
 import { Card, Form } from "react-bootstrap";
 import { Link } from "react-router-dom";
 import cx from "classnames";
@@ -30,6 +36,8 @@ interface ICardProps {
   resumeTime?: number;
   duration?: number;
   interactiveHeatmap?: string;
+  onPrimaryClick?: (event: React.MouseEvent<HTMLElement>) => void; // CUSTOM
+  titleAside?: JSX.Element; // CUSTOM: content to the right of the title
 
   // move logic - both of the following are required to enable move dragging
   objectId?: string; // required for move dragging
@@ -57,7 +65,13 @@ export const useContainerDimensions = <T extends HTMLElement = HTMLDivElement>(
 ): [MutableRefObject<T | null>, IDimension] => {
   const target = useRef<T | null>(null);
   const [dimension, setDimension] = useState<IDimension>({
-    width: 0,
+    // CUSTOM: begin
+    // Seed with a reasonable initial width to avoid a 0 -> measured jump.
+    width:
+      typeof window !== "undefined" && typeof window.innerWidth === "number"
+        ? window.innerWidth
+        : 0,
+    // CUSTOM: end
     height: 0,
   });
 
@@ -74,6 +88,23 @@ export const useContainerDimensions = <T extends HTMLElement = HTMLDivElement>(
   }, 50);
 
   useResizeObserver(target, debouncedSetDimension);
+
+  // CUSTOM: begin
+  // Initialize with the actual element size on mount to avoid a second-pass reflow
+  // biome-ignore lint/correctness/useExhaustiveDependencies: CUSTOM: intentionally omits dimension.width, sensitivityThreshold
+  useEffect(() => {
+    if (target.current) {
+      const el = target.current as HTMLElement;
+      const rect = el.getBoundingClientRect();
+      if (
+        rect.width &&
+        Math.abs(dimension.width - rect.width) > sensitivityThreshold
+      ) {
+        setDimension({ width: rect.width, height: rect.height });
+      }
+    }
+  }, []);
+  // CUSTOM: end
 
   return [target, dimension];
 };
@@ -215,6 +246,16 @@ export const GridCard: React.FC<ICardProps> = PatchComponent(
       }
     }
 
+    // CUSTOM: allow entity cards to replace their primary image/title navigation.
+    function handlePrimaryClick(
+      event: React.MouseEvent<HTMLElement, MouseEvent>
+    ) {
+      handleImageClick(event);
+      if (!event.defaultPrevented) {
+        props.onPrimaryClick?.(event);
+      }
+    }
+
     function maybeRenderInteractiveHeatmap() {
       if (props.interactiveHeatmap) {
         return (
@@ -243,6 +284,17 @@ export const GridCard: React.FC<ICardProps> = PatchComponent(
         );
       }
     }
+
+    // CUSTOM: begin - the title can share its row with an aside
+    const titleLink = (
+      <CardNavLink url={props.url} onClick={handlePrimaryClick}>
+        <h5 className="card-section-title flex-aligned">
+          {props.pretitleIcon}
+          <TruncatedText text={props.title} lineCount={2} />
+        </h5>
+      </CardNavLink>
+    );
+    // CUSTOM: end
 
     return (
       <Card
@@ -275,7 +327,7 @@ export const GridCard: React.FC<ICardProps> = PatchComponent(
           <CardNavLink
             url={props.url}
             linkClassName={props.linkClassName}
-            onClick={handleImageClick}
+            onClick={handlePrimaryClick} // CUSTOM
           >
             {props.image}
           </CardNavLink>
@@ -284,12 +336,15 @@ export const GridCard: React.FC<ICardProps> = PatchComponent(
         </div>
         {maybeRenderInteractiveHeatmap()}
         <div className="card-section">
-          <CardNavLink url={props.url} onClick={handleImageClick}>
-            <h5 className="card-section-title flex-aligned">
-              {props.pretitleIcon}
-              <TruncatedText text={props.title} lineCount={2} />
-            </h5>
-          </CardNavLink>
+          {/* CUSTOM: allow callers to replace the primary title navigation. */}
+          {props.titleAside ? (
+            <div className="card-section-title-row">
+              {titleLink}
+              {props.titleAside}
+            </div>
+          ) : (
+            titleLink
+          )}
           {props.details}
         </div>
 

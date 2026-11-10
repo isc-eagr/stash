@@ -19,12 +19,14 @@ export enum View {
   PerformerGalleries = "performer_galleries",
   PerformerImages = "performer_images",
   PerformerGroups = "performer_groups",
+  PerformerMarkers = "performer_markers", // CUSTOM
   PerformerAppearsWith = "performer_appears_with",
 
   StudioGalleries = "studio_galleries",
   StudioImages = "studio_images",
 
   GalleryImages = "gallery_images",
+  GalleryAdd = "gallery_add", // CUSTOM: persist the Add panel's sidebar state
 
   StudioScenes = "studio_scenes",
   StudioGroups = "studio_groups",

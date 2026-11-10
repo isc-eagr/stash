@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react"; // CUSTOM
 import { FormattedMessage, useIntl } from "react-intl";
 import * as GQL from "src/core/generated-graphql";
 import TextUtils from "src/utils/text";
@@ -8,6 +8,13 @@ import { PerformerCard } from "src/components/Performers/PerformerCard";
 import { sortPerformers } from "src/core/performers";
 import { DirectorLink } from "src/components/Shared/Link";
 import { CustomFields } from "src/components/Shared/CustomFields";
+import { useScenePerformerOverview } from "./ScenePerformerOverviewPanel_custom"; // CUSTOM
+import { usePerformerCardRoleStatsState } from "../../Performers/performerRoleStats_custom"; // CUSTOM
+import { useConfigurationContext } from "src/hooks/Config"; // CUSTOM
+import {
+  getScenePerformerRoleSeconds,
+  NO_SCENE_PERFORMER_ROLE_SECONDS,
+} from "../scenePerformerRoleSeconds_custom"; // CUSTOM
 
 interface ISceneDetailProps {
   scene: GQL.SceneDataFragment;
@@ -15,6 +22,21 @@ interface ISceneDetailProps {
 
 export const SceneDetailPanel: React.FC<ISceneDetailProps> = (props) => {
   const intl = useIntl();
+  // CUSTOM: Details contains descriptive content; maintenance dates and code live in Edit.
+  const performerOverview = useScenePerformerOverview(); // CUSTOM
+  const { roleStatsByPerformer } = usePerformerCardRoleStatsState(
+    props.scene.performers
+  ); // CUSTOM
+  // CUSTOM: vato card sex/oral strips use Versatility by Time
+  const { configuration } = useConfigurationContext();
+  const roleSecondsByPerformer = useMemo(
+    () =>
+      getScenePerformerRoleSeconds(
+        props.scene,
+        configuration?.ui?.roleTagIds ?? {}
+      ),
+    [configuration?.ui?.roleTagIds, props.scene]
+  );
 
   function renderDetails() {
     if (!props.scene.details || props.scene.details === "") return;
@@ -52,7 +74,7 @@ export const SceneDetailPanel: React.FC<ISceneDetailProps> = (props) => {
 
     const ageFromDate = sceneAgeFromDate(
       props.scene.production_date,
-      props.scene.date
+      props.scene.effective_date ?? props.scene.date // CUSTOM: effective date
     );
 
     const cards = performers.map((performer) => (
@@ -60,6 +82,15 @@ export const SceneDetailPanel: React.FC<ISceneDetailProps> = (props) => {
         key={performer.id}
         performer={performer}
         ageFromDate={ageFromDate}
+        sceneId={props.scene.id} // CUSTOM
+        scenePerformerCount={performers.length} // CUSTOM
+        scenePartnerPerformers={performers} // CUSTOM
+        sceneRoleSeconds={
+          roleSecondsByPerformer.get(performer.id) ??
+          NO_SCENE_PERFORMER_ROLE_SECONDS
+        } // CUSTOM
+        roleStats={roleStatsByPerformer.get(performer.id)} // CUSTOM: use the batched totals
+        onOpenSceneOverview={performerOverview?.openPerformerOverview} // CUSTOM
       />
     ));
 
@@ -78,32 +109,17 @@ export const SceneDetailPanel: React.FC<ISceneDetailProps> = (props) => {
     );
   }
 
-  // filename should use entire row if there is no studio
-  const sceneDetailsWidth = props.scene.studio ? "col-9" : "col-12";
-
   return (
     <>
       <div className="row">
-        <div className={`${sceneDetailsWidth} col-12 scene-details`}>
-          <h6>
-            <FormattedMessage id="created_at" />:{" "}
-            {TextUtils.formatDateTime(intl, props.scene.created_at)}{" "}
-          </h6>
-          <h6>
-            <FormattedMessage id="updated_at" />:{" "}
-            {TextUtils.formatDateTime(intl, props.scene.updated_at)}{" "}
-          </h6>
+        {/* CUSTOM: descriptive information uses the full row. */}
+        <div className="col-12 scene-details">
           {props.scene.production_date && (
             <h6>
               <FormattedMessage id="production_date" />:{" "}
               {/* fuzzy, so that a year- or month-only production date isn't
                   rendered as the first of the month */}
               {TextUtils.formatFuzzyDate(intl, props.scene.production_date)}
-            </h6>
-          )}
-          {props.scene.code && (
-            <h6>
-              <FormattedMessage id="scene_code" />: {props.scene.code}{" "}
             </h6>
           )}
           {props.scene.director && (

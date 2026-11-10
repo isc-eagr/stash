@@ -86,6 +86,7 @@ export interface IFilteredListToolbar {
   zoomable?: boolean;
   filterable?: boolean;
   sortable?: boolean;
+  extraToolbarContent?: React.ReactNode; // CUSTOM
 }
 
 export const FilteredListToolbar: React.FC<IFilteredListToolbar> = ({
@@ -101,6 +102,7 @@ export const FilteredListToolbar: React.FC<IFilteredListToolbar> = ({
   zoomable = false,
   filterable = true,
   sortable = true,
+  extraToolbarContent, // CUSTOM
 }) => {
   const { configuration } = useConfigurationContext();
   const { pinnedSortBy = {} } = configuration.ui;
@@ -240,9 +242,7 @@ export const FilteredListToolbar: React.FC<IFilteredListToolbar> = ({
           />
         </>
       )}
-
       {renderOperations}
-
       <ListViewButtonGroup
         displayMode={filter.displayMode}
         displayModeOptions={filterOptions.displayModeOptions}
@@ -250,6 +250,7 @@ export const FilteredListToolbar: React.FC<IFilteredListToolbar> = ({
         zoomIndex={zoomable ? filter.zoomIndex : undefined}
         onSetZoom={zoomable ? setZoom : undefined}
       />
+      {extraToolbarContent} {/* CUSTOM */}
     </ButtonToolbar>
   );
 };

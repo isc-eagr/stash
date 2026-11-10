@@ -705,6 +705,7 @@ func getScanHandlers(options ScanMetadataInput, taskQueue *job.TaskQueue, progre
 			Handler: &scene.ScanHandler{
 				CreatorUpdater:       r.Scene,
 				GalleryFinderUpdater: r.Gallery,
+				ReleaseFileChecker:   r.SceneRelease, // CUSTOM
 				CaptionUpdater:       r.File,
 				PluginCache:          pluginCache,
 				ScanGenerator: &sceneGenerators{

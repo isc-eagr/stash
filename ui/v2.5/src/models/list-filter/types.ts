@@ -123,8 +123,10 @@ export interface IOptionType {
 }
 
 export type CriterionType =
+  | "insight_chip" // CUSTOM
   | "path"
   | "rating100"
+  | "metallic_rating" // CUSTOM
   | "organized"
   | "o_counter"
   | "resolution"
@@ -161,8 +163,6 @@ export type CriterionType =
   | "eye_color"
   | "height_cm"
   | "weight"
-  | "measurements"
-  | "fake_tits"
   | "penis_length"
   | "circumcised"
   | "career_length"
@@ -177,6 +177,7 @@ export type CriterionType =
   | "scene_count"
   | "marker_count"
   | "image_count"
+  | "profile_image_count" // CUSTOM
   | "gallery_count"
   | "performer_count"
   | "studio_count"
@@ -204,13 +205,20 @@ export type CriterionType =
   | "performer_favorite"
   | "favorite"
   | "performer_age"
+  | "performer_country" // CUSTOM
+  | "performer_ethnicity" // CUSTOM
+  | "performer_rating" // CUSTOM
   | "duplicated"
   | "ignore_auto_tag"
   | "file_count"
+  | "release_count" // CUSTOM
   | "stash_id_endpoint"
   | "stash_id_count"
+  | "stashdb_matches" // CUSTOM
+  | "marker_tags" // CUSTOM
   | "date"
   | "production_date"
+  | "effective_date" // CUSTOM
   | "created_at"
   | "updated_at"
   | "birthdate"
@@ -226,4 +234,40 @@ export type CriterionType =
   | "sort_name"
   | "custom_fields"
   | "folder"
-  | "parent_folder";
+  | "parent_folder"
+  // CUSTOM: begin
+  | "custom_filters"
+  | "partners" // CUSTOM
+  | "marker_performers"
+  | "has_marker_performers"
+  | "performer_markers"
+  | "scene_director"
+  | "has_end_time"
+  | "marker_length"
+  | "scene_performer_count"
+  | "marker_top"
+  | "marker_bottom"
+  | "marker_giver" // Legacy - migrates to marker_top
+  | "marker_receiver" // Legacy - migrates to marker_bottom
+  | "exclude_marker_tags"
+  | "scene_markers"
+  | "scene_markers_exclude"
+  | "has_roles"
+  | "scene_type"
+  | "activity_type"
+  | "quality_type"
+  | "sex_activity_percent"
+  | "oral_activity_percent"
+  | "solo_activity_percent"
+  | "other_activity_percent"
+  | "outstanding_activity_percent"
+  | "standard_activity_percent"
+  | "unclassified_activity_percent"
+  | "unusable_activity_percent"
+  | "sex_top_activity_percent"
+  | "sex_bottom_activity_percent"
+  | "oral_top_activity_percent"
+  | "oral_bottom_activity_percent"
+  | "rating_criteria"
+  | "performer_rating_criteria";
+// CUSTOM: end

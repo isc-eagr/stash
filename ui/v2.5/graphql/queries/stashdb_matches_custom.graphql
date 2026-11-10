@@ -1,0 +1,84 @@
+# CUSTOM: latest StashDB Matches refresh report.
+query StashDBMatchesReport {
+  stashDBMatchesReport {
+    started_at
+    finished_at
+    checked
+    changed
+    unchanged
+    not_found
+    failed
+    cancelled
+    endpoint
+    changes {
+      previous
+      current
+      release {
+        id
+        title
+        date
+        studio {
+          id
+          name
+        }
+      }
+      scene {
+        id
+        title
+        date
+        files {
+          path
+        }
+        studio {
+          id
+          name
+        }
+      }
+    }
+    unsubmitted {
+      stash_id
+      matches
+      release {
+        id
+        title
+        date
+        studio {
+          id
+          name
+        }
+      }
+      scene {
+        id
+        title
+        date
+        files {
+          path
+        }
+        studio {
+          id
+          name
+        }
+      }
+    }
+  }
+}
+
+# CUSTOM: names for the Scene Stats > StashDB Matches By Vato and By Studio
+# tables. Skip when empty: an empty ids list returns everything.
+query StashDBMatchesPerformerNames($ids: [ID!]) {
+  findPerformers(ids: $ids) {
+    performers {
+      id
+      name
+    }
+  }
+}
+
+query StashDBMatchesStudioNames($ids: [ID!]) {
+  findStudios(ids: $ids) {
+    studios {
+      id
+      name
+    }
+  }
+}

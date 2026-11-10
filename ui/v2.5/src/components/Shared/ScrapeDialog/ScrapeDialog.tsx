@@ -19,6 +19,10 @@ interface IScrapeDialogProps {
   existingLabel?: React.ReactNode;
   scrapedLabel?: React.ReactNode;
   onClose: (apply?: boolean) => void;
+  // CUSTOM: begin - optional accept label and running state
+  acceptText?: string;
+  isRunning?: boolean;
+  // CUSTOM: end
 }
 
 export const ScrapeDialog: React.FC<
@@ -60,8 +64,9 @@ export const ScrapeDialog: React.FC<
         onClick: () => {
           props.onClose(true);
         },
-        text: intl.formatMessage({ id: "actions.apply" }),
+        text: props.acceptText ?? intl.formatMessage({ id: "actions.apply" }), // CUSTOM
       }}
+      isRunning={props.isRunning} // CUSTOM
       cancel={{
         onClick: () => props.onClose(),
         text: intl.formatMessage({ id: "actions.cancel" }),

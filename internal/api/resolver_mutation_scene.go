@@ -116,6 +116,10 @@ func (r *mutationResolver) SceneCreate(ctx context.Context, input models.SceneCr
 			CoverImage:   coverImageData,
 			CustomFields: customFields,
 		})
+		// CUSTOM: StashDB Matches
+		if err == nil && input.StashDBMatches != nil {
+			err = r.repository.Scene.SetStashDBMatchesCustom(ctx, ret.ID, input.StashDBMatches)
+		}
 		return err
 	}); err != nil {
 		return nil, err
@@ -278,6 +282,12 @@ func (r *mutationResolver) sceneUpdate(ctx context.Context, input models.SceneUp
 		return nil, err
 	}
 
+	// CUSTOM: skip no-op relationship rewrites and retain the old cast only when it changed.
+	previousPerformerIDs, err := suppressUnchangedSceneRelationshipsCustom(ctx, qb, sceneID, updatedScene)
+	if err != nil {
+		return nil, err
+	}
+
 	// ensure that title is set where scene has no file
 	if updatedScene.Title.Set && updatedScene.Title.Value == "" {
 		if err := originalScene.LoadFiles(ctx, r.repository.Scene); err != nil {
@@ -334,6 +344,20 @@ func (r *mutationResolver) sceneUpdate(ctx context.Context, input models.SceneUp
 	if err != nil {
 		return nil, err
 	}
+	// CUSTOM: an explicit manual rating leaves advisor ownership.
+	if updatedScene.Rating.Set {
+		if err := r.repository.RatingScore.DeleteByEntity(ctx, models.RatingEntityScene, sceneID); err != nil {
+			return nil, err
+		}
+	}
+
+	// CUSTOM: begin - reset advisor scores when cast crosses the group threshold
+	if updatedScene.PerformerIDs != nil {
+		if err := r.syncSceneAdvisorAfterCastChangeCustom(ctx, sceneID, previousPerformerIDs); err != nil {
+			return nil, err
+		}
+	}
+	// CUSTOM: end
 
 	if coverImageIncluded {
 		if err := r.sceneUpdateCoverImage(ctx, scene, coverImageData); err != nil {
@@ -343,6 +367,13 @@ func (r *mutationResolver) sceneUpdate(ctx context.Context, input models.SceneUp
 
 	if customFields != nil {
 		if err := qb.SetCustomFields(ctx, scene.ID, *customFields); err != nil {
+			return nil, err
+		}
+	}
+
+	// CUSTOM: StashDB Matches
+	if translator.hasField("stashdb_matches") {
+		if err := setUpdatedSceneStashDBMatchesCustom(ctx, qb, scene.ID, input.StashDBMatches, translator.hasField("stash_ids")); err != nil { // CUSTOM
 			return nil, err
 		}
 	}
@@ -434,10 +465,35 @@ func (r *mutationResolver) BulkSceneUpdate(ctx context.Context, input BulkSceneU
 		qb := r.repository.Scene
 
 		for _, sceneID := range sceneIDs {
+			// CUSTOM: begin - reset advisor scores when bulk cast edit crosses the group threshold
+			var previousPerformerIDs []int
+			if updatedScene.PerformerIDs != nil {
+				performerIDs, err := qb.GetPerformerIDs(ctx, sceneID)
+				if err != nil {
+					return err
+				}
+				previousPerformerIDs = performerIDs
+			}
+			// CUSTOM: end
+
 			scene, err := qb.UpdatePartial(ctx, sceneID, updatedScene)
 			if err != nil {
 				return err
 			}
+			// CUSTOM: an explicit manual rating leaves advisor ownership.
+			if updatedScene.Rating.Set {
+				if err := r.repository.RatingScore.DeleteByEntity(ctx, models.RatingEntityScene, sceneID); err != nil {
+					return err
+				}
+			}
+
+			// CUSTOM: begin - reset advisor scores when bulk cast edit crosses the group threshold
+			if updatedScene.PerformerIDs != nil {
+				if err := r.syncSceneAdvisorAfterCastChangeCustom(ctx, sceneID, previousPerformerIDs); err != nil {
+					return err
+				}
+			}
+			// CUSTOM: end
 
 			if customFields != nil {
 				if err := qb.SetCustomFields(ctx, scene.ID, *customFields); err != nil {
@@ -504,7 +560,17 @@ func (r *mutationResolver) SceneDestroy(ctx context.Context, input models.SceneD
 		// kill any running encoders
 		manager.KillRunningStreams(s, fileNamingAlgo)
 
-		return r.sceneService.Destroy(ctx, s, fileDeleter, deleteGenerated, deleteFile, destroyFileEntry)
+		performerIDs, err := qb.GetPerformerIDs(ctx, sceneID)
+		if err != nil {
+			return err
+		}
+		if err := r.sceneService.Destroy(ctx, s, fileDeleter, deleteGenerated, deleteFile, destroyFileEntry); err != nil {
+			return err
+		}
+		if err := r.repository.RatingScore.DeleteByEntity(ctx, models.RatingEntityScene, sceneID); err != nil {
+			return err
+		}
+		return r.recalculatePerformerAdvisorRatingsCustom(ctx, performerIDs)
 	}); err != nil {
 		fileDeleter.Rollback()
 		return false, err
@@ -546,6 +612,7 @@ func (r *mutationResolver) ScenesDestroy(ctx context.Context, input models.Scene
 
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
 		qb := r.repository.Scene
+		var affectedPerformerIDs []int
 
 		for _, id := range sceneIDs {
 			scene, err := qb.Find(ctx, id)
@@ -560,13 +627,21 @@ func (r *mutationResolver) ScenesDestroy(ctx context.Context, input models.Scene
 
 			// kill any running encoders
 			manager.KillRunningStreams(scene, fileNamingAlgo)
+			performerIDs, err := qb.GetPerformerIDs(ctx, id)
+			if err != nil {
+				return err
+			}
+			affectedPerformerIDs = append(affectedPerformerIDs, performerIDs...)
 
 			if err := r.sceneService.Destroy(ctx, scene, fileDeleter, deleteGenerated, deleteFile, destroyFileEntry); err != nil {
 				return err
 			}
+			if err := r.repository.RatingScore.DeleteByEntity(ctx, models.RatingEntityScene, id); err != nil {
+				return err
+			}
 		}
 
-		return nil
+		return r.recalculatePerformerAdvisorRatingsCustom(ctx, affectedPerformerIDs)
 	}); err != nil {
 		fileDeleter.Rollback()
 		return false, err
@@ -660,10 +735,26 @@ func (r *mutationResolver) SceneMerge(ctx context.Context, input SceneMergeInput
 
 	var ret *models.Scene
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
+		var affectedPerformerIDs []int
+		for _, sceneID := range append(append([]int{}, srcIDs...), destID) {
+			performerIDs, err := r.repository.Scene.GetPerformerIDs(ctx, sceneID)
+			if err != nil {
+				return err
+			}
+			affectedPerformerIDs = append(affectedPerformerIDs, performerIDs...)
+		}
+
+		// CUSTOM: apply merge choices for fork-owned data (and O history with
+		// video timestamps) before the sources are destroyed
+		previousModes, err := r.sceneMergeCustomDataCustom(ctx, input, srcIDs, destID)
+		if err != nil {
+			return err
+		}
+
 		if err := r.Resolver.sceneService.Merge(ctx, srcIDs, destID, fileDeleter, scene.MergeOptions{
 			ScenePartial:       *values,
 			IncludePlayHistory: utils.IsTrue(input.PlayHistory),
-			IncludeOHistory:    utils.IsTrue(input.OHistory),
+			IncludeOHistory:    false, // CUSTOM: copied by MergeCustomDataCustom
 		}); err != nil {
 			return err
 		}
@@ -674,6 +765,25 @@ func (r *mutationResolver) SceneMerge(ctx context.Context, input SceneMergeInput
 		}
 		if ret == nil {
 			return fmt.Errorf("scene with id %d not found", destID)
+		}
+		for _, sourceID := range srcIDs {
+			if err := r.repository.RatingScore.DeleteByEntity(ctx, models.RatingEntityScene, sourceID); err != nil {
+				return err
+			}
+		}
+		if values.Rating.Set {
+			if err := r.repository.RatingScore.DeleteByEntity(ctx, models.RatingEntityScene, destID); err != nil {
+				return err
+			}
+		}
+		if err := r.resetSceneAdvisorsIfModeChangedCustom(ctx, previousModes); err != nil {
+			return err
+		}
+		if err := r.recalculateRatingIfAdvisorScoresExist(ctx, models.RatingEntityScene, destID); err != nil {
+			return err
+		}
+		if err := r.recalculatePerformerAdvisorRatingsCustom(ctx, affectedPerformerIDs); err != nil {
+			return err
 		}
 
 		// only update cover image if one was provided
@@ -739,10 +849,26 @@ func (r *mutationResolver) SceneMarkerCreate(ctx context.Context, input SceneMar
 		return nil, fmt.Errorf("converting tag ids: %w", err)
 	}
 
+	// CUSTOM: begin - scene marker performer IDs (top/bottom)
+	topPerformerIDs, err := stringslice.StringSliceToIntSlice(input.TopPerformerIds)
+	if err != nil {
+		return nil, fmt.Errorf("converting top performer ids: %w", err)
+	}
+	bottomPerformerIDs, err := stringslice.StringSliceToIntSlice(input.BottomPerformerIds)
+	if err != nil {
+		return nil, fmt.Errorf("converting bottom performer ids: %w", err)
+	}
+	// CUSTOM: end - scene marker performer IDs
+
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
 		qb := r.repository.SceneMarker
+		// CUSTOM: capture the rubric mode before marker tags can change it.
+		previousModes, err := r.sceneRatingModesCustom(ctx, []int{sceneID})
+		if err != nil {
+			return err
+		}
 
-		err := qb.Create(ctx, &newMarker)
+		err = qb.Create(ctx, &newMarker)
 		if err != nil {
 			return err
 		}
@@ -750,7 +876,23 @@ func (r *mutationResolver) SceneMarkerCreate(ctx context.Context, input SceneMar
 		// Save the marker tags
 		// If this tag is the primary tag, then let's not add it.
 		tagIDs = sliceutil.Exclude(tagIDs, []int{newMarker.PrimaryTagID})
-		return qb.UpdateTags(ctx, newMarker.ID, tagIDs)
+		// CUSTOM: begin - save marker performers (top/bottom)
+		if err := qb.UpdateTags(ctx, newMarker.ID, tagIDs); err != nil {
+			return err
+		}
+
+		if len(topPerformerIDs) > 0 {
+			if err := qb.UpdateTopPerformers(ctx, newMarker.ID, topPerformerIDs); err != nil {
+				return err
+			}
+		}
+		if len(bottomPerformerIDs) > 0 {
+			if err := qb.UpdateBottomPerformers(ctx, newMarker.ID, bottomPerformerIDs); err != nil {
+				return err
+			}
+		}
+		return r.resetSceneAdvisorsIfModeChangedCustom(ctx, previousModes)
+		// CUSTOM: end - save marker performers (top/bottom)
 	}); err != nil {
 		return nil, err
 	}
@@ -807,6 +949,26 @@ func (r *mutationResolver) SceneMarkerUpdate(ctx context.Context, input SceneMar
 		}
 	}
 
+	// CUSTOM: begin - scene marker performer IDs for update (top/bottom)
+	var topPerformerIDs []int
+	topPerformerIdsIncluded := translator.hasField("top_performer_ids")
+	if input.TopPerformerIds != nil {
+		topPerformerIDs, err = stringslice.StringSliceToIntSlice(input.TopPerformerIds)
+		if err != nil {
+			return nil, fmt.Errorf("converting top performer ids: %w", err)
+		}
+	}
+
+	var bottomPerformerIDs []int
+	bottomPerformerIdsIncluded := translator.hasField("bottom_performer_ids")
+	if input.BottomPerformerIds != nil {
+		bottomPerformerIDs, err = stringslice.StringSliceToIntSlice(input.BottomPerformerIds)
+		if err != nil {
+			return nil, fmt.Errorf("converting bottom performer ids: %w", err)
+		}
+	}
+	// CUSTOM: end - scene marker performer IDs for update
+
 	mgr := manager.GetInstance()
 	trashPath := mgr.Config.GetDeleteTrashPath()
 
@@ -829,6 +991,61 @@ func (r *mutationResolver) SceneMarkerUpdate(ctx context.Context, input SceneMar
 		if existingMarker == nil {
 			return fmt.Errorf("scene marker with id %d not found", markerID)
 		}
+		if err := r.guardReleaseMarkerSceneCustom(ctx, existingMarker, &updatedMarker); err != nil { // CUSTOM
+			return err
+		}
+		updatedSceneID := existingMarker.SceneID
+		if updatedMarker.SceneID.Set {
+			updatedSceneID = updatedMarker.SceneID.Value
+		}
+		// CUSTOM: begin - avoid relationship rewrites and rubric scans when the
+		// form submitted values that are already stored.
+		modeMayChange := updatedSceneID != existingMarker.SceneID
+		if updatedMarker.PrimaryTagID.Set {
+			if updatedMarker.PrimaryTagID.Value == existingMarker.PrimaryTagID {
+				updatedMarker.PrimaryTagID.Set = false
+			} else {
+				modeMayChange = true
+			}
+		}
+		if tagIdsIncluded {
+			primaryTagID := existingMarker.PrimaryTagID
+			if updatedMarker.PrimaryTagID.Set {
+				primaryTagID = updatedMarker.PrimaryTagID.Value
+			}
+			tagIDs = sliceutil.Exclude(tagIDs, []int{primaryTagID})
+			existingTagIDs, err := qb.GetTagIDs(ctx, markerID)
+			if err != nil {
+				return err
+			}
+			if equalSceneMarkerIDSetsCustom(existingTagIDs, tagIDs) {
+				tagIdsIncluded = false
+			} else {
+				modeMayChange = true
+			}
+		}
+
+		if topPerformerIdsIncluded || bottomPerformerIdsIncluded {
+			existingPerformers, err := qb.GetPerformers(ctx, markerID)
+			if err != nil {
+				return err
+			}
+			if topPerformerIdsIncluded && equalSceneMarkerIDSetsCustom(markerPerformerIDsForRoleCustom(existingPerformers, "top"), topPerformerIDs) {
+				topPerformerIdsIncluded = false
+			}
+			if bottomPerformerIdsIncluded && equalSceneMarkerIDSetsCustom(markerPerformerIDsForRoleCustom(existingPerformers, "bottom"), bottomPerformerIDs) {
+				bottomPerformerIdsIncluded = false
+			}
+		}
+
+		var previousModes map[int]string
+		if modeMayChange {
+			previousModes, err = r.sceneRatingModesCustom(ctx, []int{existingMarker.SceneID, updatedSceneID})
+			if err != nil {
+				return err
+			}
+		}
+		// CUSTOM: end
 
 		// Validate end_seconds
 		shouldValidateEndSeconds := (updatedMarker.Seconds.Set || updatedMarker.EndSeconds.Set) && !updatedMarker.EndSeconds.Null
@@ -850,37 +1067,56 @@ func (r *mutationResolver) SceneMarkerUpdate(ctx context.Context, input SceneMar
 			}
 		}
 
+		// CUSTOM: apply primary and secondary tag changes together so tracker history
+		// observes the final membership, including a primary/secondary tag swap.
+		if tagIdsIncluded {
+			updatedMarker.TagIDs = &models.UpdateIDs{IDs: tagIDs, Mode: models.RelationshipUpdateModeSet}
+		}
 		newMarker, err := qb.UpdatePartial(ctx, markerID, updatedMarker)
 		if err != nil {
 			return err
 		}
 
-		existingScene, err := sqb.Find(ctx, existingMarker.SceneID)
-		if err != nil {
+		// CUSTOM: release markers have no scene; release marker saves leave
+		// generated previews in place too.
+		if existingMarker.ReleaseID == nil {
+			existingScene, err := sqb.Find(ctx, existingMarker.SceneID)
+			if err != nil {
+				return err
+			}
+			if existingScene == nil {
+				return fmt.Errorf("scene with id %d not found", existingMarker.SceneID)
+			}
+
+			// remove the marker preview if the scene changed or if the timestamp was changed
+			if existingMarker.SceneID != newMarker.SceneID || existingMarker.Seconds != newMarker.Seconds || float64OrZero(existingMarker.EndSeconds) != float64OrZero(newMarker.EndSeconds) {
+				seconds := int(existingMarker.Seconds)
+				if err := fileDeleter.MarkMarkerFiles(existingScene, seconds); err != nil {
+					return err
+				}
+			}
+		}
+
+		// CUSTOM: marker tags were saved atomically by UpdatePartial above.
+
+		// CUSTOM: begin - update marker performers (top/bottom)
+		if topPerformerIdsIncluded {
+			if err := qb.UpdateTopPerformers(ctx, markerID, topPerformerIDs); err != nil {
+				return err
+			}
+		}
+
+		if bottomPerformerIdsIncluded {
+			if err := qb.UpdateBottomPerformers(ctx, markerID, bottomPerformerIDs); err != nil {
+				return err
+			}
+		}
+		// CUSTOM: end - update marker performers (top/bottom)
+
+		if err := r.recalculateMarkerReleasesCustom(ctx, []*models.SceneMarker{existingMarker}); err != nil { // CUSTOM
 			return err
 		}
-		if existingScene == nil {
-			return fmt.Errorf("scene with id %d not found", existingMarker.SceneID)
-		}
-
-		// remove the marker preview if the scene changed or if the timestamp was changed
-		if existingMarker.SceneID != newMarker.SceneID || existingMarker.Seconds != newMarker.Seconds || float64OrZero(existingMarker.EndSeconds) != float64OrZero(newMarker.EndSeconds) {
-			seconds := int(existingMarker.Seconds)
-			if err := fileDeleter.MarkMarkerFiles(existingScene, seconds); err != nil {
-				return err
-			}
-		}
-
-		if tagIdsIncluded {
-			// Save the marker tags
-			// If this tag is the primary tag, then let's not add it.
-			tagIDs = sliceutil.Exclude(tagIDs, []int{newMarker.PrimaryTagID})
-			if err := qb.UpdateTags(ctx, markerID, tagIDs); err != nil {
-				return err
-			}
-		}
-
-		return nil
+		return r.resetSceneAdvisorsIfModeChangedCustom(ctx, previousModes)
 	}); err != nil {
 		fileDeleter.Rollback()
 		return nil, err
@@ -923,6 +1159,24 @@ func (r *mutationResolver) BulkSceneMarkerUpdate(ctx context.Context, input Bulk
 	// Start the transaction and save the performers
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
 		qb := r.repository.SceneMarker
+		// CUSTOM: capture every affected scene mode before the bulk retag.
+		var affectedSceneIDs []int
+		var affectedMarkers []*models.SceneMarker // CUSTOM
+		for _, id := range ids {
+			marker, err := qb.Find(ctx, id)
+			if err != nil {
+				return err
+			}
+			if marker == nil {
+				return fmt.Errorf("scene marker with id %d not found", id)
+			}
+			affectedSceneIDs = append(affectedSceneIDs, marker.SceneID)
+			affectedMarkers = append(affectedMarkers, marker) // CUSTOM
+		}
+		previousModes, err := r.sceneRatingModesCustom(ctx, affectedSceneIDs)
+		if err != nil {
+			return err
+		}
 
 		for _, id := range ids {
 			l := partial
@@ -939,7 +1193,10 @@ func (r *mutationResolver) BulkSceneMarkerUpdate(ctx context.Context, input Bulk
 			ret = append(ret, updated)
 		}
 
-		return nil
+		if err := r.recalculateMarkerReleasesCustom(ctx, affectedMarkers); err != nil { // CUSTOM
+			return err
+		}
+		return r.resetSceneAdvisorsIfModeChangedCustom(ctx, previousModes)
 	}); err != nil {
 		return nil, err
 	}
@@ -1033,6 +1290,7 @@ func (r *mutationResolver) SceneMarkersDestroy(ctx context.Context, markerIDs []
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
 		qb := r.repository.SceneMarker
 		sqb := r.repository.Scene
+		var affectedSceneIDs []int
 
 		for _, markerID := range ids {
 			marker, err := qb.Find(ctx, markerID)
@@ -1043,6 +1301,12 @@ func (r *mutationResolver) SceneMarkersDestroy(ctx context.Context, markerIDs []
 
 			if marker == nil {
 				return fmt.Errorf("scene marker with id %d not found", markerID)
+			}
+
+			// CUSTOM: release markers have no scene to look up
+			if marker.ReleaseID != nil {
+				markers = append(markers, marker)
+				continue
 			}
 
 			s, err := sqb.Find(ctx, marker.SceneID)
@@ -1056,13 +1320,42 @@ func (r *mutationResolver) SceneMarkersDestroy(ctx context.Context, markerIDs []
 			}
 
 			markers = append(markers, marker)
+			affectedSceneIDs = append(affectedSceneIDs, marker.SceneID)
+		}
+
+		// CUSTOM: capture scene modes before the markers are removed.
+		previousModes, err := r.sceneRatingModesCustom(ctx, affectedSceneIDs)
+		if err != nil {
+			return err
+		}
+
+		for _, marker := range markers {
+			// CUSTOM: delete release markers as sceneReleaseMarkerDestroy does
+			if marker.ReleaseID != nil {
+				if err := qb.Destroy(ctx, marker.ID); err != nil {
+					return err
+				}
+				continue
+			}
+
+			s, err := sqb.Find(ctx, marker.SceneID)
+			if err != nil {
+				return err
+			}
+
+			if s == nil {
+				return fmt.Errorf("scene with id %d not found", marker.SceneID)
+			}
 
 			if err := scene.DestroyMarker(ctx, s, marker, qb, fileDeleter); err != nil {
 				return err
 			}
 		}
 
-		return nil
+		if err := r.recalculateMarkerReleasesCustom(ctx, markers); err != nil { // CUSTOM
+			return err
+		}
+		return r.resetSceneAdvisorsIfModeChangedCustom(ctx, previousModes)
 	}); err != nil {
 		fileDeleter.Rollback()
 		return false, err
@@ -1135,6 +1428,7 @@ func (r *mutationResolver) SceneIncrementPlayCount(ctx context.Context, id strin
 }
 
 func (r *mutationResolver) SceneAddPlay(ctx context.Context, id string, t []*time.Time) (*HistoryMutationResult, error) {
+	ctx = historyMutationContextCustom(ctx) // CUSTOM: avoid loading history when it was not selected
 	sceneID, err := strconv.Atoi(id)
 	if err != nil {
 		return nil, fmt.Errorf("converting id: %w", err)
@@ -1159,12 +1453,13 @@ func (r *mutationResolver) SceneAddPlay(ctx context.Context, id string, t []*tim
 	}
 
 	return &HistoryMutationResult{
-		Count:   len(updatedTimes),
+		Count:   models.HistoryMutationResultCountCustom(ctx, len(updatedTimes)), // CUSTOM
 		History: sliceutil.ValuesToPtrs(updatedTimes),
 	}, nil
 }
 
 func (r *mutationResolver) SceneDeletePlay(ctx context.Context, id string, t []*time.Time) (*HistoryMutationResult, error) {
+	ctx = historyMutationContextCustom(ctx) // CUSTOM: avoid loading history when it was not selected
 	sceneID, err := strconv.Atoi(id)
 	if err != nil {
 		return nil, err
@@ -1188,7 +1483,7 @@ func (r *mutationResolver) SceneDeletePlay(ctx context.Context, id string, t []*
 	}
 
 	return &HistoryMutationResult{
-		Count:   len(updatedTimes),
+		Count:   models.HistoryMutationResultCountCustom(ctx, len(updatedTimes)), // CUSTOM
 		History: sliceutil.ValuesToPtrs(updatedTimes),
 	}, nil
 }
@@ -1223,8 +1518,15 @@ func (r *mutationResolver) SceneIncrementO(ctx context.Context, id string) (ret 
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
 		qb := r.repository.Scene
 
+		previousCount, err := qb.GetOCount(ctx, sceneID) // CUSTOM
+		if err != nil {
+			return err
+		}
 		updatedTimes, err = qb.AddO(ctx, sceneID, nil)
-		return err
+		if err != nil {
+			return err
+		}
+		return r.repository.RatingScore.AdjustRatingsForSceneOCountChangeCustom(ctx, sceneID, previousCount, len(updatedTimes)) // CUSTOM
 	}); err != nil {
 		return 0, err
 	}
@@ -1244,8 +1546,15 @@ func (r *mutationResolver) SceneDecrementO(ctx context.Context, id string) (ret 
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
 		qb := r.repository.Scene
 
+		previousCount, err := qb.GetOCount(ctx, sceneID) // CUSTOM
+		if err != nil {
+			return err
+		}
 		updatedTimes, err = qb.DeleteO(ctx, sceneID, nil)
-		return err
+		if err != nil {
+			return err
+		}
+		return r.repository.RatingScore.AdjustRatingsForSceneOCountChangeCustom(ctx, sceneID, previousCount, len(updatedTimes)) // CUSTOM
 	}); err != nil {
 		return 0, err
 	}
@@ -1262,8 +1571,15 @@ func (r *mutationResolver) SceneResetO(ctx context.Context, id string) (ret int,
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
 		qb := r.repository.Scene
 
+		previousCount, err := qb.GetOCount(ctx, sceneID) // CUSTOM
+		if err != nil {
+			return err
+		}
 		ret, err = qb.ResetO(ctx, sceneID)
-		return err
+		if err != nil {
+			return err
+		}
+		return r.repository.RatingScore.AdjustRatingsForSceneOCountChangeCustom(ctx, sceneID, previousCount, ret) // CUSTOM
 	}); err != nil {
 		return 0, err
 	}
@@ -1272,6 +1588,7 @@ func (r *mutationResolver) SceneResetO(ctx context.Context, id string) (ret int,
 }
 
 func (r *mutationResolver) SceneAddO(ctx context.Context, id string, t []*time.Time) (*HistoryMutationResult, error) {
+	ctx = historyMutationContextCustom(ctx) // CUSTOM: avoid loading history when it was not selected
 	sceneID, err := strconv.Atoi(id)
 	if err != nil {
 		return nil, fmt.Errorf("converting id: %w", err)
@@ -1289,19 +1606,28 @@ func (r *mutationResolver) SceneAddO(ctx context.Context, id string, t []*time.T
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
 		qb := r.repository.Scene
 
+		previousCount, err := qb.GetOCount(ctx, sceneID) // CUSTOM
+		if err != nil {
+			return err
+		}
 		updatedTimes, err = qb.AddO(ctx, sceneID, times)
-		return err
+		if err != nil {
+			return err
+		}
+		updatedCount := models.HistoryMutationResultCountCustom(ctx, len(updatedTimes))                                    // CUSTOM
+		return r.repository.RatingScore.AdjustRatingsForSceneOCountChangeCustom(ctx, sceneID, previousCount, updatedCount) // CUSTOM
 	}); err != nil {
 		return nil, err
 	}
 
 	return &HistoryMutationResult{
-		Count:   len(updatedTimes),
+		Count:   models.HistoryMutationResultCountCustom(ctx, len(updatedTimes)), // CUSTOM
 		History: sliceutil.ValuesToPtrs(updatedTimes),
 	}, nil
 }
 
 func (r *mutationResolver) SceneDeleteO(ctx context.Context, id string, t []*time.Time) (*HistoryMutationResult, error) {
+	ctx = historyMutationContextCustom(ctx) // CUSTOM: avoid loading history when it was not selected
 	sceneID, err := strconv.Atoi(id)
 	if err != nil {
 		return nil, fmt.Errorf("converting id: %w", err)
@@ -1318,14 +1644,22 @@ func (r *mutationResolver) SceneDeleteO(ctx context.Context, id string, t []*tim
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
 		qb := r.repository.Scene
 
+		previousCount, err := qb.GetOCount(ctx, sceneID) // CUSTOM
+		if err != nil {
+			return err
+		}
 		updatedTimes, err = qb.DeleteO(ctx, sceneID, times)
-		return err
+		if err != nil {
+			return err
+		}
+		updatedCount := models.HistoryMutationResultCountCustom(ctx, len(updatedTimes))                                    // CUSTOM
+		return r.repository.RatingScore.AdjustRatingsForSceneOCountChangeCustom(ctx, sceneID, previousCount, updatedCount) // CUSTOM
 	}); err != nil {
 		return nil, err
 	}
 
 	return &HistoryMutationResult{
-		Count:   len(updatedTimes),
+		Count:   models.HistoryMutationResultCountCustom(ctx, len(updatedTimes)), // CUSTOM
 		History: sliceutil.ValuesToPtrs(updatedTimes),
 	}, nil
 }

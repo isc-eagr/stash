@@ -19,7 +19,7 @@ fragment ImageData on Image {
   }
 
   galleries {
-    ...GalleryData
+    ...SelectGalleryData # CUSTOM: image links and editor need selection fields only
   }
 
   studio {
@@ -31,7 +31,11 @@ fragment ImageData on Image {
   }
 
   performers {
-    ...PerformerData
+    ...PerformerListData # CUSTOM: card role totals load in one batch
+    # CUSTOM: retain exact marker badge counts used before batching.
+    facial_marker_top_count
+    facial_marker_bottom_count
+    feet_marker_count
   }
 
   visual_files {

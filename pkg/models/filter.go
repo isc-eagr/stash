@@ -36,8 +36,12 @@ const (
 	CriterionModifierNotEquals CriterionModifier = "NOT_EQUALS"
 	// >
 	CriterionModifierGreaterThan CriterionModifier = "GREATER_THAN"
+	// >=
+	CriterionModifierGreaterThanEquals CriterionModifier = "GREATER_THAN_EQUALS" // CUSTOM
 	// <
 	CriterionModifierLessThan CriterionModifier = "LESS_THAN"
+	// <=
+	CriterionModifierLessThanEquals CriterionModifier = "LESS_THAN_EQUALS" // CUSTOM
 	// IS NULL
 	CriterionModifierIsNull CriterionModifier = "IS_NULL"
 	// IS NOT NULL
@@ -60,7 +64,9 @@ var AllCriterionModifier = []CriterionModifier{
 	CriterionModifierEquals,
 	CriterionModifierNotEquals,
 	CriterionModifierGreaterThan,
+	CriterionModifierGreaterThanEquals, // CUSTOM
 	CriterionModifierLessThan,
+	CriterionModifierLessThanEquals, // CUSTOM
 	CriterionModifierIsNull,
 	CriterionModifierNotNull,
 	CriterionModifierIncludesAll,
@@ -74,7 +80,7 @@ var AllCriterionModifier = []CriterionModifier{
 
 func (e CriterionModifier) IsValid() bool {
 	switch e {
-	case CriterionModifierEquals, CriterionModifierNotEquals, CriterionModifierGreaterThan, CriterionModifierLessThan, CriterionModifierIsNull, CriterionModifierNotNull, CriterionModifierIncludesAll, CriterionModifierIncludes, CriterionModifierExcludes, CriterionModifierMatchesRegex, CriterionModifierNotMatchesRegex, CriterionModifierBetween, CriterionModifierNotBetween:
+	case CriterionModifierEquals, CriterionModifierNotEquals, CriterionModifierGreaterThan, CriterionModifierGreaterThanEquals, CriterionModifierLessThan, CriterionModifierLessThanEquals, CriterionModifierIsNull, CriterionModifierNotNull, CriterionModifierIncludesAll, CriterionModifierIncludes, CriterionModifierExcludes, CriterionModifierMatchesRegex, CriterionModifierNotMatchesRegex, CriterionModifierBetween, CriterionModifierNotBetween: // CUSTOM: added GreaterThanEquals, LessThanEquals
 		return true
 	}
 	return false
@@ -124,7 +130,7 @@ type IntCriterionInput struct {
 
 func (i IntCriterionInput) ValidModifier() bool {
 	switch i.Modifier {
-	case CriterionModifierEquals, CriterionModifierNotEquals, CriterionModifierGreaterThan, CriterionModifierLessThan, CriterionModifierIsNull, CriterionModifierNotNull, CriterionModifierBetween, CriterionModifierNotBetween:
+	case CriterionModifierEquals, CriterionModifierNotEquals, CriterionModifierGreaterThan, CriterionModifierGreaterThanEquals, CriterionModifierLessThan, CriterionModifierLessThanEquals, CriterionModifierIsNull, CriterionModifierNotNull, CriterionModifierBetween, CriterionModifierNotBetween: // CUSTOM: added GreaterThanEquals, LessThanEquals
 		return true
 	}
 	return false
@@ -153,7 +159,7 @@ type FloatCriterionInput struct {
 
 func (i FloatCriterionInput) ValidModifier() bool {
 	switch i.Modifier {
-	case CriterionModifierEquals, CriterionModifierNotEquals, CriterionModifierGreaterThan, CriterionModifierLessThan, CriterionModifierIsNull, CriterionModifierNotNull, CriterionModifierBetween, CriterionModifierNotBetween:
+	case CriterionModifierEquals, CriterionModifierNotEquals, CriterionModifierGreaterThan, CriterionModifierGreaterThanEquals, CriterionModifierLessThan, CriterionModifierLessThanEquals, CriterionModifierIsNull, CriterionModifierNotNull, CriterionModifierBetween, CriterionModifierNotBetween: // CUSTOM: added GreaterThanEquals, LessThanEquals
 		return true
 	}
 	return false
@@ -187,6 +193,85 @@ type MultiCriterionInput struct {
 	Modifier CriterionModifier `json:"modifier"`
 	Excludes []string          `json:"excludes"`
 }
+
+// CUSTOM: begin
+// UnnamedPerformerCriterionInput represents criteria for matching a distinct performer
+// Each slot must match a DIFFERENT performer that satisfies ALL the criteria
+// The ID is used to correlate the same unnamed performer across different marker groups
+type UnnamedPerformerCriterionInput struct {
+	ID             *string                    `json:"id"` // Used to correlate across marker groups
+	Ethnicities    []string                   `json:"ethnicities"`
+	Countries      []string                   `json:"countries"`
+	Rating         *IntCriterionInput         `json:"rating"`
+	RatingCriteria *RatingCriteriaFilterInput `json:"rating_criteria"` // CUSTOM
+}
+
+// SceneMarkerTagGroupInput represents a group for scene marker tags filtering
+// with optional performer attributes
+type SceneMarkerTagGroupInput struct {
+	TagIDs                []string `json:"tag_ids"`
+	ExcludeTagIDs         []string `json:"exclude_tag_ids"`           // Tags that must NOT be present on any marker
+	ExcludeTagIDsOnMarker []string `json:"exclude_tag_ids_on_marker"` // Tags that must NOT be present on the matched marker
+	OwnTagsOnly           *bool    `json:"own_tags_only"`             // CUSTOM: Nut tile pips: own tags only, subtag exclusions, no release markers
+	Depth                 *int     `json:"depth"`
+
+	// Top criteria
+	TopPerformerIDs []string           `json:"top_performer_ids"`
+	TopAnyCount     *int               `json:"top_any_count"` // Minimum number of ANY top performers required
+	TopEthnicities  []string           `json:"top_ethnicities"`
+	TopCountries    []string           `json:"top_countries"`
+	TopRating       *IntCriterionInput `json:"top_rating"`
+
+	// Bottom criteria
+	BottomPerformerIDs []string           `json:"bottom_performer_ids"`
+	BottomAnyCount     *int               `json:"bottom_any_count"` // Minimum number of ANY bottom performers required
+	BottomEthnicities  []string           `json:"bottom_ethnicities"`
+	BottomCountries    []string           `json:"bottom_countries"`
+	BottomRating       *IntCriterionInput `json:"bottom_rating"`
+
+	// Both-roles criteria (performer must be BOTH top AND bottom)
+	BothRolesPerformerIDs []string           `json:"both_roles_performer_ids"`
+	BothRolesEthnicities  []string           `json:"both_roles_ethnicities"`
+	BothRolesCountries    []string           `json:"both_roles_countries"`
+	BothRolesRating       *IntCriterionInput `json:"both_roles_rating"`
+
+	// Unnamed performer slots - each must match a DISTINCT performer satisfying all criteria
+	TopUnnamedPerformers       []UnnamedPerformerCriterionInput `json:"top_unnamed_performers"`
+	BottomUnnamedPerformers    []UnnamedPerformerCriterionInput `json:"bottom_unnamed_performers"`
+	BothRolesUnnamedPerformers []UnnamedPerformerCriterionInput `json:"both_roles_unnamed_performers"`
+
+	// Either-role criteria (performer must be on the marker in any role)
+	EitherPerformerIDs      []string                         `json:"either_performer_ids"`
+	EitherUnnamedPerformers []UnnamedPerformerCriterionInput `json:"either_unnamed_performers"`
+
+	// Mode for performer matching
+	PerformerMode *string `json:"performer_mode"` // "AND" or "OR" (default: "OR")
+}
+
+// SceneMarkerTagsCriterionInput supports grouped tag semantics for scene marker tag filtering on scenes.
+// - For modifier = EQUALS (IS): use Groups, where each inner slice represents tags that must all appear on a single marker.
+// - For modifier = INCLUDES / INCLUDES_ALL: use Value as a flat list of tag IDs across any markers on the scene.
+// - IS_NULL / NOT_NULL are also supported to check presence/absence of any marker tags.
+type SceneMarkerTagsCriterionInput struct {
+	Modifier CriterionModifier `json:"modifier"`
+	// Used by INCLUDES and INCLUDES_ALL (flat set of tag IDs)
+	Value []string `json:"value"`
+	// Used by EQUALS (IS): each inner list is a group of tag IDs that must all be present on a single marker
+	Groups [][]string `json:"groups"`
+	// Extended groups with performer attributes
+	GroupsExtended []SceneMarkerTagGroupInput `json:"groups_extended"`
+	// Marker requirements that must be satisfied by direct overlapping markers.
+	OverlapGroups []SceneMarkerTagGroupInput `json:"overlap_groups"`
+	// Exclusion groups with full performer criteria. Each group defines a marker pattern that,
+	// when matched, causes the scene to be excluded from results.
+	GroupsExtendedExclude []SceneMarkerTagGroupInput `json:"groups_extended_exclude"`
+	// Modifier for exclusion groups logic:
+	// - INCLUDES_ALL: ALL exclusion groups must match for the scene to be excluded
+	// - INCLUDES: ANY exclusion group matching causes the scene to be excluded
+	ExcludeModifier *CriterionModifier `json:"exclude_modifier"`
+}
+
+// CUSTOM: end
 
 type DateCriterionInput struct {
 	Value    string            `json:"value"`

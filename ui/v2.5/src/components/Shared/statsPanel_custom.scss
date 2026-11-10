@@ -1,0 +1,151 @@
+/* CUSTOM: one panel for the Scene Types tiles, the Activity Type bar, and
+   (on Vato Detail) the versatility scales. Sections share one header style
+   and hairline dividers; the bar and its legend copy the tiles' tint. Used
+   by Vato Detail and Studio Detail headers. */
+.stats-panel-custom {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 0 1rem;
+
+  > .performer-count-tiles,
+  > .scene-type-tiles,
+  > .custom-stats-overview,
+  > .performer-versatility {
+    border-top: 1px solid rgba(255, 255, 255, 0.09);
+    flex: none;
+    margin: 0;
+    max-width: none;
+    padding: 1rem 0;
+    width: 100%;
+  }
+
+  > :first-child {
+    border-top: 0;
+  }
+
+  .scene-type-tiles__label,
+  .scene-activity-metrics--stats .scene-activity-metrics__group-label,
+  .performer-versatility-title {
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    line-height: 1rem;
+    margin: 0;
+    text-transform: uppercase;
+  }
+
+  .scene-type-tiles {
+    gap: 0.6rem;
+  }
+
+  /* Nut/Feet start below the Scene Types label (1rem line + 0.6rem gap). */
+  .performer-count-tiles.performer-count-tiles--cast-split {
+    > .performer-role-badges,
+    .performer-count-tiles__divider {
+      margin-top: 1.6rem;
+    }
+  }
+
+  /* Activity Type: no inner box; the bar's segments copy the tiles. */
+  .scene-activity-metrics--stats {
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+
+    .scene-activity-metrics__group {
+      background: none;
+      border: 0;
+      gap: 0.6rem;
+      padding: 0;
+    }
+
+    /* The bar's tile tint is shared (styles/tintedSegments_custom.scss). */
+    .scene-activity-metrics__distribution {
+      height: 1rem;
+      margin: 0;
+    }
+
+    /* A legend under the bar instead of boxed chips. */
+    .scene-activity-metrics__row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      justify-content: flex-start;
+    }
+
+    .scene-activity-metric--composition {
+      background: none;
+      border: 0;
+      box-shadow: none;
+      flex: 0 0 auto;
+      gap: 0.4rem;
+      min-height: 0;
+      padding: 0;
+
+      &::before {
+        border-radius: 3px;
+        border-style: solid;
+        border-width: 1px;
+        box-sizing: border-box;
+        content: "";
+        flex: none;
+        height: 0.7rem;
+        width: 0.7rem;
+      }
+
+      &:hover {
+        background: none;
+      }
+
+      /* Legend text: "Sex 70% 46:23". */
+      .scene-activity-metric__label {
+        color: rgba(255, 255, 255, 0.85);
+        font-size: 0.85rem;
+      }
+
+      .scene-activity-metric__copy {
+        align-items: baseline;
+        display: inline-flex;
+        font-size: 0.85rem;
+        gap: 0.35rem;
+
+        strong {
+          color: #fff;
+          font-weight: 700;
+        }
+      }
+
+      .scene-activity-metric__duration {
+        color: rgba(255, 255, 255, 0.55);
+      }
+    }
+  }
+
+  /* Legend swatches use the same tile tint as the bar. */
+  @each $key, $role in (sex: sex, oral: oral, solo: solo, other: unclassified) {
+    .scene-activity-metric--#{$key}::before {
+      background-color: rgba(var(--semantic-#{$role}-rgb), 0.12);
+      border-color: rgba(var(--semantic-#{$role}-rgb), 0.45);
+    }
+  }
+
+  /* Versatility: flat rows split by a hairline instead of grey boxes. */
+  .performer-versatility-scales {
+    gap: 0.75rem;
+    margin-top: 0.6rem;
+  }
+
+  .performer-versatility--detail .performer-versatility-scale {
+    background: none;
+    padding: 0;
+
+    + .performer-versatility-scale {
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      padding-top: 0.75rem;
+    }
+  }
+}

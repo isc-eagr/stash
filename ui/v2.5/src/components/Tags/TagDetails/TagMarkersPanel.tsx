@@ -30,10 +30,11 @@ function useFilterHook(tag: GQL.TagDataFragment, showSubTagContent?: boolean) {
         tagCriterion.value.items.push(tagValue);
       }
 
-      tagCriterion.modifier = GQL.CriterionModifier.IncludesAll;
+      tagCriterion.modifier = GQL.CriterionModifier.Includes; // CUSTOM: ordinary Tag navigation must not use overlap-aware INCLUDES_ALL semantics
     } else {
       // overwrite
       tagCriterion = new TagsCriterion(TagsCriterionOption);
+      tagCriterion.modifier = GQL.CriterionModifier.Includes; // CUSTOM
       tagCriterion.value = {
         items: [tagValue],
         excluded: [],

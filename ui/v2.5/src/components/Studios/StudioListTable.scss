@@ -5,4 +5,14 @@
     object-fit: contain;
     object-position: center;
   }
+
+  // CUSTOM: begin
+  &.table-list {
+    max-height: calc(100dvh - 210px);
+  }
+
+  .rating-stars {
+    white-space: nowrap;
+  }
+  // CUSTOM: end
 }

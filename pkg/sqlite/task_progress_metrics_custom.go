@@ -1,0 +1,300 @@
+package sqlite
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"strconv"
+
+	"github.com/stashapp/stash/pkg/models"
+)
+
+// All SQL identifiers are selected from this closed list, never from user input.
+func taskProgressMembershipSQLCustom(itemType string) string {
+	if itemType == "scene_marker" {
+		return "SELECT primary_tag_id AS tag_id, id AS item_id FROM scene_markers UNION SELECT tag_id, scene_marker_id AS item_id FROM scene_markers_tags"
+	}
+	joins := map[string]string{"scene": "scenes_tags", "image": "images_tags", "gallery": "galleries_tags", "performer": "performers_tags", "studio": "studios_tags", "group": "groups_tags"}
+	table, ok := joins[itemType]
+	if !ok {
+		return "SELECT 0 AS tag_id, 0 AS item_id WHERE 0"
+	}
+	return "SELECT DISTINCT tag_id, " + itemType + "_id AS item_id FROM " + table
+}
+
+// The number of count queries depends on supported entity types, not tracker count.
+func loadTaskProgressMetricsCustom(ctx context.Context, trackers []*models.TaskProgressTracker) error {
+	if len(trackers) == 0 {
+		return nil
+	}
+	byID := make(map[int]*models.TaskProgressTracker)
+	ids := make([]int, 0, len(trackers))
+	tagIDs := make([]int, 0, len(trackers))
+	seenTags := make(map[int]bool)
+	for _, t := range trackers {
+		byID[t.ID] = t
+		ids = append(ids, t.ID)
+		if !seenTags[t.TagID] {
+			tagIDs = append(tagIDs, t.TagID)
+			seenTags[t.TagID] = true
+		}
+		t.CurrentCount = 0
+		t.CompletedCount = 0
+		t.IncomingCount = 0
+		t.ItemCounts = []*models.TaskProgressItemCount{}
+		t.CompletedItemCounts = []*models.TaskProgressItemCount{}
+		t.History = []*models.TaskProgressDay{}
+	}
+	counts := map[int]map[string]int{}
+	for _, typ := range models.TaskProgressItemTypes {
+		q := "SELECT tag_id, COUNT(*) FROM (" + taskProgressMembershipSQLCustom(typ) + ") WHERE tag_id IN " + getInBinding(len(tagIDs)) + " GROUP BY tag_id"
+		args := make([]interface{}, len(tagIDs))
+		for i, id := range tagIDs {
+			args[i] = id
+		}
+		rows, err := dbWrapper.QueryxContext(ctx, q, args...)
+		if err != nil {
+			return err
+		}
+		for rows.Next() {
+			var id, n int
+			if err := rows.Scan(&id, &n); err != nil {
+				rows.Close()
+				return err
+			}
+			if counts[id] == nil {
+				counts[id] = map[string]int{}
+			}
+			counts[id][typ] = n
+		}
+		err = rows.Err()
+		rows.Close()
+		if err != nil {
+			return err
+		}
+	}
+	args := make([]interface{}, len(ids))
+	for i, id := range ids {
+		args[i] = id
+	}
+	// FIXED trackers count their member states; BACKLOG trackers count completion events.
+	fixed := map[int]map[string]int{}
+	fixedCompleted := map[int]map[string]int{}
+	if err := scanTaskProgressTypeCountsCustom(ctx, "SELECT tracker_id,item_type,state,COUNT(*) FROM task_progress_tracker_members WHERE tracker_id IN "+getInBinding(len(ids))+" GROUP BY tracker_id,item_type,state", args, func(state string) map[int]map[string]int {
+		if state == "PENDING" {
+			return fixed
+		}
+		return fixedCompleted
+	}); err != nil {
+		return err
+	}
+	eventCompleted := map[int]map[string]int{}
+	if err := scanTaskProgressTypeCountsCustom(ctx, "SELECT tracker_id,item_type,'',COUNT(*) FROM task_progress_tracker_events WHERE event_type='COMPLETED' AND item_type IS NOT NULL AND tracker_id IN "+getInBinding(len(ids))+" GROUP BY tracker_id,item_type", args, func(string) map[int]map[string]int {
+		return eventCompleted
+	}); err != nil {
+		return err
+	}
+	for _, t := range trackers {
+		for _, typ := range t.ItemTypes {
+			n := counts[t.TagID][typ]
+			if t.Mode == "FIXED" {
+				n = fixed[t.ID][typ]
+			}
+			t.CurrentCount += n
+			t.ItemCounts = append(t.ItemCounts, &models.TaskProgressItemCount{ItemType: typ, Count: n})
+		}
+		completed := eventCompleted[t.ID]
+		if t.Mode == "FIXED" {
+			completed = fixedCompleted[t.ID]
+		}
+		for _, typ := range models.TaskProgressItemTypes {
+			if n := completed[typ]; n > 0 {
+				t.CompletedItemCounts = append(t.CompletedItemCounts, &models.TaskProgressItemCount{ItemType: typ, Count: n})
+			}
+		}
+	}
+	// Aggregate events in SQLite; only one row per tracker/day crosses into Go.
+	q := `WITH dates AS (
+ SELECT tracker_id,occurred_on FROM task_progress_tracker_events WHERE tracker_id IN ` + getInBinding(len(ids)) + `
+ UNION
+ SELECT tracker_id,effective_on FROM task_progress_goal_history WHERE tracker_id IN ` + getInBinding(len(ids)) + `
+), daily AS (
+ SELECT tracker_id,occurred_on,
+ SUM(event_type='COMPLETED') AS completed, SUM(event_type='INCOMING') AS incoming,
+ MAX(CASE WHEN event_type='BASELINE' THEN id END) AS baseline_id
+ FROM task_progress_tracker_events WHERE tracker_id IN ` + getInBinding(len(ids)) + `
+ GROUP BY tracker_id,occurred_on
+)
+SELECT dates.tracker_id,dates.occurred_on,COALESCE(d.completed,0),COALESCE(d.incoming,0),b.baseline_count,
+CASE WHEN d.baseline_id IS NULL THEN COALESCE(d.incoming,0)-COALESCE(d.completed,0) ELSE
+ COALESCE((SELECT SUM(CASE e.event_type WHEN 'INCOMING' THEN 1 WHEN 'COMPLETED' THEN -1 ELSE 0 END)
+ FROM task_progress_tracker_events e WHERE e.tracker_id=d.tracker_id AND e.occurred_on=d.occurred_on AND e.id>d.baseline_id),0) END
+,
+(SELECT g.goal_per_day FROM task_progress_goal_history g
+  WHERE g.tracker_id=dates.tracker_id AND g.effective_on<=dates.occurred_on
+  ORDER BY g.effective_on DESC,g.created_at DESC LIMIT 1)
+FROM dates LEFT JOIN daily d ON d.tracker_id=dates.tracker_id AND d.occurred_on=dates.occurred_on
+LEFT JOIN task_progress_tracker_events b ON b.id=d.baseline_id
+ORDER BY dates.tracker_id,dates.occurred_on`
+	historyArgs := make([]interface{}, 0, len(args)*3)
+	historyArgs = append(historyArgs, args...)
+	historyArgs = append(historyArgs, args...)
+	historyArgs = append(historyArgs, args...)
+	rows, err := dbWrapper.QueryxContext(ctx, q, historyArgs...)
+	if err != nil {
+		return fmt.Errorf("loading task progress daily history: %w", err)
+	}
+	defer rows.Close()
+	remaining := map[int]int{}
+	for rows.Next() {
+		var id, delta int
+		d := &models.TaskProgressDay{}
+		if err := rows.Scan(&id, &d.Date, &d.Completed, &d.Incoming, &d.BaselineCount, &delta, &d.GoalPerDay); err != nil {
+			return err
+		}
+		t := byID[id]
+		if t == nil {
+			continue
+		}
+		if d.BaselineCount != nil {
+			remaining[id] = *d.BaselineCount
+		}
+		remaining[id] += delta
+		if remaining[id] < 0 {
+			remaining[id] = 0
+		}
+		d.Remaining = remaining[id]
+		t.CompletedCount += d.Completed
+		t.IncomingCount += d.Incoming
+		t.History = append(t.History, d)
+	}
+	for _, tracker := range trackers {
+		if tracker.TagID == 0 && tracker.Mode == "BACKLOG" && len(tracker.History) > 0 {
+			if tracker.Status != models.TaskProgressTrackerStatusCompleted {
+				tracker.CurrentCount = tracker.History[len(tracker.History)-1].Remaining
+			}
+		}
+	}
+	return rows.Err()
+}
+
+// scanTaskProgressTypeCountsCustom reads tracker_id,item_type,state,count rows into the map chosen by state.
+func scanTaskProgressTypeCountsCustom(ctx context.Context, query string, args []interface{}, target func(state string) map[int]map[string]int) error {
+	rows, err := dbWrapper.QueryxContext(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id, n int
+		var typ, state string
+		if err := rows.Scan(&id, &typ, &state, &n); err != nil {
+			return err
+		}
+		counts := target(state)
+		if counts[id] == nil {
+			counts[id] = map[string]int{}
+		}
+		counts[id][typ] = n
+	}
+	return rows.Err()
+}
+
+func (s *TaskProgressTrackerStore) Events(ctx context.Context, trackerID int, date string, afterID int) (*models.TaskProgressEventPage, error) {
+	const limit = 100
+	q := `SELECT id,event_type,COALESCE(item_type,''),COALESCE(item_id,0),item_label,occurred_on,occurred_at
+FROM task_progress_tracker_events WHERE tracker_id=? AND occurred_on=? AND id>? ORDER BY id LIMIT 101`
+	rows, err := dbWrapper.QueryxContext(ctx, q, trackerID, date, afterID)
+	if err != nil {
+		return nil, err
+	}
+	ret := &models.TaskProgressEventPage{Events: []*models.TaskProgressEvent{}}
+	for rows.Next() {
+		e := &models.TaskProgressEvent{}
+		if err := rows.Scan(&e.ID, &e.EventType, &e.ItemType, &e.ItemID, &e.ItemLabel, &e.OccurredOn, &e.OccurredAt); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		ret.Events = append(ret.Events, e)
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	if len(ret.Events) > limit {
+		ret.HasMore = true
+		ret.Events = ret.Events[:limit]
+	}
+	for _, e := range ret.Events {
+		url, err := taskProgressEventURLCustom(ctx, e)
+		if err != nil {
+			return nil, err
+		}
+		e.URL = url
+	}
+	return ret, nil
+}
+
+func taskProgressEventURLCustom(ctx context.Context, e *models.TaskProgressEvent) (string, error) {
+	if e.ItemID == 0 {
+		return "", nil
+	}
+	tables := map[string]string{"scene": "scenes", "image": "images", "gallery": "galleries", "performer": "performers", "studio": "studios", "group": "groups", "scene_marker": "scene_markers"}
+	table, ok := tables[e.ItemType]
+	if !ok {
+		return "", nil
+	}
+	var exists bool
+	if err := dbWrapper.Get(ctx, &exists, "SELECT EXISTS(SELECT 1 FROM "+table+" WHERE id=?)", e.ItemID); err != nil {
+		return "", err
+	}
+	if !exists {
+		return "", nil
+	}
+	if e.ItemType == "scene_marker" {
+		// Release-owned markers have no scene_id; link to the parent scene with
+		// that release selected.
+		var marker struct {
+			SceneID   int           `db:"scene_id"`
+			ReleaseID sql.NullInt64 `db:"release_id"`
+			Seconds   float64       `db:"seconds"`
+		}
+		query := `SELECT COALESCE(sm.scene_id,r.scene_id) AS scene_id,sm.release_id,sm.seconds
+			FROM scene_markers sm LEFT JOIN scene_releases r ON r.id=sm.release_id WHERE sm.id=?`
+		if err := dbWrapper.Get(ctx, &marker, query, e.ItemID); err != nil {
+			return "", err
+		}
+		url := fmt.Sprintf("/scenes/%d?t=%s", marker.SceneID, strconv.FormatFloat(marker.Seconds, 'f', -1, 64))
+		if marker.ReleaseID.Valid {
+			url += fmt.Sprintf("&release=%d", marker.ReleaseID.Int64)
+		}
+		return url, nil
+	}
+	return fmt.Sprintf("/%s/%d", table, e.ItemID), nil
+}
+
+func (s *TaskProgressTrackerStore) PendingItems(ctx context.Context, trackerID int, itemType string, offset int) (*models.TaskProgressEventPage, error) {
+	ids := []int{}
+	err := dbWrapper.Select(ctx, &ids, `SELECT item_id FROM task_progress_tracker_members WHERE tracker_id=? AND item_type=? AND state='PENDING' ORDER BY item_id LIMIT 51 OFFSET ?`, trackerID, itemType, offset)
+	if err != nil {
+		return nil, err
+	}
+	ret := &models.TaskProgressEventPage{Events: []*models.TaskProgressEvent{}, HasMore: len(ids) > 50}
+	if ret.HasMore {
+		ids = ids[:50]
+	}
+	for _, id := range ids {
+		e := &models.TaskProgressEvent{ID: id, ItemID: id, ItemType: itemType}
+		e.ItemLabel, err = taskProgressItemLabelCustom(ctx, itemType, id)
+		if err != nil {
+			return nil, err
+		}
+		e.URL, err = taskProgressEventURLCustom(ctx, e)
+		if err != nil {
+			return nil, err
+		}
+		ret.Events = append(ret.Events, e)
+	}
+	return ret, nil
+}

@@ -73,9 +73,9 @@ export function useRatingKeybinds(
 
       if (!ratingSystem || ratingSystem === RatingSystemType.Stars) {
         return handleStarRatingKeybinds();
-      } else {
-        return handleDecimalKeybinds();
       }
+
+      return handleDecimalKeybinds();
     });
 
     return () => {

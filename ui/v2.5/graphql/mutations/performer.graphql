@@ -1,18 +1,19 @@
 mutation PerformerCreate($input: PerformerCreateInput!) {
   performerCreate(input: $input) {
-    ...PerformerData
+    ...PerformerListData # CUSTOM: mutation callers and list cache need no role totals
   }
 }
 
 mutation PerformerUpdate($input: PerformerUpdateInput!) {
   performerUpdate(input: $input) {
-    ...PerformerData
+    ...PerformerListData # CUSTOM: preserve list-cache fields without role totals
   }
 }
 
 mutation BulkPerformerUpdate($input: BulkPerformerUpdateInput!) {
   bulkPerformerUpdate(input: $input) {
-    ...PerformerData
+    # CUSTOM: keep bulk edit responses lightweight; callers refetch impacted lists.
+    id
   }
 }
 

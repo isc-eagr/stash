@@ -1,0 +1,11 @@
+# CUSTOM: All custom Tag fields.
+# This file uses 'extend type' to add fields to the upstream Tag type
+# without modifying the upstream tag.graphql file.
+# See CUSTOM_FEATURES.md for documentation.
+
+extend type Tag {
+  # CUSTOM: Sum of timed marker lengths for this tag and optional descendants.
+  scene_marker_duration(depth: Int): Float!
+  # CUSTOM: Number of scene releases tagged directly with this tag.
+  release_count: Int!
+}

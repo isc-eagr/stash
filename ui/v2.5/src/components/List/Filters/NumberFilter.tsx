@@ -52,6 +52,7 @@ export const NumberFilter: React.FC<IDurationFilterProps> = ({
   let lowerControl: JSX.Element | null = null;
   if (
     criterion.modifier === CriterionModifier.GreaterThan ||
+    criterion.modifier === CriterionModifier.GreaterThanEquals || // CUSTOM
     criterion.modifier === CriterionModifier.Between ||
     criterion.modifier === CriterionModifier.NotBetween
   ) {
@@ -72,6 +73,7 @@ export const NumberFilter: React.FC<IDurationFilterProps> = ({
   let upperControl: JSX.Element | null = null;
   if (
     criterion.modifier === CriterionModifier.LessThan ||
+    criterion.modifier === CriterionModifier.LessThanEquals || // CUSTOM
     criterion.modifier === CriterionModifier.Between ||
     criterion.modifier === CriterionModifier.NotBetween
   ) {
@@ -82,13 +84,15 @@ export const NumberFilter: React.FC<IDurationFilterProps> = ({
           onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
             onChanged(
               e,
-              criterion.modifier === CriterionModifier.LessThan
+              criterion.modifier === CriterionModifier.LessThan ||
+                criterion.modifier === CriterionModifier.LessThanEquals // CUSTOM
                 ? "value"
                 : "value2"
             )
           }
           value={
-            (criterion.modifier === CriterionModifier.LessThan
+            (criterion.modifier === CriterionModifier.LessThan ||
+            criterion.modifier === CriterionModifier.LessThanEquals // CUSTOM
               ? value?.value
               : value?.value2) ?? ""
           }

@@ -100,6 +100,7 @@ export const PluginApi = {
     Scenes: () => import("./components/Scenes/Scenes"),
     Settings: () => import("./components/Settings/Settings"),
     Stats: () => import("./components/Stats"),
+    SceneStats: () => import("./components/SceneStats/SceneStats"), // CUSTOM
     Studios: () => import("./components/Studios/Studios"),
     Galleries: () => import("./components/Galleries/Galleries"),
     Groups: () => import("./components/Groups/Groups"),

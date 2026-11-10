@@ -1,0 +1,36 @@
+# CUSTOM
+fragment TaskProgressTrackerData on TaskProgressTracker {
+  id
+  title
+  description
+  goal
+  goal_per_day
+  tag_id
+  tag_name
+  position
+  started_on
+  status
+  mode
+  version
+  history_started_on
+  item_types
+  current_count
+  completed_count
+  incoming_count
+  item_counts {
+    item_type
+    count
+  }
+  completed_item_counts {
+    item_type
+    count
+  }
+  history {
+    date
+    completed
+    incoming
+    remaining
+    baseline_count
+    goal_per_day
+  }
+}

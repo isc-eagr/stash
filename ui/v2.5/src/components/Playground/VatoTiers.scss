@@ -1,0 +1,330 @@
+.playground-tabs {
+  border-bottom: 1px solid #3c3a33;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+
+  .nav-link {
+    border: 0;
+    border-bottom: 3px solid transparent;
+    color: #b8bdc7;
+    font-weight: 600;
+    padding: 0.8rem 1.25rem;
+
+    &.active {
+      background: rgba(218, 179, 94, 0.08);
+      border-bottom-color: #d8bf83;
+      color: #f1dba8;
+    }
+  }
+}
+
+.rating-tier-threshold-panel {
+  margin-bottom: 1rem;
+}
+
+.rating-tier-threshold-heading {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: space-between;
+
+  h3 {
+    font-size: 1.1rem;
+  }
+
+  p {
+    color: #b8bdc7;
+    font-size: 0.8rem;
+  }
+}
+
+.rating-tier-thresholds {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+}
+
+.rating-tier-threshold label {
+  font-size: 0.85rem;
+}
+
+.rating-tier-count-pair {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.rating-tiers button.vato-tiers-count,
+.rating-tiers button.vato-tiers-row-label,
+.rating-tier-projected {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  padding: 0.3rem 0.2rem;
+}
+
+.rating-tier-projected {
+  align-items: flex-end;
+  display: inline-flex;
+  flex-direction: column;
+  font-variant-numeric: tabular-nums;
+
+  span {
+    color: #aeb9c8;
+    font-size: 0.72rem;
+  }
+
+  &.increase {
+    color: #75e6a5;
+  }
+
+  &.decrease {
+    color: #ff8f8f;
+  }
+}
+
+.vato-tiers-card .rating-tier-count-pair {
+  margin-top: 0.75rem;
+
+  .vato-tiers-count,
+  .rating-tier-projected {
+    align-items: flex-start;
+  }
+
+  strong {
+    font-size: 1.6rem;
+  }
+
+  span {
+    font-size: 0.85rem;
+  }
+}
+
+.vato-tiers-heading,
+.vato-tiers-toolbar,
+.vato-tiers-group {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.vato-tiers-heading {
+  margin-bottom: 1.25rem;
+
+  h2 {
+    font-size: 1.5rem;
+    margin: 0 0 0.25rem;
+  }
+
+  span {
+    color: #b8bdc7;
+    font-size: 0.85rem;
+  }
+}
+
+.vato-tiers-filters {
+  align-items: end;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr 1fr auto;
+}
+
+.vato-tiers-cards {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin: 1.5rem 0;
+}
+
+.vato-tiers-card {
+  background: radial-gradient(
+      ellipse at top right,
+      rgba(255, 255, 255, 0.07),
+      transparent 75%
+    ),
+    #13171f;
+  border: 1px solid #353c48;
+  border-radius: 12px;
+  border-top: 2px solid var(--tier-color);
+  color: var(--tier-color);
+  display: block;
+  overflow: hidden;
+  padding: 1.15rem;
+  text-align: left;
+  text-decoration: none;
+  transition: background 150ms, border-color 150ms;
+
+  &:hover {
+    background-color: #202733;
+    border-color: var(--tier-color);
+  }
+}
+
+.vato-tiers-card-label {
+  align-items: center;
+  display: flex;
+  font-size: 0.85rem;
+  font-weight: 650;
+  gap: 0.6rem;
+}
+
+.vato-tiers-card-track {
+  background: #303743;
+  border-radius: 2px;
+  display: block;
+  height: 3px;
+  margin-top: 1rem;
+
+  > span {
+    background: var(--tier-color);
+    display: block;
+    height: 100%;
+  }
+}
+
+.vato-tiers-table-panel {
+  background: #10151d;
+  border: 1px solid #353c48;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.vato-tiers-toolbar {
+  border-bottom: 1px solid #353c48;
+  color: #bec8d6;
+  font-size: 0.8rem;
+  padding: 1rem;
+}
+
+.vato-tiers-table {
+  font-variant-numeric: tabular-nums;
+  min-width: 780px;
+  width: 100%;
+
+  th,
+  td {
+    padding: 0.85rem 1rem;
+    text-align: right;
+
+    &:first-child {
+      text-align: left;
+      width: 28%;
+    }
+  }
+
+  thead {
+    background: #1a202a;
+    color: #bac6d6;
+    font-size: 0.75rem;
+    white-space: nowrap;
+
+    button {
+      background: transparent;
+      border: 0;
+      color: inherit;
+      font-weight: 600;
+      padding: 0.5rem 0;
+    }
+  }
+
+  tbody tr {
+    border-bottom: 1px solid #252d39;
+
+    &:nth-child(even) {
+      background: rgba(255, 255, 255, 0.015);
+    }
+
+    &:hover {
+      background: #1b2330;
+    }
+  }
+
+  tfoot {
+    background: #1a202a;
+    font-weight: 700;
+  }
+}
+
+.vato-tiers-count,
+.vato-tiers-row-label {
+  color: var(--tier-color, #e7ecf4);
+  display: inline-flex;
+  flex-direction: column;
+  font-weight: 600;
+  padding: 0.3rem 0.2rem;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.vato-tiers-row-label {
+  text-align: left;
+}
+
+.vato-tiers-count {
+  align-items: flex-end;
+  line-height: 1.1;
+
+  strong {
+    color: inherit;
+  }
+
+  span {
+    color: #aeb9c8;
+    font-size: 0.72rem;
+    font-weight: 500;
+    margin-top: 0.2rem;
+  }
+}
+
+.vato-tiers-distribution {
+  background: #303743;
+  border-radius: 3px;
+  display: flex;
+  height: 0.6rem;
+  margin-top: 0.55rem;
+  max-width: 10rem;
+  overflow: hidden;
+}
+
+.vato-tiers-empty {
+  color: #b8bdc7;
+  padding: 3rem 1rem;
+  text-align: center;
+
+  h3 {
+    font-size: 1.15rem;
+    margin-bottom: 1rem;
+  }
+}
+
+.vato-tiers button:focus-visible,
+.vato-tiers a:focus-visible {
+  outline: 2px solid #f2cd70;
+  outline-offset: 3px;
+}
+
+@media (max-width: 767px) {
+  .vato-tiers-cards {
+    gap: 0.65rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .vato-tiers-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .vato-tiers-card {
+    padding: 0.85rem;
+  }
+}
+@media (min-width: 768px) and (max-width: 1100px) {
+  .vato-tiers-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

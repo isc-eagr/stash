@@ -1,0 +1,2519 @@
+package api
+
+// CUSTOM: This file contains all custom query resolver functions and types
+// added to this fork. These are NOT present in upstream Stash.
+
+import (
+	"context"
+	"fmt"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/stashapp/stash/internal/manager"
+	"github.com/stashapp/stash/internal/manager/config"
+	"github.com/stashapp/stash/pkg/models"
+	"github.com/stashapp/stash/pkg/sqlite"
+)
+
+// CUSTOM: Custom resolver types for extended GraphQL types
+type performerImageResolver struct{ *Resolver }
+type sceneReleaseResolver struct{ *Resolver }
+type sceneMultiSegmentLoopPresetInputResolver struct{ *Resolver }
+
+const sceneODateTrackingStart = "2024-03-08"
+const sceneODateMostOsExcludedDay = "2025-09-08"
+
+type sceneOEventAssociatedTagCandidate struct {
+	OID      string
+	MarkerID int
+	IsOrgasm bool
+	Tag      *models.Tag
+}
+
+// CUSTOM: Factory methods for custom resolver types
+func (r *Resolver) PerformerImage() PerformerImageResolver {
+	return &performerImageResolver{r}
+}
+func (r *Resolver) SceneRelease() SceneReleaseResolver {
+	return &sceneReleaseResolver{r}
+}
+func (r *Resolver) SceneMultiSegmentLoopPresetInput() SceneMultiSegmentLoopPresetInputResolver {
+	return &sceneMultiSegmentLoopPresetInputResolver{r}
+}
+
+// NOTE: TagFilterType resolver stub removed temporarily to allow gqlgen
+// to run and generate the TagFilterTypeResolver interface. The stub will be
+// re-added after code generation so we can return a no-op resolver for the
+// input type fields (TagFilterType is used as an input type and doesn't
+// require runtime resolution).
+
+func (r *queryResolver) PerformerEthnicities(ctx context.Context) (ret []string, err error) {
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		// Query distinct, non-empty, non-null performer ethnicities
+		cols, rows, err := db.QuerySQL(ctx, "SELECT DISTINCT ethnicity FROM performers WHERE ethnicity IS NOT NULL AND TRIM(ethnicity) <> '' ORDER BY ethnicity", nil)
+		if err != nil {
+			return err
+		}
+		_ = cols // not used
+		out := make([]string, 0, len(rows))
+		for _, row := range rows {
+			if len(row) == 0 {
+				continue
+			}
+			switch v := row[0].(type) {
+			case string:
+				out = append(out, v)
+			case []byte:
+				out = append(out, string(v))
+			default:
+				out = append(out, fmt.Sprint(v))
+			}
+		}
+		ret = out
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+func customStringConfigValue(value interface{}) string {
+	if value == nil {
+		return ""
+	}
+	return strings.TrimSpace(fmt.Sprint(value))
+}
+
+func customStringValue(value interface{}) string {
+	switch typed := value.(type) {
+	case time.Time:
+		return typed.Format(time.RFC3339)
+	case string:
+		return typed
+	case []byte:
+		return string(typed)
+	default:
+		return fmt.Sprint(typed)
+	}
+}
+
+func customIntValue(value interface{}) int {
+	switch typed := value.(type) {
+	case int64:
+		return int(typed)
+	case int:
+		return typed
+	case []byte:
+		i, _ := strconv.Atoi(string(typed))
+		return i
+	case string:
+		i, _ := strconv.Atoi(typed)
+		return i
+	default:
+		i, _ := strconv.Atoi(fmt.Sprint(typed))
+		return i
+	}
+}
+
+func customFloatPtrValue(value interface{}) *float64 {
+	if value == nil {
+		return nil
+	}
+
+	var out float64
+	switch typed := value.(type) {
+	case float64:
+		out = typed
+	case float32:
+		out = float64(typed)
+	case int64:
+		out = float64(typed)
+	case int:
+		out = float64(typed)
+	case []byte:
+		v, err := strconv.ParseFloat(string(typed), 64)
+		if err != nil {
+			return nil
+		}
+		out = v
+	case string:
+		v, err := strconv.ParseFloat(typed, 64)
+		if err != nil {
+			return nil
+		}
+		out = v
+	default:
+		v, err := strconv.ParseFloat(fmt.Sprint(typed), 64)
+		if err != nil {
+			return nil
+		}
+		out = v
+	}
+
+	return &out
+}
+
+func sceneOStatsDate(year int, month int, day int) (string, error) {
+	if year < 1 || month < 1 || month > 12 || day < 1 || day > 31 {
+		return "", fmt.Errorf("invalid date: %04d-%02d-%02d", year, month, day)
+	}
+
+	date := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
+	if date.Year() != year || int(date.Month()) != month || date.Day() != day {
+		return "", fmt.Errorf("invalid date: %04d-%02d-%02d", year, month, day)
+	}
+
+	return date.Format("2006-01-02"), nil
+}
+
+func validateSceneOStatsDate(value string) (string, error) {
+	date, err := time.Parse("2006-01-02", value)
+	if err != nil {
+		return "", fmt.Errorf("invalid date %q: expected YYYY-MM-DD", value)
+	}
+
+	return date.Format("2006-01-02"), nil
+}
+
+func sceneOStatsPerformerID(value string) (int, error) {
+	performerID, err := strconv.Atoi(value)
+	if err != nil || performerID < 1 {
+		return 0, fmt.Errorf("invalid performer ID: %s", value)
+	}
+
+	return performerID, nil
+}
+
+func sceneOStatsSceneID(value string) (int, error) {
+	sceneID, err := strconv.Atoi(value)
+	if err != nil || sceneID < 1 {
+		return 0, fmt.Errorf("invalid scene ID: %s", value)
+	}
+
+	return sceneID, nil
+}
+
+func sceneOStatsStudioID(value string) (int, error) {
+	studioID, err := strconv.Atoi(value)
+	if err != nil || studioID < 1 {
+		return 0, fmt.Errorf("invalid studio ID: %s", value)
+	}
+
+	return studioID, nil
+}
+
+func sceneStatsFloatValue(value interface{}) float64 {
+	if ret := customFloatPtrValue(value); ret != nil {
+		return *ret
+	}
+	return 0
+}
+
+func sceneStatsStringPtrValue(value interface{}) *string {
+	ret := customStringValue(value)
+	trimmed := strings.TrimSpace(ret)
+	if trimmed == "" || strings.EqualFold(trimmed, "<nil>") || strings.EqualFold(trimmed, "null") {
+		return nil
+	}
+	return &ret
+}
+
+func sceneStatsBaseScopedQueryCustom(effectiveDateExpr string, sceneScope string, oDateWhere string, royalSapphireClause string) string {
+	return fmt.Sprintf(`
+%s,
+file_stats AS (
+  SELECT
+    sf.scene_id,
+    COALESCE(SUM(f.size), 0) AS filesize,
+    COALESCE(SUM(vf.duration), 0) AS duration,
+    MAX(CASE WHEN sf."primary" THEN vf.width END) AS primary_width,
+    MAX(CASE WHEN sf."primary" THEN vf.height END) AS primary_height
+  FROM scenes_files sf
+  JOIN files f ON f.id = sf.file_id
+  LEFT JOIN video_files vf ON vf.file_id = sf.file_id
+  WHERE sf.scene_id IN (SELECT id FROM selected_scenes)
+  GROUP BY sf.scene_id
+),
+o_stats AS (
+  SELECT
+    scene_id,
+    COUNT(*) AS o_counter,
+    MAX(o_date) AS most_recent_o_date
+  FROM `+sqlite.SceneOEventsSQLCustom()+` od
+  WHERE scene_id IN (SELECT id FROM selected_scenes)%s
+  GROUP BY scene_id
+)
+SELECT
+  s.id,
+  s.title,
+  s.date,
+  %s AS effective_date,
+  s.rating,
+  COALESCE(os.o_counter, 0) AS o_counter,
+  COALESCE(fs.duration, 0) AS duration,
+  COALESCE(fs.filesize, 0) AS filesize,
+  fs.primary_width,
+  fs.primary_height,
+  os.most_recent_o_date,
+  CASE WHEN (%s) THEN 1 ELSE 0 END AS has_royal_sapphire_bonus,
+  CASE WHEN s.organized THEN 1 ELSE 0 END AS organized,
+  %s AS stashdb_matches,
+  s.studio_id
+FROM scenes s
+LEFT JOIN file_stats fs ON fs.scene_id = s.id
+LEFT JOIN o_stats os ON os.scene_id = s.id
+WHERE s.id IN (SELECT id FROM selected_scenes)
+ORDER BY s.date DESC, s.id DESC`, sceneScope, oDateWhere, effectiveDateExpr, royalSapphireClause, sqlite.SceneTotalStashDBMatchesSQLCustom("s.id"))
+}
+
+func sceneStatsScopedPerformerQueryCustom(sceneScope string) string {
+	return sceneScope + `
+SELECT
+  ps.scene_id,
+  ps.performer_id,
+  p.ethnicity,
+  p.country,
+  p.rating
+FROM performers_scenes ps
+JOIN performers p ON p.id = ps.performer_id
+WHERE ps.scene_id IN (SELECT id FROM selected_scenes)`
+}
+
+func sceneStatsAddPerformerCustom(scene *SceneStatsScene, performerID int, ethnicity string, country string, rating *int) {
+	scene.PerformerCount++
+	scene.PerformerIds = append(scene.PerformerIds, strconv.Itoa(performerID))
+	scene.PerformerEthnicities = append(scene.PerformerEthnicities, ethnicity)
+	scene.PerformerCountries = append(scene.PerformerCountries, country)
+	scene.PerformerRatings = append(scene.PerformerRatings, rating)
+}
+
+// sceneStatsScopedMarkerQueryCustom returns one row per (scene, marker, role
+// family) for markers whose primary or secondary tag is a configured role tag
+// or any descendant of it. Descendants roll up to the configured family tag, so
+// the UI only needs the family IDs.
+func sceneStatsScopedMarkerQueryCustom(sceneScope string, trackedTagIDs []int) (string, []interface{}) {
+	placeholders := make([]string, 0, len(trackedTagIDs))
+	args := make([]interface{}, 0, len(trackedTagIDs))
+	seen := make(map[int]struct{}, len(trackedTagIDs))
+	for _, tagID := range trackedTagIDs {
+		if tagID <= 0 {
+			continue
+		}
+		if _, exists := seen[tagID]; exists {
+			continue
+		}
+		seen[tagID] = struct{}{}
+		placeholders = append(placeholders, "(?)")
+		args = append(args, tagID)
+	}
+	if len(args) == 0 {
+		return sceneScope + `
+SELECT sm.scene_id, sm.id, NULL
+FROM scene_markers sm
+WHERE 0`, nil
+	}
+
+	return sceneScope + `,
+tracked_tag_roots(id) AS (
+  VALUES ` + strings.Join(placeholders, ",") + `
+),
+tracked_tags(root_id, id) AS (
+  SELECT id, id FROM tracked_tag_roots
+  UNION
+  SELECT tracked_tags.root_id, tr.child_id
+  FROM tags_relations tr
+  JOIN tracked_tags ON tracked_tags.id = tr.parent_id
+),
+marker_tags(marker_id, scene_id, tag_id) AS (
+  SELECT sm.id, sm.scene_id, sm.primary_tag_id
+  FROM scene_markers sm
+  WHERE sm.scene_id IN (SELECT id FROM selected_scenes)
+    AND sm.primary_tag_id IN (SELECT id FROM tracked_tags)
+  UNION
+  SELECT sm.id, sm.scene_id, smt.tag_id
+  FROM scene_markers sm
+  JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
+  WHERE sm.scene_id IN (SELECT id FROM selected_scenes)
+    AND smt.tag_id IN (SELECT id FROM tracked_tags)
+)
+SELECT DISTINCT mt.scene_id, mt.marker_id, tt.root_id
+FROM marker_tags mt
+JOIN tracked_tags tt ON tt.id = mt.tag_id
+ORDER BY mt.scene_id ASC, mt.marker_id ASC, tt.root_id ASC`, args
+}
+
+// SceneStats returns compact scalar and ID data for the SceneStats dashboard.
+// It deliberately avoids resolving every scene's GraphQL relationships, which
+// becomes prohibitively expensive for libraries with many scenes and markers.
+func (r *queryResolver) SceneStats(ctx context.Context, studioID *string, depth *int, dateRangeInput *StatsDateRangeInput) (ret *SceneStatsResult, err error) {
+	sceneScope, sceneScopeArgs, dateRange, err := sceneStatsInputScopeCustom(studioID, depth, dateRangeInput)
+	if err != nil {
+		return nil, err
+	}
+	oDateWhere, oDateArgs := dateRange.oDateWhereSQL("od")
+	royalSapphireClause, royalSapphireArgs := sqlite.SceneRoyalSapphirePromotionClauseCustom("s")
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		baseQuery := sceneStatsBaseScopedQueryCustom(sceneOStatsEffectiveDateExpr("s"), sceneScope, oDateWhere, royalSapphireClause)
+		baseArgs := append(append(append([]interface{}{}, sceneScopeArgs...), oDateArgs...), royalSapphireArgs...)
+		_, rows, err := db.QuerySQL(ctx, baseQuery, baseArgs)
+		if err != nil {
+			return err
+		}
+
+		out := &SceneStatsResult{Scenes: []*SceneStatsScene{}}
+		byID := make(map[int]*SceneStatsScene, len(rows))
+		for _, row := range rows {
+			if len(row) < 15 {
+				continue
+			}
+
+			id := customIntValue(row[0])
+			if id == 0 {
+				continue
+			}
+
+			scene := &SceneStatsScene{
+				ID:                    strconv.Itoa(id),
+				Title:                 sceneStatsStringPtrValue(row[1]),
+				EffectiveDate:         sceneStatsEffectiveDateValueCustom(row[3], row[2]),
+				Rating100:             vatoStatsIntPtrValue(row[4]),
+				OCounter:              customIntValue(row[5]),
+				Duration:              sceneStatsFloatValue(row[6]),
+				Filesize:              sceneStatsFloatValue(row[7]),
+				PrimaryWidth:          vatoStatsIntPtrValue(row[8]),
+				PrimaryHeight:         vatoStatsIntPtrValue(row[9]),
+				MostRecentODate:       sceneStatsStringPtrValue(row[10]),
+				HasRoyalSapphireBonus: customIntValue(row[11]) != 0,
+				Organized:             customIntValue(row[12]) != 0,
+				StashdbMatches:        vatoStatsIntPtrValue(row[13]),
+				StudioID:              sceneStatsStringPtrValue(row[14]),
+				PerformerIds:          []string{},
+				PerformerEthnicities:  []string{},
+				PerformerCountries:    []string{},
+				PerformerRatings:      []*int{},
+				MarkerTagGroups:       []*SceneStatsMarkerTagGroup{},
+				TagIds:                []string{},
+			}
+			out.Scenes = append(out.Scenes, scene)
+			byID[id] = scene
+		}
+
+		if len(byID) == 0 {
+			ret = out
+			return nil
+		}
+
+		_, performerRows, err := db.QuerySQL(ctx, sceneStatsScopedPerformerQueryCustom(sceneScope), sceneScopeArgs)
+		if err != nil {
+			return err
+		}
+		for _, row := range performerRows {
+			if len(row) < 5 {
+				continue
+			}
+			scene := byID[customIntValue(row[0])]
+			if scene == nil {
+				continue
+			}
+			sceneStatsAddPerformerCustom(
+				scene,
+				customIntValue(row[1]),
+				customStringValue(row[2]),
+				customStringValue(row[3]),
+				vatoStatsIntPtrValue(row[4]),
+			)
+		}
+
+		tagQuery := sceneScope + "\nSELECT scene_id, tag_id FROM scenes_tags WHERE scene_id IN (SELECT id FROM selected_scenes)"
+		_, tagRows, err := db.QuerySQL(ctx, tagQuery, sceneScopeArgs)
+		if err != nil {
+			return err
+		}
+		for _, row := range tagRows {
+			if len(row) < 2 {
+				continue
+			}
+			scene := byID[customIntValue(row[0])]
+			if scene == nil {
+				continue
+			}
+			scene.TagIds = append(scene.TagIds, fmt.Sprint(row[1]))
+		}
+
+		uiConfig := config.GetInstance().GetUIConfiguration()
+		sexTagID, oralTagID, soloTagID, facialTagID, _, _, secondCameraTagID := getRoleTagIDs(uiConfig)
+		markerQuery, markerArgs := sceneStatsScopedMarkerQueryCustom(sceneScope, []int{
+			sexTagID,
+			oralTagID,
+			soloTagID,
+			facialTagID,
+			configuredRoleTagIDCustom(uiConfig, "reallyHotTagId"),
+			// GOAT facials color the Scene Stats facial columns.
+			configuredRoleTagIDCustom(uiConfig, "goatTagId"),
+			// 2nd Camera markers never count as facials.
+			secondCameraTagID,
+		})
+		markerArgs = append(append([]interface{}{}, sceneScopeArgs...), markerArgs...)
+		_, markerRows, err := db.QuerySQL(ctx, markerQuery, markerArgs)
+		if err != nil {
+			return err
+		}
+		markerGroups := make(map[int]*SceneStatsMarkerTagGroup)
+		markerTagIDs := make(map[int]map[int]struct{})
+		for _, row := range markerRows {
+			if len(row) < 3 {
+				continue
+			}
+			scene := byID[customIntValue(row[0])]
+			markerID := customIntValue(row[1])
+			if scene == nil || markerID == 0 {
+				continue
+			}
+
+			group := markerGroups[markerID]
+			if group == nil {
+				group = &SceneStatsMarkerTagGroup{TagIds: []string{}}
+				markerGroups[markerID] = group
+				markerTagIDs[markerID] = make(map[int]struct{})
+				scene.MarkerTagGroups = append(scene.MarkerTagGroups, group)
+			}
+
+			for _, value := range row[2:3] {
+				tagID := customIntValue(value)
+				if tagID == 0 {
+					continue
+				}
+				if _, exists := markerTagIDs[markerID][tagID]; exists {
+					continue
+				}
+				markerTagIDs[markerID][tagID] = struct{}{}
+				group.TagIds = append(group.TagIds, strconv.Itoa(tagID))
+			}
+		}
+
+		ret = out
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
+
+// SceneOYearCounts returns counts of scene orgasm events grouped by year ascending.
+func (r *queryResolver) SceneOYearCounts(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOYearCount, err error) {
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
+	if err != nil {
+		return nil, err
+	}
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		query := `SELECT CAST(strftime('%Y', od.o_date, 'localtime') AS INT) AS year, COUNT(*) AS cnt
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
+WHERE od.o_date IS NOT NULL AND date(od.o_date, 'localtime') >= date(?)` + scope + `
+GROUP BY year ORDER BY year ASC`
+		args := append([]interface{}{sceneODateTrackingStart}, scopeArgs...)
+		_, rows, err := db.QuerySQL(ctx, query, args)
+		if err != nil {
+			return err
+		}
+		out := make([]*SceneOYearCount, 0, len(rows))
+		for _, row := range rows {
+			if len(row) < 2 {
+				continue
+			}
+			var yearInt int
+			switch v := row[0].(type) {
+			case int64:
+				yearInt = int(v)
+			case int:
+				yearInt = v
+			case []byte:
+				y, _ := strconv.Atoi(string(v))
+				yearInt = y
+			case string:
+				y, _ := strconv.Atoi(v)
+				yearInt = y
+			default:
+				y, _ := strconv.Atoi(fmt.Sprint(v))
+				yearInt = y
+			}
+			var cnt int
+			switch v := row[1].(type) {
+			case int64:
+				cnt = int(v)
+			case int:
+				cnt = v
+			case []byte:
+				c, _ := strconv.Atoi(string(v))
+				cnt = c
+			case string:
+				c, _ := strconv.Atoi(v)
+				cnt = c
+			default:
+				c, _ := strconv.Atoi(fmt.Sprint(v))
+				cnt = c
+			}
+			out = append(out, &SceneOYearCount{Year: yearInt, Count: cnt})
+		}
+		ret = out
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+// SceneOMonthCounts returns counts of scene O events grouped by month for a year.
+func (r *queryResolver) SceneOMonthCounts(ctx context.Context, year int, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOMonthCount, err error) {
+	if year < 1 {
+		return nil, fmt.Errorf("invalid year: %d", year)
+	}
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		query := `
+SELECT CAST(strftime('%m', o_date, 'localtime') AS INT) AS month, COUNT(*) AS cnt
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
+WHERE od.o_date IS NOT NULL
+  AND date(od.o_date, 'localtime') >= date(?)
+  AND CAST(strftime('%Y', od.o_date, 'localtime') AS INT) = ?` + scope + `
+GROUP BY month
+ORDER BY month ASC`
+		args := append([]interface{}{sceneODateTrackingStart, year}, scopeArgs...)
+		_, rows, err := db.QuerySQL(ctx, query, args)
+		if err != nil {
+			return err
+		}
+
+		out := make([]*SceneOMonthCount, 0, len(rows))
+		for _, row := range rows {
+			if len(row) < 2 {
+				continue
+			}
+			out = append(out, &SceneOMonthCount{
+				Year:  year,
+				Month: customIntValue(row[0]),
+				Count: customIntValue(row[1]),
+			})
+		}
+
+		ret = out
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
+
+// SceneODayCounts returns counts of scene O events grouped by day for a month.
+func (r *queryResolver) SceneODayCounts(ctx context.Context, year int, month int, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneODayCount, err error) {
+	if _, err := sceneOStatsDate(year, month, 1); err != nil {
+		return nil, err
+	}
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		query := `
+SELECT date(o_date, 'localtime') AS day_date, CAST(strftime('%d', o_date, 'localtime') AS INT) AS day, COUNT(*) AS cnt
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
+WHERE od.o_date IS NOT NULL
+  AND date(od.o_date, 'localtime') >= date(?)
+  AND CAST(strftime('%Y', od.o_date, 'localtime') AS INT) = ?
+  AND CAST(strftime('%m', od.o_date, 'localtime') AS INT) = ?` + scope + `
+GROUP BY day_date, day
+ORDER BY day ASC`
+		args := append([]interface{}{sceneODateTrackingStart, year, month}, scopeArgs...)
+		_, rows, err := db.QuerySQL(ctx, query, args)
+		if err != nil {
+			return err
+		}
+
+		out := make([]*SceneODayCount, 0, len(rows))
+		for _, row := range rows {
+			if len(row) < 3 {
+				continue
+			}
+			out = append(out, &SceneODayCount{
+				Date:  customStringValue(row[0]),
+				Day:   customIntValue(row[1]),
+				Count: customIntValue(row[2]),
+			})
+		}
+
+		ret = out
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
+
+// SceneOEventsByDate returns the recorded O events for a date in reverse chronological order.
+func (r *queryResolver) SceneOEventsByDate(ctx context.Context, date string, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOEvent, err error) {
+	date, err = validateSceneOStatsDate(date)
+	if err != nil {
+		return nil, err
+	}
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		query := `
+SELECT od.rowid, od.scene_id, od.o_date, od.video_timestamp
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
+JOIN scenes s ON s.id = od.scene_id
+WHERE od.o_date IS NOT NULL AND date(od.o_date, 'localtime') = date(?)
+  AND date(od.o_date, 'localtime') >= date(?)` + scope + `
+ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) DESC, od.rowid DESC, s.title ASC`
+		args := append([]interface{}{date, sceneODateTrackingStart}, scopeArgs...)
+		_, rows, err := db.QuerySQL(ctx, query, args)
+		if err != nil {
+			return err
+		}
+
+		out, err := r.sceneOEventsFromRows(ctx, rows)
+		if err != nil {
+			return err
+		}
+
+		ret = out
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
+
+// SceneOEventsByTag returns recorded O events covered by the given marker tag.
+func (r *queryResolver) SceneOEventsByTag(ctx context.Context, tagID string, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOEvent, err error) {
+	tagIDInt, err := strconv.Atoi(tagID)
+	if err != nil || tagIDInt < 1 {
+		return nil, fmt.Errorf("invalid tag ID: %s", tagID)
+	}
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		uiConfig := config.GetInstance().GetUIConfiguration()
+		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
+		var orgasmTagID int
+		if roleTagIds != nil {
+			if orgasmID, ok := roleTagIds["orgasmTagId"].(string); ok && orgasmID != "" {
+				orgasmTagID, _ = strconv.Atoi(orgasmID)
+			}
+		}
+
+		var query string
+		var args []interface{}
+		if orgasmTagID != 0 {
+			query = `
+WITH RECURSIVE orgasm_tags(id) AS (
+  SELECT id FROM tags WHERE id = ?
+  UNION ALL
+  SELECT tr.child_id FROM tags_relations tr JOIN orgasm_tags ot ON tr.parent_id = ot.id
+),
+covered_markers AS (
+  SELECT
+    od.rowid AS o_id,
+    sm.id AS marker_id,
+    CASE
+      WHEN sm.primary_tag_id IN (SELECT id FROM orgasm_tags)
+        OR EXISTS (
+          SELECT 1 FROM scene_markers_tags smt
+          WHERE smt.scene_marker_id = sm.id
+            AND smt.tag_id IN (SELECT id FROM orgasm_tags)
+        )
+      THEN 1 ELSE 0
+    END AS is_orgasm
+  FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
+  JOIN scene_markers sm ON ` + sqlite.SceneOEventMarkerJoinCustom("sm", "od") + `
+  WHERE od.video_timestamp IS NOT NULL
+    AND od.o_date IS NOT NULL
+    AND sm.end_seconds IS NOT NULL
+    AND od.video_timestamp >= sm.seconds
+    AND od.video_timestamp <= sm.end_seconds
+),
+selected_markers AS (
+  SELECT cm.o_id, cm.marker_id
+  FROM covered_markers cm
+  WHERE cm.is_orgasm = 1
+     OR NOT EXISTS (
+       SELECT 1 FROM covered_markers orgasm_cm
+       WHERE orgasm_cm.o_id = cm.o_id
+         AND orgasm_cm.is_orgasm = 1
+     )
+),
+tagged_o_events AS (
+  SELECT DISTINCT smk.o_id
+  FROM selected_markers smk
+  JOIN scene_markers sm ON sm.id = smk.marker_id
+  WHERE sm.primary_tag_id = ?
+     OR EXISTS (
+       SELECT 1 FROM scene_markers_tags smt
+       WHERE smt.scene_marker_id = smk.marker_id
+         AND smt.tag_id = ?
+     )
+)
+SELECT od.rowid, od.scene_id, od.o_date, od.video_timestamp
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
+JOIN scenes s ON s.id = od.scene_id
+JOIN tagged_o_events toe ON toe.o_id = od.rowid
+WHERE od.o_date IS NOT NULL` + scope + `
+ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) DESC, od.rowid DESC, s.title ASC`
+			args = []interface{}{orgasmTagID, tagIDInt, tagIDInt}
+		} else {
+			query = `
+WITH tagged_o_events AS (
+  SELECT DISTINCT od.rowid AS o_id
+  FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
+  JOIN scene_markers sm ON ` + sqlite.SceneOEventMarkerJoinCustom("sm", "od") + `
+  WHERE od.video_timestamp IS NOT NULL
+    AND od.o_date IS NOT NULL
+    AND sm.end_seconds IS NOT NULL
+    AND od.video_timestamp >= sm.seconds
+    AND od.video_timestamp <= sm.end_seconds
+    AND (
+      sm.primary_tag_id = ?
+      OR EXISTS (
+        SELECT 1 FROM scene_markers_tags smt
+        WHERE smt.scene_marker_id = sm.id
+          AND smt.tag_id = ?
+      )
+    )
+)
+SELECT od.rowid, od.scene_id, od.o_date, od.video_timestamp
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
+JOIN scenes s ON s.id = od.scene_id
+JOIN tagged_o_events toe ON toe.o_id = od.rowid
+WHERE od.o_date IS NOT NULL` + scope + `
+ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) DESC, od.rowid DESC, s.title ASC`
+			args = []interface{}{tagIDInt, tagIDInt}
+		}
+		args = append(args, scopeArgs...)
+
+		_, rows, err := db.QuerySQL(ctx, query, args)
+		if err != nil {
+			return err
+		}
+
+		out, err := r.sceneOEventsFromRows(ctx, rows)
+		if err != nil {
+			return err
+		}
+
+		ret = out
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
+
+var sceneOWithoutMarkerTagsPredicate = `
+  AND (
+    od.video_timestamp IS NULL
+    OR NOT EXISTS (
+      SELECT 1
+      FROM scene_markers sm
+      WHERE ` + sqlite.SceneOEventMarkerJoinCustom("sm", "od") + `
+        AND sm.end_seconds IS NOT NULL
+        AND od.video_timestamp >= sm.seconds
+        AND od.video_timestamp <= sm.end_seconds
+    )
+  )`
+
+// SceneOCountWithoutMarkerTags returns all O entries that cannot be assigned a
+// marker-tag group because they lack a timestamp or a covering marker.
+func (r *queryResolver) SceneOCountWithoutMarkerTags(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret int, err error) {
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
+	if err != nil {
+		return 0, err
+	}
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		query := `
+SELECT COUNT(*)
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
+WHERE od.o_date IS NOT NULL` + scope + sceneOWithoutMarkerTagsPredicate
+		_, rows, err := db.QuerySQL(ctx, query, scopeArgs)
+		if err != nil {
+			return err
+		}
+		if len(rows) > 0 && len(rows[0]) > 0 {
+			ret = customIntValue(rows[0][0])
+		}
+		return nil
+	}); err != nil {
+		return 0, err
+	}
+	return ret, nil
+}
+
+// SceneOEventsWithoutMarkerTags returns all O entries that cannot be assigned
+// a marker-tag group because they lack a timestamp or a covering marker.
+func (r *queryResolver) SceneOEventsWithoutMarkerTags(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOEvent, err error) {
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
+	if err != nil {
+		return nil, err
+	}
+	query := `
+SELECT od.rowid, od.scene_id, od.o_date, od.video_timestamp
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
+JOIN scenes s ON s.id = od.scene_id
+WHERE od.o_date IS NOT NULL` + scope + sceneOWithoutMarkerTagsPredicate + `
+ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) DESC, od.rowid DESC, s.title ASC`
+	return r.sceneOEventsFromStatsQuery(ctx, query, scopeArgs)
+}
+
+// SceneOEventsByPerformer returns all recorded O events for scenes associated
+// with a performer in reverse chronological order.
+func (r *queryResolver) SceneOEventsByPerformer(ctx context.Context, performerID string, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOEvent, err error) {
+	performerIDInt, err := sceneOStatsPerformerID(performerID)
+	if err != nil {
+		return nil, err
+	}
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		query := `
+SELECT od.rowid, od.scene_id, od.o_date, od.video_timestamp
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
+JOIN scenes s ON s.id = od.scene_id
+JOIN ` + sqlite.SceneOEventCastSQLCustom() + ` ps ON ps.owner_key = od.owner_key
+WHERE ps.performer_id = ?
+  AND od.o_date IS NOT NULL
+` + scope + `
+ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) DESC, od.rowid DESC, s.title ASC`
+		args := append([]interface{}{performerIDInt}, scopeArgs...)
+		_, rows, err := db.QuerySQL(ctx, query, args)
+		if err != nil {
+			return err
+		}
+
+		out, err := r.sceneOEventsFromRows(ctx, rows)
+		if err != nil {
+			return err
+		}
+		ret = out
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
+
+// SceneOEventsByScene returns all recorded O events for one scene in
+// reverse chronological order.
+func (r *queryResolver) SceneOEventsByScene(ctx context.Context, sceneID string, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOEvent, err error) {
+	sceneIDInt, err := sceneOStatsSceneID(sceneID)
+	if err != nil {
+		return nil, err
+	}
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
+	if err != nil {
+		return nil, err
+	}
+
+	query := `
+SELECT od.rowid, od.scene_id, od.o_date, od.video_timestamp
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
+JOIN scenes s ON s.id = od.scene_id
+WHERE od.scene_id = ?
+  AND od.o_date IS NOT NULL
+` + scope + `
+ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) DESC, od.rowid DESC`
+	args := append([]interface{}{sceneIDInt}, scopeArgs...)
+	return r.sceneOEventsFromStatsQuery(ctx, query, args)
+}
+
+// SceneOCountsByTag returns timestamped scene O events grouped by marker tags
+// covering each event's video timestamp. Primary and secondary marker tags are
+// both counted, with each tag counted once per O event.
+func (r *queryResolver) SceneOCountsByTag(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOCountByTag, err error) {
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
+	if err != nil {
+		return nil, err
+	}
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		uiConfig := config.GetInstance().GetUIConfiguration()
+		roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
+		var orgasmTagID int
+		if roleTagIds != nil {
+			if orgasmID, ok := roleTagIds["orgasmTagId"].(string); ok && orgasmID != "" {
+				orgasmTagID, _ = strconv.Atoi(orgasmID)
+			}
+		}
+
+		var query string
+		var args []interface{}
+		if orgasmTagID != 0 {
+			query = `
+WITH RECURSIVE orgasm_tags(id) AS (
+  SELECT id FROM tags WHERE id = ?
+  UNION ALL
+  SELECT tr.child_id FROM tags_relations tr JOIN orgasm_tags ot ON tr.parent_id = ot.id
+),
+covered_markers AS (
+  SELECT
+    od.rowid AS o_id,
+    sm.id AS marker_id,
+    CASE
+      WHEN sm.primary_tag_id IN (SELECT id FROM orgasm_tags)
+        OR EXISTS (
+          SELECT 1 FROM scene_markers_tags smt
+          WHERE smt.scene_marker_id = sm.id
+            AND smt.tag_id IN (SELECT id FROM orgasm_tags)
+        )
+      THEN 1 ELSE 0
+    END AS is_orgasm
+  FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
+  JOIN scene_markers sm ON ` + sqlite.SceneOEventMarkerJoinCustom("sm", "od") + `
+  WHERE od.video_timestamp IS NOT NULL
+    AND od.o_date IS NOT NULL
+    AND sm.end_seconds IS NOT NULL
+    AND od.video_timestamp >= sm.seconds
+    AND od.video_timestamp <= sm.end_seconds` + scope + `
+),
+selected_markers AS (
+  SELECT cm.o_id, cm.marker_id
+  FROM covered_markers cm
+  WHERE cm.is_orgasm = 1
+     OR NOT EXISTS (
+       SELECT 1 FROM covered_markers orgasm_cm
+       WHERE orgasm_cm.o_id = cm.o_id
+         AND orgasm_cm.is_orgasm = 1
+     )
+),
+covered_o_tags AS (
+  SELECT DISTINCT
+    smk.o_id,
+    t.id AS tag_id,
+    t.name AS tag_name
+  FROM selected_markers smk
+  JOIN scene_markers sm ON sm.id = smk.marker_id
+  JOIN tags t ON t.id = sm.primary_tag_id
+
+  UNION
+
+  SELECT DISTINCT
+    smk.o_id,
+    t.id AS tag_id,
+    t.name AS tag_name
+  FROM selected_markers smk
+  JOIN scene_markers_tags smt ON smt.scene_marker_id = smk.marker_id
+  JOIN tags t ON t.id = smt.tag_id
+)
+SELECT tag_id, tag_name, COUNT(*) AS cnt
+FROM covered_o_tags
+GROUP BY tag_id, tag_name
+ORDER BY cnt DESC, tag_name ASC`
+			args = append([]interface{}{orgasmTagID}, scopeArgs...)
+		} else {
+			query = `
+WITH covered_o_tags AS (
+  SELECT DISTINCT
+    od.scene_id,
+    od.o_date,
+    od.video_timestamp,
+    t.id AS tag_id,
+    t.name AS tag_name
+  FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
+  JOIN scene_markers sm ON ` + sqlite.SceneOEventMarkerJoinCustom("sm", "od") + `
+  JOIN tags t ON t.id = sm.primary_tag_id
+  WHERE od.video_timestamp IS NOT NULL
+    AND od.o_date IS NOT NULL
+    AND sm.end_seconds IS NOT NULL
+    AND od.video_timestamp >= sm.seconds
+    AND od.video_timestamp <= sm.end_seconds` + scope + `
+
+  UNION
+
+  SELECT DISTINCT
+    od.scene_id,
+    od.o_date,
+    od.video_timestamp,
+    t.id AS tag_id,
+    t.name AS tag_name
+  FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
+  JOIN scene_markers sm ON ` + sqlite.SceneOEventMarkerJoinCustom("sm", "od") + `
+  JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
+  JOIN tags t ON t.id = smt.tag_id
+  WHERE od.video_timestamp IS NOT NULL
+    AND od.o_date IS NOT NULL
+    AND sm.end_seconds IS NOT NULL
+    AND od.video_timestamp >= sm.seconds
+    AND od.video_timestamp <= sm.end_seconds` + scope + `
+)
+SELECT tag_id, tag_name, COUNT(*) AS cnt
+FROM covered_o_tags
+GROUP BY tag_id, tag_name
+ORDER BY cnt DESC, tag_name ASC`
+			args = append(append([]interface{}{}, scopeArgs...), scopeArgs...)
+		}
+
+		_, rows, err := db.QuerySQL(ctx, query, args)
+		if err != nil {
+			return err
+		}
+
+		out := make([]*SceneOCountByTag, 0, len(rows))
+		for _, row := range rows {
+			if len(row) < 3 {
+				continue
+			}
+
+			out = append(out, &SceneOCountByTag{
+				TagID:   fmt.Sprint(row[0]),
+				TagName: fmt.Sprint(row[1]),
+				Count:   customIntValue(row[2]),
+			})
+		}
+
+		ret = out
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+func vatoStatsEthnicityLabel(value interface{}) string {
+	ret := strings.TrimSpace(customStringValue(value))
+	if statsMissingTextCustom(ret) {
+		return "Unknown"
+	}
+	return ret
+}
+
+func sceneOStatsEthnicityFilter(value string) (string, error) {
+	return sceneOStatsStringFilter("ethnicity", value)
+}
+
+func sceneOStatsCountryFilter(value string) (string, error) {
+	return sceneOStatsStringFilter("country", value)
+}
+
+func sceneOStatsStringFilter(field string, value string) (string, error) {
+	ret := strings.TrimSpace(value)
+	if ret == "" {
+		return "", fmt.Errorf("%s is required", field)
+	}
+	return ret, nil
+}
+
+func sceneOStatsPerformerAge(age int) error {
+	if age < 18 || age > 80 {
+		return fmt.Errorf("invalid performer age: %d", age)
+	}
+	return nil
+}
+
+func sceneOStatsReleaseYear(year int) error {
+	if year < 1 || year > 9999 {
+		return fmt.Errorf("invalid release year: %d", year)
+	}
+	return nil
+}
+
+func sceneOStatsEffectiveDateExpr(sceneAlias string) string {
+	return sqlite.EffectiveSceneDateSQLCustom(sceneAlias)
+}
+
+func sceneOStatsPerformerAgeExpr(sceneAlias string, performerAlias string) string {
+	return fmt.Sprintf(
+		"CAST(strftime('%%Y.%%m%%d', %s) - strftime('%%Y.%%m%%d', %s.birthdate) AS INT)",
+		sceneOStatsEffectiveDateExpr(sceneAlias),
+		performerAlias,
+	)
+}
+
+func sceneOOrgasmTagID() int {
+	uiConfig := config.GetInstance().GetUIConfiguration()
+	roleTagIds, _ := uiConfig["roleTagIds"].(map[string]interface{})
+	if roleTagIds == nil {
+		return 0
+	}
+
+	orgasmID, _ := roleTagIds["orgasmTagId"].(string)
+	if orgasmID == "" {
+		return 0
+	}
+
+	ret, _ := strconv.Atoi(orgasmID)
+	return ret
+}
+
+func sceneOEventAssociatedTagsFromCandidates(candidates []sceneOEventAssociatedTagCandidate) map[string][]*models.Tag {
+	hasOrgasmMarker := make(map[string]bool)
+	for _, candidate := range candidates {
+		if candidate.IsOrgasm {
+			hasOrgasmMarker[candidate.OID] = true
+		}
+	}
+
+	seen := make(map[string]map[int]bool)
+	ret := make(map[string][]*models.Tag)
+	for _, candidate := range candidates {
+		if candidate.Tag == nil {
+			continue
+		}
+		if hasOrgasmMarker[candidate.OID] && !candidate.IsOrgasm {
+			continue
+		}
+		if seen[candidate.OID] == nil {
+			seen[candidate.OID] = make(map[int]bool)
+		}
+		if seen[candidate.OID][candidate.Tag.ID] {
+			continue
+		}
+
+		seen[candidate.OID][candidate.Tag.ID] = true
+		ret[candidate.OID] = append(ret[candidate.OID], candidate.Tag)
+	}
+
+	return ret
+}
+
+func sceneOEventAssociatedTagsQuery(placeholders string, includeOrgasmTagPriority bool) string {
+	orgasmCTE := ""
+	isOrgasmExpression := "0"
+	if includeOrgasmTagPriority {
+		orgasmCTE = `RECURSIVE orgasm_tags(id) AS (
+  SELECT id FROM tags WHERE id = ?
+  UNION ALL
+  SELECT tr.child_id FROM tags_relations tr JOIN orgasm_tags ot ON tr.parent_id = ot.id
+),
+`
+		isOrgasmExpression = `CASE
+      WHEN sm.primary_tag_id IN (SELECT id FROM orgasm_tags)
+        OR EXISTS (
+          SELECT 1 FROM scene_markers_tags smt_orgasm
+          WHERE smt_orgasm.scene_marker_id = sm.id
+            AND smt_orgasm.tag_id IN (SELECT id FROM orgasm_tags)
+        )
+      THEN 1 ELSE 0
+    END`
+	}
+
+	return fmt.Sprintf(`
+WITH %scovered_marker_tags AS (
+  SELECT
+    od.rowid AS o_id,
+    sm.id AS marker_id,
+    %s AS is_orgasm,
+    t.id AS tag_id,
+    t.name AS tag_name,
+    0 AS tag_sort
+  FROM `+sqlite.SceneOEventsSQLCustom()+` od
+  JOIN scene_markers sm ON `+sqlite.SceneOEventMarkerJoinCustom("sm", "od")+`
+  JOIN tags t ON t.id = sm.primary_tag_id
+  WHERE od.rowid IN (%s)
+    AND od.video_timestamp IS NOT NULL
+    AND sm.end_seconds IS NOT NULL
+    AND od.video_timestamp >= sm.seconds
+    AND od.video_timestamp <= sm.end_seconds
+
+  UNION
+
+  SELECT
+    od.rowid AS o_id,
+    sm.id AS marker_id,
+    %s AS is_orgasm,
+    t.id AS tag_id,
+    t.name AS tag_name,
+    1 AS tag_sort
+  FROM `+sqlite.SceneOEventsSQLCustom()+` od
+  JOIN scene_markers sm ON `+sqlite.SceneOEventMarkerJoinCustom("sm", "od")+`
+  JOIN scene_markers_tags smt ON smt.scene_marker_id = sm.id
+  JOIN tags t ON t.id = smt.tag_id
+  WHERE od.rowid IN (%s)
+    AND od.video_timestamp IS NOT NULL
+    AND sm.end_seconds IS NOT NULL
+    AND od.video_timestamp >= sm.seconds
+    AND od.video_timestamp <= sm.end_seconds
+)
+SELECT o_id, marker_id, is_orgasm, tag_id, tag_name
+FROM covered_marker_tags
+ORDER BY o_id, marker_id, tag_sort, tag_name COLLATE NOCASE`, orgasmCTE, isOrgasmExpression, placeholders, isOrgasmExpression, placeholders)
+}
+
+func sceneOEventIDChunk(ids []int, start int, size int) []int {
+	end := start + size
+	if end > len(ids) {
+		end = len(ids)
+	}
+	return ids[start:end]
+}
+
+func sceneOEventIDPlaceholders(ids []int) (string, []interface{}) {
+	placeholders := make([]string, 0, len(ids))
+	args := make([]interface{}, 0, len(ids))
+	for _, id := range ids {
+		placeholders = append(placeholders, "?")
+		args = append(args, id)
+	}
+
+	return strings.Join(placeholders, ","), args
+}
+
+func (r *queryResolver) populateSceneOEventAssociatedTags(ctx context.Context, events []*SceneOEvent) error {
+	for _, event := range events {
+		event.AssociatedTags = []*models.Tag{}
+	}
+
+	byID := make(map[string]*SceneOEvent, len(events))
+	ids := make([]int, 0, len(events))
+	for _, event := range events {
+		if event.VideoTimestamp == nil {
+			continue
+		}
+		id, err := strconv.Atoi(event.ID)
+		if err != nil {
+			continue
+		}
+		byID[event.ID] = event
+		ids = append(ids, id)
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+
+	db := manager.GetInstance().Database
+	orgasmTagID := sceneOOrgasmTagID()
+	candidates := []sceneOEventAssociatedTagCandidate{}
+	for start := 0; start < len(ids); start += 450 {
+		chunk := sceneOEventIDChunk(ids, start, 450)
+		placeholders, idArgs := sceneOEventIDPlaceholders(chunk)
+		query := sceneOEventAssociatedTagsQuery(placeholders, orgasmTagID != 0)
+
+		args := make([]interface{}, 0, len(idArgs)*2+1)
+		if orgasmTagID != 0 {
+			args = append(args, orgasmTagID)
+		}
+		args = append(args, idArgs...)
+		args = append(args, idArgs...)
+
+		_, rows, err := db.QuerySQL(ctx, query, args)
+		if err != nil {
+			return err
+		}
+
+		for _, row := range rows {
+			if len(row) < 5 {
+				continue
+			}
+			candidates = append(candidates, sceneOEventAssociatedTagCandidate{
+				OID:      fmt.Sprint(row[0]),
+				MarkerID: customIntValue(row[1]),
+				IsOrgasm: customIntValue(row[2]) == 1,
+				Tag: &models.Tag{
+					ID:   customIntValue(row[3]),
+					Name: customStringValue(row[4]),
+				},
+			})
+		}
+	}
+
+	associatedTags := sceneOEventAssociatedTagsFromCandidates(candidates)
+	for oID, tags := range associatedTags {
+		if event := byID[oID]; event != nil {
+			event.AssociatedTags = tags
+		}
+	}
+
+	return nil
+}
+
+func sceneOEventOrdinalsQuery(placeholders string) string {
+	return fmt.Sprintf(`
+SELECT ranked.scene_id, ranked.o_id, ranked.scene_o_number
+FROM (
+  SELECT
+    od.scene_id,
+    od.rowid AS o_id,
+    ROW_NUMBER() OVER (
+      PARTITION BY od.scene_id
+      ORDER BY datetime(od.o_date, 'localtime') ASC,
+        COALESCE(od.video_timestamp, -1) ASC,
+        od.rowid ASC
+    ) AS scene_o_number
+  FROM `+sqlite.SceneOEventsSQLCustom()+` od
+  WHERE od.scene_id IN (%s)
+    AND od.o_date IS NOT NULL
+) ranked`, placeholders)
+}
+
+func (r *queryResolver) populateSceneOEventSequence(ctx context.Context, events []*SceneOEvent) error {
+	byID := make(map[string]*SceneOEvent, len(events))
+	seenSceneIDs := make(map[int]bool)
+	sceneIDs := make([]int, 0, len(events))
+	for _, event := range events {
+		byID[event.ID] = event
+		sceneID, err := strconv.Atoi(event.SceneID)
+		if err != nil || seenSceneIDs[sceneID] {
+			continue
+		}
+		seenSceneIDs[sceneID] = true
+		sceneIDs = append(sceneIDs, sceneID)
+	}
+	if len(sceneIDs) == 0 {
+		return nil
+	}
+
+	db := manager.GetInstance().Database
+	for start := 0; start < len(sceneIDs); start += 450 {
+		chunk := sceneOEventIDChunk(sceneIDs, start, 450)
+		placeholders, args := sceneOEventIDPlaceholders(chunk)
+		_, rows, err := db.QuerySQL(ctx, sceneOEventOrdinalsQuery(placeholders), args)
+		if err != nil {
+			return err
+		}
+
+		for _, row := range rows {
+			if len(row) < 3 {
+				continue
+			}
+			if event := byID[fmt.Sprint(row[1])]; event != nil {
+				event.SceneONumber = customIntValue(row[2])
+				event.IsFirstForScene = event.SceneONumber == 1
+			}
+		}
+	}
+
+	return nil
+}
+
+func (r *queryResolver) sceneOEventsFromRows(ctx context.Context, rows [][]interface{}) ([]*SceneOEvent, error) {
+	out := make([]*SceneOEvent, 0, len(rows))
+	for _, row := range rows {
+		if len(row) < 4 {
+			continue
+		}
+
+		sceneID := customIntValue(row[1])
+		scene, err := r.repository.Scene.Find(ctx, sceneID)
+		if err != nil {
+			return nil, err
+		}
+		if scene == nil {
+			continue
+		}
+
+		out = append(out, &SceneOEvent{
+			ID:             fmt.Sprint(row[0]),
+			SceneID:        fmt.Sprint(sceneID),
+			ODate:          customStringValue(row[2]),
+			VideoTimestamp: customFloatPtrValue(row[3]),
+			Scene:          scene,
+		})
+	}
+
+	if err := r.populateSceneOEventAssociatedTags(ctx, out); err != nil {
+		return nil, err
+	}
+	if err := r.populateSceneOEventSequence(ctx, out); err != nil {
+		return nil, err
+	}
+	if err := populateSceneOEventOwnersCustom(ctx, out); err != nil {
+		return nil, err
+	}
+
+	return out, nil
+}
+
+func (r *queryResolver) sceneOEventsFromStatsQuery(ctx context.Context, query string, args []interface{}) (ret []*SceneOEvent, err error) {
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		_, rows, err := db.QuerySQL(ctx, query, args)
+		if err != nil {
+			return err
+		}
+
+		out, err := r.sceneOEventsFromRows(ctx, rows)
+		if err != nil {
+			return err
+		}
+		ret = out
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
+
+// SceneOCountsByEthnicity returns all recorded O events grouped by the
+// ethnicities of performers associated with each O's scene.
+func (r *queryResolver) SceneOCountsByEthnicity(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOCountByEthnicity, err error) {
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
+	if err != nil {
+		return nil, err
+	}
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		query := `
+WITH o_ethnicities AS (
+  SELECT DISTINCT
+    od.rowid AS o_id,
+    CASE
+      WHEN ` + statsMissingTextSQLCustom("performers.ethnicity") + `
+      THEN 'Unknown'
+      ELSE TRIM(performers.ethnicity)
+    END AS ethnicity
+  FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
+  LEFT JOIN ` + sqlite.SceneOEventCastSQLCustom() + ` ps ON ps.owner_key = od.owner_key
+  LEFT JOIN performers ON performers.id = ps.performer_id
+  WHERE od.o_date IS NOT NULL` + scope + `
+)
+SELECT ethnicity, COUNT(*) AS cnt
+FROM o_ethnicities
+GROUP BY ethnicity
+ORDER BY cnt DESC, ethnicity COLLATE NOCASE ASC`
+		_, rows, err := db.QuerySQL(ctx, query, scopeArgs)
+		if err != nil {
+			return err
+		}
+
+		out := make([]*SceneOCountByEthnicity, 0, len(rows))
+		for _, row := range rows {
+			if len(row) < 2 {
+				continue
+			}
+			out = append(out, &SceneOCountByEthnicity{
+				Ethnicity: vatoStatsEthnicityLabel(row[0]),
+				Count:     customIntValue(row[1]),
+			})
+		}
+
+		ret = out
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+// SceneOEventsByEthnicity returns all recorded O events for scenes with an
+// associated performer ethnicity. "Unknown" includes missing/blank ethnicity.
+func (r *queryResolver) SceneOEventsByEthnicity(ctx context.Context, ethnicity string, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOEvent, err error) {
+	ethnicity, err = sceneOStatsEthnicityFilter(ethnicity)
+	if err != nil {
+		return nil, err
+	}
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		unknown := strings.EqualFold(ethnicity, "Unknown")
+		ethnicityPredicate := `
+  AND EXISTS (
+    SELECT 1
+    FROM ` + sqlite.SceneOEventCastSQLCustom() + ` ps
+    JOIN performers ON performers.id = ps.performer_id
+    WHERE ps.owner_key = od.owner_key
+      AND TRIM(performers.ethnicity) = ?
+  )`
+		args := []interface{}{ethnicity}
+		if unknown {
+			ethnicityPredicate = `
+  AND (
+    NOT EXISTS (
+      SELECT 1
+      FROM ` + sqlite.SceneOEventCastSQLCustom() + ` known_ps
+      JOIN performers known_p ON known_p.id = known_ps.performer_id
+      WHERE known_ps.owner_key = od.owner_key
+        AND NOT ` + statsMissingTextSQLCustom("known_p.ethnicity") + `
+    )
+    OR EXISTS (
+      SELECT 1
+      FROM ` + sqlite.SceneOEventCastSQLCustom() + ` unknown_ps
+      LEFT JOIN performers unknown_p ON unknown_p.id = unknown_ps.performer_id
+      WHERE unknown_ps.owner_key = od.owner_key
+        AND ` + statsMissingTextSQLCustom("unknown_p.ethnicity") + `
+    )
+  )`
+			args = nil
+		}
+		args = append(args, scopeArgs...)
+		query := fmt.Sprintf(`
+SELECT od.rowid, od.scene_id, od.o_date, od.video_timestamp
+FROM `+sqlite.SceneOEventsSQLCustom()+` od
+JOIN scenes s ON s.id = od.scene_id
+WHERE od.o_date IS NOT NULL
+  %s
+  %s
+ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) DESC, od.rowid DESC, s.title ASC`, ethnicityPredicate, scope)
+		_, rows, err := db.QuerySQL(ctx, query, args)
+		if err != nil {
+			return err
+		}
+
+		out, err := r.sceneOEventsFromRows(ctx, rows)
+		if err != nil {
+			return err
+		}
+		ret = out
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
+
+// SceneOCountsByCountry returns all recorded O events grouped by the countries
+// of performers associated with each O's scene.
+func (r *queryResolver) SceneOCountsByCountry(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOCountByCountry, err error) {
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
+	if err != nil {
+		return nil, err
+	}
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		query := `
+WITH o_countries AS (
+  SELECT DISTINCT
+    od.rowid AS o_id,
+    CASE
+      WHEN ` + statsMissingTextSQLCustom("performers.country") + `
+      THEN 'Unknown'
+      ELSE TRIM(performers.country)
+    END AS country
+  FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
+  LEFT JOIN ` + sqlite.SceneOEventCastSQLCustom() + ` ps ON ps.owner_key = od.owner_key
+  LEFT JOIN performers ON performers.id = ps.performer_id
+  WHERE od.o_date IS NOT NULL` + scope + `
+)
+SELECT country, COUNT(*) AS cnt
+FROM o_countries
+GROUP BY country
+ORDER BY cnt DESC, country COLLATE NOCASE ASC`
+		_, rows, err := db.QuerySQL(ctx, query, scopeArgs)
+		if err != nil {
+			return err
+		}
+
+		out := make([]*SceneOCountByCountry, 0, len(rows))
+		for _, row := range rows {
+			if len(row) < 2 {
+				continue
+			}
+			out = append(out, &SceneOCountByCountry{
+				Country: vatoStatsEthnicityLabel(row[0]),
+				Count:   customIntValue(row[1]),
+			})
+		}
+
+		ret = out
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+// SceneOEventsByCountry returns all recorded O events for scenes with an
+// associated performer country. "Unknown" includes missing/blank country.
+func (r *queryResolver) SceneOEventsByCountry(ctx context.Context, country string, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOEvent, err error) {
+	country, err = sceneOStatsCountryFilter(country)
+	if err != nil {
+		return nil, err
+	}
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
+	if err != nil {
+		return nil, err
+	}
+
+	unknown := strings.EqualFold(country, "Unknown")
+	countryPredicate := `
+  AND EXISTS (
+    SELECT 1
+    FROM ` + sqlite.SceneOEventCastSQLCustom() + ` ps
+    JOIN performers ON performers.id = ps.performer_id
+    WHERE ps.owner_key = od.owner_key
+      AND TRIM(performers.country) = ?
+  )`
+	args := []interface{}{country}
+	if unknown {
+		countryPredicate = `
+  AND (
+    NOT EXISTS (
+      SELECT 1
+      FROM ` + sqlite.SceneOEventCastSQLCustom() + ` known_ps
+      JOIN performers known_p ON known_p.id = known_ps.performer_id
+      WHERE known_ps.owner_key = od.owner_key
+        AND NOT ` + statsMissingTextSQLCustom("known_p.country") + `
+    )
+    OR EXISTS (
+      SELECT 1
+      FROM ` + sqlite.SceneOEventCastSQLCustom() + ` unknown_ps
+      LEFT JOIN performers unknown_p ON unknown_p.id = unknown_ps.performer_id
+      WHERE unknown_ps.owner_key = od.owner_key
+        AND ` + statsMissingTextSQLCustom("unknown_p.country") + `
+    )
+  )`
+		args = nil
+	}
+	args = append(args, scopeArgs...)
+
+	query := fmt.Sprintf(`
+SELECT od.rowid, od.scene_id, od.o_date, od.video_timestamp
+FROM `+sqlite.SceneOEventsSQLCustom()+` od
+JOIN scenes s ON s.id = od.scene_id
+WHERE od.o_date IS NOT NULL
+  %s
+  %s
+ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) DESC, od.rowid DESC, s.title ASC`, countryPredicate, scope)
+	return r.sceneOEventsFromStatsQuery(ctx, query, args)
+}
+
+// SceneOCountsByStudio returns all recorded O events grouped by the studio of
+// each event's owner (a release O goes to the release's studio), plus a
+// separate count for owners without a studio.
+func (r *queryResolver) SceneOCountsByStudio(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret *SceneOCountsByStudio, err error) {
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
+	if err != nil {
+		return nil, err
+	}
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		query := `
+WITH studio_counts AS (
+SELECT studios.id AS studio_id, studios.name AS studio_name, COUNT(*) AS cnt, 0 AS is_unknown
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
+JOIN studios ON studios.id = od.studio_id
+WHERE od.o_date IS NOT NULL` + scope + `
+GROUP BY studios.id, studios.name
+UNION ALL
+SELECT 0 AS studio_id, '' AS studio_name, COUNT(*) AS cnt, 1 AS is_unknown
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
+WHERE od.o_date IS NOT NULL
+  AND od.studio_id IS NULL` + scope + `
+)
+SELECT studio_id, studio_name, cnt, is_unknown
+FROM studio_counts
+ORDER BY is_unknown ASC, cnt DESC, studio_name COLLATE NOCASE ASC`
+		args := append(append([]interface{}{}, scopeArgs...), scopeArgs...)
+		_, rows, err := db.QuerySQL(ctx, query, args)
+		if err != nil {
+			return err
+		}
+
+		out := &SceneOCountsByStudio{Counts: []*SceneOCountByStudio{}}
+		for _, row := range rows {
+			if len(row) < 4 {
+				continue
+			}
+			if customIntValue(row[3]) != 0 {
+				out.UnknownCount = customIntValue(row[2])
+				continue
+			}
+			out.Counts = append(out.Counts, &SceneOCountByStudio{
+				StudioID:   fmt.Sprint(row[0]),
+				StudioName: customStringValue(row[1]),
+				Count:      customIntValue(row[2]),
+			})
+		}
+
+		ret = out
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+// SceneOEventsByStudio returns all recorded O events whose owner (scene or
+// release) is assigned to a studio, newest first.
+func (r *queryResolver) SceneOEventsByStudio(ctx context.Context, studioID string, scopeStudioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOEvent, err error) {
+	studioIDInt, err := sceneOStatsStudioID(studioID)
+	if err != nil {
+		return nil, err
+	}
+	scope, scopeArgs, err := sceneOStatsScopeCustom(scopeStudioID, depth, dateRange)
+	if err != nil {
+		return nil, err
+	}
+
+	query := `
+SELECT od.rowid, od.scene_id, od.o_date, od.video_timestamp
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
+JOIN scenes s ON s.id = od.scene_id
+WHERE od.studio_id = ?
+  AND od.o_date IS NOT NULL` + scope + `
+ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) DESC, od.rowid DESC, s.title ASC`
+	args := append([]interface{}{studioIDInt}, scopeArgs...)
+	return r.sceneOEventsFromStatsQuery(ctx, query, args)
+}
+
+// SceneOEventsWithUnknownStudio returns all recorded O events whose owner has
+// no assigned studio, newest first.
+func (r *queryResolver) SceneOEventsWithUnknownStudio(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOEvent, err error) {
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
+	if err != nil {
+		return nil, err
+	}
+	query := `
+SELECT od.rowid, od.scene_id, od.o_date, od.video_timestamp
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
+JOIN scenes s ON s.id = od.scene_id
+WHERE od.studio_id IS NULL
+  AND od.o_date IS NOT NULL` + scope + `
+ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) DESC, od.rowid DESC, s.title ASC`
+	return r.sceneOEventsFromStatsQuery(ctx, query, scopeArgs)
+}
+
+// SceneOCountsByPerformerAge returns all recorded O events grouped by a
+// performer's age at the scene's effective release date.
+func (r *queryResolver) SceneOCountsByPerformerAge(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret *SceneOCountsByPerformerAge, err error) {
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
+	if err != nil {
+		return nil, err
+	}
+	ageExpr := sceneOStatsPerformerAgeExpr("s", "p")
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		query := fmt.Sprintf(`
+WITH o_performer_ages AS (
+  SELECT DISTINCT od.rowid AS o_id, %s AS age
+  FROM `+sqlite.SceneOEventsSQLCustom()+` od
+  JOIN scenes s ON s.id = od.scene_id
+  LEFT JOIN `+sqlite.SceneOEventCastSQLCustom()+` ps ON ps.owner_key = od.owner_key
+  LEFT JOIN performers p ON p.id = ps.performer_id
+  WHERE od.o_date IS NOT NULL%s
+),
+valid_ages AS (
+  SELECT o_id, age
+  FROM o_performer_ages
+  WHERE age BETWEEN 18 AND 80
+),
+unknown_events AS (
+  SELECT DISTINCT o_id
+  FROM o_performer_ages
+  WHERE age IS NULL OR age < 18 OR age > 80
+)
+SELECT age, COUNT(*) AS cnt, 0 AS is_unknown
+FROM valid_ages
+GROUP BY age
+UNION ALL
+SELECT 0 AS age, COUNT(*) AS cnt, 1 AS is_unknown
+FROM unknown_events
+ORDER BY is_unknown ASC, age ASC`, ageExpr, scope)
+		_, rows, err := db.QuerySQL(ctx, query, scopeArgs)
+		if err != nil {
+			return err
+		}
+
+		out := &SceneOCountsByPerformerAge{Counts: []*SceneOCountByPerformerAge{}}
+		for _, row := range rows {
+			if len(row) < 3 {
+				continue
+			}
+			if customIntValue(row[2]) != 0 {
+				out.UnknownCount = customIntValue(row[1])
+				continue
+			}
+			out.Counts = append(out.Counts, &SceneOCountByPerformerAge{
+				Age:   customIntValue(row[0]),
+				Count: customIntValue(row[1]),
+			})
+		}
+
+		ret = out
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+func (r *queryResolver) sceneOEventsByPerformerAgeQuery(ctx context.Context, agePredicate string, args []interface{}, studioID *string, depth *int, dateRange *StatsDateRangeInput) ([]*SceneOEvent, error) {
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
+	if err != nil {
+		return nil, err
+	}
+	ageExpr := sceneOStatsPerformerAgeExpr("s", "p")
+	query := fmt.Sprintf(`
+WITH o_performer_ages AS (
+  SELECT DISTINCT od.rowid AS o_id, %s AS age
+  FROM `+sqlite.SceneOEventsSQLCustom()+` od
+  JOIN scenes s ON s.id = od.scene_id
+  LEFT JOIN `+sqlite.SceneOEventCastSQLCustom()+` ps ON ps.owner_key = od.owner_key
+  LEFT JOIN performers p ON p.id = ps.performer_id
+  WHERE od.o_date IS NOT NULL%s
+),
+matching_o_events AS (
+  SELECT DISTINCT o_id
+  FROM o_performer_ages
+  WHERE %s
+)
+SELECT od.rowid, od.scene_id, od.o_date, od.video_timestamp
+FROM `+sqlite.SceneOEventsSQLCustom()+` od
+JOIN scenes s ON s.id = od.scene_id
+JOIN matching_o_events moe ON moe.o_id = od.rowid
+ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) DESC, od.rowid DESC, s.title ASC`, ageExpr, scope, agePredicate)
+	args = append(scopeArgs, args...)
+	return r.sceneOEventsFromStatsQuery(ctx, query, args)
+}
+
+// SceneOEventsByPerformerAge returns all recorded O events associated with a
+// performer of the requested age at the scene's effective release date.
+func (r *queryResolver) SceneOEventsByPerformerAge(ctx context.Context, age int, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOEvent, err error) {
+	if err := sceneOStatsPerformerAge(age); err != nil {
+		return nil, err
+	}
+	return r.sceneOEventsByPerformerAgeQuery(ctx, "age = ?", []interface{}{age}, studioID, depth, dateRange)
+}
+
+// SceneOEventsWithUnknownPerformerAge returns all recorded O events with at
+// least one performer whose scene age cannot be calculated.
+func (r *queryResolver) SceneOEventsWithUnknownPerformerAge(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOEvent, err error) {
+	return r.sceneOEventsByPerformerAgeQuery(ctx, "age IS NULL OR age < 18 OR age > 80", nil, studioID, depth, dateRange)
+}
+
+// SceneOCountsByReleaseYear returns all recorded O events grouped by the
+// scene's effective release year.
+func (r *queryResolver) SceneOCountsByReleaseYear(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret *SceneOCountsByReleaseYear, err error) {
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
+	if err != nil {
+		return nil, err
+	}
+	effectiveDateExpr := sceneOStatsEffectiveDateExpr("s")
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		query := fmt.Sprintf(`
+WITH o_release_years AS (
+  SELECT od.rowid AS o_id, CAST(strftime('%%Y', %s) AS INT) AS year
+  FROM `+sqlite.SceneOEventsSQLCustom()+` od
+  JOIN scenes s ON s.id = od.scene_id
+  WHERE od.o_date IS NOT NULL%s
+)
+SELECT year, COUNT(*) AS cnt, 0 AS is_unknown
+FROM o_release_years
+WHERE year IS NOT NULL
+GROUP BY year
+UNION ALL
+SELECT 0 AS year, COUNT(*) AS cnt, 1 AS is_unknown
+FROM o_release_years
+WHERE year IS NULL
+ORDER BY is_unknown ASC, year ASC`, effectiveDateExpr, scope)
+		_, rows, err := db.QuerySQL(ctx, query, scopeArgs)
+		if err != nil {
+			return err
+		}
+
+		out := &SceneOCountsByReleaseYear{Counts: []*SceneOCountByReleaseYear{}}
+		for _, row := range rows {
+			if len(row) < 3 {
+				continue
+			}
+			if customIntValue(row[2]) != 0 {
+				out.UnknownCount = customIntValue(row[1])
+				continue
+			}
+			out.Counts = append(out.Counts, &SceneOCountByReleaseYear{
+				Year:  customIntValue(row[0]),
+				Count: customIntValue(row[1]),
+			})
+		}
+
+		ret = out
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+func (r *queryResolver) sceneOEventsByReleaseYearQuery(ctx context.Context, yearPredicate string, args []interface{}, studioID *string, depth *int, dateRange *StatsDateRangeInput) ([]*SceneOEvent, error) {
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
+	if err != nil {
+		return nil, err
+	}
+	effectiveDateExpr := sceneOStatsEffectiveDateExpr("s")
+	query := fmt.Sprintf(`
+WITH o_release_years AS (
+  SELECT od.rowid AS o_id, CAST(strftime('%%Y', %s) AS INT) AS year
+  FROM `+sqlite.SceneOEventsSQLCustom()+` od
+  JOIN scenes s ON s.id = od.scene_id
+  WHERE od.o_date IS NOT NULL%s
+),
+matching_o_events AS (
+  SELECT o_id
+  FROM o_release_years
+  WHERE %s
+)
+SELECT od.rowid, od.scene_id, od.o_date, od.video_timestamp
+FROM `+sqlite.SceneOEventsSQLCustom()+` od
+JOIN scenes s ON s.id = od.scene_id
+JOIN matching_o_events moe ON moe.o_id = od.rowid
+	ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) DESC, od.rowid DESC, s.title ASC`, effectiveDateExpr, scope, yearPredicate)
+	args = append(scopeArgs, args...)
+	return r.sceneOEventsFromStatsQuery(ctx, query, args)
+}
+
+// SceneOEventsByReleaseYear returns all recorded O events for a scene's
+// effective release year.
+func (r *queryResolver) SceneOEventsByReleaseYear(ctx context.Context, year int, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOEvent, err error) {
+	if err := sceneOStatsReleaseYear(year); err != nil {
+		return nil, err
+	}
+	return r.sceneOEventsByReleaseYearQuery(ctx, "year = ?", []interface{}{year}, studioID, depth, dateRange)
+}
+
+// SceneOEventsWithUnknownReleaseYear returns all recorded O events for scenes
+// that have no effective release date.
+func (r *queryResolver) SceneOEventsWithUnknownReleaseYear(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOEvent, err error) {
+	return r.sceneOEventsByReleaseYearQuery(ctx, "year IS NULL", nil, studioID, depth, dateRange)
+}
+
+// SceneOUnreliableDateCount returns the number of O entries that predate
+// reliable O-date tracking (or have an unparsable O date).
+func (r *queryResolver) SceneOUnreliableDateCount(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret int, err error) {
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
+	if err != nil {
+		return 0, err
+	}
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		query := `
+SELECT COUNT(*)
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
+WHERE od.o_date IS NOT NULL
+  AND (date(od.o_date, 'localtime') < date(?) OR date(od.o_date, 'localtime') IS NULL)` + scope
+		args := append([]interface{}{sceneODateTrackingStart}, scopeArgs...)
+		_, rows, err := db.QuerySQL(ctx, query, args)
+		if err != nil {
+			return err
+		}
+		if len(rows) > 0 && len(rows[0]) > 0 {
+			ret = customIntValue(rows[0][0])
+		}
+		return nil
+	}); err != nil {
+		return 0, err
+	}
+	return ret, nil
+}
+
+// SceneOEventsBeforeTrackingStart returns O entries that do not have a
+// reliable O date for the date-based timeline.
+func (r *queryResolver) SceneOEventsBeforeTrackingStart(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret []*SceneOEvent, err error) {
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
+	if err != nil {
+		return nil, err
+	}
+	query := `
+SELECT od.rowid, od.scene_id, od.o_date, od.video_timestamp
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
+JOIN scenes s ON s.id = od.scene_id
+WHERE od.o_date IS NOT NULL
+  AND (date(od.o_date, 'localtime') < date(?) OR date(od.o_date, 'localtime') IS NULL)` + scope + `
+ORDER BY datetime(od.o_date, 'localtime') DESC, COALESCE(od.video_timestamp, -1) DESC, od.rowid DESC, s.title ASC`
+	args := append([]interface{}{sceneODateTrackingStart}, scopeArgs...)
+	return r.sceneOEventsFromStatsQuery(ctx, query, args)
+}
+
+func vatoStatsStringPtrValue(value interface{}) *string {
+	ret := strings.TrimSpace(customStringValue(value))
+	if statsMissingTextCustom(ret) {
+		return nil
+	}
+	return &ret
+}
+
+func vatoStatsIntPtrValue(value interface{}) *int {
+	if value == nil {
+		return nil
+	}
+	ret := customIntValue(value)
+	return &ret
+}
+
+func vatoStatsAgeRange(age int) string {
+	return strconv.Itoa(age)
+}
+
+func vatoStatsImagePath(baseURL string, performerID int, hasImage bool) *string {
+	ret := fmt.Sprintf("%s/performer/%d/image?t=0", baseURL, performerID)
+	if !hasImage {
+		ret += "&default=true"
+	}
+	return &ret
+}
+
+func vatoStatsIDFilter(column string, ids []int) (string, []interface{}) {
+	if len(ids) == 0 || len(ids) > 900 {
+		return "", nil
+	}
+
+	placeholders := make([]string, 0, len(ids))
+	args := make([]interface{}, 0, len(ids))
+	for _, id := range ids {
+		placeholders = append(placeholders, "?")
+		args = append(args, id)
+	}
+
+	return fmt.Sprintf(" AND %s IN (%s)", column, strings.Join(placeholders, ",")), args
+}
+
+func vatoStatsSetAgeCount(performer *VatoStatsPerformer, ageRange string, count int) {
+	for _, row := range performer.AgeCounts {
+		if row.AgeRange == ageRange {
+			row.Count += count
+			return
+		}
+	}
+	performer.AgeCounts = append(performer.AgeCounts, &VatoStatsAgeCount{
+		AgeRange: ageRange,
+		Count:    count,
+	})
+}
+
+func vatoStatsPerformersQueryCustom(sceneScope string, oDateWhere string, includeZeroScenePerformers bool, royalSapphireClause string, goldClause string, silverClause string, bronzeClause string) string {
+	return fmt.Sprintf(`
+%s,
+scene_o_stats AS (
+  SELECT
+    scene_id,
+    COUNT(*) AS scene_o_count,
+    strftime('%%Y-%%m-%%dT%%H:%%M:%%SZ', MAX(datetime(o_date))) AS most_recent_o_date
+  FROM `+sqlite.SceneOEventsSQLCustom()+` od
+  WHERE o_date IS NOT NULL
+    AND scene_id IN (SELECT id FROM selected_scenes)%s
+  GROUP BY scene_id
+),
+performer_scene_stats AS (
+  SELECT
+    ps.performer_id,
+    COUNT(DISTINCT ps.scene_id) AS scene_count,
+    COALESCE(SUM(scene_o_stats.scene_o_count), 0) AS scene_o_count,
+    MAX(scene_o_stats.most_recent_o_date) AS most_recent_o_date,
+    COALESCE(
+      CAST(julianday(MAX(date(s.date))) - julianday(MIN(date(s.date))) AS INT),
+      0
+    ) AS career_span_days
+  FROM performers_scenes ps
+  JOIN scenes s ON s.id = ps.scene_id
+  LEFT JOIN scene_o_stats ON scene_o_stats.scene_id = ps.scene_id
+  WHERE ps.scene_id IN (SELECT id FROM selected_scenes)
+  GROUP BY ps.performer_id
+)
+SELECT
+  performers.id,
+  performers.name,
+  performers.rating,
+  CASE
+    WHEN %s THEN 'royal_sapphire'
+    WHEN %s THEN 'gold'
+    WHEN %s THEN 'silver'
+    WHEN %s THEN 'bronze'
+    ELSE NULL
+  END AS metallic_rating,
+  performers.ethnicity,
+  performers.country,
+  performers.hair_color,
+  performers.eye_color,
+  performers.height,
+  performers.penis_length,
+  performers.circumcised,
+  CASE WHEN performers.image_blob IS NULL OR TRIM(performers.image_blob) = '' THEN 0 ELSE 1 END AS has_image,
+  COALESCE(performer_scene_stats.scene_count, 0) AS scene_count,
+  COALESCE(performer_scene_stats.scene_o_count, 0) AS scene_o_count,
+  performer_scene_stats.most_recent_o_date,
+  COALESCE(performer_scene_stats.career_span_days, 0) AS career_span_days
+FROM performers
+LEFT JOIN performer_scene_stats ON performer_scene_stats.performer_id = performers.id
+WHERE performer_scene_stats.performer_id IS NOT NULL OR %t
+ORDER BY performers.name COLLATE NOCASE ASC`,
+		sceneScope,
+		oDateWhere,
+		royalSapphireClause,
+		goldClause,
+		silverClause,
+		bronzeClause,
+		includeZeroScenePerformers,
+	)
+}
+
+// VatoStatsPerformers returns the raw per-vato rows used by /vatostats. The UI
+// owns drill-down state so metric/category combinations can evolve without
+// adding a resolver for every chart.
+func (r *queryResolver) VatoStatsPerformers(ctx context.Context, studioID *string, depth *int, dateRangeInput *StatsDateRangeInput) (ret []*VatoStatsPerformer, err error) {
+	sceneScope, sceneScopeArgs, dateRange, err := sceneStatsInputScopeCustom(studioID, depth, dateRangeInput)
+	if err != nil {
+		return nil, err
+	}
+	// Only organized scenes count toward a vato's scene, role, O and age numbers.
+	sceneScope, err = organizedStatsSceneScopeCustom(sceneScope)
+	if err != nil {
+		return nil, err
+	}
+	oDateWhere, oDateArgs := dateRange.oDateWhereSQL("od")
+
+	baseURL, _ := ctx.Value(BaseURLCtxKey).(string)
+	bronzeClause, bronzeArgs := sqlite.PerformerMetallicTierClauseCustom("bronze")
+	silverClause, silverArgs := sqlite.PerformerMetallicTierClauseCustom("silver")
+	goldClause, goldArgs := sqlite.PerformerMetallicTierClauseCustom("gold")
+	royalSapphireClause, royalSapphireArgs := sqlite.PerformerMetallicTierClauseCustom("royal_sapphire")
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		query := vatoStatsPerformersQueryCustom(
+			sceneScope,
+			oDateWhere,
+			studioID == nil && dateRange == nil, // CUSTOM: unscoped Total Scenes includes zero-scene vatos
+			royalSapphireClause,
+			goldClause,
+			silverClause,
+			bronzeClause,
+		)
+		args := append([]interface{}{}, sceneScopeArgs...)
+		args = append(args, oDateArgs...)
+		args = append(args, royalSapphireArgs...)
+		args = append(args, goldArgs...)
+		args = append(args, silverArgs...)
+		args = append(args, bronzeArgs...)
+		_, rows, err := db.QuerySQL(ctx, query, args)
+		if err != nil {
+			return err
+		}
+
+		out := make([]*VatoStatsPerformer, 0, len(rows))
+		byID := make(map[int]*VatoStatsPerformer, len(rows))
+		ids := make([]int, 0, len(rows))
+		for _, row := range rows {
+			if len(row) < 16 {
+				continue
+			}
+
+			id := customIntValue(row[0])
+			sceneCount := customIntValue(row[12])
+			if id == 0 {
+				continue
+			}
+
+			performer := &VatoStatsPerformer{
+				ID:                   strconv.Itoa(id),
+				Name:                 customStringValue(row[1]),
+				Rating100:            vatoStatsIntPtrValue(row[2]),
+				MetallicRating:       vatoStatsStringPtrValue(row[3]),
+				Ethnicity:            vatoStatsStringPtrValue(row[4]),
+				Country:              vatoStatsStringPtrValue(row[5]),
+				HairColor:            vatoStatsStringPtrValue(row[6]),
+				EyeColor:             vatoStatsStringPtrValue(row[7]),
+				HeightCm:             vatoStatsIntPtrValue(row[8]),
+				PenisLength:          customFloatPtrValue(row[9]),
+				Circumcised:          vatoStatsStringPtrValue(row[10]),
+				ImagePath:            vatoStatsImagePath(baseURL, id, customIntValue(row[11]) != 0),
+				SceneCount:           sceneCount,
+				SceneOCount:          customIntValue(row[13]),
+				MostRecentODate:      vatoStatsStringPtrValue(row[14]),
+				CareerSpanDays:       customIntValue(row[15]),
+				AgeCounts:            []*VatoStatsAgeCount{},
+				UnknownSceneAgeCount: sceneCount,
+			}
+			out = append(out, performer)
+			byID[id] = performer
+			ids = append(ids, id)
+		}
+
+		if len(ids) == 0 {
+			ret = out
+			return nil
+		}
+
+		uiConfig := config.GetInstance().GetUIConfiguration()
+		sexTagID, oralTagID, soloTagID, facialTagID, _, _, _ := getRoleTagIDs(uiConfig)
+		roleQuery, roleQueryArgs := vatoStatsRoleCountsQueryCustom(
+			sceneScope,
+			ids,
+			sexTagID,
+			oralTagID,
+			facialTagID,
+		)
+		if roleQuery != "" {
+			roleQueryArgs = append(append([]interface{}{}, sceneScopeArgs...), roleQueryArgs...)
+			_, roleRows, err := db.QuerySQL(ctx, roleQuery, roleQueryArgs)
+			if err != nil {
+				return err
+			}
+			for _, row := range roleRows {
+				if len(row) < 7 {
+					continue
+				}
+				performer := byID[customIntValue(row[0])]
+				if performer == nil {
+					continue
+				}
+				performer.SexTopCount = customIntValue(row[1])
+				performer.SexBottomCount = customIntValue(row[2])
+				performer.OralTopCount = customIntValue(row[3])
+				performer.OralBottomCount = customIntValue(row[4])
+				performer.FacialGivenCount = customIntValue(row[5])
+				performer.FacialReceivedCount = customIntValue(row[6])
+			}
+		}
+		if soloTagID != 0 {
+			soloIDClause, soloIDArgs := vatoStatsIDFilter("smp.performer_id", ids)
+			soloQuery := sceneScope + `,
+solo_tags(id) AS (
+  SELECT id FROM tags WHERE id = ?
+  UNION ALL
+  SELECT tr.child_id FROM tags_relations tr JOIN solo_tags st ON tr.parent_id = st.id
+)
+SELECT smp.performer_id, COUNT(DISTINCT sm.scene_id)
+FROM scene_marker_performers smp
+JOIN scene_markers sm ON sm.id = smp.scene_marker_id
+WHERE sm.scene_id IN (SELECT id FROM selected_scenes)
+  AND (
+    sm.primary_tag_id IN (SELECT id FROM solo_tags)
+    OR EXISTS (
+      SELECT 1 FROM scene_markers_tags smt
+      WHERE smt.scene_marker_id = sm.id
+        AND smt.tag_id IN (SELECT id FROM solo_tags)
+    )
+  )` + soloIDClause + `
+GROUP BY smp.performer_id`
+			soloArgs := append(append([]interface{}{}, sceneScopeArgs...), soloTagID)
+			soloArgs = append(soloArgs, soloIDArgs...)
+			_, soloRows, err := db.QuerySQL(ctx, soloQuery, soloArgs)
+			if err != nil {
+				return err
+			}
+			for _, row := range soloRows {
+				if len(row) < 2 {
+					continue
+				}
+				if performer := byID[customIntValue(row[0])]; performer != nil {
+					performer.SoloSceneCount = customIntValue(row[1])
+				}
+			}
+		}
+		ageIDClause, ageIDArgs := vatoStatsIDFilter("ps.performer_id", ids)
+		ageQuery := sceneScope + fmt.Sprintf(`
+SELECT
+  ps.performer_id,
+  CAST(strftime('%%Y.%%m%%d', s.date) - strftime('%%Y.%%m%%d', p.birthdate) AS INT) AS scene_age,
+  COUNT(*) AS cnt
+FROM performers_scenes ps
+JOIN performers p ON p.id = ps.performer_id
+JOIN scenes s ON s.id = ps.scene_id
+WHERE p.birthdate IS NOT NULL
+  AND TRIM(p.birthdate) <> ''
+  AND s.date IS NOT NULL
+  AND TRIM(s.date) <> ''
+	AND ps.scene_id IN (SELECT id FROM selected_scenes)
+  %s
+GROUP BY ps.performer_id, scene_age`, ageIDClause)
+		ageArgs := append(append([]interface{}{}, sceneScopeArgs...), ageIDArgs...)
+		_, ageRows, err := db.QuerySQL(ctx, ageQuery, ageArgs)
+		if err != nil {
+			return err
+		}
+		for _, row := range ageRows {
+			if len(row) < 3 {
+				continue
+			}
+			performer := byID[customIntValue(row[0])]
+			if performer == nil {
+				continue
+			}
+			age := customIntValue(row[1])
+			count := customIntValue(row[2])
+			if age < 18 || age > 80 || count <= 0 {
+				continue
+			}
+			vatoStatsSetAgeCount(performer, vatoStatsAgeRange(age), count)
+			performer.UnknownSceneAgeCount -= count
+			if performer.UnknownSceneAgeCount < 0 {
+				performer.UnknownSceneAgeCount = 0
+			}
+		}
+		for _, performer := range out {
+			sort.Slice(performer.AgeCounts, func(i int, j int) bool {
+				return performer.AgeCounts[i].AgeRange < performer.AgeCounts[j].AgeRange
+			})
+		}
+
+		ret = out
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
+
+// sceneOMostOsInDayQueryCustom groups by local day so the record matches the
+// O date charts.
+func sceneOMostOsInDayQueryCustom(scope string) string {
+	return `SELECT date(od.o_date, 'localtime') AS day, COUNT(*) AS cnt
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
+WHERE od.o_date IS NOT NULL AND date(od.o_date, 'localtime') >= date(?) AND date(od.o_date, 'localtime') <> date(?)` + scope + `
+GROUP BY day ORDER BY cnt DESC, day ASC LIMIT 1`
+}
+
+// MostOsInDay returns the single local date with the highest recorded scene O count.
+func (r *queryResolver) MostOsInDay(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret *SceneODayStat, err error) {
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
+	if err != nil {
+		return nil, err
+	}
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		query := sceneOMostOsInDayQueryCustom(scope)
+		args := append([]interface{}{sceneODateTrackingStart, sceneODateMostOsExcludedDay}, scopeArgs...)
+		_, rows, err := db.QuerySQL(ctx, query, args)
+		if err != nil {
+			return err
+		}
+		if len(rows) == 0 || len(rows[0]) < 2 {
+			return nil
+		}
+
+		var count int
+		switch v := rows[0][1].(type) {
+		case int64:
+			count = int(v)
+		case int:
+			count = v
+		case []byte:
+			count, _ = strconv.Atoi(string(v))
+		case string:
+			count, _ = strconv.Atoi(v)
+		default:
+			count, _ = strconv.Atoi(fmt.Sprint(v))
+		}
+
+		ret = &SceneODayStat{
+			Date:  fmt.Sprint(rows[0][0]),
+			Count: count,
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+// LongestPeriodWithoutO returns the longest gap between recorded scene O dates,
+// including the current gap from the most recent O date through today.
+func (r *queryResolver) LongestPeriodWithoutO(ctx context.Context, studioID *string, depth *int, dateRange *StatsDateRangeInput) (ret *SceneODrySpell, err error) {
+	scope, scopeArgs, err := sceneOStatsScopeCustom(studioID, depth, dateRange)
+	if err != nil {
+		return nil, err
+	}
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		db := manager.GetInstance().Database
+		// CUSTOM: local days match the date charts; the current gap ends today or
+		// at the end of the selected range.
+		query := `SELECT DISTINCT date(od.o_date, 'localtime') AS day
+FROM ` + sqlite.SceneOEventsSQLCustom() + ` od
+WHERE od.o_date IS NOT NULL AND date(od.o_date, 'localtime') >= date(?)` + scope + `
+ORDER BY day ASC`
+		args := append([]interface{}{sceneODateTrackingStart}, scopeArgs...)
+		_, rows, err := db.QuerySQL(ctx, query, args)
+		if err != nil {
+			return err
+		}
+		if len(rows) == 0 {
+			return nil
+		}
+
+		dates := make([]time.Time, 0, len(rows))
+		for _, row := range rows {
+			if len(row) == 0 || row[0] == nil {
+				continue
+			}
+			day, parseErr := time.Parse("2006-01-02", fmt.Sprint(row[0]))
+			if parseErr != nil {
+				return parseErr
+			}
+			dates = append(dates, day)
+		}
+		if len(dates) == 0 {
+			return nil
+		}
+
+		bestDays := -1
+		bestStart := dates[0]
+		bestEnd := dates[0]
+		for i := 1; i < len(dates); i++ {
+			days := int(dates[i].Sub(dates[i-1]).Hours()/24) - 1
+			if days > bestDays {
+				bestDays = days
+				bestStart = dates[i-1].AddDate(0, 0, 1)
+				bestEnd = dates[i].AddDate(0, 0, -1)
+			}
+		}
+
+		today, parseErr := time.Parse("2006-01-02", time.Now().Format("2006-01-02"))
+		if parseErr != nil {
+			return parseErr
+		}
+		parsedRange, parseErr := parseStatsDateRangeCustom(dateRange)
+		if parseErr != nil {
+			return parseErr
+		}
+		today = parsedRange.endDate(today)
+		lastDate := dates[len(dates)-1]
+		currentDays := int(today.Sub(lastDate).Hours() / 24)
+		if currentDays > bestDays {
+			bestDays = currentDays
+			bestStart = lastDate.AddDate(0, 0, 1)
+			bestEnd = today
+			if currentDays == 0 {
+				bestStart = today
+			}
+		}
+		if bestDays < 0 {
+			bestDays = 0
+			bestStart = lastDate
+			bestEnd = lastDate
+		}
+
+		ret = &SceneODrySpell{
+			Days:      bestDays,
+			StartDate: bestStart.Format("2006-01-02"),
+			EndDate:   bestEnd.Format("2006-01-02"),
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}

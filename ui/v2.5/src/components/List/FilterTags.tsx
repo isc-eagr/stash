@@ -9,6 +9,7 @@ import { Badge, BadgeProps, Button, Overlay, Popover } from "react-bootstrap";
 import {
   Criterion,
   UnsupportedCriterion,
+  ModifierCriterion, // CUSTOM
 } from "src/models/list-filter/criteria/criterion";
 import { FormattedMessage, useIntl } from "react-intl";
 import { Icon } from "../Shared/Icon";
@@ -21,9 +22,22 @@ import { BsPrefixProps, ReplaceProps } from "react-bootstrap/esm/helpers";
 import { CustomFieldsCriterion } from "src/models/list-filter/criteria/custom-fields";
 import { useDebounce } from "src/hooks/debounce";
 import cx from "classnames";
+// CUSTOM: begin - marker criterion imports
+import { MarkerTagsCriterion } from "src/models/list-filter/criteria/marker-tags";
+import { MarkerTopCriterion } from "src/models/list-filter/criteria/marker-top";
+import { MarkerBottomCriterion } from "src/models/list-filter/criteria/marker-bottom";
+import { ExcludeMarkerTagsCriterion } from "src/models/list-filter/criteria/exclude-marker-tags";
+import {
+  FindPerformersForSelectQueryVariables,
+  FindTagsForSelectQueryVariables,
+  useFindTagsForSelectQuery,
+  useFindPerformersForSelectQuery,
+} from "src/core/generated-graphql";
+// CUSTOM: end
 import { useConfigurationContext } from "src/hooks/Config";
 import { PatchContainerComponent } from "src/patch";
 import { View } from "./views";
+import { ROLE_COLORS_CUSTOM } from "src/utils/roleColors_custom"; // CUSTOM
 
 type TagItemProps = PropsWithChildren<
   ReplaceProps<"span", BsPrefixProps<"span"> & BadgeProps>
@@ -142,6 +156,304 @@ interface IFilterTagExtrasProps {
 
 const FilterTagExtras =
   PatchContainerComponent<IFilterTagExtrasProps>("FilterTags.Extras");
+
+// CUSTOM: begin - chip label components for custom marker criteria
+const getTagSelectVariables = (
+  ids: string[]
+): FindTagsForSelectQueryVariables =>
+  ids.length ? { ids, filter: { per_page: ids.length } } : { ids: [] };
+
+const getPerformerSelectVariables = (
+  ids: string[]
+): FindPerformersForSelectQueryVariables =>
+  ids.length ? { ids, filter: { per_page: ids.length } } : { ids: [] };
+
+// Chip label for the new MarkerTagsCriterion
+const MarkerTagsChipLabel: React.FC<{ criterion: MarkerTagsCriterion }> = ({
+  criterion,
+}) => {
+  const intl = useIntl();
+
+  // Collect all tag IDs from all groups that need resolving
+  const unresolvedTagIds = React.useMemo(() => {
+    const ids: string[] = [];
+    criterion.value.groups.forEach((g) => {
+      g.tags.forEach((t) => {
+        if (t.label === t.id && !ids.includes(t.id)) {
+          ids.push(t.id);
+        }
+      });
+    });
+    return ids;
+  }, [criterion.value.groups]);
+
+  const { data: tagData } = useFindTagsForSelectQuery({
+    variables: getTagSelectVariables(unresolvedTagIds),
+    skip: unresolvedTagIds.length === 0,
+  });
+
+  const tagNameMap = React.useMemo(() => {
+    const m = new Map<string, string>();
+    (tagData?.findTags?.tags ?? []).forEach((t) => {
+      m.set(t.id, t.name);
+    });
+    return m;
+  }, [tagData]);
+
+  // Build summary string showing group count and total tags
+  const groupCount = criterion.value.groups.length;
+  const totalTags = criterion.value.groups.reduce(
+    (acc, g) => acc + g.tags.length,
+    0
+  );
+
+  // Show first few tag names as preview
+  const previewTags: string[] = [];
+  for (const g of criterion.value.groups) {
+    for (const t of g.tags) {
+      const name =
+        t.label === t.id ? (tagNameMap.get(t.id) ?? t.label) : t.label;
+      if (!previewTags.includes(name)) {
+        previewTags.push(name);
+      }
+      if (previewTags.length >= 3) break;
+    }
+    if (previewTags.length >= 3) break;
+  }
+
+  const moreCount = totalTags - previewTags.length;
+  const tagPreview =
+    previewTags.join(", ") + (moreCount > 0 ? ` +${moreCount}` : "");
+
+  return (
+    <span>
+      <Badge variant="secondary" className="me-1">
+        {groupCount} {groupCount === 1 ? "group" : "groups"}
+      </Badge>
+      {intl.formatMessage({ id: "marker_tags" })}:{" "}
+      {tagPreview || intl.formatMessage({ id: "none" })}
+    </span>
+  );
+};
+
+// Chip label for MarkerTopCriterion
+const MarkerTopChipLabel: React.FC<{ criterion: MarkerTopCriterion }> = ({
+  criterion,
+}) => {
+  const intl = useIntl();
+
+  const filterCount = criterion.value.filters?.length ?? 0;
+  const filter = filterCount === 1 ? criterion.value.filters[0] : undefined;
+
+  const unresolvedPerformerIds = React.useMemo(
+    () =>
+      (filter?.performer_ids ?? [])
+        .filter((p) => p.label === p.id)
+        .map((p) => p.id),
+    [filter?.performer_ids]
+  );
+
+  const { data: performerData } = useFindPerformersForSelectQuery({
+    variables: getPerformerSelectVariables(unresolvedPerformerIds),
+    skip: unresolvedPerformerIds.length === 0,
+  });
+
+  const performerNameMap = React.useMemo(() => {
+    const m = new Map<string, string>();
+    (performerData?.findPerformers?.performers ?? []).forEach((p) => {
+      m.set(p.id, p.name ?? p.id);
+    });
+    return m;
+  }, [performerData]);
+
+  if (filterCount === 0) {
+    return (
+      <span>
+        {intl.formatMessage({ id: "marker_top" })}:{" "}
+        {intl.formatMessage({ id: "none" })}
+      </span>
+    );
+  }
+
+  if (filter) {
+    const parts: string[] = [];
+    if (filter.performer_ids.length > 0) {
+      const names = filter.performer_ids
+        .map((p) =>
+          p.label === p.id ? (performerNameMap.get(p.id) ?? p.label) : p.label
+        )
+        .join(", ");
+      parts.push(names);
+    }
+    if (filter.ethnicities.length > 0) {
+      parts.push(filter.ethnicities.join(", "));
+    }
+    if (filter.countries.length > 0) {
+      parts.push(filter.countries.join(", "));
+    }
+    if (filter.rating) {
+      const mod = ModifierCriterion.getModifierLabel(
+        intl,
+        filter.rating.modifier
+      );
+      parts.push(`${mod} ${filter.rating.value}★`);
+    }
+
+    const valueString =
+      parts.length > 0 ? parts.join(", ") : intl.formatMessage({ id: "none" });
+
+    return (
+      <span>
+        <Badge variant={ROLE_COLORS_CUSTOM.top.variant} className="me-1">
+          ⬆ {filter.targetGroupId}
+        </Badge>
+        {intl.formatMessage({ id: "marker_top" })}: {valueString}
+      </span>
+    );
+  }
+
+  return (
+    <span>
+      <Badge variant="secondary" className="me-1">
+        {filterCount} {filterCount === 1 ? "filter" : "filters"}
+      </Badge>
+      {intl.formatMessage({ id: "marker_top" })}
+    </span>
+  );
+};
+
+// Chip label for MarkerBottomCriterion (Bottom)
+const MarkerBottomChipLabel: React.FC<{ criterion: MarkerBottomCriterion }> = ({
+  criterion,
+}) => {
+  const intl = useIntl();
+
+  const filterCount = criterion.value.filters?.length ?? 0;
+  const filter = filterCount === 1 ? criterion.value.filters[0] : undefined;
+
+  const unresolvedPerformerIds = React.useMemo(
+    () =>
+      (filter?.performer_ids ?? [])
+        .filter((p) => p.label === p.id)
+        .map((p) => p.id),
+    [filter?.performer_ids]
+  );
+
+  const { data: performerData } = useFindPerformersForSelectQuery({
+    variables: getPerformerSelectVariables(unresolvedPerformerIds),
+    skip: unresolvedPerformerIds.length === 0,
+  });
+
+  const performerNameMap = React.useMemo(() => {
+    const m = new Map<string, string>();
+    (performerData?.findPerformers?.performers ?? []).forEach((p) => {
+      m.set(p.id, p.name ?? p.id);
+    });
+    return m;
+  }, [performerData]);
+
+  if (filterCount === 0) {
+    return (
+      <span>
+        {intl.formatMessage({ id: "marker_bottom" })}:{" "}
+        {intl.formatMessage({ id: "none" })}
+      </span>
+    );
+  }
+
+  if (filter) {
+    const parts: string[] = [];
+    if (filter.performer_ids.length > 0) {
+      const names = filter.performer_ids
+        .map((p) =>
+          p.label === p.id ? (performerNameMap.get(p.id) ?? p.label) : p.label
+        )
+        .join(", ");
+      parts.push(names);
+    }
+    if (filter.ethnicities.length > 0) {
+      parts.push(filter.ethnicities.join(", "));
+    }
+    if (filter.countries.length > 0) {
+      parts.push(filter.countries.join(", "));
+    }
+    if (filter.rating) {
+      const mod = ModifierCriterion.getModifierLabel(
+        intl,
+        filter.rating.modifier
+      );
+      parts.push(`${mod} ${filter.rating.value}★`);
+    }
+
+    const valueString =
+      parts.length > 0 ? parts.join(", ") : intl.formatMessage({ id: "none" });
+
+    return (
+      <span>
+        <Badge variant={ROLE_COLORS_CUSTOM.bottom.variant} className="me-1">
+          ⬇ {filter.targetGroupId}
+        </Badge>
+        {intl.formatMessage({ id: "marker_bottom" })}: {valueString}
+      </span>
+    );
+  }
+
+  return (
+    <span>
+      <Badge variant="secondary" className="me-1">
+        {filterCount} {filterCount === 1 ? "filter" : "filters"}
+      </Badge>
+      {intl.formatMessage({ id: "marker_bottom" })}
+    </span>
+  );
+};
+
+// Chip label for ExcludeMarkerTagsCriterion
+const ExcludeMarkerTagsChipLabel: React.FC<{
+  criterion: ExcludeMarkerTagsCriterion;
+}> = ({ criterion }) => {
+  const intl = useIntl();
+
+  const unresolvedTagIds = React.useMemo(() => {
+    return criterion.value.tags
+      .filter((t) => t.label === t.id)
+      .map((t) => t.id);
+  }, [criterion.value.tags]);
+
+  const { data: tagData } = useFindTagsForSelectQuery({
+    variables: getTagSelectVariables(unresolvedTagIds),
+    skip: unresolvedTagIds.length === 0,
+  });
+
+  const tagNameMap = React.useMemo(() => {
+    const m = new Map<string, string>();
+    (tagData?.findTags?.tags ?? []).forEach((t) => {
+      m.set(t.id, t.name);
+    });
+    return m;
+  }, [tagData]);
+
+  const tagNames = criterion.value.tags
+    .map((t) =>
+      t.label === t.id ? (tagNameMap.get(t.id) ?? t.label) : t.label
+    )
+    .join(", ");
+
+  const groupSuffix = criterion.value.targetGroupId
+    ? ` (from ${criterion.value.targetGroupId})`
+    : "";
+
+  return (
+    <span>
+      <Badge variant="danger" className="me-1">
+        ❌
+      </Badge>
+      {intl.formatMessage({ id: "exclude_marker_tags" })}: {tagNames}
+      {groupSuffix}
+    </span>
+  );
+};
+// CUSTOM: end
 
 export const FilterTags: React.FC<IFilterTagsProps> = ({
   searchTerm,
@@ -307,7 +619,21 @@ export const FilterTags: React.FC<IFilterTagsProps> = ({
     return (
       <FilterTag
         key={criterion.getId()}
-        label={criterion.getLabel(intl, sfwContentMode)}
+        label={
+          // CUSTOM: begin - custom chip labels for marker criteria
+          criterion instanceof MarkerTagsCriterion ? (
+            <MarkerTagsChipLabel criterion={criterion} />
+          ) : criterion instanceof MarkerTopCriterion ? (
+            <MarkerTopChipLabel criterion={criterion} />
+          ) : criterion instanceof MarkerBottomCriterion ? (
+            <MarkerBottomChipLabel criterion={criterion} />
+          ) : criterion instanceof ExcludeMarkerTagsCriterion ? (
+            <ExcludeMarkerTagsChipLabel criterion={criterion} />
+          ) : (
+            // CUSTOM: end
+            criterion.getLabel(intl, sfwContentMode)
+          )
+        }
         unsupported={unsupported}
         onClick={() => onClickCriterionTag(criterion)}
         onRemove={($event) => onRemoveCriterionTag(criterion, $event)}
