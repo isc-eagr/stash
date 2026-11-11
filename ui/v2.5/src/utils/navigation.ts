@@ -77,7 +77,6 @@ import {
   makeStudioMarkersUrl,
   makePerformerStudioMarkerScenesUrl,
   makeTagPerformersBySceneTagsUrl,
-  makeSceneMarkersUrl,
   makeScenesWithMarkerTagUrl,
   makeScenesWithExclusiveMarkerTagUrl,
   makePerformerOrgasmMarkersUrl,
@@ -682,7 +681,6 @@ const NavUtils = {
   makeSubGroupsUrl,
   makeSceneMarkersSceneUrl,
   // CUSTOM: begin
-  makeSceneMarkersUrl,
   makeScenesWithMarkerTagUrl,
   makeScenesWithExclusiveMarkerTagUrl,
   // CUSTOM: end

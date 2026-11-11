@@ -25,13 +25,6 @@ export function progressPercentage(
   return total === 0 ? 100 : Math.min(100, (completed / total) * 100);
 }
 
-export function overallProgressPercentage(total: number, done: number) {
-  if (!Number.isFinite(total) || !Number.isFinite(done) || total <= 0) {
-    return 0;
-  }
-  return Math.min(100, Math.max(0, (done / total) * 100));
-}
-
 export function plannedTaskProgressFinishDate(
   remaining: number,
   itemsPerDay: number,

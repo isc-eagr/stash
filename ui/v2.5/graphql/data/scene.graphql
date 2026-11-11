@@ -158,7 +158,6 @@ fragment SceneReleaseData on SceneRelease {
   url
   urls
   date
-  organized
   resume_time
   play_duration
   interactive
@@ -207,6 +206,10 @@ fragment SceneReleaseData on SceneRelease {
   o_timestamps
   scene_markers {
     ...SceneMarkerData
+  }
+  scene_marker_tag_ancestors {
+    tag_id
+    ancestor_ids
   }
   negative_markers {
     id

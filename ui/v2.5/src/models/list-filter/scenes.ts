@@ -79,6 +79,7 @@ const sortByOptions = [
   "effective_date", // CUSTOM
   "stashdb_matches", // CUSTOM
   "file_count",
+  "release_count", // CUSTOM
   "duration",
   "framerate",
   "resolution",

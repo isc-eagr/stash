@@ -18,6 +18,7 @@ import {
 
 interface ISceneDetailProps {
   scene: GQL.SceneDataFragment;
+  ownerIsRelease?: boolean; // CUSTOM: marker roles are queried by scene id
 }
 
 export const SceneDetailPanel: React.FC<ISceneDetailProps> = (props) => {
@@ -83,6 +84,7 @@ export const SceneDetailPanel: React.FC<ISceneDetailProps> = (props) => {
         performer={performer}
         ageFromDate={ageFromDate}
         sceneId={props.scene.id} // CUSTOM
+        sceneMarkerRolesSkip={props.ownerIsRelease} // CUSTOM
         scenePerformerCount={performers.length} // CUSTOM
         scenePartnerPerformers={performers} // CUSTOM
         sceneRoleSeconds={

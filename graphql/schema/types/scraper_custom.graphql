@@ -1,0 +1,10 @@
+# CUSTOM: release-owned scrapes. See CUSTOM_FEATURES.md.
+
+extend input ScrapeSingleSceneInput {
+  """
+  Scrape a release instead of a scene: stash-box looks up the release's file
+  fingerprints and scrapers read the release's own metadata and files.
+  Use instead of scene_id.
+  """
+  release_id: ID
+}

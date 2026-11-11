@@ -151,6 +151,8 @@ func (r *queryResolver) ScrapeSingleScene(ctx context.Context, source scraper.So
 		var content []scraper.ScrapedContent
 
 		switch {
+		case input.ReleaseID != nil: // CUSTOM
+			content, err = r.scrapeReleaseWithScraperCustom(ctx, *source.ScraperID, input) // CUSTOM
 		case input.SceneID != nil:
 			c, err = r.scraperCache().ScrapeID(ctx, *source.ScraperID, sceneID, scraper.ScrapeContentTypeScene)
 			if c != nil {
@@ -184,6 +186,15 @@ func (r *queryResolver) ScrapeSingleScene(ctx context.Context, source scraper.So
 		client := r.newStashBoxClient(*b)
 
 		switch {
+		// CUSTOM: begin - release fingerprints
+		case input.ReleaseID != nil:
+			var fps models.Fingerprints
+			fps, err = r.releaseStashBoxFingerprintsCustom(ctx, input)
+			if err != nil {
+				return nil, err
+			}
+			ret, err = client.FindSceneByFingerprints(ctx, fps)
+		// CUSTOM: end
 		case input.SceneID != nil:
 			var fps []models.Fingerprints
 			fps, err = r.getScenesFingerprints(ctx, []int{sceneID})

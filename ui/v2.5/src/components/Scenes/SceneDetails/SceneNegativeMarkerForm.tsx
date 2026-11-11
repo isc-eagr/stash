@@ -12,14 +12,7 @@ import { FormattedMessage, useIntl } from "react-intl";
 import { useFormik } from "formik";
 import * as yup from "yup";
 import * as GQL from "src/core/generated-graphql";
-import {
-  useFindScene,
-  useSceneMarkerUpdate,
-  useSceneNegativeMarkerCreate,
-  useSceneNegativeMarkerDestroy,
-  useSceneNegativeMarkerNames,
-  useSceneNegativeMarkerUpdate,
-} from "src/core/StashService"; // CUSTOM
+import { useSceneNegativeMarkerNames } from "src/core/StashService"; // CUSTOM
 import { DurationInput } from "src/components/Shared/DurationInput";
 import { MarkerTitleSuggest } from "src/components/Shared/Select"; // CUSTOM
 import {
@@ -50,10 +43,16 @@ import {
   getSequentialMarkerStart,
   hasSequentialMarkerEnd,
 } from "./sceneMarkerSequentialActions_custom";
+import { sceneMarkerValuesFromMarkerCustom } from "./sceneMarkerOwner_custom";
+import {
+  useSceneMarkerOwnerMutationsCustom,
+  useSceneMarkerOwnerSceneCustom,
+} from "./useSceneMarkerOwner_custom";
 // CUSTOM: end
 
 interface ISceneNegativeMarkerForm {
   sceneID: string;
+  releaseId?: string; // CUSTOM: release mode edits the release's skip ranges
   marker?: GQL.SceneNegativeMarker;
   sceneMarkers?: GQL.SceneMarkerDataFragment[];
   negativeMarkers?: GQL.SceneNegativeMarker[];
@@ -70,6 +69,7 @@ interface ISceneNegativeMarkerForm {
 
 export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
   sceneID,
+  releaseId, // CUSTOM
   marker,
   sceneMarkers,
   negativeMarkers,
@@ -82,10 +82,8 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
 }) => {
   const intl = useIntl();
 
-  const [createMarker] = useSceneNegativeMarkerCreate(); // CUSTOM
-  const [updateMarker] = useSceneNegativeMarkerUpdate(); // CUSTOM
-  const [destroyMarker] = useSceneNegativeMarkerDestroy(sceneID); // CUSTOM
-  const [updateSceneMarker] = useSceneMarkerUpdate(); // CUSTOM
+  const markerOwner = { sceneId: sceneID, releaseId }; // CUSTOM
+  const ownerMutations = useSceneMarkerOwnerMutationsCustom(markerOwner); // CUSTOM
   const Toast = useToast();
   const { configuration } = useConfigurationContext(); // CUSTOM
 
@@ -95,15 +93,15 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
   }>();
   const isSequentialNegative = sequentialNegativeRange !== undefined;
   const isNew = marker === undefined || isSequentialNegative;
-  const { data: sceneData } = useFindScene(sceneID); // CUSTOM
+  const ownerScene = useSceneMarkerOwnerSceneCustom(markerOwner); // CUSTOM
   const warningSceneMarkers = useMemo(
-    () => sceneMarkers ?? sceneData?.findScene?.scene_markers ?? [],
-    [sceneData?.findScene?.scene_markers, sceneMarkers]
-  );
+    () => sceneMarkers ?? ownerScene?.scene_markers ?? [],
+    [ownerScene?.scene_markers, sceneMarkers]
+  ); // CUSTOM
   const warningNegativeMarkers = useMemo(
-    () => negativeMarkers ?? sceneData?.findScene?.negative_markers ?? [],
-    [negativeMarkers, sceneData?.findScene?.negative_markers]
-  );
+    () => negativeMarkers ?? ownerScene?.negative_markers ?? [],
+    [negativeMarkers, ownerScene?.negative_markers]
+  ); // CUSTOM
   const { data: negativeMarkerNameData, loading: negativeMarkerNamesLoading } =
     useSceneNegativeMarkerNames(); // CUSTOM
   const negativeMarkerTitles =
@@ -214,29 +212,18 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
 
   async function persistMarker(input: InputValues): Promise<boolean> {
     try {
+      // CUSTOM: begin - save on the scene or release
+      const range = {
+        name: input.name,
+        start_seconds: input.start_seconds,
+        end_seconds: input.end_seconds,
+      };
       if (isNew) {
-        await createMarker({
-          variables: {
-            input: {
-              scene_id: sceneID,
-              name: input.name,
-              start_seconds: input.start_seconds,
-              end_seconds: input.end_seconds,
-            },
-          },
-        });
+        await ownerMutations.saveNegativeMarker(range);
       } else {
-        await updateMarker({
-          variables: {
-            input: {
-              id: marker.id,
-              name: input.name,
-              start_seconds: input.start_seconds,
-              end_seconds: input.end_seconds,
-            },
-          },
-        });
+        await ownerMutations.saveNegativeMarker(range, { id: marker.id });
       }
+      // CUSTOM: end
     } catch (e) {
       Toast.error(e);
       return false;
@@ -317,7 +304,7 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
     if (isNew) return;
 
     try {
-      await destroyMarker({ variables: { id: marker.id } });
+      await ownerMutations.destroyNegativeMarker(marker.id); // CUSTOM
     } catch (e) {
       Toast.error(e);
     } finally {
@@ -525,17 +512,20 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
       if (!warning?.adjacentMarkerId) return;
 
       try {
+        // CUSTOM: begin - fix the neighbor on the same owner
         if (warning.adjacentMarkerKind === "negative-marker") {
-          await updateMarker({
-            variables: {
-              input: {
-                id: warning.adjacentMarkerId,
-                ...(boundary === "previous"
-                  ? { end_seconds: warning.otherCloseToSeconds }
-                  : { start_seconds: warning.otherCloseToSeconds }),
-              },
-            },
-          });
+          await ownerMutations.saveNegativeMarker(
+            boundary === "previous"
+              ? { end_seconds: warning.otherCloseToSeconds }
+              : { start_seconds: warning.otherCloseToSeconds },
+            {
+              id: warning.adjacentMarkerId,
+              existing: warningNegativeMarkers.find(
+                (negativeMarker) =>
+                  negativeMarker.id === warning.adjacentMarkerId
+              ),
+            }
+          );
           return;
         }
 
@@ -544,30 +534,16 @@ export const SceneNegativeMarkerForm: React.FC<ISceneNegativeMarkerForm> = ({
         );
         if (!adjacentMarker) return;
 
-        await updateSceneMarker({
-          variables: {
-            id: adjacentMarker.id,
-            scene_id: sceneID,
-            title: adjacentMarker.title,
-            seconds:
-              boundary === "next"
-                ? warning.otherCloseToSeconds
-                : adjacentMarker.seconds,
-            end_seconds:
-              boundary === "previous"
-                ? warning.otherCloseToSeconds
-                : (adjacentMarker.end_seconds ?? null),
-            primary_tag_id: adjacentMarker.primary_tag.id,
-            tag_ids: adjacentMarker.tags.map((tag) => tag.id),
-            top_performer_ids:
-              adjacentMarker.top_performers?.map((performer) => performer.id) ??
-              [],
-            bottom_performer_ids:
-              adjacentMarker.bottom_performers?.map(
-                (performer) => performer.id
-              ) ?? [],
-          },
-        });
+        await ownerMutations.saveMarker(
+          sceneMarkerValuesFromMarkerCustom(
+            adjacentMarker,
+            boundary === "next"
+              ? { seconds: warning.otherCloseToSeconds }
+              : { end_seconds: warning.otherCloseToSeconds }
+          ),
+          { id: adjacentMarker.id }
+        );
+        // CUSTOM: end
       } catch (e) {
         Toast.error(e);
       }

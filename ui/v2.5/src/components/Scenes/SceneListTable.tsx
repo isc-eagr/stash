@@ -339,6 +339,7 @@ export const SceneListTable: React.FC<ISceneListTableProps> = (
       sortBy: "stashdb_matches",
       render: (s) => <>{s.stashdb_matches}</>,
     },
+    metricColumn("release_count"), // CUSTOM
     // CUSTOM: begin - O Count shown by default; activity, quality, and marker count columns
     metricColumn("o_counter", true),
     metricColumn("sex_activity_percent"),

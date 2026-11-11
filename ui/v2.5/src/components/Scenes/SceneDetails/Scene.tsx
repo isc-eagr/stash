@@ -20,12 +20,15 @@ import {
   useSceneGenerateScreenshot,
   useSceneUpdate,
   useSceneOrganizedUpdate, // CUSTOM
+  useSceneReleaseUpdate, // CUSTOM
   queryFindScenes,
   queryFindScenesByID,
   useSceneIncrementPlayCount,
 } from "src/core/StashService";
 
 import { SceneEditPanel } from "./SceneEditPanel";
+import { SceneReleaseDeleteDialog } from "./SceneReleaseDeleteDialog"; // CUSTOM
+import { sceneReleaseEditInputCustom } from "./sceneReleaseEditInput_custom"; // CUSTOM
 import { SceneOCounterMenu } from "./SceneOCounterMenu"; // CUSTOM
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
@@ -56,9 +59,9 @@ import {
   useSceneReleaseRecordOCustom,
 } from "../sceneReleaseActivity_custom"; // CUSTOM
 import { shouldEnableSceneOHotkeyCustom } from "./sceneOHotkeyPreference_custom"; // CUSTOM
-import { SceneReleaseMarkersCustom } from "./SceneReleaseMarkers_custom"; // CUSTOM
 import { SceneReleaseFileInfoCustom } from "./SceneReleaseFileInfo_custom"; // CUSTOM
 import { getSceneReleasePlaybackContextCustom } from "./sceneReleasePlaybackContext_custom"; // CUSTOM
+import { SceneOwnerSwitcher } from "./SceneOwnerSwitcher"; // CUSTOM
 import {
   faEllipsisV,
   faChevronRight,
@@ -273,9 +276,16 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
   const activeRelease = activeReleaseId
     ? scene.releases.find((release) => release.id === activeReleaseId)
     : undefined; // CUSTOM
-  // CUSTOM: show the selected release's studio in the scene header while it
-  // is the active playback owner.
-  const headerStudio = activeRelease?.studio ?? scene.studio;
+  // CUSTOM: release mode. ownerScene is the scene itself, or the active
+  // release projected into a scene-shaped object (same id and ratings as the
+  // parent). Read-only panes and the header read from it.
+  const ownerScene = useMemo(
+    () =>
+      getSceneReleasePlaybackContextCustom(scene, activeReleaseId)?.scene ??
+      scene,
+    [scene, activeReleaseId]
+  );
+  const headerStudio = ownerScene.studio;
 
   const Toast = useToast();
   const intl = useIntl();
@@ -283,6 +293,12 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
   const [updateScene] = useSceneUpdate();
   const [updateSceneOrganized] = useSceneOrganizedUpdate(); // CUSTOM
   const [generateScreenshot] = useSceneGenerateScreenshot();
+  // CUSTOM: begin - release mode edits the release
+  const [updateRelease] = useSceneReleaseUpdate();
+  const [generateReleaseScreenshot] =
+    GQL.useSceneReleaseGenerateScreenshotMutation();
+  const [isReleaseDeleteOpen, setIsReleaseDeleteOpen] = useState(false);
+  // CUSTOM: end
   const [screenshotJobID, setScreenshotJobID] = useState<string>();
   const { configuration } = useConfigurationContext();
   const { showStudioText } = configuration?.ui ?? {};
@@ -406,7 +422,10 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     Mousetrap.bind("p p", () => onQueuePrevious());
     Mousetrap.bind("p r", () => onQueueRandom());
     Mousetrap.bind(",", () => setCollapsed(!collapsed));
-    Mousetrap.bind("d d", () => setIsDeleteAlertOpen(true));
+    // CUSTOM: release mode deletes the release, like the Edit tab's Delete
+    Mousetrap.bind("d d", () =>
+      activeRelease ? setIsReleaseDeleteOpen(true) : setIsDeleteAlertOpen(true)
+    );
     Mousetrap.bind("c c", () => {
       onGenerateScreenshot(getPlayerPosition());
     });
@@ -433,6 +452,22 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
   });
 
   async function onSave(input: GQL.SceneCreateInput) {
+    // CUSTOM: begin - release mode saves the release's own fields
+    if (activeReleaseId) {
+      await updateRelease({
+        variables: {
+          input: sceneReleaseEditInputCustom(activeReleaseId, input),
+        },
+      });
+      Toast.success(
+        intl.formatMessage(
+          { id: "toast.updated_entity" },
+          { entity: "release" }
+        )
+      );
+      return;
+    }
+    // CUSTOM: end
     await updateScene({
       variables: {
         input: {
@@ -503,7 +538,8 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
   // CUSTOM: begin - surface clicked scrubber markers in the Markers tab
   const focusScrubberMarker = useCallback(
     (markerId: string, seconds: number) => {
-      const marker = scene.scene_markers.find(
+      // CUSTOM: release mode focuses the release's markers
+      const marker = ownerScene.scene_markers.find(
         (sceneMarker) => sceneMarker.id === markerId
       );
 
@@ -517,7 +553,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
       });
       onClickMarker(marker, seconds);
     },
-    [onClickMarker, scene.scene_markers]
+    [onClickMarker, ownerScene.scene_markers] // CUSTOM
   );
 
   useEffect(() => {
@@ -591,13 +627,22 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
 
   async function onGenerateScreenshot(at?: number) {
     try {
-      const result = await generateScreenshot({
-        variables: {
-          id: scene.id,
-          at,
-        },
-      });
-      const jobID = result.data?.sceneGenerateScreenshot;
+      // CUSTOM: begin - release mode sets the release cover
+      const jobID = activeReleaseId
+        ? (
+            await generateReleaseScreenshot({
+              variables: { id: activeReleaseId, at },
+            })
+          ).data?.sceneReleaseGenerateScreenshot
+        : (
+            await generateScreenshot({
+              variables: {
+                id: scene.id,
+                at,
+              },
+            })
+          ).data?.sceneGenerateScreenshot;
+      // CUSTOM: end
       if (jobID) {
         setScreenshotJobID(jobID);
       }
@@ -665,6 +710,12 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
         <Icon icon={faEllipsisV} />
       </Dropdown.Toggle>
       <Dropdown.Menu className="bg-secondary text-white">
+        {/* CUSTOM: these items act on the parent scene, not the release */}
+        {activeRelease && (
+          <Dropdown.Header className="text-muted">
+            Applies to the scene
+          </Dropdown.Header>
+        )}
         {!!scene.files.length && (
           <Dropdown.Item
             key="rescan"
@@ -770,199 +821,207 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
   }, [scene, configuration?.ui]);
 
   const renderTabs = () => (
-    <Tab.Container
-      mountOnEnter // CUSTOM: defer queries and rendering in unopened tabs, retaining state after first use.
-      transition={TabPaneShow} // CUSTOM: no fade, so a lazy panel loading on first open cannot leave its pane invisible.
-      activeKey={activeTabKey}
-      onSelect={(k) => k && setActiveTabKey(k)}
-    >
-      <div className="scene-tab-row">
-        <Nav variant="tabs" className="mr-auto">
-          <ScenePageTabs {...props}>
-            <Nav.Item>
-              <Nav.Link eventKey="scene-details-panel">
-                <FormattedMessage id="details" />
-              </Nav.Link>
-            </Nav.Item>
-            {/* CUSTOM: secondary destinations are in More below. */}
-            <Nav.Item>
-              <Nav.Link eventKey="scene-markers-panel">
-                <FormattedMessage id="markers" />
-              </Nav.Link>
-            </Nav.Item>
-            {/* CUSTOM: begin - negative markers tab */}
-            <Nav.Item>
-              <Nav.Link eventKey="scene-negative-markers-panel">
-                <FormattedMessage id="negative_markers" defaultMessage="Skip" />
-                <Counter
-                  count={
-                    activeRelease?.negative_markers.length ??
-                    scene.negative_markers?.length ??
-                    0
-                  }
-                  hideZero
-                />{" "}
-                {/* CUSTOM */}
-              </Nav.Link>
-            </Nav.Item>
-            {/* CUSTOM: end */}
-            {/* CUSTOM: group navigation is in More. */}
-            {/* CUSTOM: begin - galleries remain a direct tab when populated */}
-            {scene.galleries.length > 0 && (
+    <>
+      {/* CUSTOM: owner switcher above the tab row */}
+      <SceneOwnerSwitcher
+        releases={scene.releases ?? []}
+        activeReleaseId={activeReleaseId}
+        onSelect={setActiveReleaseId}
+      />
+      <Tab.Container
+        mountOnEnter // CUSTOM: defer queries and rendering in unopened tabs, retaining state after first use.
+        transition={TabPaneShow} // CUSTOM: no fade, so a lazy panel loading on first open cannot leave its pane invisible.
+        activeKey={activeTabKey}
+        onSelect={(k) => k && setActiveTabKey(k)}
+      >
+        <div className="scene-tab-row">
+          <Nav variant="tabs" className="mr-auto">
+            <ScenePageTabs {...props}>
               <Nav.Item>
-                <Nav.Link eventKey="scene-galleries-panel">
-                  <FormattedMessage
-                    id="countables.galleries"
-                    values={{ count: scene.galleries.length }}
-                  />
+                <Nav.Link eventKey="scene-details-panel">
+                  <FormattedMessage id="details" />
                 </Nav.Link>
               </Nav.Item>
-            )}
-            {/* CUSTOM: end */}
-            {/* CUSTOM: video filters and Releases are in More. */}
-            {/* CUSTOM: File Info is in More. */}
-            {/* CUSTOM: History is in More. */}
-            {/* CUSTOM: begin - stats tab */}
-            <Nav.Item>
-              <Nav.Link eventKey="scene-stats-panel">Stats</Nav.Link>
-            </Nav.Item>
-            {/* CUSTOM: end */}
-            <Nav.Item>
-              <Nav.Link eventKey="scene-edit-panel">
-                <FormattedMessage id="actions.edit" />
-              </Nav.Link>
-            </Nav.Item>
-            {/* CUSTOM: secondary panels retain their panes, state, and shortcuts. */}
-            <Dropdown as={Nav.Item}>
-              <Dropdown.Toggle
-                as={Nav.Link}
-                className={cx("scene-tab-more", {
-                  active: [
-                    "scene-queue-panel",
-                    "scene-group-panel",
-                    "scene-video-filter-panel",
-                    "scene-history-panel",
-                    "scene-releases-panel",
-                    "scene-file-info-panel",
-                  ].includes(activeTabKey),
-                })}
-                title="More"
-                aria-label="More"
-              >
-                <Icon icon={faEllipsisV} />
-              </Dropdown.Toggle>
-              <Dropdown.Menu>
-                {/* CUSTOM: begin - releases navigation */}
-                <Dropdown.Item
-                  active={activeTabKey === "scene-releases-panel"}
-                  onClick={() => setActiveTabKey("scene-releases-panel")}
-                >
-                  Releases
-                  <Counter count={scene.releases?.length ?? 0} hideZero />
-                </Dropdown.Item>
-                {/* CUSTOM: end */}
-                <Dropdown.Item
-                  active={activeTabKey === "scene-file-info-panel"}
-                  onClick={() => setActiveTabKey("scene-file-info-panel")}
-                >
-                  <FormattedMessage id="file_info" />
-                  <Counter
-                    count={activeRelease?.files.length ?? scene.files.length}
-                    hideZero
-                    hideOne
+              {/* CUSTOM: secondary destinations are in More below. */}
+              <Nav.Item>
+                <Nav.Link eventKey="scene-markers-panel">
+                  <FormattedMessage id="markers" />
+                </Nav.Link>
+              </Nav.Item>
+              {/* CUSTOM: begin - negative markers tab */}
+              <Nav.Item>
+                <Nav.Link eventKey="scene-negative-markers-panel">
+                  <FormattedMessage
+                    id="negative_markers"
+                    defaultMessage="Skip"
                   />
-                </Dropdown.Item>
-                {queueScenes.length > 0 && (
-                  <Dropdown.Item
-                    active={activeTabKey === "scene-queue-panel"}
-                    onClick={() => setActiveTabKey("scene-queue-panel")}
-                  >
-                    <FormattedMessage id="queue" />
-                  </Dropdown.Item>
-                )}
-                {scene.groups.length > 0 && (
-                  <Dropdown.Item
-                    active={activeTabKey === "scene-group-panel"}
-                    onClick={() => setActiveTabKey("scene-group-panel")}
-                  >
+                  <Counter
+                    count={
+                      activeRelease?.negative_markers.length ??
+                      scene.negative_markers?.length ??
+                      0
+                    }
+                    hideZero
+                  />{" "}
+                  {/* CUSTOM */}
+                </Nav.Link>
+              </Nav.Item>
+              {/* CUSTOM: end */}
+              {/* CUSTOM: group navigation is in More. */}
+              {/* CUSTOM: begin - galleries remain a direct tab when populated */}
+              {ownerScene.galleries.length > 0 && (
+                <Nav.Item>
+                  <Nav.Link eventKey="scene-galleries-panel">
                     <FormattedMessage
-                      id="countables.groups"
-                      values={{ count: scene.groups.length }}
+                      id="countables.galleries"
+                      values={{ count: ownerScene.galleries.length }}
+                    />
+                  </Nav.Link>
+                </Nav.Item>
+              )}
+              {/* CUSTOM: end */}
+              {/* CUSTOM: video filters and Releases are in More. */}
+              {/* CUSTOM: File Info is in More. */}
+              {/* CUSTOM: History is in More. */}
+              {/* CUSTOM: begin - stats tab */}
+              <Nav.Item>
+                <Nav.Link eventKey="scene-stats-panel">Stats</Nav.Link>
+              </Nav.Item>
+              {/* CUSTOM: end */}
+              <Nav.Item>
+                <Nav.Link eventKey="scene-edit-panel">
+                  <FormattedMessage id="actions.edit" />
+                </Nav.Link>
+              </Nav.Item>
+              {/* CUSTOM: secondary panels retain their panes, state, and shortcuts. */}
+              <Dropdown as={Nav.Item}>
+                <Dropdown.Toggle
+                  as={Nav.Link}
+                  className={cx("scene-tab-more", {
+                    active: [
+                      "scene-queue-panel",
+                      "scene-group-panel",
+                      "scene-video-filter-panel",
+                      "scene-history-panel",
+                      "scene-releases-panel",
+                      "scene-file-info-panel",
+                    ].includes(activeTabKey),
+                  })}
+                  title="More"
+                  aria-label="More"
+                >
+                  <Icon icon={faEllipsisV} />
+                </Dropdown.Toggle>
+                <Dropdown.Menu>
+                  {/* CUSTOM: begin - releases navigation */}
+                  <Dropdown.Item
+                    active={activeTabKey === "scene-releases-panel"}
+                    onClick={() => setActiveTabKey("scene-releases-panel")}
+                  >
+                    Releases
+                    <Counter count={scene.releases?.length ?? 0} hideZero />
+                  </Dropdown.Item>
+                  {/* CUSTOM: end */}
+                  <Dropdown.Item
+                    active={activeTabKey === "scene-file-info-panel"}
+                    onClick={() => setActiveTabKey("scene-file-info-panel")}
+                  >
+                    <FormattedMessage id="file_info" />
+                    <Counter
+                      count={activeRelease?.files.length ?? scene.files.length}
+                      hideZero
+                      hideOne
                     />
                   </Dropdown.Item>
-                )}
-                <Dropdown.Item
-                  active={activeTabKey === "scene-video-filter-panel"}
-                  onClick={() => setActiveTabKey("scene-video-filter-panel")}
-                >
-                  <FormattedMessage id="effect_filters.name" />
-                </Dropdown.Item>
-                <Dropdown.Item
-                  active={activeTabKey === "scene-history-panel"}
-                  onClick={() => setActiveTabKey("scene-history-panel")}
-                >
-                  <FormattedMessage id="history" />
-                </Dropdown.Item>
-              </Dropdown.Menu>
-            </Dropdown>
-          </ScenePageTabs>
-        </Nav>
-        {/* CUSTOM: begin - details panel vertical expansion toggle */}
-        <Button
-          className="scene-panel-density-toggle minimal"
-          variant="secondary"
-          onClick={() => setScenePanelCompact((current) => !current)}
-          title={
-            scenePanelCompact ? "Show scene header" : "Expand panel vertically"
-          }
-        >
-          <Icon icon={scenePanelCompact ? faCompress : faExpand} />
-        </Button>
-        {/* CUSTOM: end */}
-      </div>
+                  {queueScenes.length > 0 && (
+                    <Dropdown.Item
+                      active={activeTabKey === "scene-queue-panel"}
+                      onClick={() => setActiveTabKey("scene-queue-panel")}
+                    >
+                      <FormattedMessage id="queue" />
+                    </Dropdown.Item>
+                  )}
+                  {ownerScene.groups.length > 0 && (
+                    <Dropdown.Item
+                      active={activeTabKey === "scene-group-panel"}
+                      onClick={() => setActiveTabKey("scene-group-panel")}
+                    >
+                      <FormattedMessage
+                        id="countables.groups"
+                        values={{ count: ownerScene.groups.length }}
+                      />
+                    </Dropdown.Item>
+                  )}
+                  <Dropdown.Item
+                    active={activeTabKey === "scene-video-filter-panel"}
+                    onClick={() => setActiveTabKey("scene-video-filter-panel")}
+                  >
+                    <FormattedMessage id="effect_filters.name" />
+                  </Dropdown.Item>
+                  <Dropdown.Item
+                    active={activeTabKey === "scene-history-panel"}
+                    onClick={() => setActiveTabKey("scene-history-panel")}
+                  >
+                    <FormattedMessage id="history" />
+                  </Dropdown.Item>
+                </Dropdown.Menu>
+              </Dropdown>
+            </ScenePageTabs>
+          </Nav>
+          {/* CUSTOM: begin - details panel vertical expansion toggle */}
+          <Button
+            className="scene-panel-density-toggle minimal"
+            variant="secondary"
+            onClick={() => setScenePanelCompact((current) => !current)}
+            title={
+              scenePanelCompact
+                ? "Show scene header"
+                : "Expand panel vertically"
+            }
+          >
+            <Icon icon={scenePanelCompact ? faCompress : faExpand} />
+          </Button>
+          {/* CUSTOM: end */}
+        </div>
 
-      {/* CUSTOM: preserve Bootstrap row gutters in the clipped upstream panes */}
-      <Tab.Content
-        className={cx({
-          "scene-tab-content-bootstrap-gutters": ![
-            "scene-negative-markers-panel",
-            "scene-releases-panel",
-            "scene-stats-panel",
-          ].includes(activeTabKey),
-        })}
-      >
-        <ScenePageTabContent {...props}>
-          <Tab.Pane eventKey="scene-details-panel">
-            <SceneDetailPanel scene={scene} />
-          </Tab.Pane>
-          <Tab.Pane eventKey="scene-queue-panel">
-            <QueueViewer
-              scenes={queueScenes}
-              currentID={scene.id}
-              continue={continuePlaylist}
-              setContinue={setContinuePlaylist}
-              onSceneClicked={onQueueSceneClicked}
-              onNext={onQueueNext}
-              onPrevious={onQueuePrevious}
-              onRandom={onQueueRandom}
-              start={queueStart}
-              hasMoreScenes={queueHasMoreScenes}
-              onLessScenes={onQueueLessScenes}
-              onMoreScenes={onQueueMoreScenes}
-            />
-          </Tab.Pane>
-          <Tab.Pane eventKey="scene-markers-panel">
-            {/* CUSTOM: release markers use the selected owner's media */}
-            {activeRelease ? (
-              <SceneReleaseMarkersCustom
-                key={`${activeRelease.id}-markers`} // CUSTOM: reset editor when owner changes
-                release={activeRelease}
-                kind="markers"
-                onSeek={setTimestamp}
+        {/* CUSTOM: preserve Bootstrap row gutters in the clipped upstream panes */}
+        <Tab.Content
+          className={cx({
+            "scene-tab-content-bootstrap-gutters": ![
+              "scene-negative-markers-panel",
+              "scene-releases-panel",
+              "scene-stats-panel",
+            ].includes(activeTabKey),
+          })}
+        >
+          <ScenePageTabContent {...props}>
+            <Tab.Pane eventKey="scene-details-panel">
+              <SceneDetailPanel
+                scene={ownerScene} // CUSTOM: release mode shows the release
+                ownerIsRelease={!!activeRelease} // CUSTOM
               />
-            ) : (
+            </Tab.Pane>
+            <Tab.Pane eventKey="scene-queue-panel">
+              <QueueViewer
+                scenes={queueScenes}
+                currentID={scene.id}
+                continue={continuePlaylist}
+                setContinue={setContinuePlaylist}
+                onSceneClicked={onQueueSceneClicked}
+                onNext={onQueueNext}
+                onPrevious={onQueuePrevious}
+                onRandom={onQueueRandom}
+                start={queueStart}
+                hasMoreScenes={queueHasMoreScenes}
+                onLessScenes={onQueueLessScenes}
+                onMoreScenes={onQueueMoreScenes}
+              />
+            </Tab.Pane>
+            <Tab.Pane eventKey="scene-markers-panel">
               <SceneMarkersPanel
+                key={activeRelease?.id ?? "scene"} // CUSTOM: reset editor when owner changes
                 sceneId={scene.id}
+                releaseId={activeRelease?.id} // CUSTOM: release mode edits the release's markers
                 onClickMarker={onClickMarker}
                 isVisible={activeTabKey === "scene-markers-panel"}
                 addMultiSegmentLoopSegments={addMultiSegmentLoopSegments} // CUSTOM
@@ -980,20 +1039,13 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
                   onMarkerTimestampCopySelectionHandled
                 } // CUSTOM
               />
-            )}
-          </Tab.Pane>
-          {/* CUSTOM: begin - negative markers pane */}
-          <Tab.Pane eventKey="scene-negative-markers-panel">
-            {activeRelease ? (
-              <SceneReleaseMarkersCustom
-                key={`${activeRelease.id}-negative`} // CUSTOM: reset editor when owner changes
-                release={activeRelease}
-                kind="negative"
-                onSeek={setTimestamp}
-              />
-            ) : (
+            </Tab.Pane>
+            {/* CUSTOM: begin - negative markers pane */}
+            <Tab.Pane eventKey="scene-negative-markers-panel">
               <SceneNegativeMarkersPanel
-                scene={scene}
+                key={activeRelease?.id ?? "scene"} // CUSTOM: reset editor when owner changes
+                scene={ownerScene} // CUSTOM: release mode shows the release's skip ranges
+                releaseId={activeRelease?.id} // CUSTOM
                 isVisible={activeTabKey === "scene-negative-markers-panel"}
                 onAddNextMarker={onAddNextMarkerFromNegativeMarker} // CUSTOM
                 markerTimestampCopyRequest={markerTimestampCopyRequest} // CUSTOM
@@ -1003,87 +1055,109 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
                   onMarkerTimestampCopySelectionHandled
                 } // CUSTOM
               />
-            )}
-          </Tab.Pane>
-          {/* CUSTOM: end */}
-          <Tab.Pane eventKey="scene-group-panel">
-            <SceneGroupPanel scene={scene} />
-          </Tab.Pane>
-          {scene.galleries.length >= 1 && (
-            <Tab.Pane eventKey="scene-galleries-panel">
-              <SceneGalleriesPanel galleries={scene.galleries} />
-              {scene.galleries.length === 1 && (
-                <GalleryViewer galleryId={scene.galleries[0].id} />
-              )}
             </Tab.Pane>
-          )}
-          <Tab.Pane
-            eventKey="scene-video-filter-panel"
-            mountOnEnter={false} // CUSTOM: this panel also applies player styles while hidden.
-          >
-            <SceneVideoFilterPanel scene={scene} />
-          </Tab.Pane>
-          {/* CUSTOM: begin - releases pane */}
-          <Tab.Pane eventKey="scene-releases-panel">
-            <SceneReleasesPanel
-              scene={scene}
-              activeReleaseId={activeReleaseId}
-              onSetActiveRelease={setActiveReleaseId}
-              onRefetch={onRefreshScene} // CUSTOM: upstream refresh
-            />
-          </Tab.Pane>
-          {/* CUSTOM: end */}
-          <Tab.Pane
-            className="file-info-panel"
-            eventKey="scene-file-info-panel"
-          >
-            {activeRelease ? (
-              <SceneReleaseFileInfoCustom release={activeRelease} />
-            ) : (
-              <SceneFileInfoPanel scene={scene} remotePlayer={remotePlayer} />
-            )}{" "}
-            {/* CUSTOM */}
-          </Tab.Pane>
-          <Tab.Pane eventKey="scene-edit-panel" mountOnEnter>
-            <SceneEditPanel
-              isVisible={activeTabKey === "scene-edit-panel"}
-              scene={scene}
-              onGenerateThumbFromCurrent={() =>
-                onGenerateScreenshot(getPlayerPosition())
-              }
-              onGenerateThumbDefault={() => onGenerateScreenshot()}
-              onSubmit={onSave}
-              onDelete={() => setIsDeleteAlertOpen(true)}
-              // CUSTOM: solo markers keep 2-3 vato scenes on the solo rubric
-              ratingSoloCustom={sceneTypeForRating === "hand"}
-            />
-          </Tab.Pane>
-          <Tab.Pane eventKey="scene-history-panel">
-            <SceneHistoryPanel scene={scene} release={activeRelease} />{" "}
-            {/* CUSTOM */}
-          </Tab.Pane>
-          {/* CUSTOM: begin - stats pane */}
-          <Tab.Pane eventKey="scene-stats-panel">
-            <SceneStatsPanel
-              scene={scene}
-              addMultiSegmentLoopSegments={addMultiSegmentLoopSegments}
-            />
-          </Tab.Pane>
-          {/* CUSTOM: end */}
-        </ScenePageTabContent>
-      </Tab.Content>
-    </Tab.Container>
+            {/* CUSTOM: end */}
+            <Tab.Pane eventKey="scene-group-panel">
+              <SceneGroupPanel scene={ownerScene} /> {/* CUSTOM */}
+            </Tab.Pane>
+            {ownerScene.galleries.length >= 1 && (
+              <Tab.Pane eventKey="scene-galleries-panel">
+                <SceneGalleriesPanel galleries={ownerScene.galleries} />
+                {ownerScene.galleries.length === 1 && (
+                  <GalleryViewer galleryId={ownerScene.galleries[0].id} />
+                )}
+              </Tab.Pane>
+            )}
+            <Tab.Pane
+              eventKey="scene-video-filter-panel"
+              mountOnEnter={false} // CUSTOM: this panel also applies player styles while hidden.
+            >
+              <SceneVideoFilterPanel scene={scene} />
+            </Tab.Pane>
+            {/* CUSTOM: begin - releases pane */}
+            <Tab.Pane eventKey="scene-releases-panel">
+              <SceneReleasesPanel
+                scene={scene}
+                activeReleaseId={activeReleaseId}
+                onSetActiveRelease={setActiveReleaseId}
+                onRefetch={onRefreshScene} // CUSTOM: upstream refresh
+                onReleaseCreated={(releaseId) => {
+                  setActiveReleaseId(releaseId);
+                  setActiveTabKey("scene-edit-panel");
+                }}
+              />
+            </Tab.Pane>
+            {/* CUSTOM: end */}
+            <Tab.Pane
+              className="file-info-panel"
+              eventKey="scene-file-info-panel"
+            >
+              {activeRelease ? (
+                <SceneReleaseFileInfoCustom release={activeRelease} />
+              ) : (
+                <SceneFileInfoPanel scene={scene} remotePlayer={remotePlayer} />
+              )}{" "}
+              {/* CUSTOM */}
+            </Tab.Pane>
+            <Tab.Pane eventKey="scene-edit-panel" mountOnEnter>
+              <SceneEditPanel
+                key={activeReleaseId ?? "scene"} // CUSTOM: reset the form when the owner changes
+                isVisible={activeTabKey === "scene-edit-panel"}
+                scene={ownerScene} // CUSTOM: release mode edits the release
+                releaseIdCustom={activeReleaseId ?? undefined} // CUSTOM
+                ownerCopySceneCustom={scene} // CUSTOM: Copy from...
+                onGenerateThumbFromCurrent={() =>
+                  onGenerateScreenshot(getPlayerPosition())
+                }
+                onGenerateThumbDefault={() => onGenerateScreenshot()}
+                onSubmit={onSave}
+                onDelete={() =>
+                  activeRelease
+                    ? setIsReleaseDeleteOpen(true)
+                    : setIsDeleteAlertOpen(true)
+                } // CUSTOM: release mode deletes the release
+                // CUSTOM: solo markers keep 2-3 vato scenes on the solo rubric
+                ratingSoloCustom={sceneTypeForRating === "hand"}
+              />
+              {/* CUSTOM: begin - release mode deletes the release */}
+              {isReleaseDeleteOpen && activeRelease && (
+                <SceneReleaseDeleteDialog
+                  release={activeRelease}
+                  onClose={(deleted) => {
+                    setIsReleaseDeleteOpen(false);
+                    if (deleted) setActiveReleaseId(null);
+                  }}
+                />
+              )}
+              {/* CUSTOM: end */}
+            </Tab.Pane>
+            <Tab.Pane eventKey="scene-history-panel">
+              <SceneHistoryPanel scene={scene} release={activeRelease} />{" "}
+              {/* CUSTOM */}
+            </Tab.Pane>
+            {/* CUSTOM: begin - stats pane */}
+            <Tab.Pane eventKey="scene-stats-panel">
+              <SceneStatsPanel
+                scene={ownerScene} // CUSTOM: release mode
+                addMultiSegmentLoopSegments={addMultiSegmentLoopSegments}
+              />
+            </Tab.Pane>
+            {/* CUSTOM: end */}
+          </ScenePageTabContent>
+        </Tab.Content>
+      </Tab.Container>
+    </>
   );
 
   function getCollapseButtonIcon() {
     return collapsed ? faChevronRight : faChevronLeft;
   }
 
-  const title = objectTitle(scene);
+  const title = objectTitle(ownerScene); // CUSTOM: release mode
 
   const file = useMemo(
-    () => (scene.files.length > 0 ? scene.files[0] : undefined),
-    [scene]
+    () => (ownerScene.files.length > 0 ? ownerScene.files[0] : undefined),
+    [ownerScene]
   );
 
   const sceneRatingMode = getSceneRatingModeCustom(
@@ -1117,6 +1191,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
         className={cx("scene-tabs order-xl-first order-last", {
           collapsed,
           "scene-tabs-compact": scenePanelCompact, // CUSTOM
+          "scene-tabs-release": !!activeRelease, // CUSTOM: green frame
         })}
       >
         <div className="scene-overview">
@@ -1124,6 +1199,10 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
             <StudioLogo studio={headerStudio} showText={showStudioText} />
             <h3 className={cx("scene-header", { "no-studio": !headerStudio })}>
               <TruncatedText lineCount={2} text={title} />
+              {/* CUSTOM */}
+              {activeRelease && (
+                <span className="scene-release-badge">Release</span>
+              )}
             </h3>
           </div>
 
@@ -1132,16 +1211,18 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
             <div className="scene-meta-line">
               <span
                 className="date"
-                data-value={scene.effective_date ?? scene.date ?? undefined}
+                data-value={
+                  ownerScene.effective_date ?? ownerScene.date ?? undefined
+                }
               >
                 {/* CUSTOM: effective_date */}
-                {(scene.effective_date ?? scene.date) && (
+                {(ownerScene.effective_date ?? ownerScene.date) && (
                   <FormattedDate
-                    value={(scene.effective_date ?? scene.date)!}
+                    value={(ownerScene.effective_date ?? ownerScene.date)!}
                   />
                 )}
               </span>
-              <SceneDetailInsights scene={scene} />
+              <SceneDetailInsights scene={ownerScene} />
             </div>
             <VideoFrameRateResolution
               width={file?.width}
@@ -1152,11 +1233,11 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
 
           {/* CUSTOM: activity bar and rating criteria strip in the scene card
           layout; the Quality boxes live in the Stats tab */}
-          <SceneDetailActivityBar scene={scene} />
+          <SceneDetailActivityBar scene={ownerScene} />
           <SceneRatingStrip
             className="rating-criteria-strip--scene-detail"
             nutReportInline
-            scene={scene}
+            scene={ownerScene}
             sceneRatingMode={sceneRatingMode}
           />
 
@@ -1175,7 +1256,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
             </span>
             <span className="scene-toolbar-group">
               <span>
-                <ExternalPlayerButton scene={scene} />
+                <ExternalPlayerButton scene={ownerScene} />
               </span>
               <span>
                 <ViewCountButton
@@ -1212,8 +1293,8 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
               </span>
               {/* CUSTOM */}
               <StashDBMatchesCount
-                total={sceneStashDBMatchesTotalCustom(scene)}
-                stashIDs={scene.stash_ids}
+                total={sceneStashDBMatchesTotalCustom(ownerScene)}
+                stashIDs={ownerScene.stash_ids}
               />
               <span>
                 <OrganizedButton
@@ -1371,9 +1452,7 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
   const requestedReleaseId = queryParams.get("release");
   const activeReleaseId =
     scene?.id === id &&
-    scene.releases?.some(
-      (release) => release.id === requestedReleaseId && release.files.length > 0
-    )
+    scene.releases?.some((release) => release.id === requestedReleaseId)
       ? requestedReleaseId
       : null;
 
@@ -1637,7 +1716,6 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
   }
 
   // CUSTOM: begin - bridge player scrubber marker clicks to ScenePage tabs
-  // biome-ignore lint/correctness/useExhaustiveDependencies: CUSTOM: intentionally omits setTimestamp
   const onScenePlayerMarkerClick = useCallback(
     (
       markerId: string,
@@ -1645,10 +1723,6 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
       boundary?: SceneMarkerTimestampBoundary,
       sourceKind: SceneMarkerTimestampSourceKind = "scene-marker"
     ) => {
-      if (activeReleaseId) {
-        setTimestamp(seconds);
-        return;
-      }
       // CUSTOM: timestamp-copy mode consumes the marker click and leaves the
       // Create Marker form open instead of focusing the source marker card.
       if (markerTimestampCopyRequest) {
@@ -1656,9 +1730,9 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
 
         let sourceMarker: ISceneMarkerTimestampSource | undefined;
         if (sourceKind === "negative-marker") {
-          const negativeMarker = scene?.negative_markers.find(
+          const negativeMarker = sceneForPlayer?.negative_markers.find(
             (candidate) => candidate.id === markerId
-          );
+          ); // CUSTOM: the playing owner's skip ranges
           if (negativeMarker) {
             sourceMarker = {
               id: negativeMarker.id,
@@ -1667,9 +1741,9 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
             };
           }
         } else {
-          sourceMarker = scene?.scene_markers.find(
+          sourceMarker = sceneForPlayer?.scene_markers.find(
             (sceneMarker) => sceneMarker.id === markerId
-          );
+          ); // CUSTOM: the playing owner's markers
         }
         if (!sourceMarker) return;
 
@@ -1692,11 +1766,10 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
       );
     },
     [
-      activeReleaseId,
       markerTimestampCopyRequest,
-      scene?.negative_markers,
-      scene?.scene_markers,
-    ]
+      sceneForPlayer?.negative_markers,
+      sceneForPlayer?.scene_markers,
+    ] // CUSTOM
   );
   // CUSTOM: end
 
@@ -1767,12 +1840,6 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
         remotePlayer={remotePlayer} // CUSTOM
       />
       <div className={`scene-player-container ${collapsed ? "expanded" : ""}`}>
-        {activeReleaseId && (
-          <div className="text-center text-muted small py-1" role="status">
-            <FormattedMessage id="release" defaultMessage="Release" />:{" "}
-            {sceneForPlayer?.title || activeReleaseId}
-          </div>
-        )}
         {activeReleaseId && !sceneForPlayer?.files.length ? (
           <div className="text-center text-muted p-3" role="status">
             This release has no video file.

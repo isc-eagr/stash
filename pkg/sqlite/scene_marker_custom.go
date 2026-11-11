@@ -226,38 +226,9 @@ func (qb *SceneMarkerStore) FindPerformerMarkerRoleRows(ctx context.Context, per
 		}
 
 		if len(tagIDs) > 0 {
-			tagBinding := fmt.Sprintf("(%s)", sqlitePlaceholders(len(tagIDs)))
-			whereParts = append(whereParts, fmt.Sprintf(`(
-				%[1]s
-				AND %[2]s
-				AND NOT EXISTS (
-					SELECT 1
-					FROM scene_markers sm_narrow
-					WHERE %[3]s
-					AND %[4]s
-					AND %[5]s
-					AND %[6]s
-				)
-			)`,
-				sceneMarkerDirectHasTagInClauseCustom("sm", tagBinding),
-				sceneMarkerHasEffectiveTagInClauseCustom("sm", tagBinding),
-				sceneMarkerOverlapWhereCustom("sm", "sm_narrow"),
-				sceneMarkerDirectHasTagInClauseCustom("sm_narrow", tagBinding),
-				sceneMarkerHasEffectiveTagInClauseCustom("sm_narrow", tagBinding),
-				sceneMarkerIsNarrowerThanClauseCustom("sm_narrow", "sm"),
-			))
-			for _, id := range tagIDs {
-				args = append(args, id)
-			}
-			for _, id := range tagIDs {
-				args = append(args, id)
-			}
-			for _, id := range tagIDs {
-				args = append(args, id)
-			}
-			for _, id := range tagIDs {
-				args = append(args, id)
-			}
+			tagWhere, tagArgs := sceneMarkerNarrowestTagWhereCustom(tagIDs)
+			whereParts = append(whereParts, tagWhere)
+			args = append(args, tagArgs...)
 		}
 
 		query := fmt.Sprintf(`
@@ -351,38 +322,9 @@ func (qb *SceneMarkerStore) FindPerformerPartnerRoleRows(ctx context.Context, pe
 		}
 
 		if len(tagIDs) > 0 {
-			tagBinding := fmt.Sprintf("(%s)", sqlitePlaceholders(len(tagIDs)))
-			whereParts = append(whereParts, fmt.Sprintf(`(
-				%[1]s
-				AND %[2]s
-				AND NOT EXISTS (
-					SELECT 1
-					FROM scene_markers sm_narrow
-					WHERE %[3]s
-					AND %[4]s
-					AND %[5]s
-					AND %[6]s
-				)
-			)`,
-				sceneMarkerDirectHasTagInClauseCustom("sm", tagBinding),
-				sceneMarkerHasEffectiveTagInClauseCustom("sm", tagBinding),
-				sceneMarkerOverlapWhereCustom("sm", "sm_narrow"),
-				sceneMarkerDirectHasTagInClauseCustom("sm_narrow", tagBinding),
-				sceneMarkerHasEffectiveTagInClauseCustom("sm_narrow", tagBinding),
-				sceneMarkerIsNarrowerThanClauseCustom("sm_narrow", "sm"),
-			))
-			for _, id := range tagIDs {
-				args = append(args, id)
-			}
-			for _, id := range tagIDs {
-				args = append(args, id)
-			}
-			for _, id := range tagIDs {
-				args = append(args, id)
-			}
-			for _, id := range tagIDs {
-				args = append(args, id)
-			}
+			tagWhere, tagArgs := sceneMarkerNarrowestTagWhereCustom(tagIDs)
+			whereParts = append(whereParts, tagWhere)
+			args = append(args, tagArgs...)
 		}
 
 		query := fmt.Sprintf(`
@@ -433,4 +375,37 @@ func uniquePositiveInts(values []int) []int {
 		ret = append(ret, value)
 	}
 	return ret
+}
+
+// sceneMarkerNarrowestTagWhereCustom matches markers on sm that carry one of
+// the tags and have no narrower overlapping marker carrying one too.
+func sceneMarkerNarrowestTagWhereCustom(tagIDs []int) (string, []interface{}) {
+	tagBinding := fmt.Sprintf("(%s)", sqlitePlaceholders(len(tagIDs)))
+	where := fmt.Sprintf(`(
+		%[1]s
+		AND %[2]s
+		AND NOT EXISTS (
+			SELECT 1
+			FROM scene_markers sm_narrow
+			WHERE %[3]s
+			AND %[4]s
+			AND %[5]s
+			AND %[6]s
+		)
+	)`,
+		sceneMarkerDirectHasTagInClauseCustom("sm", tagBinding),
+		sceneMarkerHasEffectiveTagInClauseCustom("sm", tagBinding),
+		sceneMarkerOverlapWhereCustom("sm", "sm_narrow"),
+		sceneMarkerDirectHasTagInClauseCustom("sm_narrow", tagBinding),
+		sceneMarkerHasEffectiveTagInClauseCustom("sm_narrow", tagBinding),
+		sceneMarkerIsNarrowerThanClauseCustom("sm_narrow", "sm"),
+	)
+	// The tag list is bound four times, once per tag clause above.
+	args := make([]interface{}, 0, len(tagIDs)*4)
+	for i := 0; i < 4; i++ {
+		for _, id := range tagIDs {
+			args = append(args, id)
+		}
+	}
+	return where, args
 }

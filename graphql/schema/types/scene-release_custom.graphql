@@ -1,4 +1,4 @@
-"A release represents an alternate version/release of a scene (e.g., from a different studio). It inherits the parent scene's rating and Rating Advisor answers."
+"A release represents an alternate version/release of a scene (e.g., from a different studio). It inherits the parent scene's rating, Rating Advisor answers, and organized flag."
 type SceneRelease {
   id: ID!
   "The parent scene this release belongs to"
@@ -11,7 +11,6 @@ type SceneRelease {
   urls: [String!]!
   date: String
   studio: Studio
-  organized: Boolean!
   resume_time: Float!
   play_duration: Float!
   interactive: Boolean!
@@ -30,6 +29,8 @@ type SceneRelease {
   scene_markers: [SceneMarker!]!
   negative_markers: [SceneNegativeMarker!]!
   multi_segment_loop_presets: [MultiSegmentLoopPreset!]!
+  "Flattened tag ancestry for every direct tag on this release's markers"
+  scene_marker_tag_ancestors: [SceneMarkerTagAncestors!]!
   "Cover image paths for this release"
   paths: SceneReleasePaths!
   "Video files associated with this release"
@@ -65,7 +66,6 @@ input SceneReleaseCreateInput {
   url: String
   urls: [String!]
   date: String
-  organized: Boolean
   performer_ids: [ID!]
   tag_ids: [ID!]
   groups: [SceneGroupInput!]
@@ -80,6 +80,7 @@ input SceneReleaseCreateInput {
   file_ids: [ID!]
   "Order for display/playback priority"
   play_order: Int
+  stashdb_matches: Int
 }
 
 input SceneReleaseUpdateInput {
@@ -91,7 +92,6 @@ input SceneReleaseUpdateInput {
   url: String
   urls: [String!]
   date: String
-  organized: Boolean
   performer_ids: [ID!]
   tag_ids: [ID!]
   groups: [SceneGroupInput!]
@@ -108,6 +108,29 @@ input SceneReleaseUpdateInput {
   play_order: Int
   "Set the primary file for this release"
   primary_file_id: ID
+  "Null clears the stored value; removing the StashDB link stores 0"
+  stashdb_matches: Int
+}
+
+"""
+Copy markers, skip ranges, and loop presets between a scene and its releases.
+Set exactly one from_* and one to_*; both must be in the same scene family.
+"""
+input SceneOwnerCopyItemsInput {
+  from_scene_id: ID
+  from_release_id: ID
+  to_scene_id: ID
+  to_release_id: ID
+  markers: Boolean
+  negative_markers: Boolean
+  loop_presets: Boolean
+}
+
+"New rows created on the target; exact duplicates already there are skipped"
+type SceneOwnerCopyItemsResult {
+  markers: Int!
+  negative_markers: Int!
+  loop_presets: Int!
 }
 
 input SceneReleaseDestroyInput {

@@ -18,7 +18,7 @@ func (r *mutationResolver) SceneReleaseCreate(ctx context.Context, input SceneRe
 		inputMap: getUpdateInputMap(ctx),
 	}
 	extended, hasExtended, err := sceneReleaseExtendedInputCustom(translator,
-		input.Organized, input.Urls, input.PerformerIds,
+		input.Urls, input.PerformerIds,
 		input.TagIds, input.Groups, input.StashIds, input.CustomFields)
 	if err != nil {
 		return nil, err
@@ -126,6 +126,11 @@ func (r *mutationResolver) SceneReleaseCreate(ctx context.Context, input SceneRe
 				return err
 			}
 		}
+		if input.StashdbMatches != nil {
+			if err := r.repository.SceneRelease.SetStashDBMatchesCustom(ctx, newRelease.ID, input.StashdbMatches); err != nil {
+				return err
+			}
+		}
 
 		// Load the release with all relationships in the same transaction
 		release, err := r.repository.SceneRelease.Find(ctx, newRelease.ID)
@@ -152,7 +157,7 @@ func (r *mutationResolver) SceneReleaseUpdate(ctx context.Context, input SceneRe
 		inputMap: getUpdateInputMap(ctx),
 	}
 	extended, hasExtended, err := sceneReleaseExtendedInputCustom(translator,
-		input.Organized, input.Urls, input.PerformerIds,
+		input.Urls, input.PerformerIds,
 		input.TagIds, input.Groups, input.StashIds, input.CustomFields)
 	if err != nil {
 		return nil, err
@@ -206,8 +211,13 @@ func (r *mutationResolver) SceneReleaseUpdate(ctx context.Context, input SceneRe
 				return fmt.Errorf("converting date: %w", err)
 			}
 			partial.Date = models.NewOptionalDatePtr(d)
+		} else if translator.hasField("date") {
+			// An explicit null clears the date, as on the scene form.
+			partial.Date = models.NewOptionalDatePtr(nil)
 		}
-		if input.StudioID != nil {
+		if input.StudioID == nil && translator.hasField("studio_id") {
+			partial.StudioID = models.NewOptionalIntPtr(nil)
+		} else if input.StudioID != nil {
 			studioID, err := translator.intPtrFromString(input.StudioID)
 			if err != nil {
 				return fmt.Errorf("converting studio id: %w", err)
@@ -256,13 +266,18 @@ func (r *mutationResolver) SceneReleaseUpdate(ctx context.Context, input SceneRe
 			}
 		}
 
-		// Update cover if provided
-		if input.CoverImage != nil && *input.CoverImage == "" {
+		// Update cover if provided; an empty or null cover_image clears it.
+		if (input.CoverImage != nil && *input.CoverImage == "") || (input.CoverImage == nil && translator.hasField("cover_image")) {
 			if err := r.repository.SceneRelease.UpdateCover(ctx, releaseID, nil); err != nil {
 				return err
 			}
 		} else if len(coverImageData) > 0 {
 			if err := r.repository.SceneRelease.UpdateCover(ctx, releaseID, coverImageData); err != nil {
+				return err
+			}
+		}
+		if translator.hasField("stashdb_matches") {
+			if err := setUpdatedReleaseStashDBMatchesCustom(ctx, r.repository.SceneRelease, releaseID, input.StashdbMatches, translator.hasField("stash_ids")); err != nil {
 				return err
 			}
 		}

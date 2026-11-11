@@ -82,13 +82,9 @@ func (r *mutationResolver) PerformerImageDelete(ctx context.Context, id string) 
 			return fmt.Errorf("deleting performer image: %w", err)
 		}
 
-		// Delete the blob if it's not referenced anywhere else
-		// Note: This is safe because the blob store handles reference counting
-		if err := r.repository.Blobs.Delete(ctx, img.ImageBlob); err != nil {
-			// Don't fail if blob deletion fails - it might be referenced elsewhere
-			// Just log the error
-			// TODO: add proper logging
-		}
+		// Delete the blob if nothing else references it. The blob store counts
+		// references, so a failure here just means it is still in use.
+		_ = r.repository.Blobs.Delete(ctx, img.ImageBlob)
 
 		return nil
 	}); err != nil {

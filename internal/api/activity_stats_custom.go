@@ -330,6 +330,78 @@ func activityStatsEmptyStudioCustom() *StudioActivityStats {
 	return &StudioActivityStats{}
 }
 
+// activityStatsBuildStudioCustom turns scene runtimes and per-category marker
+// coverage into the studio activity totals and percentages.
+func activityStatsBuildStudioCustom(
+	sceneDurations map[int]float64,
+	byCategory map[activityCategoryCustom][]activityIntervalCustom,
+	activityIntervals []activityIntervalCustom,
+	sceneCounts map[activityCategoryCustom]map[int]bool,
+) *StudioActivityStats {
+	var totalSeconds float64
+	for _, duration := range sceneDurations {
+		totalSeconds += duration
+	}
+	if totalSeconds <= 0 {
+		return activityStatsEmptyStudioCustom()
+	}
+
+	sexSeconds := activityStatsDurationCustom(byCategory[activitySexCustom])
+	oralSeconds := activityStatsDurationCustom(byCategory[activityOralCustom])
+	soloSeconds := activityStatsDurationCustom(byCategory[activitySoloCustom])
+	unusableSeconds := activityStatsDurationCustom(byCategory[activityUnusableCustom])
+	activityOtherSeconds := activityStatsActivityOtherSecondsCustom(totalSeconds, activityIntervals)
+	activityOutstandingIntervals := activityStatsIntersectIntervalsCustom(
+		activityIntervals,
+		byCategory[activityOutstandingCustom],
+	)
+	outstandingSeconds := activityStatsDurationCustom(activityStatsSubtractIntervalsCustom(
+		byCategory[activityOutstandingCustom],
+		byCategory[activityUnusableCustom],
+	))
+	standardIntervals := activityStatsSubtractIntervalsCustom(
+		activityIntervals,
+		append(activityOutstandingIntervals, byCategory[activityUnusableCustom]...),
+	)
+	standardSeconds := activityStatsDurationCustom(standardIntervals)
+	qualityCoveredIntervals := append([]activityIntervalCustom{}, activityIntervals...)
+	qualityCoveredIntervals = append(qualityCoveredIntervals, byCategory[activityOutstandingCustom]...)
+	otherSeconds := activityStatsOtherSecondsCustom(
+		totalSeconds,
+		qualityCoveredIntervals,
+		byCategory[activityUnusableCustom],
+	)
+	sexPercent, oralPercent, soloPercent := activityStatsTypePercentsCustom(
+		sexSeconds,
+		oralSeconds,
+		soloSeconds,
+		activityStatsDurationCustom(activityIntervals),
+	)
+
+	return &StudioActivityStats{
+		TotalSeconds:         totalSeconds,
+		SexSeconds:           sexSeconds,
+		OralSeconds:          oralSeconds,
+		SoloSeconds:          soloSeconds,
+		OtherSeconds:         otherSeconds,
+		ActivityOtherSeconds: activityOtherSeconds,
+		OutstandingSeconds:   outstandingSeconds,
+		StandardSeconds:      standardSeconds,
+		UnusableSeconds:      unusableSeconds,
+		SexPercent:           sexPercent,
+		OralPercent:          oralPercent,
+		SoloPercent:          soloPercent,
+		OtherPercent:         activityStatsPercentCustom(otherSeconds, totalSeconds),
+		ActivityOtherPercent: activityStatsPercentCustom(activityOtherSeconds, totalSeconds),
+		OutstandingPercent:   activityStatsPercentCustom(outstandingSeconds, totalSeconds),
+		StandardPercent:      activityStatsPercentCustom(standardSeconds, totalSeconds),
+		UnusablePercent:      activityStatsPercentCustom(unusableSeconds, totalSeconds),
+		SexSceneCount:        len(sceneCounts[activitySexCustom]),
+		OralSceneCount:       len(sceneCounts[activityOralCustom]),
+		SoloSceneCount:       len(sceneCounts[activitySoloCustom]),
+	}
+}
+
 func (r *performerResolver) ActivityStats(ctx context.Context, obj *models.Performer) (ret *PerformerActivityStats, err error) {
 	sexTagID, oralTagID, soloTagID, _ := activityStatsRoleTagIDsCustom()
 	if sexTagID == 0 && oralTagID == 0 && soloTagID == 0 {
@@ -756,66 +828,5 @@ WHERE sc.id IN (SELECT id FROM selected_scenes)
 		activityStatsRestrictToMeaningfulScenesCustom(sceneDurations, byCategory, meaningfulSceneIDs)
 	}
 
-	var totalSeconds float64
-	for _, duration := range sceneDurations {
-		totalSeconds += duration
-	}
-	if totalSeconds <= 0 {
-		return activityStatsEmptyStudioCustom(), nil
-	}
-
-	sexSeconds := activityStatsDurationCustom(byCategory[activitySexCustom])
-	oralSeconds := activityStatsDurationCustom(byCategory[activityOralCustom])
-	soloSeconds := activityStatsDurationCustom(byCategory[activitySoloCustom])
-	unusableSeconds := activityStatsDurationCustom(byCategory[activityUnusableCustom])
-	activityOtherSeconds := activityStatsActivityOtherSecondsCustom(totalSeconds, activityIntervals)
-	activityOutstandingIntervals := activityStatsIntersectIntervalsCustom(
-		activityIntervals,
-		byCategory[activityOutstandingCustom],
-	)
-	outstandingSeconds := activityStatsDurationCustom(activityStatsSubtractIntervalsCustom(
-		byCategory[activityOutstandingCustom],
-		byCategory[activityUnusableCustom],
-	))
-	standardIntervals := activityStatsSubtractIntervalsCustom(
-		activityIntervals,
-		append(activityOutstandingIntervals, byCategory[activityUnusableCustom]...),
-	)
-	standardSeconds := activityStatsDurationCustom(standardIntervals)
-	qualityCoveredIntervals := append([]activityIntervalCustom{}, activityIntervals...)
-	qualityCoveredIntervals = append(qualityCoveredIntervals, byCategory[activityOutstandingCustom]...)
-	otherSeconds := activityStatsOtherSecondsCustom(
-		totalSeconds,
-		qualityCoveredIntervals,
-		byCategory[activityUnusableCustom],
-	)
-	sexPercent, oralPercent, soloPercent := activityStatsTypePercentsCustom(
-		sexSeconds,
-		oralSeconds,
-		soloSeconds,
-		activityStatsDurationCustom(activityIntervals),
-	)
-
-	return &StudioActivityStats{
-		TotalSeconds:         totalSeconds,
-		SexSeconds:           sexSeconds,
-		OralSeconds:          oralSeconds,
-		SoloSeconds:          soloSeconds,
-		OtherSeconds:         otherSeconds,
-		ActivityOtherSeconds: activityOtherSeconds,
-		OutstandingSeconds:   outstandingSeconds,
-		StandardSeconds:      standardSeconds,
-		UnusableSeconds:      unusableSeconds,
-		SexPercent:           sexPercent,
-		OralPercent:          oralPercent,
-		SoloPercent:          soloPercent,
-		OtherPercent:         activityStatsPercentCustom(otherSeconds, totalSeconds),
-		ActivityOtherPercent: activityStatsPercentCustom(activityOtherSeconds, totalSeconds),
-		OutstandingPercent:   activityStatsPercentCustom(outstandingSeconds, totalSeconds),
-		StandardPercent:      activityStatsPercentCustom(standardSeconds, totalSeconds),
-		UnusablePercent:      activityStatsPercentCustom(unusableSeconds, totalSeconds),
-		SexSceneCount:        len(sceneCounts[activitySexCustom]),
-		OralSceneCount:       len(sceneCounts[activityOralCustom]),
-		SoloSceneCount:       len(sceneCounts[activitySoloCustom]),
-	}, nil
+	return activityStatsBuildStudioCustom(sceneDurations, byCategory, activityIntervals, sceneCounts), nil
 }

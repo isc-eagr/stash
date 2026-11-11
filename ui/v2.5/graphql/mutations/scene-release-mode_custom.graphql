@@ -1,0 +1,11 @@
+mutation SceneReleaseGenerateScreenshot($id: ID!, $at: Float) {
+  sceneReleaseGenerateScreenshot(id: $id, at: $at)
+}
+
+mutation SceneOwnerCopyItems($input: SceneOwnerCopyItemsInput!) {
+  sceneOwnerCopyItems(input: $input) {
+    markers
+    negative_markers
+    loop_presets
+  }
+}

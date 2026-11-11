@@ -18,7 +18,6 @@ import { ListFilterModel } from "src/models/list-filter/filter";
 import { getFilterOptions } from "src/models/list-filter/factory";
 import { FilterTags } from "./FilterTags";
 import { CriterionEditor } from "./CriterionEditor";
-import { MarkerFilterGroupProvider } from "./Filters/MarkerFilterGroupContext"; // CUSTOM
 import { isCustomFilterCriterion } from "src/models/list-filter/custom-filter-options_custom"; // CUSTOM
 import { Icon } from "../Shared/Icon";
 import {
@@ -583,22 +582,18 @@ export const EditFilterDialog: React.FC<IEditFilterProps> = ({
                 onFilterUpdate={setCurrentFilter}
               />
             </div>
-            <MarkerFilterGroupProvider criteria={criteria}>
-              {/* CUSTOM: begin */}
-              <CriterionOptionList
-                criteria={criteriaList}
-                currentCriterion={criterion}
-                setCriterion={replaceCriterion}
-                criterionOptions={unpinnedElements}
-                pinnedCriterionOptions={pinnedElements}
-                optionSelected={optionSelected}
-                selected={criterion?.criterionOption}
-                onRemoveCriterion={(c) => removeCriterionString(c)}
-                onTogglePin={(c) => onTogglePinFilter(c)}
-                externallySelected={!!editingCriterion}
-              />
-            </MarkerFilterGroupProvider>
-            {/* CUSTOM: end */}
+            <CriterionOptionList
+              criteria={criteriaList}
+              currentCriterion={criterion}
+              setCriterion={replaceCriterion}
+              criterionOptions={unpinnedElements}
+              pinnedCriterionOptions={pinnedElements}
+              optionSelected={optionSelected}
+              selected={criterion?.criterionOption}
+              onRemoveCriterion={(c) => removeCriterionString(c)}
+              onTogglePin={(c) => onTogglePinFilter(c)}
+              externallySelected={!!editingCriterion}
+            />
             {criteria.length > 0 && (
               <div>
                 <FilterTags

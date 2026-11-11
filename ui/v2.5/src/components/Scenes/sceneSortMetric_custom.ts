@@ -156,6 +156,11 @@ const definitions: Record<
     format: "count",
     value: ({ scene }) => scene.files.length,
   },
+  release_count: {
+    messageID: "release_count",
+    format: "count",
+    value: ({ scene }) => scene.release_count,
+  },
   filesize: {
     messageID: "filesize",
     format: "bytes",

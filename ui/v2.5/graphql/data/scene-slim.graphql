@@ -10,6 +10,7 @@ fragment SlimSceneData on Scene {
   effective_date # CUSTOM
   stashdb_matches # CUSTOM
   release_stashdb_matches # CUSTOM
+  release_count # CUSTOM
   release_o_counter # CUSTOM
   release_last_o_at # CUSTOM
   rating100

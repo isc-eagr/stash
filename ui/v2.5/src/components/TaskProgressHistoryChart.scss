@@ -141,39 +141,6 @@
     }
   }
 
-  &-plan {
-    align-items: center;
-    border-top: 1px solid rgba(138, 155, 168, 0.2);
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem 0.75rem;
-    margin: 0.65rem 0;
-    padding-top: 0.65rem;
-
-    .form-group {
-      align-items: center;
-      display: flex;
-      gap: 0.4rem;
-      margin: 0;
-    }
-
-    .form-label {
-      color: var(--black-steel-text-muted, #bfccd6);
-      font-size: 0.8rem;
-      margin: 0;
-    }
-
-    .form-control {
-      max-width: 5.5rem;
-    }
-
-    > span {
-      color: var(--black-steel-text, #f5f8fa);
-      font-size: 0.85rem;
-      font-weight: 600;
-    }
-  }
-
   &-svg {
     display: block;
     height: auto;

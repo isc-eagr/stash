@@ -20,10 +20,6 @@ import {
 import { RatingSystemType, RatingStarPrecision } from "src/utils/rating";
 import { IHierarchicalLabelValue } from "src/models/list-filter/types";
 import {
-  MarkerTagsCriterion,
-  MarkerTagsCriterionOption,
-} from "src/models/list-filter/criteria/marker-tags";
-import {
   MarkerPerformersCriterion,
   MarkerPerformersCriterionOption,
 } from "src/models/list-filter/criteria/marker-performers";
@@ -1377,19 +1373,6 @@ export const makeTagPerformersBySceneTagsUrl = (tag: INamedObject) => {
     depth: 0,
   };
   criterion.value = value;
-  filter.criteria.push(criterion);
-  return `/scenes/markers?${filter.makeQueryParameters()}`;
-};
-
-// URL to list scene markers filtered by a specific tag (primary or secondary)
-export const makeSceneMarkersUrl = (tagId: string, tagName: string) => {
-  const filter = new ListFilterModel(GQL.FilterMode.SceneMarkers, undefined);
-  const criterion = new MarkerTagsCriterion(MarkerTagsCriterionOption);
-  // Add a single group with the tag
-  const groupId = criterion.addGroup();
-  criterion.updateGroup(groupId, {
-    tags: [{ id: tagId, label: tagName }],
-  });
   filter.criteria.push(criterion);
   return `/scenes/markers?${filter.makeQueryParameters()}`;
 };

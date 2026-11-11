@@ -1393,6 +1393,7 @@ var sceneSortOptions = sortOptions{
 	// CUSTOM: StashDB Matches
 	"stashdb_matches",
 	"file_count",
+	"release_count", // CUSTOM
 	"filesize",
 	"duration",
 	"file_mod_time",
@@ -1502,6 +1503,8 @@ func (qb *SceneStore) setSceneSort(query *queryBuilder, findFilter *models.FindF
 		query.sortAndPagination += getCountSort(sceneTable, performersScenesTable, sceneIDColumn, direction)
 	case "file_count":
 		query.sortAndPagination += getCountSort(sceneTable, scenesFilesTable, sceneIDColumn, direction)
+	case "release_count": // CUSTOM
+		query.sortAndPagination += getCountSort(sceneTable, sceneReleaseTable, sceneIDColumn, direction)
 	case "path":
 		// special handling for path
 		addFileTable()

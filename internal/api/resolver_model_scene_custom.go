@@ -96,6 +96,11 @@ func (r *sceneResolver) StashdbMatches(ctx context.Context, obj *models.Scene) (
 	return ret, nil
 }
 
+func (r *sceneResolver) ReleaseCount(ctx context.Context, obj *models.Scene) (int, error) {
+	totals, err := loaders.From(ctx).SceneReleaseTotals.Load(obj.ID)
+	return totals.ReleaseCount, err
+}
+
 func (r *sceneResolver) ReleaseOCounter(ctx context.Context, obj *models.Scene) (int, error) {
 	totals, err := loaders.From(ctx).SceneReleaseTotals.Load(obj.ID)
 	return totals.OCount, err

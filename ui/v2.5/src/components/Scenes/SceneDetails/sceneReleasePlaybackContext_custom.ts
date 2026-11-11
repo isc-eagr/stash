@@ -1,7 +1,10 @@
 import type * as GQL from "src/core/generated-graphql";
 
-// The player still consumes SceneDataFragment; this boundary supplies only the
-// selected owner's media and activity while retaining the parent scene identity.
+// Release mode projects the selected release into a scene-shaped "owner view"
+// so the player and the read-only tabs consume one SceneDataFragment. Every
+// release-owned field is taken from the release; the parent keeps its id, its
+// ratings, and its organized flag (shared by design). Scene-level release totals are zeroed so the
+// release's own history is never counted twice.
 export const getSceneReleasePlaybackContextCustom = (
   scene: GQL.SceneDataFragment,
   releaseId: string | null
@@ -19,9 +22,28 @@ export const getSceneReleasePlaybackContextCustom = (
     scene: {
       ...scene,
       title: release.title,
+      code: release.code,
+      details: release.details,
+      director: release.director,
+      urls: release.urls,
+      date: release.date,
+      effective_date: release.date,
       studio: release.studio,
+      performers:
+        release.performers as unknown as GQL.SceneDataFragment["performers"],
       tags: release.tags,
+      groups: release.groups as unknown as GQL.SceneDataFragment["groups"],
       galleries: release.galleries,
+      direct_galleries: release.galleries,
+      stash_ids: release.stash_ids,
+      stashdb_matches: release.stashdb_matches,
+      custom_fields: release.custom_fields,
+      created_at: release.created_at,
+      updated_at: release.updated_at,
+      last_played_at: latestTime(release.play_history),
+      release_o_counter: 0,
+      release_stashdb_matches: null,
+      release_last_o_at: null,
       resume_time: release.resume_time,
       play_duration: release.play_duration,
       interactive: release.interactive,
@@ -47,9 +69,15 @@ export const getSceneReleasePlaybackContextCustom = (
       },
       captions: release.captions,
       scene_markers: release.scene_markers,
-      scene_marker_tag_ancestors: [],
+      scene_marker_tag_ancestors: release.scene_marker_tag_ancestors,
       negative_markers: release.negative_markers,
       multi_segment_loop_presets: release.multi_segment_loop_presets,
     },
   };
 };
+
+const latestTime = (times: string[]): string | null =>
+  times.reduce<string | null>(
+    (latest, time) => (latest === null || time > latest ? time : latest),
+    null
+  );

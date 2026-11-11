@@ -215,7 +215,6 @@ export type CriterionType =
   | "stash_id_endpoint"
   | "stash_id_count"
   | "stashdb_matches" // CUSTOM
-  | "marker_tags" // CUSTOM
   | "date"
   | "production_date"
   | "effective_date" // CUSTOM
@@ -245,11 +244,6 @@ export type CriterionType =
   | "has_end_time"
   | "marker_length"
   | "scene_performer_count"
-  | "marker_top"
-  | "marker_bottom"
-  | "marker_giver" // Legacy - migrates to marker_top
-  | "marker_receiver" // Legacy - migrates to marker_bottom
-  | "exclude_marker_tags"
   | "scene_markers"
   | "scene_markers_exclude"
   | "has_roles"

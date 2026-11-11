@@ -40,7 +40,7 @@ CREATE TABLE scene_multi_segment_loop_presets(id INTEGER PRIMARY KEY, scene_id I
 CREATE TABLE rating_criteria_scores(entity_type TEXT, entity_id INTEGER, key TEXT, raw_value REAL);
 CREATE TABLE rating_bonus_scores(entity_type TEXT, entity_id INTEGER, key TEXT, raw_value REAL);
 CREATE TABLE rating_penalty_scores(entity_type TEXT, entity_id INTEGER, key TEXT, raw_value REAL);
-INSERT INTO scenes VALUES (1, 87, 1, 14.5, 123.25), (2, NULL, 0, 0, 0);
+INSERT INTO scenes VALUES (1, 87, 0, 14.5, 123.25), (2, NULL, 1, 0, 0);
 INSERT INTO performers VALUES (11), (12);
 INSERT INTO groups VALUES (31);
 INSERT INTO tags VALUES (21);
@@ -110,6 +110,8 @@ INSERT INTO scene_multi_segment_loop_presets VALUES (66, 4, 'loop', '[]', 1, 0, 
 	if err := tx.Get(&row, `SELECT organized,resume_time,play_duration FROM scenes WHERE id = 3`); err != nil {
 		t.Fatal(err)
 	}
+	// Organized comes from the release's parent (scene 2), not the scene the
+	// release was converted from.
 	if !row.Organized || row.ResumeTime != 14.5 || row.PlayDuration != 123.25 {
 		t.Fatalf("scalar metadata changed: %+v", row)
 	}
@@ -256,20 +258,12 @@ INSERT INTO scene_multi_segment_loop_presets VALUES (66, 4, 'loop', '[]', 1, 0, 
 		t.Fatal(err)
 	}
 	if err := store.UpdateExtendedCustom(ctx, 9, models.SceneReleaseExtendedUpdateCustom{
-		OrganizedSet: true, Organized: true,
 		URLsSet: true, URLs: []string{"https://one.example", "https://two.example"},
 		PerformerIDsSet: true, PerformerIDs: []int{11},
 		TagIDsSet: true, TagIDs: []int{21},
 		CustomFields: &models.CustomFieldsInput{Full: map[string]interface{}{"quality": "gold"}},
 	}); err != nil {
 		t.Fatal(err)
-	}
-	metadata, err := store.GetMetadataCustom(ctx, 9)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !metadata.Organized {
-		t.Fatalf("release edit metadata = %+v", metadata)
 	}
 	urls, err := store.GetURLsCustom(ctx, 9)
 	if err != nil || len(urls) != 2 || urls[1] != "https://two.example" {
@@ -280,18 +274,10 @@ INSERT INTO scene_multi_segment_loop_presets VALUES (66, 4, 'loop', '[]', 1, 0, 
 		t.Fatalf("release custom fields = %v, err = %v", fields, err)
 	}
 	if err := store.UpdateExtendedCustom(ctx, 9, models.SceneReleaseExtendedUpdateCustom{
-		OrganizedSet: true,
-		URLsSet:      true, PerformerIDsSet: true, TagIDsSet: true,
+		URLsSet: true, PerformerIDsSet: true, TagIDsSet: true,
 		CustomFields: &models.CustomFieldsInput{Full: map[string]interface{}{}},
 	}); err != nil {
 		t.Fatal(err)
-	}
-	metadata, err = store.GetMetadataCustom(ctx, 9)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if metadata.Organized {
-		t.Fatalf("release fields did not clear: %+v", metadata)
 	}
 	urls, err = store.GetURLsCustom(ctx, 9)
 	if err != nil || len(urls) != 0 {

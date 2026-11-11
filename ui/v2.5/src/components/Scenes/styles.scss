@@ -845,16 +845,6 @@
   margin: 5px;
 }
 
-/* Inline performer tag editor styling to match SceneEditPanel tag appearance */
-.performer-tag-editor {
-  margin-top: 0.5rem;
-
-  .tag-select {
-    width: 100%;
-  }
-}
-
-/* No scene-specific width override for performer tag editor; keep it responsive */
 
 .performer-tag-container .performer-disambiguation {
   color: initial;
@@ -3968,13 +3958,6 @@ input[type="range"].blue-slider {
     min-height: 2.7rem;
     padding: 0.35rem 0.4rem;
   }
-}
-
-.scene-stats-overview-row-meta {
-  align-items: center;
-  column-gap: 0.5rem;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
 }
 
 /* CUSTOM: segments use the shared tile tint (styles/tintedSegments_custom.scss). */

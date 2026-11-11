@@ -1,5 +1,5 @@
 import { formatAppDecimalCustom } from "src/utils/appLocale_custom"; // CUSTOM
-import React, { useState, useMemo, useRef, useEffect } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import {
   Button,
   Card,
@@ -7,19 +7,13 @@ import {
   Modal,
   Form,
   Accordion,
-  Row,
-  Col,
   Dropdown,
 } from "react-bootstrap";
 import { FormattedMessage, useIntl } from "react-intl";
-import { Prompt, useHistory } from "react-router-dom";
-import { DateInput } from "src/components/Shared/DateInput";
-import { ImageInput } from "src/components/Shared/ImageInput";
+import { useHistory } from "react-router-dom";
 import * as GQL from "src/core/generated-graphql";
 import {
   useSceneReleaseCreate,
-  useSceneReleaseUpdate,
-  useSceneReleaseDestroy,
   useSceneReleaseAddFile,
   useSceneReleaseRemoveFile,
   useConvertSceneToRelease,
@@ -33,7 +27,6 @@ import {
   faPlus,
   faTrash,
   faExchangeAlt,
-  faPencilAlt,
   faChevronDown,
   faChevronRight,
   faFile,
@@ -41,19 +34,6 @@ import {
   faMinus,
 } from "@fortawesome/free-solid-svg-icons";
 import { SceneSelectorDialog } from "./SceneSelectorDialog";
-import { Studio, StudioSelect } from "src/components/Studios/StudioSelect";
-import { Gallery, GallerySelect } from "src/components/Galleries/GallerySelect";
-import {
-  Performer,
-  PerformerSelect,
-} from "src/components/Performers/PerformerSelect";
-import { Tag, TagSelect } from "src/components/Tags/TagSelect";
-import { IGroupEntry, SceneGroupTable } from "./SceneGroupTable";
-import {
-  CustomFieldMap,
-  CustomFieldsInput,
-} from "src/components/Shared/CustomFields";
-import ImageUtils from "src/utils/image";
 import TextUtils from "src/utils/text";
 import { summarizeReleaseConversionCustom } from "./sceneReleaseConversionSummary_custom"; // CUSTOM
 import { stashDBFingerprintsURLCustom } from "./StashDBMatchesCount";
@@ -61,39 +41,16 @@ import {
   SceneReleaseConvertChoices,
   SceneReleaseConvertDialog,
 } from "./SceneReleaseConvertDialog";
+import { SceneReleaseDeleteDialog } from "./SceneReleaseDeleteDialog";
 import "./SceneReleasesPanel_custom.scss";
-
-interface IReleaseFormData {
-  title: string;
-  code: string;
-  urls: string;
-  organized: boolean;
-  date: string;
-  details: string;
-  director: string;
-  studio_id: string;
-  gallery_ids: string[];
-  cover_image: string | null;
-}
-
-const emptyFormData: IReleaseFormData = {
-  title: "",
-  code: "",
-  urls: "",
-  organized: false,
-  date: "",
-  details: "",
-  director: "",
-  studio_id: "",
-  gallery_ids: [],
-  cover_image: null,
-};
 
 interface ISceneReleasesPanelProps {
   scene: GQL.SceneDataFragment;
   activeReleaseId: string | null;
   onSetActiveRelease: (releaseId: string | null) => void;
-  onRefetch: () => void;
+  onRefetch: () => Promise<void> | void;
+  // Selects the new release and opens it for editing.
+  onReleaseCreated: (releaseId: string) => void;
 }
 
 export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
@@ -101,6 +58,7 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
   activeReleaseId,
   onSetActiveRelease,
   onRefetch,
+  onReleaseCreated,
 }) => {
   const intl = useIntl();
   const Toast = useToast();
@@ -116,8 +74,8 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
     return requestId;
   };
 
-  const [showReleaseModal, setShowReleaseModal] = useState(false);
-  const [editingReleaseId, setEditingReleaseId] = useState<string | null>(null);
+  // New Release asks only for a title; the Edit tab does the rest.
+  const [newReleaseTitle, setNewReleaseTitle] = useState<string | null>(null);
   const [showSceneSelectorModal, setShowSceneSelectorModal] = useState(false);
   const [pendingConvertSceneId, setPendingConvertSceneId] = useState<
     string | null
@@ -129,18 +87,10 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
   const [showConvertToSceneModal, setShowConvertToSceneModal] = useState<
     string | null
   >(null); // release ID
-  const [formData, setFormData] = useState<IReleaseFormData>(emptyFormData);
-  const [selectedPerformers, setSelectedPerformers] = useState<Performer[]>([]);
-  const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
-  const [groupEntries, setGroupEntries] = useState<IGroupEntry[]>([]);
-  const [stashIDs, setStashIDs] = useState<GQL.StashIdInput[]>([]);
-  const [customFields, setCustomFields] = useState<CustomFieldMap>({});
-  const [customFieldsError, setCustomFieldsError] = useState<string>();
-  const [showDiscardReleaseModal, setShowDiscardReleaseModal] = useState(false);
-  const releaseDraftBaseline = useRef<string | null>(null);
   const [expandedReleases, setExpandedReleases] = useState<Set<string>>(
     new Set()
   );
+  // Cover URLs that failed to load; a new cover gets a new URL.
   const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
   const [showRemoveFileModal, setShowRemoveFileModal] = useState<{
     releaseId: string;
@@ -148,13 +98,7 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
     fileName: string;
   } | null>(null);
 
-  // For studio and gallery selects
-  const [selectedStudio, setSelectedStudio] = useState<Studio | null>(null);
-  const [selectedGalleries, setSelectedGalleries] = useState<Gallery[]>([]);
-
   const [createRelease, { loading: creating }] = useSceneReleaseCreate();
-  const [updateRelease, { loading: updating }] = useSceneReleaseUpdate();
-  const [destroyRelease, { loading: destroying }] = useSceneReleaseDestroy();
   const [addFileToRelease, { loading: addingFile }] = useSceneReleaseAddFile();
   const [removeFileFromRelease, { loading: removingFile }] =
     useSceneReleaseRemoveFile();
@@ -179,32 +123,9 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
   const releaseSummary = conversionRelease
     ? summarizeReleaseConversionCustom(conversionRelease)
     : undefined; // CUSTOM
-  // CUSTOM: deleting a release drops its own markers and activity
   const deletingRelease = releases.find(
     (release) => release.id === showDeleteReleaseModal
   );
-  const deletingSummary = deletingRelease
-    ? summarizeReleaseConversionCustom(deletingRelease)
-    : undefined;
-  const releaseDraftFingerprint = JSON.stringify({
-    formData,
-    studio: selectedStudio?.id,
-    galleries: selectedGalleries.map((gallery) => gallery.id),
-    performers: selectedPerformers.map((performer) => performer.id),
-    tags: selectedTags.map((tag) => tag.id),
-    groups: groupEntries.map((entry) => [entry.group.id, entry.scene_index]),
-    stashIDs,
-    customFields,
-  });
-  useEffect(() => {
-    if (showReleaseModal && releaseDraftBaseline.current === null) {
-      releaseDraftBaseline.current = releaseDraftFingerprint;
-    }
-  }, [showReleaseModal, releaseDraftFingerprint]);
-  const releaseDraftDirty =
-    showReleaseModal &&
-    releaseDraftBaseline.current !== null &&
-    releaseDraftBaseline.current !== releaseDraftFingerprint;
 
   // Sort releases by date ascending
   const sortedReleases = useMemo(() => {
@@ -232,186 +153,38 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
     return (scene.files ?? []).filter((file) => !usedFileIds.has(file.id));
   }, [scene.files, usedFileIds]);
 
-  const openNewReleaseModal = () => {
-    setEditingReleaseId(null);
-    setFormData(emptyFormData);
-    setSelectedStudio(null);
-    setSelectedGalleries([]);
-    setSelectedPerformers([]);
-    setSelectedTags([]);
-    setGroupEntries([]);
-    setStashIDs([]);
-    setCustomFields({});
-    setCustomFieldsError(undefined);
-    setShowReleaseModal(true);
-  };
-
-  const openEditReleaseModal = (release: GQL.SceneReleaseDataFragment) => {
-    setEditingReleaseId(release.id);
-    setFormData({
-      title: release.title || "",
-      code: release.code || "",
-      urls: release.urls.join("\n"),
-      organized: release.organized,
-      date: release.date || "",
-      details: release.details || "",
-      director: release.director || "",
-      studio_id: release.studio?.id || "",
-      gallery_ids: release.galleries?.map((g) => g.id) || [],
-      cover_image: null, // Don't prefill - only set if changing
-    });
-    setSelectedStudio(
-      release.studio
-        ? ({ id: release.studio.id, name: release.studio.name } as Studio)
-        : null
-    );
-    setSelectedGalleries(
-      release.galleries?.map(
-        (g) => ({ id: g.id, title: g.title }) as Gallery
-      ) || []
-    );
-    setSelectedPerformers(release.performers);
-    setSelectedTags(release.tags);
-    setGroupEntries(
-      release.groups.map((item) => ({
-        group: item.group,
-        scene_index: item.scene_index,
-      }))
-    );
-    setStashIDs(release.stash_ids);
-    setCustomFields((release.custom_fields || {}) as CustomFieldMap);
-    setCustomFieldsError(undefined);
-    setShowReleaseModal(true);
-  };
-
-  const closeReleaseModal = () => {
-    setShowReleaseModal(false);
-    setShowDiscardReleaseModal(false);
-    releaseDraftBaseline.current = null;
-    setEditingReleaseId(null);
-    setFormData(emptyFormData);
-    setSelectedStudio(null);
-    setSelectedGalleries([]);
-    setSelectedPerformers([]);
-    setSelectedTags([]);
-    setGroupEntries([]);
-    setStashIDs([]);
-    setCustomFields({});
-    setCustomFieldsError(undefined);
-  };
-
-  const requestCloseReleaseModal = () => {
-    if (releaseDraftDirty) {
-      setShowDiscardReleaseModal(true);
-    } else {
-      closeReleaseModal();
-    }
-  };
-
-  const handleSaveRelease = async () => {
-    if (customFieldsError) {
-      Toast.error(customFieldsError);
-      return;
-    }
-    const urls = formData.urls
-      .split(/\r?\n/)
-      .map((url) => url.trim())
-      .filter(Boolean);
-    if (
-      stashIDs.some((item) => !item.endpoint.trim() || !item.stash_id.trim())
-    ) {
-      Toast.error("Stash IDs need both an endpoint and an ID");
-      return;
-    }
+  const handleCreateRelease = async () => {
     try {
-      const input = {
-        title: formData.title,
-        code: formData.code,
-        urls,
-        organized: formData.organized,
-        performer_ids: selectedPerformers.map((performer) => performer.id),
-        tag_ids: selectedTags.map((tag) => tag.id),
-        groups: groupEntries.map((entry) => ({
-          group_id: entry.group.id,
-          scene_index: entry.scene_index,
-        })),
-        stash_ids: stashIDs,
-        custom_fields: { full: customFields },
-        date: formData.date,
-        details: formData.details,
-        director: formData.director,
-        studio_id: selectedStudio?.id || "",
-        gallery_ids: selectedGalleries.map((g) => g.id),
-        cover_image: formData.cover_image ?? undefined,
-      };
-
-      if (editingReleaseId) {
-        await updateRelease({
-          variables: {
-            input: {
-              id: editingReleaseId,
-              ...input,
-            },
-          },
-        });
-        // Clear broken image state for this release so it re-fetches the new image
-        if (formData.cover_image) {
-          setBrokenImages((prev) => {
-            const next = new Set(prev);
-            next.delete(editingReleaseId);
-            return next;
-          });
-        }
-        Toast.success(
-          intl.formatMessage(
-            { id: "toast.updated_entity" },
-            { entity: "release" }
-          )
-        );
-      } else {
-        await createRelease({
-          variables: {
-            input: {
-              scene_id: scene.id,
-              ...input,
-            },
-          },
-        });
-        Toast.success(
-          intl.formatMessage(
-            { id: "toast.created_entity" },
-            { entity: "release" }
-          )
-        );
-      }
-      closeReleaseModal();
-      onRefetch();
-    } catch (e) {
-      Toast.error(e);
-    }
-  };
-
-  const handleDeleteRelease = async (releaseId: string) => {
-    try {
-      await destroyRelease({
+      const result = await createRelease({
         variables: {
-          input: { id: releaseId },
+          input: {
+            scene_id: scene.id,
+            title: newReleaseTitle?.trim() ?? "",
+          },
         },
       });
       Toast.success(
         intl.formatMessage(
-          { id: "toast.deleted_entity" },
+          { id: "toast.created_entity" },
           { entity: "release" }
         )
       );
-      if (activeReleaseId === releaseId) {
-        onSetActiveRelease(null);
-      }
-      setShowDeleteReleaseModal(null);
-      onRefetch();
+      setNewReleaseTitle(null);
+      const releaseId = result.data?.sceneReleaseCreate?.id;
+      await onRefetch();
+      if (releaseId) onReleaseCreated(releaseId);
     } catch (e) {
       Toast.error(e);
     }
+  };
+
+  const onReleaseDeleted = (releaseId: string, deleted: boolean) => {
+    setShowDeleteReleaseModal(null);
+    if (!deleted) return;
+    if (activeReleaseId === releaseId) {
+      onSetActiveRelease(null);
+    }
+    onRefetch();
   };
 
   const handleConvertScene = async (
@@ -548,71 +321,22 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
     });
   };
 
-  const onImageLoad = (imageData: string) => {
-    setFormData({ ...formData, cover_image: imageData });
-  };
-
-  const onCoverImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    ImageUtils.onImageChange(event, onImageLoad);
-  };
-
-  const handleImageError = (releaseId: string) => {
-    setBrokenImages((prev) => new Set(prev).add(releaseId));
+  const handleImageError = (coverURL: string) => {
+    setBrokenImages((prev) => new Set(prev).add(coverURL));
   };
 
   const isLoading =
-    creating ||
-    updating ||
-    destroying ||
-    converting ||
-    addingFile ||
-    removingFile ||
-    convertingToScene;
-
-  const renderCoverImage = () => {
-    // Show preview of new image if set, otherwise show existing image for edit mode
-    if (formData.cover_image) {
-      return (
-        <img
-          className="scene-cover mb-2"
-          src={formData.cover_image}
-          alt={intl.formatMessage({ id: "cover_image" })}
-          style={{ maxWidth: "100%", maxHeight: "200px" }}
-        />
-      );
-    }
-    if (editingReleaseId && formData.cover_image !== "") {
-      const release = releases.find((r) => r.id === editingReleaseId);
-      if (release?.paths?.screenshot && !brokenImages.has(editingReleaseId)) {
-        return (
-          <img
-            className="scene-cover mb-2"
-            src={`${release.paths.screenshot}?t=${new Date(
-              release.updated_at
-            ).getTime()}`}
-            alt={intl.formatMessage({ id: "cover_image" })}
-            style={{ maxWidth: "100%", maxHeight: "200px" }}
-            onError={() => handleImageError(editingReleaseId)}
-          />
-        );
-      }
-    }
-    return null;
-  };
+    creating || converting || addingFile || removingFile || convertingToScene;
 
   return (
     <div className="scene-releases-panel">
-      <Prompt
-        when={releaseDraftDirty}
-        message={intl.formatMessage({ id: "dialogs.unsaved_changes" })}
-      />
       {isLoading && <LoadingIndicator />}
 
       <div className="mb-3">
         <Button
           variant="primary"
           className="mr-2"
-          onClick={openNewReleaseModal}
+          onClick={() => setNewReleaseTitle("")}
         >
           <Icon icon={faPlus} />
           <span className="ml-1">
@@ -645,10 +369,12 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
           {sortedReleases.map((release) => {
             const isExpanded = expandedReleases.has(release.id);
             // Only show screenshot if it's a non-empty string and hasn't errored
-            const hasScreenshot =
-              release.paths?.screenshot &&
-              release.paths.screenshot.length > 0 &&
-              !brokenImages.has(release.id);
+            const coverURL = release.paths?.screenshot
+              ? `${release.paths.screenshot}?t=${new Date(
+                  release.updated_at
+                ).getTime()}`
+              : undefined;
+            const hasScreenshot = !!coverURL && !brokenImages.has(coverURL);
 
             return (
               <Card
@@ -669,11 +395,9 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
                   ) : hasScreenshot ? (
                     <img
                       className="scene-release-summary__cover"
-                      src={`${release.paths.screenshot!}?t=${new Date(
-                        release.updated_at
-                      ).getTime()}`}
+                      src={coverURL}
                       alt=""
-                      onError={() => handleImageError(release.id)}
+                      onError={() => handleImageError(coverURL!)}
                     />
                   ) : (
                     <span
@@ -712,27 +436,26 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
                     </span>
                   </Button>
                   {activeReleaseId === release.id && (
-                    <Badge variant="primary">Playing</Badge>
+                    <Badge variant="primary">Active</Badge> // CUSTOM
                   )}
                   <div className="scene-release-summary__actions">
-                    {release.files.length > 0 && (
-                      <Button
-                        variant={
-                          activeReleaseId === release.id
-                            ? "success"
-                            : "outline-success"
-                        }
-                        size="sm"
-                        onClick={() => handleMarkForPlayback(release.id)}
-                        aria-label={
-                          activeReleaseId === release.id
-                            ? "Play main scene"
-                            : "Play release"
-                        }
-                      >
-                        <Icon icon={faPlay} />
-                      </Button>
-                    )}
+                    {/* CUSTOM: any release can be selected */}
+                    <Button
+                      variant={
+                        activeReleaseId === release.id
+                          ? "success"
+                          : "outline-success"
+                      }
+                      size="sm"
+                      onClick={() => handleMarkForPlayback(release.id)}
+                      aria-label={
+                        activeReleaseId === release.id
+                          ? "Back to scene"
+                          : "Select release"
+                      }
+                    >
+                      <Icon icon={faPlay} />
+                    </Button>
                     <Dropdown alignRight>
                       <Dropdown.Toggle
                         variant="secondary"
@@ -745,12 +468,6 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
                         />
                       </Dropdown.Toggle>
                       <Dropdown.Menu>
-                        <Dropdown.Item
-                          onClick={() => openEditReleaseModal(release)}
-                        >
-                          <Icon icon={faPencilAlt} />{" "}
-                          <FormattedMessage id="actions.edit" />
-                        </Dropdown.Item>
                         <Dropdown.Item
                           onClick={() => setShowAddFileModal(release.id)}
                         >
@@ -787,12 +504,10 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
                     {hasScreenshot ? (
                       <div className="mb-3">
                         <img
-                          src={`${release.paths.screenshot!}?t=${new Date(
-                            release.updated_at
-                          ).getTime()}`}
+                          src={coverURL}
                           alt={release.title || "Release cover"}
                           className="img-fluid rounded w-100"
-                          onError={() => handleImageError(release.id)}
+                          onError={() => handleImageError(coverURL!)}
                         />
                       </div>
                     ) : null}
@@ -1130,385 +845,54 @@ export const SceneReleasesPanel: React.FC<ISceneReleasesPanelProps> = ({
         </Accordion>
       )}
 
-      {/* Release Edit/Create Modal */}
+      {/* New Release: title only; the Edit tab does the rest */}
       <Modal
-        show={showReleaseModal}
-        onHide={requestCloseReleaseModal}
-        size="lg"
+        show={newReleaseTitle !== null}
+        onHide={() => setNewReleaseTitle(null)}
       >
         <Modal.Header closeButton>
-          <Modal.Title>
-            {editingReleaseId ? (
-              <FormattedMessage
-                id="actions.edit_entity"
-                defaultMessage="Edit {entityType}"
-                values={{ entityType: "Release" }}
-              />
-            ) : (
-              <FormattedMessage
-                id="actions.create_entity"
-                defaultMessage="Create {entityType}"
-                values={{ entityType: "Release" }}
-              />
-            )}
-          </Modal.Title>
+          <Modal.Title>New Release</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <Form>
-            <Row>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>
-                    <FormattedMessage id="title" />
-                  </Form.Label>
-                  <Form.Control
-                    type="text"
-                    value={formData.title}
-                    onChange={(e) =>
-                      setFormData({ ...formData, title: e.target.value })
-                    }
-                  />
-                </Form.Group>
-              </Col>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>
-                    <FormattedMessage id="date" />
-                  </Form.Label>
-                  <DateInput
-                    value={formData.date}
-                    onValueChange={(date) => setFormData({ ...formData, date })}
-                  />
-                </Form.Group>
-              </Col>
-            </Row>
-
-            <Row>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>
-                    <FormattedMessage
-                      id="studio_code"
-                      defaultMessage="Studio Code"
-                    />
-                  </Form.Label>
-                  <Form.Control
-                    type="text"
-                    value={formData.code}
-                    onChange={(e) =>
-                      setFormData({ ...formData, code: e.target.value })
-                    }
-                  />
-                </Form.Group>
-              </Col>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>
-                    <FormattedMessage id="director" />
-                  </Form.Label>
-                  <Form.Control
-                    type="text"
-                    value={formData.director}
-                    onChange={(e) =>
-                      setFormData({ ...formData, director: e.target.value })
-                    }
-                  />
-                </Form.Group>
-              </Col>
-            </Row>
-
-            <Form.Group className="mb-3">
+          <Form
+            onSubmit={(event) => {
+              event.preventDefault();
+              handleCreateRelease();
+            }}
+          >
+            <Form.Group className="mb-0" controlId="new-release-title">
               <Form.Label>
-                <FormattedMessage id="studio" />
-              </Form.Label>
-              <StudioSelect
-                onSelect={(items) =>
-                  setSelectedStudio(items.length > 0 ? items[0] : null)
-                }
-                values={selectedStudio ? [selectedStudio] : []}
-              />
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>
-                <FormattedMessage id="url" />
+                <FormattedMessage id="title" />
               </Form.Label>
               <Form.Control
-                as="textarea"
-                rows={2}
-                value={formData.urls}
-                onChange={(e) =>
-                  setFormData({ ...formData, urls: e.target.value })
-                }
-                aria-label="Release URLs, one per line"
+                autoFocus
+                type="text"
+                value={newReleaseTitle ?? ""}
+                onChange={(e) => setNewReleaseTitle(e.target.value)}
               />
             </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Check
-                type="checkbox"
-                label={<FormattedMessage id="organized" />}
-                checked={formData.organized}
-                onChange={(e) =>
-                  setFormData({ ...formData, organized: e.target.checked })
-                }
-              />
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>
-                <FormattedMessage id="performers" />
-              </Form.Label>
-              <PerformerSelect
-                isMulti
-                values={selectedPerformers}
-                onSelect={(items) => setSelectedPerformers(items)}
-                ageFromDate={formData.date}
-              />
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>
-                <FormattedMessage id="tags" />
-              </Form.Label>
-              <TagSelect
-                isMulti
-                values={selectedTags}
-                onSelect={(items) => setSelectedTags(items)}
-              />
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>
-                <FormattedMessage id="groups" />
-              </Form.Label>
-              <SceneGroupTable
-                value={groupEntries}
-                onUpdate={setGroupEntries}
-              />
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Stash IDs</Form.Label>
-              {stashIDs.map((item, index) => (
-                <Row key={index} className="mb-2">
-                  <Col md={5}>
-                    <Form.Control
-                      aria-label={`Stash endpoint ${index + 1}`}
-                      value={item.endpoint}
-                      placeholder="Endpoint"
-                      onChange={(event) =>
-                        setStashIDs((current) =>
-                          current.map((existing, i) =>
-                            i === index
-                              ? {
-                                  ...existing,
-                                  endpoint: event.target.value,
-                                  updated_at: new Date().toISOString(),
-                                }
-                              : existing
-                          )
-                        )
-                      }
-                    />
-                  </Col>
-                  <Col md={5}>
-                    <Form.Control
-                      aria-label={`Stash ID ${index + 1}`}
-                      value={item.stash_id}
-                      placeholder="ID"
-                      onChange={(event) =>
-                        setStashIDs((current) =>
-                          current.map((existing, i) =>
-                            i === index
-                              ? {
-                                  ...existing,
-                                  stash_id: event.target.value,
-                                  updated_at: new Date().toISOString(),
-                                }
-                              : existing
-                          )
-                        )
-                      }
-                    />
-                  </Col>
-                  <Col md={2}>
-                    <Button
-                      variant="outline-danger"
-                      aria-label={`Remove Stash ID ${index + 1}`}
-                      onClick={() =>
-                        setStashIDs((current) =>
-                          current.filter((_, i) => i !== index)
-                        )
-                      }
-                    >
-                      <Icon icon={faMinus} />
-                    </Button>
-                  </Col>
-                </Row>
-              ))}
-              <Button
-                variant="outline-secondary"
-                size="sm"
-                onClick={() =>
-                  setStashIDs((current) => [
-                    ...current,
-                    {
-                      endpoint: "",
-                      stash_id: "",
-                      updated_at: new Date().toISOString(),
-                    },
-                  ])
-                }
-              >
-                <Icon icon={faPlus} /> Add Stash ID
-              </Button>
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>
-                <FormattedMessage id="galleries" />
-              </Form.Label>
-              <GallerySelect
-                values={selectedGalleries}
-                onSelect={(items) => setSelectedGalleries(items)}
-                isMulti
-              />
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>
-                <FormattedMessage id="details" />
-              </Form.Label>
-              <Form.Control
-                as="textarea"
-                rows={3}
-                value={formData.details}
-                onChange={(e) =>
-                  setFormData({ ...formData, details: e.target.value })
-                }
-              />
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>
-                <FormattedMessage id="cover_image" />
-              </Form.Label>
-              {renderCoverImage()}
-              <ImageInput isEditing onImageChange={onCoverImageChange} />
-              {editingReleaseId && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="mt-2"
-                  onClick={() => setFormData({ ...formData, cover_image: "" })}
-                >
-                  <FormattedMessage
-                    id="scene_release.remove_cover"
-                    defaultMessage="Remove cover"
-                  />
-                </Button>
-              )}
-            </Form.Group>
-
-            <CustomFieldsInput
-              values={customFields}
-              onChange={setCustomFields}
-              error={customFieldsError}
-              setError={setCustomFieldsError}
-            />
           </Form>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={requestCloseReleaseModal}>
+          <Button variant="secondary" onClick={() => setNewReleaseTitle(null)}>
             <FormattedMessage id="actions.cancel" />
           </Button>
           <Button
             variant="primary"
-            onClick={handleSaveRelease}
-            disabled={creating || updating}
+            onClick={handleCreateRelease}
+            disabled={creating}
           >
-            {editingReleaseId ? (
-              <FormattedMessage id="actions.save" />
-            ) : (
-              <FormattedMessage id="actions.create" />
-            )}
+            <FormattedMessage id="actions.create" />
           </Button>
         </Modal.Footer>
       </Modal>
 
-      <Modal
-        show={showDiscardReleaseModal}
-        onHide={() => setShowDiscardReleaseModal(false)}
-        centered
-      >
-        <Modal.Header closeButton>
-          <Modal.Title>
-            <FormattedMessage
-              id="dialogs.unsaved_changes"
-              defaultMessage="Unsaved changes"
-            />
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <FormattedMessage
-            id="scene_release.discard_changes"
-            defaultMessage="Discard changes to this release?"
-          />
-        </Modal.Body>
-        <Modal.Footer>
-          <Button
-            variant="secondary"
-            onClick={() => setShowDiscardReleaseModal(false)}
-          >
-            <FormattedMessage id="actions.cancel" />
-          </Button>
-          <Button variant="danger" onClick={closeReleaseModal}>
-            <FormattedMessage id="actions.discard" defaultMessage="Discard" />
-          </Button>
-        </Modal.Footer>
-      </Modal>
-
-      {/* Scene Selector Modal */}
-      <Modal
-        show={!!showDeleteReleaseModal}
-        onHide={() => setShowDeleteReleaseModal(null)}
-      >
-        <Modal.Header closeButton>
-          <Modal.Title>Delete release</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <p>
-            The release will be removed. Its files return to the main scene.
-          </p>
-          {deletingRelease && deletingSummary && (
-            <p className="mb-0 text-warning">
-              Also deleted: {deletingRelease.scene_markers.length} markers ·{" "}
-              {deletingSummary.plays} plays · {deletingSummary.oEvents} O
-              events, plus its tags and skip ranges. Use Convert to scene to
-              keep them.
-            </p>
-          )}
-        </Modal.Body>
-        <Modal.Footer>
-          <Button
-            variant="secondary"
-            onClick={() => setShowDeleteReleaseModal(null)}
-          >
-            <FormattedMessage id="actions.cancel" />
-          </Button>
-          <Button
-            variant="danger"
-            disabled={destroying}
-            onClick={() =>
-              showDeleteReleaseModal &&
-              handleDeleteRelease(showDeleteReleaseModal)
-            }
-          >
-            <FormattedMessage id="actions.delete" />
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      {deletingRelease && (
+        <SceneReleaseDeleteDialog
+          release={deletingRelease}
+          onClose={(deleted) => onReleaseDeleted(deletingRelease.id, deleted)}
+        />
+      )}
 
       {/* Scene Selector Modal */}
       {showSceneSelectorModal && (

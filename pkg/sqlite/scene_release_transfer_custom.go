@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/stashapp/stash/pkg/models"
 )
 
 // CheckConversionFileConflictsCustom rejects a conversion or scene merge that
@@ -68,12 +70,13 @@ func copyStashDBMatchesCustom(ctx context.Context, query string, toID, fromID in
 }
 
 // TransferSceneMetadataToReleaseCustom moves all supported scene-owned data
-// before the source scene row is deleted. Ratings stay with scenes: the caller
-// copies or drops the source's. The caller owns the transaction.
+// before the source scene row is deleted. Ratings and the organized flag stay
+// with scenes: the caller copies or drops the source's. The caller owns the
+// transaction.
 func (qb *SceneReleaseStore) TransferSceneMetadataToReleaseCustom(ctx context.Context, sceneID, releaseID int) error {
 	statements := []string{
-		`INSERT INTO scene_release_metadata(release_id,organized,resume_time,play_duration)
-		 SELECT ?,organized,resume_time,play_duration FROM scenes WHERE id = ?`,
+		`INSERT INTO scene_release_metadata(release_id,resume_time,play_duration)
+		 SELECT ?,resume_time,play_duration FROM scenes WHERE id = ?`,
 		`INSERT INTO scene_release_urls(release_id,position,url)
 		 SELECT ?,position,url FROM scene_urls WHERE scene_id = ?`,
 		`INSERT INTO scene_release_performers(release_id,performer_id)
@@ -142,33 +145,49 @@ func (qb *SceneReleaseStore) CopyMarkersToSceneCustom(ctx context.Context, relea
 	}
 	now := time.Now()
 	for _, markerID := range markerIDs {
-		result, err := dbWrapper.Exec(ctx, `INSERT INTO scene_markers(title,seconds,end_seconds,primary_tag_id,scene_id,created_at,updated_at)
-			SELECT title,seconds,end_seconds,primary_tag_id,?,?,? FROM scene_markers WHERE id = ?`, sceneID, now, now, markerID)
-		if err != nil {
-			return fmt.Errorf("copying marker %d: %w", markerID, err)
-		}
-		copyID, err := result.LastInsertId()
-		if err != nil {
+		if _, err := copyMarkerRowCustom(ctx, markerID, models.SceneOwnerCustom{SceneID: sceneID}, now); err != nil {
 			return err
-		}
-		if _, err := dbWrapper.Exec(ctx, `INSERT INTO scene_markers_tags(scene_marker_id,tag_id)
-			SELECT ?,tag_id FROM scene_markers_tags WHERE scene_marker_id = ?`, copyID, markerID); err != nil {
-			return fmt.Errorf("copying marker %d tags: %w", markerID, err)
-		}
-		if _, err := dbWrapper.Exec(ctx, `INSERT INTO scene_marker_performers(scene_marker_id,performer_id,role)
-			SELECT ?,performer_id,role FROM scene_marker_performers WHERE scene_marker_id = ?`, copyID, markerID); err != nil {
-			return fmt.Errorf("copying marker %d performers: %w", markerID, err)
 		}
 	}
 	return nil
 }
 
+// copyMarkerRowCustom inserts a copy of the marker, with its tags and
+// performers, owned by to. It returns the new marker's ID.
+func copyMarkerRowCustom(ctx context.Context, markerID int, to models.SceneOwnerCustom, now time.Time) (int, error) {
+	var sceneID, releaseID any
+	if to.ReleaseID != 0 {
+		releaseID = to.ReleaseID
+	} else {
+		sceneID = to.SceneID
+	}
+	result, err := dbWrapper.Exec(ctx, `INSERT INTO scene_markers(title,seconds,end_seconds,primary_tag_id,scene_id,release_id,created_at,updated_at)
+		SELECT title,seconds,end_seconds,primary_tag_id,?,?,?,? FROM scene_markers WHERE id = ?`, sceneID, releaseID, now, now, markerID)
+	if err != nil {
+		return 0, fmt.Errorf("copying marker %d: %w", markerID, err)
+	}
+	copyID, err := result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+	if _, err := dbWrapper.Exec(ctx, `INSERT INTO scene_markers_tags(scene_marker_id,tag_id)
+		SELECT ?,tag_id FROM scene_markers_tags WHERE scene_marker_id = ?`, copyID, markerID); err != nil {
+		return 0, fmt.Errorf("copying marker %d tags: %w", markerID, err)
+	}
+	if _, err := dbWrapper.Exec(ctx, `INSERT INTO scene_marker_performers(scene_marker_id,performer_id,role)
+		SELECT ?,performer_id,role FROM scene_marker_performers WHERE scene_marker_id = ?`, copyID, markerID); err != nil {
+		return 0, fmt.Errorf("copying marker %d performers: %w", markerID, err)
+	}
+	return int(copyID), nil
+}
+
 // TransferReleaseMetadataToSceneCustom restores only the selected release's
-// data; it never changes metadata on the parent scene. The caller gives the
-// new scene its rating, which releases inherit from their parent.
+// data; it never changes metadata on the parent scene. The new scene starts
+// with a copy of the parent's organized flag, which the release inherited; the
+// caller copies the parent's rating.
 func (qb *SceneReleaseStore) TransferReleaseMetadataToSceneCustom(ctx context.Context, releaseID, sceneID int) error {
 	if _, err := dbWrapper.Exec(ctx, `UPDATE scenes SET
-		organized = COALESCE((SELECT organized FROM scene_release_metadata WHERE release_id = ?), 0),
+		organized = COALESCE((SELECT s.organized FROM scenes s JOIN scene_releases r ON r.scene_id = s.id WHERE r.id = ?), 0),
 		resume_time = COALESCE((SELECT resume_time FROM scene_release_metadata WHERE release_id = ?), 0),
 		play_duration = COALESCE((SELECT play_duration FROM scene_release_metadata WHERE release_id = ?), 0)
 		WHERE id = ?`, releaseID, releaseID, releaseID, sceneID); err != nil {

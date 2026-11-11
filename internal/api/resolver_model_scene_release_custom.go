@@ -11,16 +11,6 @@ import (
 	"github.com/stashapp/stash/pkg/models"
 )
 
-func (r *sceneReleaseResolver) Organized(ctx context.Context, obj *models.SceneRelease) (bool, error) {
-	var metadata models.SceneReleaseMetadataCustom
-	err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		var err error
-		metadata, err = r.repository.SceneRelease.GetMetadataCustom(ctx, obj.ID)
-		return err
-	})
-	return metadata.Organized, err
-}
-
 func (r *sceneReleaseResolver) ResumeTime(ctx context.Context, obj *models.SceneRelease) (float64, error) {
 	var metadata models.SceneReleaseMetadataCustom
 	err := r.withReadTxn(ctx, func(ctx context.Context) error {

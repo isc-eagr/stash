@@ -1,10 +1,6 @@
 import React from "react";
 import { Button, Card, Col, Form, Row } from "react-bootstrap";
-import Select, {
-  components as selectComponents,
-  OptionProps,
-  MultiValueProps,
-} from "react-select";
+import Select from "react-select";
 import { FormattedMessage, useIntl } from "react-intl";
 import {
   CriterionModifier,
@@ -18,47 +14,12 @@ import {
 import { Tag, TagIDSelect } from "src/components/Tags/TagSelect";
 import { RatingCriterion } from "src/models/list-filter/criteria/tags";
 import { getCountries } from "src/utils/country";
-import { CountryFlag } from "src/components/Shared/CountryFlag";
 import { RatingSystem } from "src/components/Shared/Rating/RatingSystem";
-
-const ratingModifiers: {
-  value: CriterionModifier;
-  label: string;
-  title: string;
-}[] = [
-  { value: CriterionModifier.Equals, label: "=", title: "Equals" },
-  { value: CriterionModifier.NotEquals, label: "≠", title: "Not equals" },
-  { value: CriterionModifier.GreaterThan, label: ">", title: "Greater than" },
-  { value: CriterionModifier.LessThan, label: "<", title: "Less than" },
-  { value: CriterionModifier.Between, label: "↔", title: "Between" },
-  { value: CriterionModifier.NotBetween, label: "↮", title: "Not between" },
-];
-
-// Country option with flag
-const CountryOption: React.FC<
-  OptionProps<{ label: string; value: string }, true>
-> = (props) => {
-  const { data } = props;
-  return (
-    <selectComponents.Option {...props}>
-      <CountryFlag country={data.value} className="me-2" />
-      {data.label}
-    </selectComponents.Option>
-  );
-};
-
-// Country multi-value with flag
-const CountryMultiValue: React.FC<
-  MultiValueProps<{ label: string; value: string }, true>
-> = (props) => {
-  const { data } = props;
-  return (
-    <selectComponents.MultiValue {...props}>
-      <CountryFlag country={data.value} className="me-1" />
-      {data.label}
-    </selectComponents.MultiValue>
-  );
-};
+import {
+  CountryMultiValue,
+  CountryOption,
+  ratingModifiers,
+} from "./markerFilterSelects_custom";
 
 interface IGroupEditorProps {
   group: IPerformerMarkersGroup;

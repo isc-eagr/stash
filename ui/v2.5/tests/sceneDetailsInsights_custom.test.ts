@@ -26,7 +26,7 @@ test("scene insights moved from the Details tab to the header date line", () => 
   assert.doesNotMatch(detailsSource, /<SceneCardInsights/);
   assert.match(
     sceneSource,
-    /className="scene-meta-line"[\s\S]*?className="date"[\s\S]*?<SceneDetailInsights scene=\{scene\} \/>/
+    /className="scene-meta-line"[\s\S]*?className="date"[\s\S]*?<SceneDetailInsights scene=\{ownerScene\} \/>/
   );
   assert.match(
     insightsSource,
@@ -53,7 +53,9 @@ test("scene maintenance dates live after the Edit form and code is absent from D
   const formEnd = editSource.lastIndexOf("</Form>");
   assert.ok(formEnd >= 0);
   for (const field of ["created_at", "updated_at"]) {
-    assert.ok(editSource.indexOf(`scene.${field}`) > formEnd);
+    assert.ok(
+      editSource.indexOf(`formatDateTime(intl, scene.${field})`) > formEnd
+    );
   }
   assert.match(editSource, /renderInputField\("code", "text", "scene_code"\)/);
 });

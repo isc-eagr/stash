@@ -68,18 +68,9 @@ import {
 // CUSTOM: begin - marker/performer/scene-type/custom-filter imports
 import { MarkerPerformersCriterion } from "src/models/list-filter/criteria/marker-performers";
 import { MarkerPerformersFilter } from "./Filters/MarkerPerformersFilter";
-import { PerformerMarkersCriterion } from "src/models/list-filter/criteria/performer-markers";
+import { PerformerMarkersCriterionBase } from "src/models/list-filter/criteria/performer-markers";
 import { PerformerMarkersFilter } from "./Filters/PerformerMarkersFilter";
 import { PerformerMarkersExcludeCriterion } from "src/models/list-filter/criteria/performer-markers-exclude";
-import { PerformerMarkersExcludeFilter } from "./Filters/PerformerMarkersExcludeFilter";
-import { MarkerTagsCriterion } from "src/models/list-filter/criteria/marker-tags";
-import { MarkerTagsFilter } from "./Filters/MarkerTagsFilter";
-import { MarkerTopCriterion } from "src/models/list-filter/criteria/marker-top";
-import { MarkerTopFilter } from "./Filters/MarkerTopFilter";
-import { MarkerBottomCriterion } from "src/models/list-filter/criteria/marker-bottom";
-import { MarkerBottomFilter } from "./Filters/MarkerBottomFilter";
-import { ExcludeMarkerTagsCriterion } from "src/models/list-filter/criteria/exclude-marker-tags";
-import { ExcludeMarkerTagsFilter } from "./Filters/ExcludeMarkerTagsFilter";
 import {
   SceneMarkersCriterion,
   sceneMarkersModifierOptions,
@@ -413,58 +404,12 @@ export const CriterionEditor: React.FC<ICriterionEditor> = ({
       );
     }
 
-    if (criterion instanceof PerformerMarkersCriterion) {
-      const c = criterion;
+    if (criterion instanceof PerformerMarkersCriterionBase) {
       return (
         <PerformerMarkersFilter
-          criterion={c}
-          setCriterion={(nc) => setCriterion(nc)}
-        />
-      );
-    }
-
-    if (criterion instanceof PerformerMarkersExcludeCriterion) {
-      const c = criterion;
-      return (
-        <PerformerMarkersExcludeFilter
-          criterion={c}
-          setCriterion={(nc) => setCriterion(nc)}
-        />
-      );
-    }
-
-    if (criterion instanceof MarkerTagsCriterion) {
-      return (
-        <MarkerTagsFilter
           criterion={criterion}
           setCriterion={(nc) => setCriterion(nc)}
-        />
-      );
-    }
-
-    if (criterion instanceof MarkerTopCriterion) {
-      return (
-        <MarkerTopFilter
-          criterion={criterion}
-          setCriterion={(nc) => setCriterion(nc)}
-        />
-      );
-    }
-
-    if (criterion instanceof MarkerBottomCriterion) {
-      return (
-        <MarkerBottomFilter
-          criterion={criterion}
-          setCriterion={(nc) => setCriterion(nc)}
-        />
-      );
-    }
-
-    if (criterion instanceof ExcludeMarkerTagsCriterion) {
-      return (
-        <ExcludeMarkerTagsFilter
-          criterion={criterion}
-          setCriterion={(nc) => setCriterion(nc)}
+          exclude={criterion instanceof PerformerMarkersExcludeCriterion}
         />
       );
     }

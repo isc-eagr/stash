@@ -19,7 +19,6 @@ type SceneRelease struct {
 	PlayOrder int    `json:"play_order"`
 
 	// transient - not persisted
-	Files         RelatedVideoFiles
 	PrimaryFileID *FileID
 
 	CreatedAt time.Time `json:"created_at"`
@@ -29,14 +28,11 @@ type SceneRelease struct {
 }
 
 type SceneReleaseMetadataCustom struct {
-	Organized    bool
 	ResumeTime   float64
 	PlayDuration float64
 }
 
 type SceneReleaseExtendedUpdateCustom struct {
-	OrganizedSet    bool
-	Organized       bool
 	URLsSet         bool
 	URLs            []string
 	PerformerIDsSet bool
@@ -81,32 +77,6 @@ func NewSceneReleasePartial() SceneReleasePartial {
 	return SceneReleasePartial{
 		UpdatedAt: NewOptionalTime(currentTime),
 	}
-}
-
-func (r *SceneRelease) LoadFiles(ctx context.Context, l VideoFileLoader) error {
-	return r.Files.load(func() ([]*VideoFile, error) {
-		return l.GetFiles(ctx, r.ID)
-	})
-}
-
-func (r *SceneRelease) LoadPrimaryFile(ctx context.Context, l FileGetter) error {
-	return r.Files.loadPrimary(func() (*VideoFile, error) {
-		if r.PrimaryFileID == nil {
-			return nil, nil
-		}
-
-		f, err := l.Find(ctx, *r.PrimaryFileID)
-		if err != nil {
-			return nil, err
-		}
-
-		if len(f) > 0 {
-			if vf, ok := f[0].(*VideoFile); ok {
-				return vf, nil
-			}
-		}
-		return nil, nil
-	})
 }
 
 func (r *SceneRelease) LoadGalleryIDs(ctx context.Context, l GalleryIDLoader) error {
@@ -164,6 +134,7 @@ type SceneReleaseGalleryHandler interface {
 // SceneReleaseTotalsCustom sums a scene's releases. StashDBMatches is nil
 // when no release has a stored count.
 type SceneReleaseTotalsCustom struct {
+	ReleaseCount   int
 	OCount         int
 	LastODate      *time.Time
 	StashDBMatches *int
@@ -190,6 +161,8 @@ type SceneReleaseReader interface {
 	GetMarkersCustom(ctx context.Context, releaseID int) ([]*SceneMarker, error)
 	GetNegativeMarkersCustom(ctx context.Context, releaseID int) ([]*SceneNegativeMarker, error)
 	GetLoopPresetsCustom(ctx context.Context, releaseID int) ([]*SceneLoopPreset, error)
+	// FindMarkerTagAncestorIDsCustom maps each direct marker tag to its ancestors.
+	FindMarkerTagAncestorIDsCustom(ctx context.Context, releaseID int) (map[int][]int, error)
 	// GetStashDBMatchesCustom returns nil when the release has no stored count.
 	GetStashDBMatchesCustom(ctx context.Context, releaseID int) (*int, error)
 	GetSceneTotalsCustom(ctx context.Context, sceneIDs []int) (map[int]SceneReleaseTotalsCustom, error)
@@ -204,6 +177,9 @@ type SceneReleaseWriter interface {
 	TransferSceneMetadataToReleaseCustom(ctx context.Context, sceneID, releaseID int) error
 	CopyRatingFromSceneCustom(ctx context.Context, sourceSceneID, targetSceneID int) error
 	CopyMarkersToSceneCustom(ctx context.Context, releaseID, sceneID int) error
+	// CopyOwnerItemsCustom adds copies of the source's chosen items to the
+	// target, skipping exact duplicates; the source is not changed.
+	CopyOwnerItemsCustom(ctx context.Context, from, to SceneOwnerCustom, kinds SceneOwnerCopyKindsCustom) (SceneOwnerCopyResultCustom, error)
 	SetStashDBMatchesCustom(ctx context.Context, releaseID int, matches *int) error
 	CheckConversionFileConflictsCustom(ctx context.Context, sourceSceneID, targetSceneID int) error
 	TransferReleaseMetadataToSceneCustom(ctx context.Context, releaseID, sceneID int) error

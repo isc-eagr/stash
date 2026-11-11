@@ -113,9 +113,7 @@ export function useProgressText() {
 
 export {
   progressToday,
-  progressForecast,
   progressPercentage,
-  overallProgressPercentage,
 } from "./progressMath_custom";
 
 export function remainingTagURL(

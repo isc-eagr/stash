@@ -3,14 +3,16 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"slices"
 	"testing"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/stashapp/stash/pkg/models"
 )
 
 func releaseTotalsTestCtxCustom(t *testing.T, schema string) context.Context {
 	t.Helper()
-	db, err := sqlx.Open("sqlite3", ":memory:")
+	db, err := sqlx.Open(sqlite3Driver, ":memory:") // registers NATURAL_CI for sort queries
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,17 +54,44 @@ func TestSceneReleaseGetSceneTotalsCustom(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := totals[10]; got.OCount != 4 || got.StashDBMatches == nil || *got.StashDBMatches != 9 {
+	if got := totals[10]; got.ReleaseCount != 3 || got.OCount != 4 || got.StashDBMatches == nil || *got.StashDBMatches != 9 {
 		t.Fatalf("scene 10: got %+v", got)
 	}
 	if got := totals[10].LastODate; got == nil || got.Format("2006-01-02") != "2026-02-03" {
 		t.Fatalf("scene 10 last release O: got %v", got)
 	}
-	if got := totals[11]; got.OCount != 0 || got.StashDBMatches != nil || got.LastODate != nil {
+	if got := totals[11]; got.ReleaseCount != 1 || got.OCount != 0 || got.StashDBMatches != nil || got.LastODate != nil {
 		t.Fatalf("scene 11: got %+v", got)
 	}
 	if _, ok := totals[12]; ok {
 		t.Fatalf("scene 12 has no releases but got %+v", totals[12])
+	}
+}
+
+func TestSceneSortByReleaseCountCustom(t *testing.T) {
+	ctx := releaseTotalsTestCtxCustom(t, `
+CREATE TABLE scenes(id INTEGER PRIMARY KEY, title TEXT);
+CREATE TABLE scene_releases(id INTEGER PRIMARY KEY, scene_id INTEGER);
+INSERT INTO scenes VALUES (1, 'A'), (2, 'B'), (3, 'C');
+INSERT INTO scene_releases VALUES (10, 2), (11, 2), (12, 3);`)
+	readIDs := func(direction models.SortDirectionEnum) []int {
+		t.Helper()
+		sort, all := "release_count", -1
+		query, err := (&SceneStore{}).makeQuery(ctx, nil, &models.FindFilterType{Sort: &sort, Direction: &direction, PerPage: &all})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var ids []int
+		if err := dbWrapper.Select(ctx, &ids, query.toSQL(true), query.allArgs()...); err != nil {
+			t.Fatal(err)
+		}
+		return ids
+	}
+	if got := readIDs(models.SortDirectionEnumDesc); !slices.Equal(got, []int{2, 3, 1}) {
+		t.Fatalf("desc: got %v", got)
+	}
+	if got := readIDs(models.SortDirectionEnumAsc); !slices.Equal(got, []int{1, 3, 2}) {
+		t.Fatalf("asc: got %v", got)
 	}
 }
 

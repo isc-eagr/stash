@@ -13,16 +13,6 @@ import (
 )
 
 func (qb *SceneReleaseStore) UpdateExtendedCustom(ctx context.Context, releaseID int, update models.SceneReleaseExtendedUpdateCustom) error {
-	if update.OrganizedSet {
-		if _, err := dbWrapper.Exec(ctx,
-			`INSERT OR IGNORE INTO scene_release_metadata(release_id) VALUES (?)`, releaseID); err != nil {
-			return err
-		}
-		if _, err := dbWrapper.Exec(ctx,
-			`UPDATE scene_release_metadata SET organized = ? WHERE release_id = ?`, update.Organized, releaseID); err != nil {
-			return err
-		}
-	}
 	if update.URLsSet {
 		if _, err := dbWrapper.Exec(ctx, `DELETE FROM scene_release_urls WHERE release_id = ?`, releaseID); err != nil {
 			return err
@@ -115,18 +105,16 @@ func (qb *SceneReleaseStore) UpdateExtendedCustom(ctx context.Context, releaseID
 func (qb *SceneReleaseStore) GetMetadataCustom(ctx context.Context, releaseID int) (models.SceneReleaseMetadataCustom, error) {
 	var ret models.SceneReleaseMetadataCustom
 	var row struct {
-		Organized    bool    `db:"organized"`
 		ResumeTime   float64 `db:"resume_time"`
 		PlayDuration float64 `db:"play_duration"`
 	}
 	if err := dbWrapper.Get(ctx, &row,
-		`SELECT organized,resume_time,play_duration FROM scene_release_metadata WHERE release_id = ?`, releaseID); err != nil {
+		`SELECT resume_time,play_duration FROM scene_release_metadata WHERE release_id = ?`, releaseID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ret, nil
 		}
 		return ret, err
 	}
-	ret.Organized = row.Organized
 	ret.ResumeTime = row.ResumeTime
 	ret.PlayDuration = row.PlayDuration
 	return ret, nil

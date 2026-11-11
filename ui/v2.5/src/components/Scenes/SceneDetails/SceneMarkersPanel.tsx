@@ -9,7 +9,10 @@ import { Button } from "react-bootstrap"; // CUSTOM
 import { FormattedMessage } from "react-intl";
 import Mousetrap from "mousetrap";
 import * as GQL from "src/core/generated-graphql";
-import { useFindScene } from "src/core/StashService"; // CUSTOM
+import {
+  useSceneMarkerOwnerSceneCustom,
+  useSceneMarkerOwnerTagsCustom,
+} from "./useSceneMarkerOwner_custom"; // CUSTOM
 import { useConfigurationContext } from "src/hooks/Config"; // CUSTOM
 import { PrimaryTags } from "./PrimaryTags";
 import { SceneMarkerForm } from "./SceneMarkerForm";
@@ -49,6 +52,7 @@ import type {
 
 interface ISceneMarkersPanelProps {
   sceneId: string;
+  releaseId?: string; // CUSTOM: release mode reads and writes the release's markers
   isVisible: boolean;
   onClickMarker: (marker: GQL.SceneMarkerDataFragment) => void;
   addMultiSegmentLoopSegments: (segments: ILoopSegmentInput[]) => void; // CUSTOM
@@ -72,6 +76,7 @@ function getSceneTabScrollElement() {
 
 export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
   sceneId,
+  releaseId, // CUSTOM
   isVisible,
   onClickMarker,
   addMultiSegmentLoopSegments, // CUSTOM
@@ -86,10 +91,11 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
   onMarkerTimestampCopySelectionHandled, // CUSTOM
 }) => {
   const { configuration } = useConfigurationContext(); // CUSTOM
-  const { data, loading } = GQL.useFindSceneMarkerTagsQuery({
-    variables: { id: sceneId },
-  });
-  const { data: sceneData } = useFindScene(sceneId); // CUSTOM
+  // CUSTOM: begin - the scene's or the release's markers
+  const markerOwner = { sceneId, releaseId };
+  const { markerTags, loading } = useSceneMarkerOwnerTagsCustom(markerOwner);
+  const ownerScene = useSceneMarkerOwnerSceneCustom(markerOwner);
+  // CUSTOM: end
   const [isEditorOpen, setIsEditorOpen] = useState<boolean>(false);
   const [editingMarker, setEditingMarker] =
     useState<GQL.SceneMarkerDataFragment>();
@@ -158,21 +164,21 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
 
   const sceneMarkers = useMemo(() => {
     const markersByID = new Map<string, GQL.SceneMarkerDataFragment>();
-    (data?.sceneMarkerTags ?? []).forEach((tag) => {
+    (markerTags ?? []).forEach((tag) => {
       tag.scene_markers.forEach((marker) => {
         markersByID.set(marker.id, marker);
       });
     });
     return Array.from(markersByID.values());
-  }, [data?.sceneMarkerTags]);
+  }, [markerTags]); // CUSTOM
 
   const filteredSceneMarkers = useMemo(
     () => filterChronologicalSceneMarkers(sceneMarkers, markerSearch),
     [markerSearch, sceneMarkers]
   );
   const negativeMarkers = useMemo(
-    () => sceneData?.findScene?.negative_markers ?? [],
-    [sceneData?.findScene?.negative_markers]
+    () => ownerScene?.negative_markers ?? [],
+    [ownerScene?.negative_markers] // CUSTOM
   );
   const markerWarningMessagesById = useMemo(() => {
     const warningsById = new Map<string, string[]>();
@@ -567,6 +573,7 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
     return (
       <SceneMarkerForm
         sceneID={sceneId}
+        releaseId={releaseId} // CUSTOM
         marker={editingMarker}
         initialSeconds={initialMarkerSeconds} // CUSTOM
         onClose={closeEditor}

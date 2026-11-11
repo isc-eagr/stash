@@ -11,8 +11,8 @@ import (
 	"github.com/stashapp/stash/pkg/models"
 )
 
-// GetSceneTotalsCustom returns each scene's release O count and summed release
-// StashDB Matches. Scenes without releases are omitted.
+// GetSceneTotalsCustom returns each scene's release count, release O count, and
+// summed release StashDB Matches. Scenes without releases are omitted.
 func (qb *SceneReleaseStore) GetSceneTotalsCustom(ctx context.Context, sceneIDs []int) (map[int]models.SceneReleaseTotalsCustom, error) {
 	ret := make(map[int]models.SceneReleaseTotalsCustom)
 	if len(sceneIDs) == 0 {
@@ -23,6 +23,22 @@ func (qb *SceneReleaseStore) GetSceneTotalsCustom(ctx context.Context, sceneIDs 
 		args[i] = id
 	}
 	in := getInBinding(len(sceneIDs))
+
+	{
+		var rows []struct {
+			SceneID int `db:"scene_id"`
+			Count   int `db:"count"`
+		}
+		if err := dbWrapper.Select(ctx, &rows, `SELECT scene_id, COUNT(*) AS count FROM scene_releases
+			WHERE scene_id IN `+in+` GROUP BY scene_id`, args...); err != nil {
+			return nil, fmt.Errorf("counting releases: %w", err)
+		}
+		for _, row := range rows {
+			totals := ret[row.SceneID]
+			totals.ReleaseCount = row.Count
+			ret[row.SceneID] = totals
+		}
+	}
 
 	{
 		// One row per O: retroactive O's count but have no date.

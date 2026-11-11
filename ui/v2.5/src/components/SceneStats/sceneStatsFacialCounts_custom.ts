@@ -59,21 +59,6 @@ export function facialCount(
   );
 }
 
-export function reallyHotFacialCount(
-  scene: SceneStatsFacialScene,
-  roleTagIDs: SceneStatsFacialRoleTagIDs
-) {
-  if (!roleTagIDs.reallyHot) return 0;
-
-  return (
-    scene.scene_markers?.filter(
-      (marker) =>
-        isFacialMarker(marker, roleTagIDs) &&
-        markerHasTag(marker, roleTagIDs.reallyHot)
-    ).length ?? 0
-  );
-}
-
 export type SceneStatsFacialStatus = "goat" | "rh" | "regular" | "no";
 
 // The best facial in the scene: GOAT, then Really Hot, then a regular one.

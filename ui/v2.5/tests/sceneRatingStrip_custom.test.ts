@@ -246,7 +246,7 @@ assert.match(
 const sceneDetailSource = source("Scenes/SceneDetails/Scene.tsx");
 assert.match(
   sceneDetailSource,
-  /<SceneDetailActivityBar scene=\{scene\} \/>\s*<SceneRatingStrip/,
+  /<SceneDetailActivityBar scene=\{ownerScene\} \/>\s*<SceneRatingStrip/,
   "scene details show the activity bar and rating strip with the orgasm report"
 );
 const advisorSource = source("Shared/RatingAdvisor_custom.tsx");

@@ -66,6 +66,8 @@ import { changedSceneEditFieldsCustom } from "./sceneEditInput_custom"; // CUSTO
 import TextUtils from "src/utils/text"; // CUSTOM
 import { getSceneRatingModeChangeCustom } from "src/components/Shared/groupSceneRating_custom"; // CUSTOM
 import { ModalComponent } from "src/components/Shared/Modal"; // CUSTOM
+import { queryScrapeSceneReleaseCustom } from "./sceneReleaseScrape_custom"; // CUSTOM
+import { SceneOwnerCopyMenu } from "./SceneOwnerCopyMenu"; // CUSTOM
 
 const SceneScrapeDialog = lazyComponent(() => import("./SceneScrapeDialog"));
 const SceneQueryModal = lazyComponent(() => import("./SceneQueryModal"));
@@ -80,6 +82,11 @@ interface IProps {
   onSubmit: (input: GQL.SceneCreateInput, andNew?: boolean) => Promise<void>;
   onDelete?: () => void;
   ratingSoloCustom?: boolean; // CUSTOM: solo markers keep 2-3 vato scenes on the solo rubric
+  // CUSTOM: release mode. scene is the release's owner view; scrapes target
+  // the release and the parent's rating flow is left alone.
+  releaseIdCustom?: string;
+  // CUSTOM: the full scene (with releases); enables "Copy from..."
+  ownerCopySceneCustom?: GQL.SceneDataFragment;
 }
 
 export const SceneEditPanel: React.FC<IProps> = ({
@@ -92,6 +99,8 @@ export const SceneEditPanel: React.FC<IProps> = ({
   onSubmit,
   onDelete,
   ratingSoloCustom = false, // CUSTOM
+  releaseIdCustom, // CUSTOM
+  ownerCopySceneCustom, // CUSTOM
 }) => {
   const intl = useIntl();
   const Toast = useToast();
@@ -188,7 +197,7 @@ export const SceneEditPanel: React.FC<IProps> = ({
       code: scene.code ?? "",
       urls: scene.urls ?? [],
       date: scene.date ?? "",
-      production_date: scene.production_date ?? "",
+      production_date: releaseIdCustom ? "" : (scene.production_date ?? ""), // CUSTOM: releases have none
       director: scene.director ?? "",
       gallery_ids: (scene.direct_galleries ?? []).map((g) => g.id), // CUSTOM: direct_galleries
       studio_id: scene.studio?.id ?? null,
@@ -203,7 +212,7 @@ export const SceneEditPanel: React.FC<IProps> = ({
       custom_fields: cloneDeep(scene.custom_fields ?? {}),
       stashdb_matches: scene.stashdb_matches ?? null, // CUSTOM
     }),
-    [scene, initialCoverImage]
+    [scene, initialCoverImage, releaseIdCustom] // CUSTOM
   );
 
   type InputValues = yup.InferType<typeof schema>;
@@ -243,8 +252,10 @@ export const SceneEditPanel: React.FC<IProps> = ({
   function submit(values: InputValues) {
     const input = buildSubmitInputCustom(values);
     // Confirm before a cast change wipes the scene's advisor scores.
+    // Release edits never change the parent's cast, so they skip this.
     if (
       !isNew &&
+      !releaseIdCustom &&
       input.performer_ids &&
       (scene.rating_scores?.length ?? 0) > 0 &&
       getSceneRatingModeChangeCustom(
@@ -270,9 +281,18 @@ export const SceneEditPanel: React.FC<IProps> = ({
   const { tags, updateTagsStateFromScraper, resetTagsState, tagsControl } =
     useTagsEdit(scene.tags, (ids) => formik.setFieldValue("tag_ids", ids));
 
+  // CUSTOM: begin - the release cover URL never changes, so bust it with
+  // updated_at; a release without a cover has nothing to reset to.
+  const sceneImage =
+    releaseIdCustom && scene.paths?.screenshot
+      ? `${scene.paths.screenshot}?t=${Date.parse(scene.updated_at ?? "")}`
+      : scene.paths?.screenshot;
+  const [brokenCoverCustom, setBrokenCoverCustom] = useState<string>();
+  // CUSTOM: end
+
   const coverImagePreview = useMemo(() => {
-    const sceneImage = scene.paths?.screenshot;
     const formImage = formik.values.cover_image;
+    if (releaseIdCustom && formImage === null) return; // CUSTOM
     if (formImage === null && sceneImage) {
       const sceneImageURL = new URL(sceneImage);
       sceneImageURL.searchParams.set("default", "true");
@@ -281,7 +301,7 @@ export const SceneEditPanel: React.FC<IProps> = ({
       return formImage;
     }
     return sceneImage;
-  }, [formik.values.cover_image, scene.paths?.screenshot]);
+  }, [formik.values.cover_image, sceneImage, releaseIdCustom]); // CUSTOM
 
   const groupEntries = useMemo(() => {
     return formik.values.groups
@@ -402,7 +422,10 @@ export const SceneEditPanel: React.FC<IProps> = ({
   async function onScrapeClicked(s: GQL.ScraperSourceInput) {
     setIsLoading(true);
     try {
-      const result = await queryScrapeScene(s, scene.id!);
+      // CUSTOM: release mode scrapes the release, never the parent
+      const result = releaseIdCustom
+        ? await queryScrapeSceneReleaseCustom(s, releaseIdCustom)
+        : await queryScrapeScene(s, scene.id!);
       if (!result.data?.scrapeSingleScene?.length) {
         Toast.success("No scenes found");
         return;
@@ -483,7 +506,7 @@ export const SceneEditPanel: React.FC<IProps> = ({
     };
 
     if (!currentScene.cover_image) {
-      currentScene.cover_image = scene.paths?.screenshot;
+      currentScene.cover_image = sceneImage; // CUSTOM
     }
 
     return (
@@ -493,7 +516,12 @@ export const SceneEditPanel: React.FC<IProps> = ({
         sceneTags={tags}
         scenePerformers={performers}
         sceneGroups={groups}
-        scraped={scrapedScene}
+        // CUSTOM: releases have no production date
+        scraped={
+          releaseIdCustom
+            ? { ...scrapedScene, production_date: null }
+            : scrapedScene
+        }
         endpoint={endpoint}
         onClose={(s) => onScrapeDialogClosed(s)}
       />
@@ -687,18 +715,20 @@ export const SceneEditPanel: React.FC<IProps> = ({
       );
     }
 
-    if (coverImagePreview) {
+    if (coverImagePreview && coverImagePreview !== brokenCoverCustom) {
       return (
         <img
           className="scene-cover"
           src={coverImagePreview}
           alt={intl.formatMessage({ id: "cover_image" })}
+          // CUSTOM: a release without a cover returns 404
+          onError={() => setBrokenCoverCustom(coverImagePreview)}
         />
       );
     }
 
     return <div></div>;
-  }, [encodingImage, coverImagePreview, intl]);
+  }, [encodingImage, coverImagePreview, brokenCoverCustom, intl]); // CUSTOM
 
   if (isLoading) return <LoadingIndicator />;
 
@@ -938,6 +968,20 @@ export const SceneEditPanel: React.FC<IProps> = ({
           </div>
           {!isNew && (
             <div className="ml-auto text-right d-flex">
+              {/* CUSTOM: copy fields and markers from another owner */}
+              {ownerCopySceneCustom && (
+                <div className="mr-2">
+                  <SceneOwnerCopyMenu
+                    scene={ownerCopySceneCustom}
+                    releaseId={releaseIdCustom}
+                    onBusy={setIsLoading}
+                    onReviewFields={(scraped) => {
+                      setEndpoint(undefined);
+                      setScrapedScene(scraped);
+                    }}
+                  />
+                </div>
+              )}
               <ButtonGroup className="scraper-group">
                 <ScraperMenu
                   toggle={intl.formatMessage({ id: "actions.scrape_with" })}
@@ -972,7 +1016,8 @@ export const SceneEditPanel: React.FC<IProps> = ({
             )}
 
             {renderDateField("date")}
-            {renderDateField("production_date")}
+            {/* CUSTOM: releases have no production date */}
+            {!releaseIdCustom && renderDateField("production_date")}
             {renderInputField("director")}
 
             {renderGalleriesField()}
@@ -1030,7 +1075,8 @@ export const SceneEditPanel: React.FC<IProps> = ({
                 onReset={
                   formik.values.cover_image ||
                   (formik.values.cover_image !== null &&
-                    scene.paths?.screenshot)
+                    sceneImage &&
+                    sceneImage !== brokenCoverCustom) // CUSTOM
                     ? () => onResetCover()
                     : undefined
                 }

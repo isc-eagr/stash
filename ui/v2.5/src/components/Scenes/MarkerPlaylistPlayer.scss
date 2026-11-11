@@ -712,22 +712,6 @@
     padding: 0.55rem 0.75rem;
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
     white-space: nowrap;
-
-    .performer-icon {
-      font-size: 1.1rem;
-    }
-
-    &.top {
-      .performer-icon {
-        color: #7ac4db;
-      }
-    }
-
-    &.bottom {
-      .performer-icon {
-        color: #7adb7a;
-      }
-    }
   }
 }
 

@@ -770,46 +770,6 @@
       opacity: 0.5;
     }
   }
-
-  // Non-sex buttons keep white icons on hover
-  .oral-scene-count,
-  .solo-scene-count {
-    &:hover:not(:disabled),
-    &:focus:not(:disabled),
-    &:active:not(:disabled) {
-      .category-icon {
-        -webkit-filter: brightness(0) invert(1) !important;
-        filter: brightness(0) invert(1) !important;
-      }
-
-      .category-icon-fa {
-        color: #fff !important;
-      }
-    }
-  }
-
-  .sex-scene-count {
-    // Gay icon - rainbow tint on hover
-    &:hover:not(:disabled),
-    &:focus:not(:disabled),
-    &:active:not(:disabled) {
-      background-color: transparent !important;
-
-      .category-icon {
-        -webkit-filter: brightness(0) invert(1) hue-rotate(180deg) saturate(3) !important;
-        filter: brightness(0) invert(1) hue-rotate(180deg) saturate(3) !important;
-      }
-    }
-  }
-}
-
-.performer-card-activity-sort-stat {
-  color: $text-muted;
-  font-size: 0.82rem;
-  font-weight: 700;
-  line-height: 1.2;
-  margin-top: 0.25rem;
-  text-align: center;
 }
 
 /* stylelint-enable declaration-no-important, max-nesting-depth */

@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 
 import {
   facialCount,
-  reallyHotFacialCount,
   type SceneStatsFacialScene,
 } from "../src/components/SceneStats/sceneStatsFacialCounts_custom.ts";
 
@@ -33,7 +32,6 @@ const roleTagIDs = {
 };
 
 assert.equal(facialCount(scene, roleTagIDs), 3);
-assert.equal(reallyHotFacialCount(scene, roleTagIDs), 2);
 assert.equal(
   facialCount(
     { scene_markers: [{ tag_ids: ["facial", "really-hot"] }] },
@@ -41,19 +39,6 @@ assert.equal(
   ),
   1,
   "compact SceneStats marker tag IDs support facial counts"
-);
-assert.equal(
-  reallyHotFacialCount(
-    { scene_markers: [{ tag_ids: ["facial", "really-hot"] }] },
-    roleTagIDs
-  ),
-  1,
-  "compact SceneStats marker tag IDs support really-hot facial counts"
-);
-assert.equal(
-  reallyHotFacialCount(scene, { facial: roleTagIDs.facial }),
-  0,
-  "really hot facial counts require the configurable really-hot tag"
 );
 
 const withSecondCamera = {
@@ -74,11 +59,6 @@ assert.equal(
   facialCount(secondCameraScene, withSecondCamera),
   1,
   "2nd Camera facial markers do not count"
-);
-assert.equal(
-  reallyHotFacialCount(secondCameraScene, withSecondCamera),
-  1,
-  "2nd Camera really hot facials do not count"
 );
 assert.equal(
   facialCount(secondCameraScene, roleTagIDs),

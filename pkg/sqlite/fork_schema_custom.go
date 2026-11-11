@@ -100,7 +100,8 @@ CREATE INDEX IF NOT EXISTS idx_scene_release_galleries_gallery_id ON scene_relea
 `
 
 // Release-owned copies of the scene metadata, histories, and conversion
-// request IDs, plus the combined scene/release gallery view.
+// request IDs, plus the combined scene/release gallery view. Releases inherit
+// the parent scene's rating and organized flag.
 const sceneReleaseMetadataSchemaCustom = `
 CREATE VIEW IF NOT EXISTS scene_all_galleries_custom AS
 SELECT scene_id, gallery_id FROM scenes_galleries
@@ -111,7 +112,6 @@ JOIN scene_releases sr ON sr.id = srg.release_id;
 CREATE TABLE IF NOT EXISTS scene_release_metadata (
   release_id INTEGER PRIMARY KEY REFERENCES scene_releases(id) ON DELETE CASCADE,
   rating INTEGER,
-  organized BOOLEAN NOT NULL DEFAULT 0,
   resume_time REAL NOT NULL DEFAULT 0,
   play_duration REAL NOT NULL DEFAULT 0
 );
@@ -380,6 +380,7 @@ func applyForkSchemaCustom(ctx context.Context, tx sqlx.ExtContext) ([]string, e
 		execForkSchemaCustom(performerImagesSchemaCustom, markerPlaylistsSchemaCustom,
 			sceneMarkerPerformersSchemaCustom, sceneReleasesSchemaCustom, sceneReleaseMetadataSchemaCustom),
 		ensureReleaseODatesCustom,
+		dropReleaseOrganizedCustom,
 		ensureReleaseActivitySchemaCustom,
 		ensureRatingScoreSchemaCustom,
 		// Leftovers of the manual release upgrades, which wrote them as done markers.
@@ -440,6 +441,24 @@ func ensureReleaseODatesCustom(ctx context.Context, tx sqlx.ExtContext) ([]strin
 	}
 	_, err = tx.ExecContext(ctx, "CREATE INDEX IF NOT EXISTS idx_scene_release_o_dates_release ON scene_release_o_dates(release_id)")
 	return []string{"scene_release_o_dates"}, err
+}
+
+// dropReleaseOrganizedCustom drops the organized flag releases had before
+// they inherited the parent scene's. The parent's flag is not changed. The
+// column has no index or constraint, so DROP COLUMN keeps the rows and their
+// release_id rowids.
+func dropReleaseOrganizedCustom(ctx context.Context, tx sqlx.ExtContext) ([]string, error) {
+	columns, err := tableColumnsCustom(ctx, tx, "scene_release_metadata")
+	if err != nil {
+		return nil, err
+	}
+	if _, ok := columns["organized"]; !ok {
+		return nil, nil
+	}
+	if _, err := tx.ExecContext(ctx, "ALTER TABLE scene_release_metadata DROP COLUMN organized"); err != nil {
+		return nil, fmt.Errorf("dropping release organized: %w", err)
+	}
+	return []string{"scene_release_metadata"}, nil
 }
 
 // ensureReleaseActivitySchemaCustom gives markers, skip ranges, and loop

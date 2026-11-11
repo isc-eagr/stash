@@ -17,6 +17,13 @@ const negativePanelSource = readFileSync(
   ),
   "utf8"
 );
+const ownerHooksSource = readFileSync(
+  new URL(
+    "../src/components/Scenes/SceneDetails/useSceneMarkerOwner_custom.ts",
+    import.meta.url
+  ),
+  "utf8"
+);
 const markerFormSource = readFileSync(
   new URL(
     "../src/components/Scenes/SceneDetails/SceneMarkerForm.tsx",
@@ -50,7 +57,11 @@ test("performer cards share one scene-wide marker-role operation", () => {
 test("negative marker panel relies on normalized cache updates", () => {
   assert.match(
     negativePanelSource,
-    /useSceneNegativeMarkerDestroy\(scene\.id\)/
+    /useSceneMarkerOwnerMutationsCustom\(\{\s*sceneId: scene\.id,/
+  );
+  assert.match(
+    ownerHooksSource,
+    /useSceneNegativeMarkerDestroy\(\s*owner\.sceneId\s*\)/
   );
   assert.doesNotMatch(negativePanelSource, /onRefetch/);
 });
@@ -63,9 +74,19 @@ test("multi-mutation marker splits suppress intermediate grouped refetches", () 
     )
   );
 
+  // The inserted marker or skip range and the right side defer; the final
+  // source update refreshes.
   assert.equal(
-    splitSave.match(/refetchQueries:\s*\[\]/g)?.length,
-    2,
+    splitSave.match(/deferRefresh: true/g)?.length,
+    3,
     "only the final source update should trigger the authoritative marker-group refresh"
+  );
+  assert.match(
+    splitSave,
+    /leftEndSeconds,\s*\}\),\s*\{ id: marker\.id \}\s*\);/
+  );
+  assert.match(
+    ownerHooksSource,
+    /options\?\.deferRefresh \? \{ refetchQueries: \[\] \} : \{\}/
   );
 });

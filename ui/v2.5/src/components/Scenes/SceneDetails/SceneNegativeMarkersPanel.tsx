@@ -4,7 +4,7 @@ import { FormattedMessage } from "react-intl";
 import Mousetrap from "mousetrap";
 import * as GQL from "src/core/generated-graphql";
 import { useConfigurationContext } from "src/hooks/Config";
-import { useSceneNegativeMarkerDestroy } from "src/core/StashService"; // CUSTOM
+import { useSceneMarkerOwnerMutationsCustom } from "./useSceneMarkerOwner_custom"; // CUSTOM
 import { SceneNegativeMarkerForm } from "./SceneNegativeMarkerForm";
 import TextUtils from "src/utils/text";
 import { Icon } from "src/components/Shared/Icon";
@@ -27,6 +27,7 @@ import type {
 
 interface ISceneNegativeMarkersPanelProps {
   scene: GQL.SceneDataFragment;
+  releaseId?: string; // CUSTOM: scene is the release's projection in release mode
   isVisible: boolean;
   onAddNextMarker: (seconds: number) => void; // CUSTOM: hand off adjacent regular drafts
   markerTimestampCopyRequest?: ISceneMarkerTimestampCopyRequest; // CUSTOM
@@ -55,6 +56,7 @@ export const SceneNegativeMarkersPanel: React.FC<
   ISceneNegativeMarkersPanelProps
 > = ({
   scene,
+  releaseId, // CUSTOM
   isVisible,
   onAddNextMarker, // CUSTOM
   markerTimestampCopyRequest, // CUSTOM
@@ -65,7 +67,10 @@ export const SceneNegativeMarkersPanel: React.FC<
   const { configuration } = useConfigurationContext();
   const [isEditorOpen, setIsEditorOpen] = useState<boolean>(false);
   const [editingMarker, setEditingMarker] = useState<GQL.SceneNegativeMarker>();
-  const [destroyMarker] = useSceneNegativeMarkerDestroy(scene.id); // CUSTOM
+  const { destroyNegativeMarker } = useSceneMarkerOwnerMutationsCustom({
+    sceneId: scene.id,
+    releaseId,
+  }); // CUSTOM
 
   const negativeMarkers = useMemo(() => {
     return [...(scene.negative_markers ?? [])].sort(
@@ -137,18 +142,19 @@ export const SceneNegativeMarkersPanel: React.FC<
   const handleDelete = useCallback(
     async (id: string) => {
       try {
-        await destroyMarker({ variables: { id } });
+        await destroyNegativeMarker(id); // CUSTOM
       } catch (e) {
         console.error("Failed to delete negative marker", e);
       }
     },
-    [destroyMarker]
+    [destroyNegativeMarker] // CUSTOM
   );
 
   if (isEditorOpen) {
     return (
       <SceneNegativeMarkerForm
         sceneID={scene.id}
+        releaseId={releaseId} // CUSTOM
         marker={editingMarker}
         sceneMarkers={scene.scene_markers}
         negativeMarkers={scene.negative_markers}

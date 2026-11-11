@@ -10,9 +10,6 @@ import { getFilterOptions } from "./factory";
 import { CriterionType, DisplayMode, SavedUIOptions } from "./types";
 import { ListFilterOptions } from "./filter-options";
 import { CustomFieldsCriterion } from "./criteria/custom-fields";
-import { MarkerTagsCriterion } from "./criteria/marker-tags"; // CUSTOM
-import { MarkerTopCriterion } from "./criteria/marker-top"; // CUSTOM
-import { MarkerBottomCriterion } from "./criteria/marker-bottom"; // CUSTOM
 
 interface IDecodedParams {
   perPage?: number;
@@ -438,25 +435,10 @@ export class ListFilterModel {
     return query.join("&");
   }
 
-  // CUSTOM: begin
-  /**
-   * Map of old criterion type names to new type names for backwards compatibility.
-   * When URLs or saved filters use old type names, they'll be migrated to new ones.
-   */
-  private static readonly TYPE_MIGRATIONS: Record<string, CriterionType> = {
-    marker_giver: "marker_top" as CriterionType,
-    marker_receiver: "marker_bottom" as CriterionType,
-  };
-  // CUSTOM: end
-
   public makeCriterion(type: CriterionType) {
     const { criterionOptions } = getFilterOptions(this.mode);
 
-    // CUSTOM: begin - Apply type migrations for backwards compatibility
-    const migratedType = ListFilterModel.TYPE_MIGRATIONS[type] ?? type;
-
-    const option = criterionOptions.find((o) => o.type === migratedType);
-    // CUSTOM: end
+    const option = criterionOptions.find((o) => o.type === type);
 
     if (!option) {
       return new UnsupportedCriterionOption(type).makeCriterion(this.config);
@@ -481,7 +463,7 @@ export class ListFilterModel {
       c.applyToCriterionInput(output);
     }
 
-    // CUSTOM: begin - Aggregate marker-related criteria into scene_marker_tags structure
+    // CUSTOM: begin - Aggregate scene marker criteria into scene_marker_tags structure
     this.aggregateMarkerCriteria(output);
     // CUSTOM: end
 
@@ -490,40 +472,10 @@ export class ListFilterModel {
 
   // CUSTOM: begin
   /**
-   * Aggregates the new marker filter criteria (MarkerTagsCriterion, MarkerTopCriterion,
-   * MarkerBottomCriterion, ExcludeMarkerTagsCriterion) into the scene_marker_tags
-   * GraphQL input structure.
+   * Aggregates the scene marker criteria (include, overlap and exclude groups)
+   * into the scene_marker_tags GraphQL input structure.
    */
   private aggregateMarkerCriteria(output: Record<string, unknown>): void {
-    type MarkerTagData = {
-      groupId: string;
-      tags: string[];
-      depth: number;
-      performerMode: "AND" | "OR";
-    };
-    type MarkerTopData = {
-      targetGroupId: string;
-      performer_ids: string[];
-      ethnicities: string[];
-      countries: string[];
-      rating: { modifier: string; value: number; value2?: number } | null;
-    };
-    type ExcludeData = {
-      groupId: string;
-      tags: string[];
-      targetGroupId?: string;
-    };
-
-    const markerTags =
-      (output._markerTagsCriteria as MarkerTagData[] | undefined) ?? [];
-    const tops =
-      (output._markerTopCriteria as MarkerTopData[] | undefined) ?? [];
-    const bottoms =
-      (output._markerBottomCriteria as MarkerTopData[] | undefined) ?? [];
-    const excludes =
-      (output._excludeMarkerTagsCriteria as ExcludeData[] | undefined) ?? [];
-
-    // New scene marker filters (groups_extended format)
     type GroupExtended = {
       tag_ids: string[];
       depth?: number;
@@ -554,10 +506,6 @@ export class ListFilterModel {
       | undefined;
 
     // Clean up temporary keys
-    delete output._markerTagsCriteria;
-    delete output._markerTopCriteria;
-    delete output._markerBottomCriteria;
-    delete output._excludeMarkerTagsCriteria;
     delete output._sceneMarkerIncludeCriteria;
     delete output._sceneMarkerOverlapCriteria;
     delete output._sceneMarkerExcludeCriteria;
@@ -565,8 +513,6 @@ export class ListFilterModel {
 
     // If there are no marker criteria, nothing to do
     if (
-      markerTags.length === 0 &&
-      excludes.length === 0 &&
       includeGroups.length === 0 &&
       overlapGroups.length === 0 &&
       excludeGroups.length === 0
@@ -574,122 +520,24 @@ export class ListFilterModel {
       return;
     }
 
-    // Build extendedGroups by groupId
-    type ExtendedGroup = {
-      tag_ids: string[];
-      exclude_tag_ids?: string[];
-      depth?: number;
-      top_performer_ids?: string[];
-      top_any_count?: number;
-      top_ethnicities?: string[];
-      top_countries?: string[];
-      top_rating?: { modifier: string; value: number; value2?: number };
-      bottom_performer_ids?: string[];
-      bottom_any_count?: number;
-      bottom_ethnicities?: string[];
-      bottom_countries?: string[];
-      bottom_rating?: { modifier: string; value: number; value2?: number };
-      performer_mode?: "AND" | "OR";
+    // Use EQUALS modifier by default (AND semantics between groups)
+    const sceneMarkerTags: Record<string, unknown> = {
+      modifier: "EQUALS",
     };
-
-    const groupsMap = new Map<string, ExtendedGroup>();
-
-    // First, create groups from MarkerTagsCriterion - including performerMode
-    for (const mt of markerTags) {
-      groupsMap.set(mt.groupId, {
-        tag_ids: mt.tags,
-        depth: mt.depth !== 0 ? mt.depth : undefined,
-        performer_mode: mt.performerMode, // Get mode from the tag group, not from Top/Bottom
-      });
+    if (includeGroups.length > 0) {
+      sceneMarkerTags.groups_extended = includeGroups;
     }
-
-    // Add Top data to matching groups
-    for (const t of tops) {
-      const group = groupsMap.get(t.targetGroupId);
-      if (group) {
-        if (t.performer_ids.length > 0)
-          group.top_performer_ids = t.performer_ids;
-        if (t.ethnicities.length > 0) group.top_ethnicities = t.ethnicities;
-        if (t.countries.length > 0) group.top_countries = t.countries;
-        if (t.rating) group.top_rating = t.rating;
-        // Mode is already set from MarkerTagsCriterion
-      }
+    if (overlapGroups.length > 0) {
+      sceneMarkerTags.overlap_groups = overlapGroups;
     }
-
-    // Add Bottom data to matching groups
-    for (const b of bottoms) {
-      const group = groupsMap.get(b.targetGroupId);
-      if (group) {
-        if (b.performer_ids.length > 0)
-          group.bottom_performer_ids = b.performer_ids;
-        if (b.ethnicities.length > 0) group.bottom_ethnicities = b.ethnicities;
-        if (b.countries.length > 0) group.bottom_countries = b.countries;
-        if (b.rating) group.bottom_rating = b.rating;
-        // Mode is already set from MarkerTagsCriterion
-      }
-    }
-
-    // Add Exclude data
-    for (const e of excludes) {
-      if (e.targetGroupId) {
-        // Add to specific group
-        const group = groupsMap.get(e.targetGroupId);
-        if (group) {
-          group.exclude_tag_ids = e.tags;
-        }
-      } else {
-        // Global exclusion - add to all groups or create a separate exclusion group
-        // For simplicity, add to first group or create a new one
-        const firstGroup = groupsMap.values().next().value;
-        if (firstGroup) {
-          firstGroup.exclude_tag_ids = [
-            ...(firstGroup.exclude_tag_ids ?? []),
-            ...e.tags,
-          ];
-        }
-      }
-    }
-
-    // Convert map to array for GraphQL
-    const groups_extended = Array.from(groupsMap.values()).filter(
-      (g) => g.tag_ids.length > 0 || (g.exclude_tag_ids?.length ?? 0) > 0
-    );
-
-    // Add new scene marker include groups
-    groups_extended.push(...includeGroups);
-
-    // Build groups_extended_exclude from exclude groups with full performer criteria
-    // These go into a separate field so the backend can apply NOT EXISTS with full criteria
-    const groups_extended_exclude: GroupExtended[] = [];
     if (excludeGroups.length > 0) {
-      for (const eg of excludeGroups) {
-        // Pass the full exclude group as-is (including performer criteria)
-        groups_extended_exclude.push(eg);
-      }
+      // Exclude groups keep their full performer criteria in a separate field
+      // so the backend can apply NOT EXISTS with them.
+      sceneMarkerTags.groups_extended_exclude = excludeGroups;
+      // Pass the exclude modifier so backend knows AND vs OR semantics
+      sceneMarkerTags.exclude_modifier = excludeModifier ?? "INCLUDES_ALL";
     }
-
-    if (
-      groups_extended.length > 0 ||
-      overlapGroups.length > 0 ||
-      groups_extended_exclude.length > 0
-    ) {
-      // Use EQUALS modifier by default (AND semantics between groups)
-      const sceneMarkerTags: Record<string, unknown> = {
-        modifier: "EQUALS",
-      };
-      if (groups_extended.length > 0) {
-        sceneMarkerTags.groups_extended = groups_extended;
-      }
-      if (overlapGroups.length > 0) {
-        sceneMarkerTags.overlap_groups = overlapGroups;
-      }
-      if (groups_extended_exclude.length > 0) {
-        sceneMarkerTags.groups_extended_exclude = groups_extended_exclude;
-        // Pass the exclude modifier so backend knows AND vs OR semantics
-        sceneMarkerTags.exclude_modifier = excludeModifier ?? "INCLUDES_ALL";
-      }
-      output.scene_marker_tags = sceneMarkerTags;
-    }
+    output.scene_marker_tags = sceneMarkerTags;
   }
   // CUSTOM: end
 
@@ -764,36 +612,12 @@ export class ListFilterModel {
   // CUSTOM: begin
   /**
    * Remove a criterion by its unique ID (from getId()).
-   * Also handles cascade deletion for marker filter groups:
-   * - When removing a MarkerTagsCriterion, also removes any Top/Bottom
-   *   criteria since all groups are removed.
    */
   public removeCriterionById(criterionId: string) {
     const ret = this.clone();
-    const c = ret.criteria.find((cc) => cc.getId() === criterionId);
+    if (!ret.criteria.some((cc) => cc.getId() === criterionId)) return ret;
 
-    if (!c) return ret;
-
-    const criteriaToRemove = new Set<string>([criterionId]);
-
-    // Check if this is a MarkerTagsCriterion - if so, cascade delete all dependent criteria
-    if (c instanceof MarkerTagsCriterion) {
-      // Remove all Top/Bottom criteria since all groups are being removed
-      ret.criteria.forEach((cc) => {
-        if (
-          cc instanceof MarkerTopCriterion ||
-          cc instanceof MarkerBottomCriterion
-        ) {
-          criteriaToRemove.add(cc.getId());
-        }
-      });
-    }
-
-    const newCriteria = ret.criteria.filter((cc) => {
-      return !criteriaToRemove.has(cc.getId());
-    });
-
-    ret.criteria = newCriteria;
+    ret.criteria = ret.criteria.filter((cc) => cc.getId() !== criterionId);
     ret.currentPage = 1;
     return ret;
   }

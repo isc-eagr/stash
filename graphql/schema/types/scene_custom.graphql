@@ -18,6 +18,9 @@ extend type Scene {
   "Alternate releases of this scene (e.g., from different studios)"
   releases: [SceneRelease!]!
 
+  "Number of releases on this scene"
+  release_count: Int!
+
   "Video timestamps (seconds, parallel to o_history, null for entries recorded without a video position)"
   o_timestamps: [Float]!
 

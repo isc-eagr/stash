@@ -1,0 +1,11 @@
+query FindSceneReleaseMarkerTags($release_id: ID!) {
+  sceneReleaseMarkerTags(release_id: $release_id) {
+    tag {
+      id
+      name
+    }
+    scene_markers {
+      ...SceneMarkerData
+    }
+  }
+}

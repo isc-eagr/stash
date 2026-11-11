@@ -30,6 +30,9 @@ extend type Query {
 
   "Latest site sync report for a studio since the last restart; null before its first run"
   studioSiteSyncReport(studio_id: ID!): StudioSiteSyncReport
+
+  "A release's markers grouped by primary tag, like sceneMarkerTags"
+  sceneReleaseMarkerTags(release_id: ID!): [SceneMarkerTag!]!
 }
 
 type RemotePlaybackState {
@@ -235,6 +238,10 @@ extend type Mutation {
   sceneReleaseNegativeMarkerDestroy(release_id: ID!, marker_id: ID!): Boolean!
   sceneReleaseLoopPresetSave(input: SceneReleaseLoopPresetInput!): MultiSegmentLoopPreset!
   sceneReleaseLoopPresetDestroy(release_id: ID!, name: String!): Boolean!
+  "Generate a release cover from its primary file. Returns the job ID."
+  sceneReleaseGenerateScreenshot(id: ID!, at: Float): ID!
+  "Copy markers, skip ranges, and loop presets between owners in one scene family"
+  sceneOwnerCopyItems(input: SceneOwnerCopyItemsInput!): SceneOwnerCopyItemsResult!
 
   "Publish the current state of a player paired with the remote O page"
   remotePlaybackUpdate(input: RemotePlaybackStateInput!): RemotePlaybackState!

@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import {
   plannedTaskProgressFinishDate,
-  overallProgressPercentage,
   progressForecast,
   progressPercentage,
   progressToday,
@@ -42,21 +41,6 @@ assert.equal(
   }),
   60,
   "fixed-batch summaries count completed baseline items instead of activity events"
-);
-assert.equal(
-  overallProgressPercentage(80, 20),
-  25,
-  "overall progress reports the organized percentage"
-);
-assert.equal(
-  overallProgressPercentage(0, 0),
-  0,
-  "overall progress stays determinate when there are no scenes"
-);
-assert.equal(
-  overallProgressPercentage(10, 14),
-  100,
-  "overall progress never exceeds a complete percentage"
 );
 const tracker = {
   started_on: "2026-09-07",

@@ -68,8 +68,69 @@ INSERT INTO scenes_o_dates(rowid, scene_id, o_date) VALUES (40, 1, '2026-01-01T1
 	columns, err := tableColumnsCustom(context.Background(), conn, "scene_markers")
 	require.NoError(t, err)
 	assert.Contains(t, columns, "release_id")
+	columns, err = tableColumnsCustom(context.Background(), conn, "scene_release_metadata")
+	require.NoError(t, err)
+	assert.NotContains(t, columns, "organized", "releases inherit the scene's organized flag")
 	require.NoError(t, conn.Get(&count, `SELECT COUNT(*) FROM sqlite_master WHERE name LIKE '%upgrade_guard'`))
 	assert.Zero(t, count, "the old upgrade markers are dropped")
+	require.NoError(t, conn.Get(&count, `SELECT COUNT(*) FROM pragma_foreign_key_check`))
+	assert.Zero(t, count)
+
+	before := forkSchemaSnapshotCustom(t, conn)
+	require.NoError(t, conn.Close())
+	require.NoError(t, database.initialise())
+	require.NoError(t, database.Close())
+	conn = openForkSchemaFileCustom(t, dbPath)
+	assert.Equal(t, before, forkSchemaSnapshotCustom(t, conn))
+}
+
+// Release metadata from before releases inherited Organized loses only that
+// column: rows keep their release IDs and parent scenes keep their own flag.
+func TestForkSchemaDropsReleaseOrganizedCustom(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "stash.sqlite")
+	database := NewDatabase()
+	database.dbPath = dbPath
+	require.NoError(t, database.RunAllMigrations())
+
+	conn := openForkSchemaFileCustom(t, dbPath)
+	_, err := conn.Exec(sceneReleasesSchemaCustom + `
+CREATE TABLE scene_release_metadata (
+  release_id INTEGER PRIMARY KEY REFERENCES scene_releases(id) ON DELETE CASCADE,
+  rating INTEGER,
+  organized BOOLEAN NOT NULL DEFAULT 0,
+  resume_time REAL NOT NULL DEFAULT 0,
+  play_duration REAL NOT NULL DEFAULT 0
+);
+INSERT INTO scenes(id, organized, created_at, updated_at) VALUES
+ (1, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP), (2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+INSERT INTO scene_releases(id, scene_id, created_at, updated_at) VALUES
+ (7, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP), (8, 2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+INSERT INTO scene_release_metadata(release_id, organized, resume_time, play_duration) VALUES (7, 1, 12.5, 30), (8, 0, 0, 4);`)
+	require.NoError(t, err)
+	require.NoError(t, conn.Close())
+
+	require.NoError(t, database.initialise())
+	require.NoError(t, database.Close())
+
+	conn = openForkSchemaFileCustom(t, dbPath)
+	columns, err := tableColumnsCustom(context.Background(), conn, "scene_release_metadata")
+	require.NoError(t, err)
+	assert.NotContains(t, columns, "organized")
+	var rows []struct {
+		ReleaseID    int     `db:"release_id"`
+		ResumeTime   float64 `db:"resume_time"`
+		PlayDuration float64 `db:"play_duration"`
+	}
+	require.NoError(t, conn.Select(&rows, `SELECT release_id, resume_time, play_duration FROM scene_release_metadata ORDER BY release_id`))
+	require.Len(t, rows, 2)
+	assert.Equal(t, 7, rows[0].ReleaseID)
+	assert.Equal(t, 12.5, rows[0].ResumeTime)
+	assert.Equal(t, 30.0, rows[0].PlayDuration)
+	assert.Equal(t, 8, rows[1].ReleaseID)
+	var organized []bool
+	require.NoError(t, conn.Select(&organized, `SELECT organized FROM scenes ORDER BY id`))
+	assert.Equal(t, []bool{false, true}, organized, "parent scenes keep their own flag")
+	var count int
 	require.NoError(t, conn.Get(&count, `SELECT COUNT(*) FROM pragma_foreign_key_check`))
 	assert.Zero(t, count)
 

@@ -1,0 +1,56 @@
+.scene-owner-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.4rem;
+}
+
+.scene-owner-chip {
+  background: transparent;
+  border: 1px solid $success;
+  border-radius: 1rem;
+  color: $success;
+  cursor: pointer;
+  font-size: 0.8rem;
+  line-height: 1.2;
+  max-width: 14rem;
+  overflow: hidden;
+  padding: 0.2rem 0.7rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  &:hover {
+    background: rgba($success, 0.15);
+  }
+
+  &:focus-visible {
+    outline: 2px solid $success;
+    outline-offset: 2px;
+  }
+
+  &--active,
+  &--active:hover {
+    background: $success;
+    color: #fff;
+  }
+}
+
+// A selected release frames the whole details panel in the same green.
+.scene-tabs.scene-tabs-release {
+  border: 2px solid $success;
+  border-radius: 0.25rem;
+  padding-left: 0.4rem;
+  padding-top: 0.3rem;
+}
+
+.scene-release-badge {
+  background: $success;
+  border-radius: 0.25rem;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 600;
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.4rem;
+  text-transform: uppercase;
+  vertical-align: middle;
+}

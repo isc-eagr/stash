@@ -9,7 +9,6 @@ import (
 
 func sceneReleaseExtendedInputCustom(
 	translator changesetTranslator,
-	organized *bool,
 	urls []string,
 	performerIDs []string,
 	tagIDs []string,
@@ -18,10 +17,6 @@ func sceneReleaseExtendedInputCustom(
 	customFields *models.CustomFieldsInput,
 ) (models.SceneReleaseExtendedUpdateCustom, bool, error) {
 	var update models.SceneReleaseExtendedUpdateCustom
-	if translator.hasField("organized") {
-		update.OrganizedSet = true
-		update.Organized = organized != nil && *organized
-	}
 	if translator.hasField("urls") {
 		update.URLsSet = true
 		update.URLs = urls
@@ -67,8 +62,7 @@ func sceneReleaseExtendedInputCustom(
 	if translator.hasField("custom_fields") {
 		update.CustomFields = customFields
 	}
-	changed := update.OrganizedSet || update.URLsSet ||
-		update.PerformerIDsSet || update.TagIDsSet || update.GroupsSet ||
+	changed := update.URLsSet || update.PerformerIDsSet || update.TagIDsSet || update.GroupsSet ||
 		update.StashIDsSet || update.CustomFields != nil
 	return update, changed, nil
 }

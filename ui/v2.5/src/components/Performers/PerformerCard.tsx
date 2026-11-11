@@ -106,6 +106,8 @@ interface IPerformerCardProps {
   // CUSTOM: begin
   /** Scene ID for scene context - enables role badges based on marker roles */
   sceneId?: string;
+  /** Skip the scene-id marker roles query (release mode has no equivalent) */
+  sceneMarkerRolesSkip?: boolean;
   /** Number of performers in the scene - used to determine whether to show partner counts */
   scenePerformerCount?: number;
   /** All performers in the scene, used to show mini images in partner tooltips */
@@ -482,6 +484,7 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
   ({
     performer,
     sceneId,
+    sceneMarkerRolesSkip,
     scenePerformerCount,
     scenePartnerPerformers,
     sceneRoleSeconds,
@@ -507,7 +510,7 @@ const PerformerCardDetails: React.FC<IPerformerCardProps> = PatchComponent(
 
     const { data: rolesData } = useQuery(SCENE_MARKER_ROLES_QUERY, {
       variables: { scene_id: sceneId },
-      skip: !sceneId,
+      skip: !sceneId || sceneMarkerRolesSkip,
       fetchPolicy: "cache-and-network",
     });
 

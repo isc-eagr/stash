@@ -55,57 +55,69 @@ function createEmptyGroup(): IPerformerMarkersGroup {
   };
 }
 
-const modifierOptions = [
+const copyLabeledIds = (ids: ILabeledId[]): ILabeledId[] =>
+  ids.map(({ id, label }) => ({ id, label }));
+
+// Copies a group for the URL, a saved filter, or back from either one.
+function copyGroup(g: IPerformerMarkersGroup): IPerformerMarkersGroup {
+  return {
+    tag_ids: copyLabeledIds(g.tag_ids),
+    depth: g.depth,
+    performer_ids: copyLabeledIds(g.performer_ids),
+    performer_ethnicities: g.performer_ethnicities,
+    performer_countries: g.performer_countries,
+    performer_rating: g.performer_rating,
+    performer_role: g.performer_role,
+    partner_ids: copyLabeledIds(g.partner_ids),
+    partner_ethnicities: g.partner_ethnicities,
+    partner_countries: g.partner_countries,
+    partner_rating: g.partner_rating,
+    partner_role: g.partner_role,
+  };
+}
+
+export const performerMarkersModifierOptions = [
   CriterionModifier.IncludesAll,
   CriterionModifier.Includes,
 ];
 
-const defaultModifier = CriterionModifier.IncludesAll;
+export const performerMarkersDefaultModifier = CriterionModifier.IncludesAll;
 
 export const PerformerMarkersCriterionOption: ModifierCriterionOption =
   new ModifierCriterionOption({
     messageID: "performer_markers",
     type: "performer_markers" as CriterionType,
-    modifierOptions,
-    defaultModifier,
+    modifierOptions: performerMarkersModifierOptions,
+    defaultModifier: performerMarkersDefaultModifier,
     makeCriterion: () => new PerformerMarkersCriterion(),
   });
 
 /**
- * PerformerMarkersCriterion - A criterion for filtering performers by their markers.
+ * Shared by the include and exclude performer marker criteria.
  * Has a single group with performer/partner criteria, each with role dropdowns.
  * The modifier controls AND/OR logic: INCLUDES_ALL = both performer AND partner must match,
  * INCLUDES = either performer OR partner must match.
  */
-export class PerformerMarkersCriterion extends Criterion {
-  public modifier: CriterionModifier = defaultModifier;
+export abstract class PerformerMarkersCriterionBase extends Criterion {
+  public modifier: CriterionModifier = performerMarkersDefaultModifier;
   public value: IPerformerMarkersValue = {
     group: createEmptyGroup(),
   };
 
-  constructor(option?: CriterionOption) {
-    super(option ?? PerformerMarkersCriterionOption);
-  }
+  // Which side of the "performer_markers" GraphQL input this criterion fills.
+  protected abstract readonly inputKey: "include" | "exclude";
 
   protected cloneValues() {
+    const g = this.value.group;
     this.value = {
       group: {
-        tag_ids: this.value.group.tag_ids.map((t) => ({ ...t })),
-        depth: this.value.group.depth,
-        performer_ids: this.value.group.performer_ids.map((p) => ({ ...p })),
-        performer_ethnicities: [...this.value.group.performer_ethnicities],
-        performer_countries: [...this.value.group.performer_countries],
-        performer_rating: this.value.group.performer_rating
-          ? { ...this.value.group.performer_rating }
-          : null,
-        performer_role: this.value.group.performer_role,
-        partner_ids: this.value.group.partner_ids.map((p) => ({ ...p })),
-        partner_ethnicities: [...this.value.group.partner_ethnicities],
-        partner_countries: [...this.value.group.partner_countries],
-        partner_rating: this.value.group.partner_rating
-          ? { ...this.value.group.partner_rating }
-          : null,
-        partner_role: this.value.group.partner_role,
+        ...copyGroup(g),
+        performer_ethnicities: [...g.performer_ethnicities],
+        performer_countries: [...g.performer_countries],
+        performer_rating: g.performer_rating ? { ...g.performer_rating } : null,
+        partner_ethnicities: [...g.partner_ethnicities],
+        partner_countries: [...g.partner_countries],
+        partner_rating: g.partner_rating ? { ...g.partner_rating } : null,
       },
     };
   }
@@ -172,144 +184,35 @@ export class PerformerMarkersCriterion extends Criterion {
   }
 
   protected encodeValue(): unknown {
-    const g = this.value.group;
-    return {
-      group: {
-        tag_ids: g.tag_ids.map((t) => ({ id: t.id, label: t.label })),
-        depth: g.depth,
-        performer_ids: g.performer_ids.map((p) => ({
-          id: p.id,
-          label: p.label,
-        })),
-        performer_ethnicities: g.performer_ethnicities,
-        performer_countries: g.performer_countries,
-        performer_rating: g.performer_rating,
-        performer_role: g.performer_role,
-        partner_ids: g.partner_ids.map((p) => ({
-          id: p.id,
-          label: p.label,
-        })),
-        partner_ethnicities: g.partner_ethnicities,
-        partner_countries: g.partner_countries,
-        partner_rating: g.partner_rating,
-        partner_role: g.partner_role,
-      },
-    };
+    return { group: copyGroup(this.value.group) };
   }
 
   protected decodeValue(v: unknown): void {
     if (!v) return;
 
-    const raw = v as {
-      group?: {
-        tag_ids: Array<{ id: string; label: string }>;
-        depth: number;
-        performer_ids: Array<{ id: string; label: string }>;
-        performer_ethnicities: string[];
-        performer_countries: string[];
-        performer_rating: RatingCriterion;
-        performer_role: "any" | "top" | "bottom";
-        partner_ids: Array<{ id: string; label: string }>;
-        partner_ethnicities: string[];
-        partner_countries: string[];
-        partner_rating: RatingCriterion;
-        partner_role: "any" | "top" | "bottom";
-      };
-    };
-
+    const raw = v as { group?: IPerformerMarkersGroup };
     if (raw.group) {
-      this.value.group = {
-        tag_ids: raw.group.tag_ids.map((t) => ({ id: t.id, label: t.label })),
-        depth: raw.group.depth,
-        performer_ids: raw.group.performer_ids.map((p) => ({
-          id: p.id,
-          label: p.label,
-        })),
-        performer_ethnicities: raw.group.performer_ethnicities,
-        performer_countries: raw.group.performer_countries,
-        performer_rating: raw.group.performer_rating,
-        performer_role: raw.group.performer_role,
-        partner_ids: raw.group.partner_ids.map((p) => ({
-          id: p.id,
-          label: p.label,
-        })),
-        partner_ethnicities: raw.group.partner_ethnicities,
-        partner_countries: raw.group.partner_countries,
-        partner_rating: raw.group.partner_rating,
-        partner_role: raw.group.partner_role,
-      };
+      this.value.group = copyGroup(raw.group);
     }
   }
 
   public toQueryParams(): Record<string, unknown> {
-    const g = this.value.group;
     return {
       type: this.criterionOption.type,
       modifier: this.modifier,
-      group: {
-        tag_ids: g.tag_ids.map((t) => ({ id: t.id, label: t.label })),
-        depth: g.depth,
-        performer_ids: g.performer_ids.map((p) => ({
-          id: p.id,
-          label: p.label,
-        })),
-        performer_ethnicities: g.performer_ethnicities,
-        performer_countries: g.performer_countries,
-        performer_rating: g.performer_rating,
-        performer_role: g.performer_role,
-        partner_ids: g.partner_ids.map((p) => ({
-          id: p.id,
-          label: p.label,
-        })),
-        partner_ethnicities: g.partner_ethnicities,
-        partner_countries: g.partner_countries,
-        partner_rating: g.partner_rating,
-        partner_role: g.partner_role,
-      },
+      group: copyGroup(this.value.group),
     };
   }
 
   public fromDecodedParams(params: Record<string, unknown>): void {
     const raw = params as {
       modifier?: CriterionModifier;
-      group?: {
-        tag_ids: Array<{ id: string; label: string }>;
-        depth: number;
-        performer_ids: Array<{ id: string; label: string }>;
-        performer_ethnicities: string[];
-        performer_countries: string[];
-        performer_rating: RatingCriterion;
-        performer_role: "any" | "top" | "bottom";
-        partner_ids: Array<{ id: string; label: string }>;
-        partner_ethnicities: string[];
-        partner_countries: string[];
-        partner_rating: RatingCriterion;
-        partner_role: "any" | "top" | "bottom";
-      };
+      group?: IPerformerMarkersGroup;
     };
 
     if (raw.modifier) this.modifier = raw.modifier;
     if (raw.group) {
-      this.value.group = {
-        tag_ids: raw.group.tag_ids.map((t) => ({ id: t.id, label: t.label })),
-        depth: raw.group.depth,
-        performer_ids: raw.group.performer_ids.map((p) => ({
-          id: p.id,
-          label: p.label,
-        })),
-        performer_ethnicities: raw.group.performer_ethnicities,
-        performer_countries: raw.group.performer_countries,
-        performer_rating: raw.group.performer_rating,
-        performer_role: raw.group.performer_role,
-        partner_ids: raw.group.partner_ids.map((p) => ({
-          id: p.id,
-          label: p.label,
-        })),
-        partner_ethnicities: raw.group.partner_ethnicities,
-        partner_countries: raw.group.partner_countries,
-        partner_rating: raw.group.partner_rating,
-        partner_role: raw.group.partner_role,
-      };
+      this.value.group = copyGroup(raw.group);
     }
   }
 
@@ -327,11 +230,9 @@ export class PerformerMarkersCriterion extends Criterion {
       condition.role = g.performer_role;
     }
 
-    // Self attributes (the performer being filtered)
-    if (g.performer_ids.length > 0) {
-      // If specific performers are selected, we can't use ethnicity/country/rating filters
-      // because those are for anonymous filtering
-    } else {
+    // Self attributes (the performer being filtered). Ethnicity, country and
+    // rating are for anonymous filtering, so specific performers skip them.
+    if (g.performer_ids.length === 0) {
       if (g.performer_ethnicities.length > 0) {
         condition.self_ethnicities = g.performer_ethnicities;
       }
@@ -360,14 +261,14 @@ export class PerformerMarkersCriterion extends Criterion {
       condition.partner_rating = g.partner_rating;
     }
 
-    // Use "performer_markers" GraphQL field and send as include array
-    // If there's already a performer_markers value from exclude filter, merge with it
+    // Include and exclude share the "performer_markers" GraphQL field, so keep
+    // whatever the other criterion already put there.
     const existing = input.performer_markers as
       | Record<string, unknown>
       | undefined;
     input.performer_markers = {
       ...existing,
-      include: [condition],
+      [this.inputKey]: [condition],
     };
   }
 
@@ -380,5 +281,16 @@ export class PerformerMarkersCriterion extends Criterion {
     if (savedCriterion) {
       this.fromDecodedParams(savedCriterion);
     }
+  }
+}
+
+/**
+ * PerformerMarkersCriterion - A criterion for filtering performers by their markers.
+ */
+export class PerformerMarkersCriterion extends PerformerMarkersCriterionBase {
+  protected readonly inputKey = "include";
+
+  constructor(option?: CriterionOption) {
+    super(option ?? PerformerMarkersCriterionOption);
   }
 }
