@@ -948,6 +948,13 @@ $font-family-monospace: sfmono-regular, menlo, monaco, consolas,
   justify-content: center;
 }
 
+// CUSTOM: cover shown in the player area for a release without a video file
+.scene-release-no-file-cover {
+  height: 100%;
+  object-fit: contain;
+  width: 100%;
+}
+
 .scrubber-wrapper {
   display: flex;
   flex-shrink: 0;

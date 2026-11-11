@@ -61,6 +61,7 @@ import {
 import { shouldEnableSceneOHotkeyCustom } from "./sceneOHotkeyPreference_custom"; // CUSTOM
 import { SceneReleaseFileInfoCustom } from "./SceneReleaseFileInfo_custom"; // CUSTOM
 import { getSceneReleasePlaybackContextCustom } from "./sceneReleasePlaybackContext_custom"; // CUSTOM
+import { SceneReleaseNoFileCover } from "./SceneReleaseNoFileCover"; // CUSTOM
 import { SceneOwnerSwitcher } from "./SceneOwnerSwitcher"; // CUSTOM
 import {
   faEllipsisV,
@@ -1841,9 +1842,11 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
       />
       <div className={`scene-player-container ${collapsed ? "expanded" : ""}`}>
         {activeReleaseId && !sceneForPlayer?.files.length ? (
-          <div className="text-center text-muted p-3" role="status">
-            This release has no video file.
-          </div>
+          <SceneReleaseNoFileCover
+            key={playbackContext?.ownerKey}
+            screenshot={sceneForPlayer?.paths.screenshot}
+            updatedAt={sceneForPlayer?.updated_at}
+          />
         ) : sceneForPlayer && isPlayable(sceneForPlayer) ? (
           <ScenePlayer
             key={playbackContext?.ownerKey} // CUSTOM: reset media when owner or primary changes

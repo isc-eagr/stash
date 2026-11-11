@@ -4,6 +4,7 @@ import {
   createTaskProgressAchievementWatcher,
   formatTaskProgressAchievement,
   taskProgressAchievementSnapshots,
+  taskProgressOverallAchievementSnapshot,
 } from "../src/components/TaskProgress/taskProgressAchievements_custom.ts";
 import type { ITaskProgressAchievementSnapshot } from "../src/components/TaskProgress/taskProgressAchievements_custom.ts";
 
@@ -371,3 +372,36 @@ assert.equal(
   ),
   "Bronce · 25% alcanzado · Organize scenes"
 );
+
+const overallSteps = createTaskProgressAchievementObserver();
+const overallSnapshot = (percentage: number) =>
+  snapshot(percentage, { key: "overall", kind: "Overall" });
+overallSteps([overallSnapshot(22.4)]);
+assert.deepEqual(
+  overallSteps([overallSnapshot(22.99)]),
+  [],
+  "Overall waits for the next whole percent"
+);
+assert.deepEqual(
+  overallSteps([overallSnapshot(25.1)]).map((item) => [
+    item.threshold,
+    item.tier,
+  ]),
+  [
+    [23, undefined],
+    [24, undefined],
+    [25, "Bronze"],
+  ],
+  "Overall announces every 1% step and keeps tier checkpoints"
+);
+const overallConverted = taskProgressOverallAchievementSnapshot({
+  total_count: 400,
+  organized_count: 101,
+  completed_count: 0,
+  incoming_count: 0,
+  goal_per_day: 10,
+  history: [],
+} as unknown as Parameters<typeof taskProgressOverallAchievementSnapshot>[0]);
+assert.equal(overallConverted.kind, "Overall");
+assert.equal(overallConverted.percentage, 25.25);
+assert.equal(overallConverted.eligible, true);

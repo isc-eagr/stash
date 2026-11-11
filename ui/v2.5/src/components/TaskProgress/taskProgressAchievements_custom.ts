@@ -1,6 +1,7 @@
 import type {
   FindTaskProgressMilestonesQuery,
   FindTaskProgressTrackersQuery,
+  TaskProgressOrganizedScenesQuery,
 } from "src/core/generated-graphql";
 import type { ITaskProgressHistoryEntry } from "../taskProgress_custom";
 import {
@@ -15,7 +16,7 @@ import {
 export interface ITaskProgressAchievementSnapshot {
   key: string;
   name: string;
-  kind: "Tracker" | "Milestone";
+  kind: "Tracker" | "Milestone" | "Overall";
   revision: string;
   percentage: number;
   history: readonly ITaskProgressHistoryEntry[];
@@ -38,6 +39,8 @@ const achievementThresholds = {
     ]),
   ].sort((a, b) => a - b),
   Milestone: Array.from({ length: 20 }, (_, index) => (index + 1) * 5),
+  // Overall moves slowly, so every 1% step counts; tiers fall on whole steps.
+  Overall: Array.from({ length: 100 }, (_, index) => index + 1),
 };
 
 export function formatTaskProgressAchievement(
@@ -95,6 +98,28 @@ export function taskProgressAchievementSnapshots(
       eligible: milestone.trackers.length > 0 && milestone.completed_count > 0,
     })),
   ];
+}
+
+export function taskProgressOverallAchievementSnapshot(
+  overall: TaskProgressOrganizedScenesQuery["taskProgressOverall"]
+): ITaskProgressAchievementSnapshot {
+  return {
+    key: "overall",
+    name: "Overall Progress",
+    kind: "Overall",
+    // Overall has no resets or versions.
+    revision: "1",
+    percentage:
+      overall.total_count > 0
+        ? Math.min(100, (overall.organized_count / overall.total_count) * 100)
+        : 0,
+    history: overall.history.map((day) => ({
+      ...day,
+      baselineCount: day.baseline_count ?? undefined,
+      completedTotal: day.completed_total ?? undefined,
+    })),
+    eligible: overall.organized_count > 0,
+  };
 }
 
 /** Keep earned checkpoints through incoming work and repeated refreshes. */

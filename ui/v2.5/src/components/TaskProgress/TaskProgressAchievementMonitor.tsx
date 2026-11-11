@@ -10,9 +10,10 @@ import {
   createTaskProgressAchievementWatcher,
   formatTaskProgressAchievement,
   taskProgressAchievementSnapshots,
+  taskProgressOverallAchievementSnapshot,
 } from "./taskProgressAchievements_custom";
 
-/** Mounted outside the route switch so catalog work can earn tracker/milestone medals. */
+/** Mounted outside the route switch so catalog work can earn tracker/milestone/Overall medals. */
 export const TaskProgressAchievementMonitor: React.FC = () => {
   const client = useApolloClient();
   const { toast } = useToast();
@@ -20,7 +21,7 @@ export const TaskProgressAchievementMonitor: React.FC = () => {
   useEffect(() => {
     const watcher = createTaskProgressAchievementWatcher(
       async () => {
-        const [trackers, milestones] = await Promise.all([
+        const [trackers, milestones, overall] = await Promise.all([
           client.query<GQL.FindTaskProgressTrackersQuery>({
             query: GQL.FindTaskProgressTrackersDocument,
             fetchPolicy: "no-cache",
@@ -29,11 +30,20 @@ export const TaskProgressAchievementMonitor: React.FC = () => {
             query: GQL.FindTaskProgressMilestonesDocument,
             fetchPolicy: "no-cache",
           }),
+          client.query<GQL.TaskProgressOrganizedScenesQuery>({
+            query: GQL.TaskProgressOrganizedScenesDocument,
+            fetchPolicy: "no-cache",
+          }),
         ]);
-        return taskProgressAchievementSnapshots(
-          trackers.data.findTaskProgressTrackers,
-          milestones.data.findTaskProgressMilestones
-        );
+        return [
+          ...taskProgressAchievementSnapshots(
+            trackers.data.findTaskProgressTrackers,
+            milestones.data.findTaskProgressMilestones
+          ),
+          taskProgressOverallAchievementSnapshot(
+            overall.data.taskProgressOverall
+          ),
+        ];
       },
       (achievements) =>
         achievements.forEach((achievement) => {

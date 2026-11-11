@@ -675,29 +675,47 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
           createdNegativeMarkerIDs.push(insertedID);
         }
 
-        const splitBounds = getSceneMarkerSplitBounds({
-          seconds: input.seconds,
-          end_seconds: input.end_seconds,
-        });
-        // CUSTOM: avoid racing an intermediate scene snapshot against the
-        // final source-marker update below.
-        const rightID = await ownerMutations.saveMarker(
-          sceneMarkerValuesFromMarkerCustom(marker, {
-            seconds: splitBounds.rightStartSeconds,
-          }),
-          { deferRefresh: true }
+        const { leftEndSeconds, rightStartSeconds } = getSceneMarkerSplitBounds(
+          {
+            seconds: marker.seconds,
+            end_seconds: marker.end_seconds as number,
+          },
+          { seconds: input.seconds, end_seconds: input.end_seconds }
         );
-        if (!rightID) {
-          throw new Error("The right side of the split could not be created.");
-        }
-        createdMarkerIDs.push(rightID);
+        if (leftEndSeconds === undefined) {
+          // CUSTOM: the new range shares the original start, so the original
+          // keeps only its right side.
+          await ownerMutations.saveMarker(
+            sceneMarkerValuesFromMarkerCustom(marker, {
+              seconds: rightStartSeconds,
+            }),
+            { id: marker.id }
+          );
+        } else {
+          if (rightStartSeconds !== undefined) {
+            // CUSTOM: avoid racing an intermediate scene snapshot against the
+            // final source-marker update below.
+            const rightID = await ownerMutations.saveMarker(
+              sceneMarkerValuesFromMarkerCustom(marker, {
+                seconds: rightStartSeconds,
+              }),
+              { deferRefresh: true }
+            );
+            if (!rightID) {
+              throw new Error(
+                "The right side of the split could not be created."
+              );
+            }
+            createdMarkerIDs.push(rightID);
+          }
 
-        await ownerMutations.saveMarker(
-          sceneMarkerValuesFromMarkerCustom(marker, {
-            end_seconds: splitBounds.leftEndSeconds,
-          }),
-          { id: marker.id }
-        );
+          await ownerMutations.saveMarker(
+            sceneMarkerValuesFromMarkerCustom(marker, {
+              end_seconds: leftEndSeconds,
+            }),
+            { id: marker.id }
+          );
+        }
       } else if (isNew && input.insert_mode === "negative-marker") {
         await ownerMutations.saveNegativeMarker({
           name: input.title,
@@ -1162,11 +1180,12 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
 
     return (
       <Alert variant="info" className="py-2">
-        {modeDescription} Choose a range strictly inside{" "}
+        {modeDescription} Choose a range inside{" "}
         {TextUtils.secondsToTimestamp(marker.seconds, true)} -{" "}
         {TextUtils.secondsToTimestamp(marker.end_seconds, true)}. Saving will
         split the original marker around this new range with one-millisecond
-        boundaries.
+        boundaries. If the range shares the original&apos;s start or end, the
+        original is only trimmed on the other side.
       </Alert>
     );
   }

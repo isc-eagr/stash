@@ -7,6 +7,7 @@ import {
   getSceneMarkerInsertRangeErrors,
   getSceneMarkerInsertRecordKind,
   getSceneMarkerSplitBounds,
+  INSERT_MARKER_COVERS_SOURCE,
   INSERT_MARKER_END_OUT_OF_BOUNDS,
   INSERT_MARKER_END_REQUIRED,
   INSERT_MARKER_SOURCE_END_REQUIRED,
@@ -87,11 +88,38 @@ assert.deepEqual(
     { seconds: 600, end_seconds: 660 },
     { seconds: 600, end_seconds: 660 }
   ),
+  { end_seconds: INSERT_MARKER_COVERS_SOURCE },
+  "an inserted marker cannot consume both original boundaries"
+);
+
+assert.deepEqual(
+  getSceneMarkerInsertRangeErrors(
+    { seconds: 600, end_seconds: 660 },
+    { seconds: 600, end_seconds: 630 }
+  ),
+  {},
+  "an inserted marker may share the original start"
+);
+
+assert.deepEqual(
+  getSceneMarkerInsertRangeErrors(
+    { seconds: 600, end_seconds: 660 },
+    { seconds: 630, end_seconds: 660 }
+  ),
+  {},
+  "an inserted marker may share the original end"
+);
+
+assert.deepEqual(
+  getSceneMarkerInsertRangeErrors(
+    { seconds: 600, end_seconds: 660 },
+    { seconds: 599.999, end_seconds: 660.001 }
+  ),
   {
     seconds: INSERT_MARKER_START_OUT_OF_BOUNDS,
     end_seconds: INSERT_MARKER_END_OUT_OF_BOUNDS,
   },
-  "an inserted marker cannot consume either original boundary"
+  "an inserted marker cannot extend past the original boundaries"
 );
 
 assert.deepEqual(
@@ -125,13 +153,31 @@ assert.deepEqual(
 );
 
 assert.deepEqual(
-  getSceneMarkerSplitBounds({
-    seconds: 624.768,
-    end_seconds: 630.25,
-  }),
+  getSceneMarkerSplitBounds(
+    { seconds: 600, end_seconds: 660 },
+    { seconds: 624.768, end_seconds: 630.25 }
+  ),
   {
     leftEndSeconds: 624.767,
     rightStartSeconds: 630.251,
   },
   "split boundaries are exactly one millisecond outside the inserted marker"
+);
+
+assert.deepEqual(
+  getSceneMarkerSplitBounds(
+    { seconds: 600, end_seconds: 660 },
+    { seconds: 600, end_seconds: 630.25 }
+  ),
+  { leftEndSeconds: undefined, rightStartSeconds: 630.251 },
+  "a shared start leaves only the right side of the original"
+);
+
+assert.deepEqual(
+  getSceneMarkerSplitBounds(
+    { seconds: 600, end_seconds: 660 },
+    { seconds: 624.768, end_seconds: 660 }
+  ),
+  { leftEndSeconds: 624.767, rightStartSeconds: undefined },
+  "a shared end leaves only the left side of the original"
 );

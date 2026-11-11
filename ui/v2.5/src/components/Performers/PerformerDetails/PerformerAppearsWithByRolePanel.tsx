@@ -94,8 +94,9 @@ const CoPerformerCard: React.FC<ICoPerformerCardProps> = ({
   // Use depth -1 for oral and facial to include subtags
   const markerDepth = roleCategory === "sex" ? 0 : -1;
 
+  // CUSTOM: open the current vato's Scenes tab instead of the global list.
   const sharedScenesUrl = tagId
-    ? `/scenes?c=${encodeURIComponent(
+    ? `/performers/${currentPerformer.id}/scenes?c=${encodeURIComponent(
         JSON.stringify({
           type: "scene_markers",
           modifier: "INCLUDES_ALL",
