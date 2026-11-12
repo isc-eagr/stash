@@ -16,6 +16,7 @@ import {
 } from "./taskProgressReports_custom";
 import { taskProgressGoalStreak } from "./taskProgressScoreboard_custom"; // CUSTOM
 import { TaskProgressOverallModal } from "./TaskProgressOverallModal";
+import { progressPercentDisplay } from "./progressMath_custom";
 
 export const TaskProgressOverall: React.FC = () => {
   const t = useProgressText();
@@ -101,7 +102,11 @@ export const TaskProgressOverall: React.FC = () => {
                 large
                 percent={
                   <strong className="progress-score-percent">
-                    {formatAppDecimalCustom(snapshot.percent, 2)}%
+                    {formatAppDecimalCustom(
+                      progressPercentDisplay(snapshot.percent),
+                      2
+                    )}
+                    %
                   </strong>
                 }
                 done={done}

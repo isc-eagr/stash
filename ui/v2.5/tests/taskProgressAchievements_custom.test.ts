@@ -6,6 +6,7 @@ import {
   taskProgressAchievementSnapshots,
   taskProgressOverallAchievementSnapshot,
 } from "../src/components/TaskProgress/taskProgressAchievements_custom.ts";
+import { progressPercentDisplay } from "../src/components/TaskProgress/progressMath_custom.ts";
 import type { ITaskProgressAchievementSnapshot } from "../src/components/TaskProgress/taskProgressAchievements_custom.ts";
 
 const snapshot = (
@@ -405,3 +406,15 @@ const overallConverted = taskProgressOverallAchievementSnapshot({
 assert.equal(overallConverted.kind, "Overall");
 assert.equal(overallConverted.percentage, 25.25);
 assert.equal(overallConverted.eligible, true);
+assert.equal(
+  progressPercentDisplay((861 / 28740) * 100),
+  2.99,
+  "labels never round up to a percent the toast has not reached"
+);
+assert.equal(progressPercentDisplay((863 / 28740) * 100), 3);
+assert.equal(
+  progressPercentDisplay(0.29 * 100),
+  29,
+  "float noise keeps the step"
+);
+assert.equal(progressPercentDisplay(24.96, 1), 24.9);

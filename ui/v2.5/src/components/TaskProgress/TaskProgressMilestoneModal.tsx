@@ -6,7 +6,7 @@ import type { TaskProgressMilestoneDataFragment as Milestone } from "src/core/ge
 import { TaskProgressHistoryChart } from "../TaskProgressHistoryChart";
 import { formatTaskProgressDate } from "../taskProgress_custom";
 import { milestoneItemProgress } from "./milestoneView_custom";
-import { progressToday } from "./progressMath_custom";
+import { progressPercentDisplay, progressToday } from "./progressMath_custom";
 import {
   itemLabels,
   taskProgressHistoryEntries,
@@ -59,7 +59,7 @@ export const TaskProgressMilestoneModal: React.FC<{
             <div key={item.label} className="progress-tracker-at-a-glance-card">
               <strong>
                 {item.label === "Percentage complete" ? (
-                  `${formatAppDecimalCustom(item.value, 2)}%`
+                  `${formatAppDecimalCustom(progressPercentDisplay(item.value), 2)}%`
                 ) : (
                   <FormattedNumber value={item.value} />
                 )}

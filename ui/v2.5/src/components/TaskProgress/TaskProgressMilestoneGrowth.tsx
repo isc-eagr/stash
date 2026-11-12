@@ -3,7 +3,7 @@ import React from "react";
 import { useIntl } from "react-intl";
 import type { TaskProgressMilestoneDataFragment as Milestone } from "src/core/generated-graphql";
 import { formatTaskProgressDate } from "../taskProgress_custom";
-import { progressToday } from "./progressMath_custom";
+import { progressPercentDisplay, progressToday } from "./progressMath_custom";
 import {
   taskProgressHistoryEntries,
   useProgressText,
@@ -136,7 +136,13 @@ export const TaskProgressMilestoneGrowth: React.FC<{
                 style={{ background: item.color }}
               />
               {item.name}{" "}
-              <strong>{formatAppDecimalCustom(item.percent, 1)}%</strong>
+              <strong>
+                {formatAppDecimalCustom(
+                  progressPercentDisplay(item.percent, 1),
+                  1
+                )}
+                %
+              </strong>
             </li>
           ))}
         </ul>
@@ -155,7 +161,7 @@ export const TaskProgressMilestoneGrowth: React.FC<{
           aria-label={series
             .map(
               (item) =>
-                `${item.name} ${formatAppDecimalCustom(item.percent, 1)}%`
+                `${item.name} ${formatAppDecimalCustom(progressPercentDisplay(item.percent, 1), 1)}%`
             )
             .join(", ")}
         >

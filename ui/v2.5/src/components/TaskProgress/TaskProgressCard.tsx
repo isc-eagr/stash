@@ -15,7 +15,10 @@ import {
   taskProgressHistoryEntries,
   useProgressText,
 } from "./progressView_custom";
-import { taskProgressCompletedCount } from "./progressMath_custom";
+import {
+  progressPercentDisplay,
+  taskProgressCompletedCount,
+} from "./progressMath_custom";
 import { TaskProgressCounts } from "./TaskProgressCounts";
 import { TaskProgressMedalBar } from "./TaskProgressMedalBar";
 import { TaskProgressFinishLabel } from "./TaskProgressForecast";
@@ -138,7 +141,7 @@ export const TaskProgressCard: React.FC<IProps> = ({
                 completed ? " progress-score-percent-complete" : ""
               }`}
             >
-              {formatAppDecimalCustom(percentage, 2)}%
+              {formatAppDecimalCustom(progressPercentDisplay(percentage), 2)}%
             </strong>
           }
           done={completedCount}

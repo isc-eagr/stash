@@ -1,5 +1,12 @@
 import type { TaskProgressTrackerDataFragment as Tracker } from "src/core/generated-graphql";
 
+/** Truncate instead of rounding, so a label never shows a percent its medals and toasts have not reached. */
+export function progressPercentDisplay(value: number, digits = 2) {
+  const scale = 10 ** digits;
+  // The epsilon keeps float noise (3 as 2.9999999999999996) from dropping a step.
+  return Math.floor(value * scale + 1e-9) / scale;
+}
+
 export function progressToday(now = new Date()) {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Mexico_City",
