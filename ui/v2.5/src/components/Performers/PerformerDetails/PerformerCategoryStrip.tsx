@@ -36,7 +36,10 @@ import {
   type NutQualityCustom,
   type NutTypeRowCustom,
 } from "./nutTypes_custom"; // CUSTOM
-import { makePerformerTopMarkersWithTagsUrlCustom } from "src/utils/navigation_custom"; // CUSTOM
+import {
+  inPerformerTabsCustom,
+  makePerformerTopMarkersWithTagsUrlCustom,
+} from "src/utils/navigation_custom"; // CUSTOM
 import type { ISceneTypeCastSplitCustom } from "src/components/Studios/studioSceneTypes_custom"; // CUSTOM
 
 type PerformerCategoryStripData = Pick<PerformerListData, "id" | "name"> &
@@ -97,6 +100,8 @@ interface IPerformerCategoryStripProps {
   tiles?: PerformerRoleTileSize; // CUSTOM
   /** Vato Detail: Standard/Threesome/Group pips on the Sex/Oral tiles. */
   castSplit?: ISceneTypeCastSplitCustom | null; // CUSTOM
+  /** Vato Detail: scene and marker links open his Scenes and Markers tabs. */
+  inPerformerTabs?: boolean; // CUSTOM
 }
 
 /**
@@ -131,6 +136,7 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
   roleSeconds, // CUSTOM
   tiles, // CUSTOM
   castSplit, // CUSTOM
+  inPerformerTabs = false, // CUSTOM
 }) => {
   const { configuration } = useConfigurationContext();
   const showZeroTiles = showsZeroRoleTiles(tiles, sceneId); // CUSTOM
@@ -621,8 +627,9 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
               shouldRenderRoleForActiveSort(role.category))
       )
     : [];
-  const scopeToStudio = (url: string) =>
-    studioContext
+  // CUSTOM: Vato Detail keeps scene and marker links on his tabs
+  const scopeToStudio = (url: string) => {
+    const scoped = studioContext
       ? NavUtils.withStudioScope(
           url,
           studioContext.id,
@@ -630,6 +637,10 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
           studioContext.depth
         )
       : url;
+    return inPerformerTabs
+      ? inPerformerTabsCustom(scoped, performer.id)
+      : scoped;
+  };
   // Scene cards already show sex/oral/facial in the versatility rows;
   // totals move sex/oral/solo scene counts into the Scene Types tiles and
   // leave Facial to Versatility, unless cards are sorted by Facial Count.

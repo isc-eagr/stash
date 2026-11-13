@@ -3,6 +3,7 @@ import * as GQL from "src/core/generated-graphql";
 import { FilteredSceneMarkerList } from "src/components/Scenes/SceneMarkerList";
 import { ListFilterModel } from "src/models/list-filter/filter";
 import { MarkerPerformersCriterion } from "src/models/list-filter/criteria/marker-performers";
+import { markerGroupsNameVatoCustom } from "src/models/list-filter/criteria/marker-group_custom";
 import { View } from "src/components/List/views";
 import { PatchComponent } from "src/patch";
 
@@ -25,6 +26,15 @@ export const PerformerMarkersPanel: React.FC<IPerformerMarkersPanelProps> =
         let criterion = next.criteria.find(
           (c) => c.criterionOption.type === "marker_performers"
         ) as MarkerPerformersCriterion | undefined;
+
+        // CUSTOM: keep a role filter that already names him, e.g. Vato
+        // Detail facial, Nut, and Feet links.
+        if (
+          criterion &&
+          markerGroupsNameVatoCustom(criterion.getGroups(), performer.id)
+        ) {
+          return next;
+        }
 
         if (!criterion) {
           criterion = next.makeCriterion(

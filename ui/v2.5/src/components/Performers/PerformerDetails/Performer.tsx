@@ -708,6 +708,7 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
                           castSplitData?.findPerformer?.scene_type_cast_split
                         }
                         flushMargins
+                        inPerformerTabs // scene and marker links open his tabs
                       />
                       {hasActivityStats && (
                         <ActivityStatsCharts
@@ -721,6 +722,7 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
                         <PerformerVersatility
                           className="performer-versatility--detail"
                           performer={performer} // partner counts link to role-filtered scenes
+                          inPerformerTabs // on his Scenes and Markers tabs
                           oralBottomedPartners={
                             roleStats.oral_with_bottom_count
                           }

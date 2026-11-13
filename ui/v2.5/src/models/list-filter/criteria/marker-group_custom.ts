@@ -98,6 +98,16 @@ export function markerGroupPeopleCustom(
   return people;
 }
 
+/** Whether any group names this vato in any role. */
+export function markerGroupsNameVatoCustom(
+  groups: IMarkerRoleGroupCustom[],
+  vatoId: string
+) {
+  return groups.some((g) =>
+    markerGroupPeopleCustom(g).some((p) => p.id === vatoId)
+  );
+}
+
 function roleUpdatesCustom(
   people: IMarkerGroupPersonCustom[]
 ): MarkerRoleUpdatesCustom {

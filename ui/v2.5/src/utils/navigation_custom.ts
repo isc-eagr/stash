@@ -1718,6 +1718,19 @@ export const withStudioScope = (
   return `${base}c=${studioCriterion}${rest ? `&${rest}` : ""}`;
 };
 
+/** Vato Detail: points a Scenes or Markers page link at this vato's Scenes or
+ * Markers tab, same filters. */
+export const inPerformerTabsCustom = (url: string, performerId: string) => {
+  const tab = url.startsWith("/scenes?")
+    ? "scenes"
+    : url.startsWith("/scenes/markers?")
+      ? "markers"
+      : undefined;
+  return tab
+    ? `/performers/${performerId}/${tab}${url.slice(url.indexOf("?"))}`
+    : url;
+};
+
 /** Adds a scene vato-count criterion: exactly `vatos`, or `vatos`+ when `orMore`. */
 export const withScenePerformerCountCustom = (
   url: string | undefined,

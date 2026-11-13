@@ -147,6 +147,35 @@ assert.equal(
   "42"
 );
 assert.match(detail, /target="_blank"/);
+const tabLinks = [
+  ...renderToStaticMarkup(
+    React.createElement(PerformerVersatility, {
+      ...detailProps,
+      inPerformerTabs: true,
+    })
+  ).matchAll(/href="([^"]+)"/g),
+].map((match) => match[1].replaceAll("&amp;", "&"));
+assert.deepEqual(
+  tabLinks.map((link) => new URL(link, "http://localhost").pathname),
+  [
+    "/performers/42/scenes",
+    "/performers/42/scenes",
+    "/performers/42/scenes",
+    "/performers/42/scenes",
+    "/performers/42/markers",
+  ],
+  "Vato Detail scene and marker links open his Scenes and Markers tabs"
+);
+assert.equal(
+  tabLinks[4].slice(tabLinks[4].indexOf("?")),
+  links[4].slice(links[4].indexOf("?")),
+  "Markers tab links keep the same filters"
+);
+assert.equal(
+  tabLinks[0].slice(tabLinks[0].indexOf("?")),
+  links[0].slice(links[0].indexOf("?")),
+  "Scenes tab links keep the same filters"
+);
 roleTagIds = {} as typeof roleTagIds;
 assert.doesNotMatch(
   renderToStaticMarkup(React.createElement(PerformerVersatility, detailProps)),

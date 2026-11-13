@@ -12,6 +12,7 @@ import {
   markerGroupPeopleCustom,
   markerGroupRoleInputCustom,
   markerGroupSentenceCustom,
+  markerGroupsNameVatoCustom,
   normalizeMarkerGroupRolesCustom,
   setMarkerPeopleCustom,
   setMarkerPersonRoleCustom,
@@ -382,6 +383,30 @@ const overlapping = markerEditorDraftCustom(new SceneMarkersCriterion());
 overlapping.value.require_overlap = true;
 overlapping.addGroup();
 assert.equal(markerEditorDraftCustom(overlapping).value.require_overlap, true);
+
+// Vato Detail facial links keep his role on his Markers tab.
+const facialTop = new MarkerPerformersCriterion();
+facialTop.fromDecodedParams({
+  tag_ids: [{ id: "f", label: "Facial" }],
+  performer_mode: "AND",
+  top_performer_ids: [{ id: "42", label: "Vato" }],
+  bottom_performer_ids: [],
+});
+assert.equal(markerGroupsNameVatoCustom(facialTop.getGroups(), "42"), true);
+assert.equal(markerGroupsNameVatoCustom(facialTop.getGroups(), "7"), false);
+assert.equal(
+  markerGroupsNameVatoCustom(
+    [
+      {
+        ...facialTop.getGroups()[0],
+        top_performer_ids: [],
+        either_performer_ids: [{ id: "42", label: "Vato" }],
+      },
+    ],
+    "42"
+  ),
+  true
+);
 
 console.log(
   "Marker editor: roles, legacy migration, summaries, pruning, draft isolation, rating criteria, URL/saved-filter persistence, and legacy preservation passed."

@@ -3,6 +3,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { useConfigurationContext } from "src/hooks/Config";
 import {
+  inPerformerTabsCustom,
   makePerformerFacialMarkersWithRoleUrl,
   makePerformerMarkerScenesWithRoleUrl,
 } from "src/utils/navigation_custom";
@@ -143,20 +144,23 @@ function partnerScale(
   bottomedPartners: number,
   performer?: { id: string; name?: string },
   tagId?: string,
-  linkTarget?: React.HTMLAttributeAnchorTarget
+  linkTarget?: React.HTMLAttributeAnchorTarget,
+  inPerformerTabs = false
 ): IScale {
   const roleUrl = (role: "top" | "bottom") => {
     if (!performer || !tagId) return undefined;
-    return category === "facial"
-      ? makePerformerFacialMarkersWithRoleUrl(performer, tagId, title, role)
-      : makePerformerMarkerScenesWithRoleUrl(
-          performer,
-          tagId,
-          title,
-          role,
-          undefined,
-          category === "oral" ? -1 : 0
-        );
+    const url =
+      category === "facial"
+        ? makePerformerFacialMarkersWithRoleUrl(performer, tagId, title, role)
+        : makePerformerMarkerScenesWithRoleUrl(
+            performer,
+            tagId,
+            title,
+            role,
+            undefined,
+            category === "oral" ? -1 : 0
+          );
+    return inPerformerTabs ? inPerformerTabsCustom(url, performer.id) : url;
   };
   return {
     category,
@@ -208,6 +212,8 @@ export const PerformerVersatility: React.FC<{
   className?: string;
   performer?: { id: string; name?: string };
   linkTarget?: React.HTMLAttributeAnchorTarget;
+  // Vato Detail: role links open his Scenes and Markers tabs.
+  inPerformerTabs?: boolean;
 }> = ({
   sexToppedPartners,
   sexBottomedPartners,
@@ -218,6 +224,7 @@ export const PerformerVersatility: React.FC<{
   className,
   performer,
   linkTarget,
+  inPerformerTabs,
 }) => {
   const { configuration } = useConfigurationContext();
   const { sexTagId, oralTagId, facialTagId } =
@@ -233,7 +240,8 @@ export const PerformerVersatility: React.FC<{
           sexBottomedPartners,
           performer,
           sexTagId,
-          linkTarget
+          linkTarget,
+          inPerformerTabs
         ),
         partnerScale(
           "oral",
@@ -242,7 +250,8 @@ export const PerformerVersatility: React.FC<{
           oralBottomedPartners,
           performer,
           oralTagId,
-          linkTarget
+          linkTarget,
+          inPerformerTabs
         ),
         partnerScale(
           "facial",
@@ -251,7 +260,8 @@ export const PerformerVersatility: React.FC<{
           facialBottomedPartners,
           performer,
           facialTagId,
-          linkTarget
+          linkTarget,
+          inPerformerTabs
         ),
       ]}
       title="Versatility by Partners"
