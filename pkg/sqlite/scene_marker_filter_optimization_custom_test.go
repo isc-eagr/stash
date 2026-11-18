@@ -22,7 +22,7 @@ CREATE TABLE studios(id INTEGER PRIMARY KEY, parent_id INTEGER);
 CREATE TABLE scenes(id INTEGER PRIMARY KEY, studio_id INTEGER);
 CREATE TABLE tags(id INTEGER PRIMARY KEY, name TEXT);
 CREATE TABLE tags_relations(parent_id INTEGER, child_id INTEGER);
-CREATE TABLE scene_markers(id INTEGER PRIMARY KEY, scene_id INTEGER, primary_tag_id INTEGER,
+CREATE TABLE scene_markers(id INTEGER PRIMARY KEY, scene_id INTEGER, release_id INTEGER, primary_tag_id INTEGER,
  title TEXT DEFAULT '', seconds REAL, end_seconds REAL);
 CREATE INDEX marker_scene ON scene_markers(scene_id);
 CREATE TABLE scene_markers_tags(scene_marker_id INTEGER, tag_id INTEGER, UNIQUE(scene_marker_id,tag_id));

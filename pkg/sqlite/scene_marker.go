@@ -351,9 +351,9 @@ func (qb *SceneMarkerStore) CountByTagID(ctx context.Context, tagID int) (int, e
 }
 
 func (qb *SceneMarkerStore) GetMarkerStrings(ctx context.Context, q *string, sort *string) ([]*models.MarkerStringsResultType, error) {
-	query := "SELECT count(*) as `count`, scene_markers.id as id, scene_markers.title as title FROM scene_markers"
+	query := "SELECT count(*) as `count`, scene_markers.id as id, scene_markers.title as title FROM scene_markers WHERE scene_markers.release_id IS NULL" // CUSTOM: no release markers
 	if q != nil {
-		query += " WHERE title LIKE '%" + *q + "%'"
+		query += " AND title LIKE '%" + *q + "%'" // CUSTOM
 	}
 	query += " GROUP BY title"
 	if sort != nil && *sort == "count" {

@@ -83,3 +83,39 @@ INSERT INTO scene_markers VALUES (1, 5, NULL, 12.5), (2, NULL, 9, 30);`); err !=
 		}
 	}
 }
+
+// Release markers are timestamps only: marker lists, counts, and the marker
+// search never return them, and an empty related marker filter stays empty.
+func TestSceneMarkerQuerySkipsReleaseMarkersCustom(t *testing.T) {
+	db, err := sqlx.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	db.SetMaxOpenConns(1)
+	if _, err := db.Exec(`
+CREATE TABLE scene_markers(id INTEGER PRIMARY KEY, title TEXT, primary_tag_id INTEGER NOT NULL, scene_id INTEGER, release_id INTEGER, seconds REAL NOT NULL, end_seconds REAL);
+INSERT INTO scene_markers VALUES (1, 'nut', 21, 5, NULL, 0, 30), (2, 'nut', 21, NULL, 9, 0, 30);`); err != nil {
+		t.Fatal(err)
+	}
+	tx, err := db.BeginTxx(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	ctx := context.WithValue(context.Background(), txnKey, tx)
+	store := &SceneMarkerStore{}
+
+	count, err := store.QueryCount(ctx, nil, nil)
+	if err != nil || count != 1 {
+		t.Fatalf("marker count = %d, %v; want 1", count, err)
+	}
+	q := "nut"
+	stringsResult, err := store.GetMarkerStrings(ctx, &q, nil)
+	if err != nil || len(stringsResult) != 1 || stringsResult[0].Count != 1 {
+		t.Fatalf("marker strings = %+v, %v; want one title counted once", stringsResult, err)
+	}
+	if f := filterBuilderFromHandler(ctx, &sceneMarkerFilterHandler{}); !f.empty() {
+		t.Fatal("an unset marker filter must not filter its parent")
+	}
+}

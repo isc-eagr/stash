@@ -20,6 +20,8 @@ func (qb *sceneMarkerFilterHandler) handle(ctx context.Context, f *filterBuilder
 	if sceneMarkerFilter == nil {
 		return
 	}
+	// CUSTOM: release markers are timestamps only and never match a marker filter.
+	f.addWhere("scene_markers.release_id IS NULL")
 
 	if err := qb.validate(); err != nil {
 		f.setError(err)

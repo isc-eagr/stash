@@ -306,5 +306,24 @@ const pastContributions = render(
     onOpenTracker: noop,
   })
 );
-assert.match(pastContributions, /No tracker completed anything in this period/);
-assert.match(pastContributions, /1 trackers with no activity · selected day/);
+assert.match(pastContributions, /Organize scenes/, "idle trackers stay listed");
+assert.doesNotMatch(pastContributions, /trackers with no activity|<details/);
+
+const movedContributions = render(
+  React.createElement(TaskProgressContributions, {
+    trackers: milestone.trackers,
+    range: "day",
+    anchor: "2026-01-05",
+    movedOnly: true,
+    onOpenTracker: noop,
+  })
+);
+assert.match(
+  movedContributions,
+  /No tracker completed anything in this period/
+);
+assert.doesNotMatch(
+  movedContributions,
+  /Organize scenes/,
+  "Moved only hides idle trackers"
+);

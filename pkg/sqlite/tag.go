@@ -860,7 +860,8 @@ func (qb *TagStore) getTagSort(query *queryBuilder, findFilter *models.FindFilte
 	case "scenes_size":
 		sortQuery += qb.sortByScenesSize(direction)
 	case "scene_markers_count":
-		sortQuery += fmt.Sprintf(" ORDER BY (SELECT COUNT(*) FROM scene_markers_tags WHERE tags.id = scene_markers_tags.tag_id)+(SELECT COUNT(*) FROM scene_markers WHERE tags.id = scene_markers.primary_tag_id) %s", getSortDirection(direction))
+		// CUSTOM: release markers stay out of the marker count sort
+		sortQuery += fmt.Sprintf(" ORDER BY (SELECT COUNT(*) FROM scene_markers_tags JOIN scene_markers ON scene_markers.id = scene_markers_tags.scene_marker_id WHERE tags.id = scene_markers_tags.tag_id AND scene_markers.release_id IS NULL)+(SELECT COUNT(*) FROM scene_markers WHERE tags.id = scene_markers.primary_tag_id AND scene_markers.release_id IS NULL) %s", getSortDirection(direction))
 	case "images_count":
 		sortQuery += getCountSort(tagTable, imagesTagsTable, tagIDColumn, direction)
 	case "galleries_count":

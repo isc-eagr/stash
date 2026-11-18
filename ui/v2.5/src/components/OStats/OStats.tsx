@@ -45,6 +45,7 @@ import { useTitleProps } from "src/hooks/title";
 import { statsCountryName } from "src/utils/statsCountry_custom";
 import {
   addStatsDateRangeToPath,
+  formatStatsLocalDate,
   writeStatsDateRange,
 } from "src/utils/statsDateRange_custom"; // CUSTOM
 import { metallicRatingChartBucket } from "src/utils/metallicRatingChart_custom"; // CUSTOM
@@ -78,6 +79,34 @@ import {
 import { statsMetallicColor } from "src/utils/statsChartColors_custom";
 import { formatStatsBarPercent } from "src/utils/statsBarChart_custom"; // CUSTOM
 
+// CUSTOM: begin - amateur instance O's merged into O Stats.
+import {
+  OStatsEventMomentsDocument,
+  type OStatsEventMomentsQuery,
+} from "src/core/generated-graphql";
+import { OStatsAmateurNotice } from "./OStatsAmateurNotice_custom";
+import {
+  useAmateurOStatsCustom,
+  useBothOStatsQueriesCustom,
+  type IAmateurOStats,
+} from "./useAmateurOStats_custom";
+import {
+  amateurRowKeyCustom,
+  byCountDescCustom,
+  markAmateurCustom,
+  mergeEventsByDateCustom,
+  mergeSortedCustom,
+  mergeTagCountsByNameCustom,
+  oStatsRecordsCustom,
+  oStatsRecordsEndDayCustom,
+  oStatsTagPathCustom,
+  readOStatsAmateurOnlyCustom,
+  sumCountsByKeyCustom,
+  sumCountsWithUnknownCustom,
+  withAmateurSourceCustom,
+  type AmateurMarked,
+} from "./oStatsAmateur_custom";
+// CUSTOM: end
 import "./OStats.scss";
 
 // CUSTOM: begin - every O Stats query accepts the studio tree and the O-date range.
@@ -231,6 +260,20 @@ const ENTITY_NAMES = gql`
   }
 `;
 
+// CUSTOM: the other instance's tag with the same name, for tag drilldowns.
+const TAG_BY_NAME = gql`
+  query OStatsTagByName($name: String!) {
+    findTags(
+      tag_filter: { name: { value: $name, modifier: EQUALS } }
+      filter: { per_page: 1 }
+    ) {
+      tags {
+        id
+      }
+    }
+  }
+`;
+
 // One request for every overview aggregate. Records and the By Studio chart
 // are global-only, so embedded Studio O Stats leaves them out.
 const O_STATS_OVERVIEW = gql`
@@ -370,6 +413,7 @@ type OStatsOverviewData = {
     studio_id: string;
     studio_name: string;
     count: number;
+    amateur?: boolean; // CUSTOM
   }>;
   byAge: CountsWithUnknown<{ age: number; count: number }>;
   byReleaseYear: CountsWithUnknown<{ year: number; count: number }>;
@@ -380,7 +424,10 @@ type OStatsOverviewData = {
     image_path?: string | null;
     rating100?: number | null;
     count: number;
+    amateur?: boolean; // CUSTOM
   }>;
+  // CUSTOM: amateur tag counts, split later by the amateur's own role tags.
+  amateurByTag?: Array<{ tag_id: string; tag_name: string; count: number }>;
 };
 
 type EntityNamesData = {
@@ -413,6 +460,10 @@ type TimelineConfig = {
   emptyLabel: string;
   skip?: boolean;
   sceneId?: string; // CUSTOM: shared identity only for scene-specific timelines
+  // CUSTOM: which instances the drilldown reads, and amateur IDs when they differ.
+  source?: "both" | "main" | "amateur";
+  amateurVariables?: Record<string, unknown>;
+  amateurSkip?: boolean;
 };
 
 const O_UNIT: [string, string] = ["O", "O's"];
@@ -490,27 +541,189 @@ function tierLabel(tier: string) {
   );
 }
 
+// CUSTOM: begin - merges with the amateur instance. Value-keyed counts add up;
+// scenes, vatos and studios stay separate rows; records use O moments.
+function unknownLabelKey(value: string) {
+  return isUnknownLabel(value) ? "" : value;
+}
+
+function mergeOStatsOverviewCustom(
+  main: OStatsOverviewData,
+  amateur: OStatsOverviewData
+): OStatsOverviewData {
+  const byAge = sumCountsWithUnknownCustom(
+    main.byAge,
+    amateur.byAge,
+    (item) => item.age
+  );
+  return {
+    ...main,
+    calendarYears: Array.from(
+      new Set(
+        [...main.calendarYears, ...amateur.calendarYears].map(
+          (item) => item.year
+        )
+      )
+    )
+      .sort((a, b) => a - b)
+      .map((year) => ({ year })),
+    years: sumCountsByKeyCustom(main.years, amateur.years, (item) => item.year),
+    amateurByTag: amateur.byTag,
+    withoutMarkerTags: main.withoutMarkerTags + amateur.withoutMarkerTags,
+    byEthnicity: sumCountsByKeyCustom(
+      main.byEthnicity,
+      amateur.byEthnicity,
+      (item) => unknownLabelKey(item.ethnicity)
+    ).sort(byCountDescCustom),
+    byCountry: sumCountsByKeyCustom(main.byCountry, amateur.byCountry, (item) =>
+      unknownLabelKey(item.country)
+    ),
+    byStudio:
+      main.byStudio && amateur.byStudio
+        ? {
+            counts: mergeSortedCustom(
+              main.byStudio.counts,
+              markAmateurCustom(amateur.byStudio.counts),
+              byCountDescCustom
+            ),
+            unknown_count:
+              main.byStudio.unknown_count + amateur.byStudio.unknown_count,
+          }
+        : main.byStudio,
+    byAge: { ...byAge, counts: byAge.counts.sort((a, b) => a.age - b.age) },
+    byReleaseYear: sumCountsWithUnknownCustom(
+      main.byReleaseYear,
+      amateur.byReleaseYear,
+      (item) => item.year
+    ),
+    unreliableDateCount: main.unreliableDateCount + amateur.unreliableDateCount,
+    byPerformer: mergeSortedCustom(
+      main.byPerformer,
+      markAmateurCustom(amateur.byPerformer),
+      byCountDescCustom
+    ),
+  };
+}
+
+type OStatsSceneCountsData = {
+  sceneOCountsByScene: AmateurMarked<OStatsSceneCount>[];
+};
+
+function mergeOStatsSceneCountsCustom(
+  main: OStatsSceneCountsData,
+  amateur: OStatsSceneCountsData
+): OStatsSceneCountsData {
+  return {
+    sceneOCountsByScene: mergeSortedCustom(
+      main.sceneOCountsByScene,
+      markAmateurCustom(amateur.sceneOCountsByScene),
+      byCountDescCustom
+    ),
+  };
+}
+
+type OStatsMonthCountsData = {
+  sceneOMonthCounts: Array<{ month: number; count: number }>;
+};
+type OStatsDayCountsData = {
+  sceneODayCounts: Array<{ day: number; count: number }>;
+};
+
+function mergeOStatsMonthCountsCustom(
+  main: OStatsMonthCountsData,
+  amateur: OStatsMonthCountsData
+): OStatsMonthCountsData {
+  return {
+    sceneOMonthCounts: sumCountsByKeyCustom(
+      main.sceneOMonthCounts,
+      amateur.sceneOMonthCounts,
+      (item) => item.month
+    ),
+  };
+}
+
+function mergeOStatsDayCountsCustom(
+  main: OStatsDayCountsData,
+  amateur: OStatsDayCountsData
+): OStatsDayCountsData {
+  return {
+    sceneODayCounts: sumCountsByKeyCustom(
+      main.sceneODayCounts,
+      amateur.sceneODayCounts,
+      (item) => item.day
+    ),
+  };
+}
+
+function mergeOStatsMomentsCustom(
+  main: OStatsEventMomentsQuery,
+  amateur: OStatsEventMomentsQuery
+): OStatsEventMomentsQuery {
+  return { moments: [...main.moments, ...amateur.moments] };
+}
+
+type OStatsEventsData = { events: AmateurMarked<SceneOEvent>[] };
+
+function mergeOStatsEventsCustom(
+  main: OStatsEventsData,
+  amateur: OStatsEventsData
+): OStatsEventsData {
+  return {
+    events: mergeEventsByDateCustom(
+      main.events,
+      markAmateurCustom(amateur.events)
+    ),
+  };
+}
+// CUSTOM: end
+
 // CUSTOM: one timeline renders every drilldown; links keep the studio scope
 // and date range.
 const OStatsTimeline: React.FC<{
   config: TimelineConfig;
   linkToEntity: boolean;
   withScope: (path: string) => string;
-}> = ({ config, linkToEntity, withScope }) => {
-  const { data, error, loading } = useQuery<{ events: SceneOEvent[] }>(
-    config.query,
-    { variables: config.variables, skip: config.skip }
+  amateur: IAmateurOStats; // CUSTOM
+}> = ({ config, linkToEntity, withScope, amateur }) => {
+  // CUSTOM: begin - value drilldowns read both instances, entity drilldowns one.
+  const source = config.source ?? "both";
+  const mainSkip = !!config.skip || source === "amateur";
+  const amateurSkip = !!config.amateurSkip || source === "main";
+  const { data, error, loading, amateurFailed } =
+    useBothOStatsQueriesCustom<OStatsEventsData>(
+      amateur,
+      config.query,
+      { variables: config.variables, skip: mainSkip },
+      {
+        variables: config.amateurVariables ?? config.variables,
+        skip: amateurSkip,
+      },
+      mergeOStatsEventsCustom
+    );
+  // Without this instance's side, the data is the amateur's alone.
+  const events = useMemo(
+    () =>
+      !data ? [] : mainSkip ? markAmateurCustom(data.events) : data.events,
+    [data, mainSkip]
   );
+  // CUSTOM: end
   if (loading) return <StatsSectionSkeleton />;
   if (error) return <ErrorMessage error={error.message} />;
   return (
-    <OStatsEventList
-      events={config.skip ? [] : (data?.events ?? [])}
-      sceneId={config.sceneId}
-      emptyLabel={config.emptyLabel}
-      linkToEntity={linkToEntity}
-      withScope={withScope}
-    />
+    <>
+      {/* CUSTOM */}
+      {amateurFailed && !amateur.problem && (
+        <OStatsAmateurNotice amateur={amateur} failed />
+      )}
+      <OStatsEventList
+        events={events}
+        amateur={amateur} // CUSTOM
+        sceneId={config.sceneId}
+        emptyLabel={config.emptyLabel}
+        linkToEntity={linkToEntity}
+        withScope={withScope}
+      />
+    </>
   );
 };
 
@@ -540,6 +753,10 @@ const OStatsContent: React.FC<{
   const { configuration } = useConfigurationContext();
   const roleTagIds = configuration?.ui?.roleTagIds ?? {};
   const { oStatsExcludedTagIds, oralTagId, sexTagId, soloTagId } = roleTagIds;
+  // CUSTOM: begin - the amateur instance joins global O Stats only.
+  const amateur = useAmateurOStatsCustom(!studioScope && !embedded);
+  const amateurOnly = readOStatsAmateurOnlyCustom(location.search);
+  // CUSTOM: end
 
   const selectedTagId = params.tagId;
   const selectedPerformerId = params.performerId;
@@ -583,6 +800,7 @@ const OStatsContent: React.FC<{
     !isDetailPage || !!selectedRatingBucket || !!selectedTier;
 
   const namesQuery = useQuery<EntityNamesData>(ENTITY_NAMES, {
+    client: amateurOnly ? amateur.client : undefined, // CUSTOM
     variables: {
       performerId: selectedPerformerId ?? "0",
       sceneId: selectedSceneId ?? "0",
@@ -594,35 +812,118 @@ const OStatsContent: React.FC<{
       withTag: !!selectedTagId,
     },
     skip:
-      !selectedPerformerId &&
-      !selectedSceneId &&
-      !selectedStudioId &&
-      !selectedTagId,
+      (amateurOnly && !amateur.active) || // CUSTOM
+      (!selectedPerformerId &&
+        !selectedSceneId &&
+        !selectedStudioId &&
+        !selectedTagId),
   });
-  const overviewQuery = useQuery<OStatsOverviewData>(O_STATS_OVERVIEW, {
+  // CUSTOM: begin - a tag drilldown reads both instances' tags with its name.
+  const tagName = namesQuery.data?.findTag?.name;
+  const otherTagQuery = useQuery<{ findTags: { tags: Array<{ id: string }> } }>(
+    TAG_BY_NAME,
+    {
+      client: amateurOnly ? undefined : amateur.client,
+      variables: { name: tagName ?? "" },
+      skip: !amateur.active || !selectedTagId || !tagName,
+    }
+  );
+  const otherTagId = otherTagQuery.data?.findTags.tags[0]?.id;
+  const mainTagId = amateurOnly ? otherTagId : selectedTagId;
+  const amateurTagId = amateurOnly ? selectedTagId : otherTagId;
+  const tagLookupPending =
+    !!selectedTagId &&
+    amateur.active &&
+    (namesQuery.loading || otherTagQuery.loading);
+  // CUSTOM: end
+  // CUSTOM: begin - every aggregate also reads the amateur instance when on.
+  const overviewOptions = {
     variables: { ...scopeVariables, includeGlobal: !embedded },
     skip: isDetailPage,
-  });
-  const sceneCountsQuery = useQuery<{
-    sceneOCountsByScene: OStatsSceneCount[];
-  }>(O_STATS_SCENE_COUNTS, {
+  };
+  const overviewQuery = useBothOStatsQueriesCustom<OStatsOverviewData>(
+    amateur,
+    O_STATS_OVERVIEW,
+    overviewOptions,
+    overviewOptions,
+    mergeOStatsOverviewCustom
+  );
+  const sceneCountsOptions = {
     variables: scopeVariables,
     skip: !needsSceneCounts,
-  });
-  const monthQuery = useQuery<{
-    sceneOMonthCounts: Array<{ month: number; count: number }>;
-  }>(SCENE_O_MONTH_COUNTS, {
+  };
+  const sceneCountsQuery = useBothOStatsQueriesCustom<OStatsSceneCountsData>(
+    amateur,
+    O_STATS_SCENE_COUNTS,
+    sceneCountsOptions,
+    sceneCountsOptions,
+    mergeOStatsSceneCountsCustom
+  );
+  const monthOptions = {
     skip: !selectedYear || !!selectedMonth || showTimeline,
     variables: { year: selectedYear, ...scopeVariables },
-  });
-  const dayQuery = useQuery<{
-    sceneODayCounts: Array<{ day: number; count: number }>;
-  }>(SCENE_O_DAY_COUNTS, {
+  };
+  const monthQuery = useBothOStatsQueriesCustom<OStatsMonthCountsData>(
+    amateur,
+    SCENE_O_MONTH_COUNTS,
+    monthOptions,
+    monthOptions,
+    mergeOStatsMonthCountsCustom
+  );
+  const dayOptions = {
     skip: !selectedYear || !selectedMonth || showTimeline,
     variables: { year: selectedYear, month: selectedMonth, ...scopeVariables },
-  });
+  };
+  const dayQuery = useBothOStatsQueriesCustom<OStatsDayCountsData>(
+    amateur,
+    SCENE_O_DAY_COUNTS,
+    dayOptions,
+    dayOptions,
+    mergeOStatsDayCountsCustom
+  );
+  // Records over both instances come from every dated O's local day.
+  const momentsOptions = {
+    variables: scopeVariables,
+    skip: !amateur.active || isDetailPage,
+  };
+  const momentsQuery = useBothOStatsQueriesCustom<OStatsEventMomentsQuery>(
+    amateur,
+    OStatsEventMomentsDocument,
+    momentsOptions,
+    momentsOptions,
+    mergeOStatsMomentsCustom
+  );
+  const amateurFailed =
+    overviewQuery.amateurFailed ||
+    sceneCountsQuery.amateurFailed ||
+    monthQuery.amateurFailed ||
+    dayQuery.amateurFailed ||
+    momentsQuery.amateurFailed;
+  // CUSTOM: end
 
   const overview = overviewQuery.data;
+  // CUSTOM: begin - records across both instances when the amateur answered.
+  const dateRangeTo = dateRangeVariable?.to;
+  const records = useMemo(() => {
+    if (!amateur.active || !momentsQuery.data || momentsQuery.amateurFailed) {
+      return {
+        mostOsInDay: overview?.mostOsInDay,
+        longestPeriodWithoutO: overview?.longestPeriodWithoutO,
+      };
+    }
+    return oStatsRecordsCustom(
+      momentsQuery.data.moments.map((moment) => moment.day),
+      oStatsRecordsEndDayCustom(dateRangeTo, formatStatsLocalDate(new Date()))
+    );
+  }, [
+    amateur.active,
+    dateRangeTo,
+    momentsQuery.amateurFailed,
+    momentsQuery.data,
+    overview?.longestPeriodWithoutO,
+    overview?.mostOsInDay,
+  ]);
+  // CUSTOM: end
   // CUSTOM: studio pages embed O Stats without the By Studio chart.
   const studioCounts = embedded ? undefined : overview?.byStudio;
   const sceneCounts = useMemo(
@@ -631,7 +932,9 @@ const OStatsContent: React.FC<{
   );
   const uiConfig = configuration?.ui;
   const ratingOf = oStatsRatingBucket;
-  const tierOf = (scene: OStatsSceneCount) => oStatsTierBucket(scene, uiConfig);
+  // CUSTOM: amateur scenes use the amateur's own metallic tier settings.
+  const tierOf = (scene: AmateurMarked<OStatsSceneCount>) =>
+    oStatsTierBucket(scene, scene.amateur ? amateur.ui : uiConfig);
   const totalOs = sceneCounts.reduce((sum, scene) => sum + scene.count, 0);
 
   // Date chart: populated years, with zero-filled months and days.
@@ -680,15 +983,43 @@ const OStatsContent: React.FC<{
     studioScope,
   ]);
 
-  const { activityTypeCounts, markerTagCounts } = useMemo(
-    () =>
-      partitionOStatsMarkerTagCountsCustom(
-        overview?.byTag ?? [],
-        { oralTagId, sexTagId, soloTagId },
-        oStatsExcludedTagIds
+  // CUSTOM: each instance splits its tags by its own role tags, then the
+  // lists join by tag name.
+  const { activityTypeCounts, markerTagCounts } = useMemo(() => {
+    const main = partitionOStatsMarkerTagCountsCustom(
+      overview?.byTag ?? [],
+      { oralTagId, sexTagId, soloTagId },
+      oStatsExcludedTagIds
+    );
+    const amateurRoles = amateur.ui?.roleTagIds ?? {};
+    const other = partitionOStatsMarkerTagCountsCustom(
+      overview?.amateurByTag ?? [],
+      {
+        oralTagId: amateurRoles.oralTagId,
+        sexTagId: amateurRoles.sexTagId,
+        soloTagId: amateurRoles.soloTagId,
+      },
+      amateurRoles.oStatsExcludedTagIds
+    );
+    return {
+      activityTypeCounts: mergeTagCountsByNameCustom(
+        main.activityTypeCounts,
+        other.activityTypeCounts
       ),
-    [overview?.byTag, oStatsExcludedTagIds, oralTagId, sexTagId, soloTagId]
-  );
+      markerTagCounts: mergeTagCountsByNameCustom(
+        main.markerTagCounts,
+        other.markerTagCounts
+      ),
+    };
+  }, [
+    amateur.ui,
+    overview?.amateurByTag,
+    overview?.byTag,
+    oStatsExcludedTagIds,
+    oralTagId,
+    sexTagId,
+    soloTagId,
+  ]);
 
   function eventBars<T>(
     items: readonly T[],
@@ -722,11 +1053,19 @@ const OStatsContent: React.FC<{
   });
 
   // Rating/tier drilldowns resolve their scene set from the per-scene counts.
-  const bucketSceneIDs = selectedRatingBucket
-    ? oStatsSceneIDsInBucket(sceneCounts, ratingOf, selectedRatingBucket)
-    : selectedTier
-      ? oStatsSceneIDsInBucket(sceneCounts, tierOf, selectedTier)
-      : [];
+  // CUSTOM: each instance resolves its own scene IDs.
+  const bucketSceneIDsFor = (amateurScenes: boolean) => {
+    const scenes = sceneCounts.filter(
+      (scene) => !!scene.amateur === amateurScenes
+    );
+    return selectedRatingBucket
+      ? oStatsSceneIDsInBucket(scenes, ratingOf, selectedRatingBucket)
+      : selectedTier
+        ? oStatsSceneIDsInBucket(scenes, tierOf, selectedTier)
+        : [];
+  };
+  const bucketSceneIDs = bucketSceneIDsFor(false);
+  const amateurBucketSceneIDs = bucketSceneIDsFor(true);
 
   function timelineConfig(): TimelineConfig | undefined {
     if (selectedDate) {
@@ -739,8 +1078,12 @@ const OStatsContent: React.FC<{
     if (selectedTagId) {
       return {
         query: EVENT_QUERIES.tag,
-        variables: { tagID: selectedTagId, ...scopeVariables },
+        variables: { tagID: mainTagId, ...scopeVariables },
         emptyLabel: "No O events found for this marker tag.",
+        // CUSTOM: each instance reads its own tag with this name.
+        skip: !mainTagId,
+        amateurVariables: { tagID: amateurTagId, ...scopeVariables },
+        amateurSkip: !amateurTagId,
       };
     }
     if (selectedEthnicity) {
@@ -762,6 +1105,7 @@ const OStatsContent: React.FC<{
         query: EVENTS_BY_STUDIO,
         variables: { studioID: selectedStudioId, ...scopeVariables },
         emptyLabel: "No O events found for this studio.",
+        source: amateurOnly ? "amateur" : "main", // CUSTOM
       };
     }
     if (selectedPerformerAge) {
@@ -788,6 +1132,12 @@ const OStatsContent: React.FC<{
           ? "No O events found for this metallic tier."
           : "No O events found for this scene rating.",
         skip: bucketSceneIDs.length === 0,
+        // CUSTOM
+        amateurVariables: {
+          sceneIDs: amateurBucketSceneIDs,
+          ...scopeVariables,
+        },
+        amateurSkip: amateurBucketSceneIDs.length === 0,
       };
     }
     const unknownQueries: Record<string, DocumentNode> = {
@@ -810,6 +1160,7 @@ const OStatsContent: React.FC<{
         sceneId: selectedSceneId, // CUSTOM
         variables: { sceneID: selectedSceneId, ...scopeVariables },
         emptyLabel: "No O events found for this scene.",
+        source: amateurOnly ? "amateur" : "main", // CUSTOM
       };
     }
     if (selectedPerformerId) {
@@ -817,6 +1168,7 @@ const OStatsContent: React.FC<{
         query: EVENT_QUERIES.performer,
         variables: { performerID: selectedPerformerId, ...scopeVariables },
         emptyLabel: "No O events found for this vato.",
+        source: amateurOnly ? "amateur" : "main", // CUSTOM
       };
     }
     return undefined;
@@ -824,6 +1176,8 @@ const OStatsContent: React.FC<{
 
   const loading =
     (!isDetailPage && overviewQuery.loading) ||
+    (!isDetailPage && momentsQuery.loading) || // CUSTOM
+    tagLookupPending || // CUSTOM
     (needsSceneCounts && sceneCountsQuery.loading) ||
     (!!selectedYear && !showTimeline && monthQuery.loading) ||
     (!!selectedYear && !!selectedMonth && !showTimeline && dayQuery.loading);
@@ -1015,6 +1369,9 @@ const OStatsContent: React.FC<{
         </div>
       </header>
 
+      {/* CUSTOM */}
+      <OStatsAmateurNotice amateur={amateur} failed={amateurFailed} />
+
       {showOverview && (
         <StatsKpiRow
           label="O totals and records"
@@ -1027,25 +1384,25 @@ const OStatsContent: React.FC<{
                 getAppLocaleCustom()
               )} ${sceneCounts.length === 1 ? "scene" : "scenes"}`,
             },
-            ...(overview?.mostOsInDay
+            ...(records.mostOsInDay
               ? [
                   {
                     key: "day",
                     label: "Most O's in a day",
-                    value: overview.mostOsInDay.count.toLocaleString(
+                    value: records.mostOsInDay.count.toLocaleString(
                       getAppLocaleCustom()
                     ),
-                    detail: formatAppDateCustom(overview.mostOsInDay.date),
+                    detail: formatAppDateCustom(records.mostOsInDay.date),
                   },
                 ]
               : []),
-            ...(overview?.longestPeriodWithoutO
+            ...(records.longestPeriodWithoutO
               ? [
                   {
                     key: "dry",
                     label: "Longest period without an O",
-                    value: `${overview.longestPeriodWithoutO.days} days`,
-                    detail: `${formatAppDateCustom(overview.longestPeriodWithoutO.start_date)} – ${formatAppDateCustom(overview.longestPeriodWithoutO.end_date)}`,
+                    value: `${records.longestPeriodWithoutO.days} days`,
+                    detail: `${formatAppDateCustom(records.longestPeriodWithoutO.start_date)} – ${formatAppDateCustom(records.longestPeriodWithoutO.end_date)}`,
                   },
                 ]
               : []),
@@ -1060,6 +1417,7 @@ const OStatsContent: React.FC<{
           depth={studioScope?.depth}
           dateRange={dateRangeVariable}
           withScope={withScope}
+          amateur={amateur} // CUSTOM
         />
       )}
 
@@ -1082,6 +1440,7 @@ const OStatsContent: React.FC<{
               depth={studioScope?.depth}
               dateRange={dateRangeVariable}
               withScope={withScope}
+              amateur={amateur} // CUSTOM
             />
           )}
           {timeline && (
@@ -1089,6 +1448,7 @@ const OStatsContent: React.FC<{
               config={timeline}
               linkToEntity={!!selectedSceneId || !!selectedPerformerId}
               withScope={withScope}
+              amateur={amateur} // CUSTOM
             />
           )}
         </section>
@@ -1102,13 +1462,19 @@ const OStatsContent: React.FC<{
             variant="scene"
             emptyLabel="No O's in this range."
             items={sceneCounts.map((scene) => ({
-              key: scene.scene_id,
+              key: amateurRowKeyCustom(scene.scene_id, scene.amateur), // CUSTOM
               title: scene.title || `Scene ${scene.scene_id}`,
               imagePath: scene.screenshot_path,
               rating100: scene.rating100,
               value: oCountLabel(scene.count),
               detail: formatStatsBarPercent(scene.count, totalOs),
-              to: withScope(`/ostats/scene/${scene.scene_id}`),
+              meta: scene.amateur ? "Amateur" : undefined, // CUSTOM
+              to: withScope(
+                withAmateurSourceCustom(
+                  `/ostats/scene/${scene.scene_id}`,
+                  scene.amateur
+                )
+              ),
             }))}
           />
           <StatsTopCards
@@ -1117,13 +1483,23 @@ const OStatsContent: React.FC<{
             note="An O counts for every vato in its scene."
             emptyLabel="No O's in this range."
             items={overview.byPerformer.map((performer) => ({
-              key: performer.performer_id,
+              // CUSTOM: amateur vatos stay separate cards.
+              key: amateurRowKeyCustom(
+                performer.performer_id,
+                performer.amateur
+              ),
               title: performer.performer_name,
               imagePath: performer.image_path,
               rating100: performer.rating100,
               value: oCountLabel(performer.count),
               detail: formatStatsBarPercent(performer.count, totalOs),
-              to: withScope(`/ostats/vato/${performer.performer_id}`),
+              meta: performer.amateur ? "Amateur" : undefined,
+              to: withScope(
+                withAmateurSourceCustom(
+                  `/ostats/vato/${performer.performer_id}`,
+                  performer.amateur
+                )
+              ),
             }))}
           />
         </>
@@ -1161,6 +1537,7 @@ const OStatsContent: React.FC<{
           <OStatsCalendarHeatmap
             studioScope={studioScope}
             years={overview.calendarYears.map((item) => item.year)}
+            amateur={amateur} // CUSTOM
           />
           {/* CUSTOM: charts grouped by topic; each group fills whole rows. */}
           <StatsChartGroup className="stats-group--panel" title="The Scene">
@@ -1222,10 +1599,16 @@ const OStatsContent: React.FC<{
                 variant="ranked"
                 title="By Studio"
                 data={eventBars(studioCounts.counts, (item) => ({
-                  key: item.studio_id,
-                  label: item.studio_name,
+                  // CUSTOM: amateur studios stay separate bars.
+                  key: amateurRowKeyCustom(item.studio_id, item.amateur),
+                  label: item.amateur
+                    ? `${item.studio_name} (Amateur)`
+                    : item.studio_name,
                   count: item.count,
-                  path: `/ostats/studio/${item.studio_id}`,
+                  path: withAmateurSourceCustom(
+                    `/ostats/studio/${item.studio_id}`,
+                    item.amateur
+                  ),
                 }))}
                 unit={O_UNIT}
                 total={totalOs}
@@ -1327,10 +1710,10 @@ const OStatsContent: React.FC<{
               variant="ranked"
               title="By Activity Type"
               data={eventBars(activityTypeCounts, (item) => ({
-                key: item.tag_id,
+                key: amateurRowKeyCustom(item.tag_id, item.amateur), // CUSTOM
                 label: item.tag_name,
                 count: item.count,
-                path: `/ostats/tag/${item.tag_id}`,
+                path: oStatsTagPathCustom(item), // CUSTOM
               }))}
               unit={O_UNIT}
               emptyLabel="No activity-type counts found."
@@ -1339,10 +1722,10 @@ const OStatsContent: React.FC<{
               variant="ranked"
               title="By Marker Tag"
               data={eventBars(markerTagCounts, (item) => ({
-                key: item.tag_id,
+                key: amateurRowKeyCustom(item.tag_id, item.amateur), // CUSTOM
                 label: item.tag_name,
                 count: item.count,
-                path: `/ostats/tag/${item.tag_id}`,
+                path: oStatsTagPathCustom(item), // CUSTOM
               }))}
               unit={O_UNIT}
               totalNote="An O counts once for each marker tag covering it, so bars can overlap."

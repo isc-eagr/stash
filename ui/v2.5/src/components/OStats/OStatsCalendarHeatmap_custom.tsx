@@ -1,6 +1,6 @@
 import { getAppLocaleCustom } from "src/utils/appLocale_custom"; // CUSTOM
 import React, { useEffect, useMemo, useState } from "react";
-import { gql, useQuery } from "@apollo/client";
+import { gql } from "@apollo/client";
 import { Form } from "react-bootstrap";
 import { Link } from "react-router-dom";
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
@@ -15,6 +15,12 @@ import {
   buildOStatsCalendar,
   summarizeOStatsCalendar,
 } from "./oStatsCalendar_custom";
+// CUSTOM: the amateur instance's O days add to this instance's.
+import { sumCountsByKeyCustom } from "./oStatsAmateur_custom";
+import {
+  useBothOStatsQueriesCustom,
+  type IAmateurOStats,
+} from "./useAmateurOStats_custom";
 
 const SCENE_O_CALENDAR_DAY_COUNTS = gql`
   query OStatsCalendarDayCounts($year: Int!, $studioId: ID, $depth: Int) {
@@ -27,6 +33,16 @@ const SCENE_O_CALENDAR_DAY_COUNTS = gql`
 
 interface IDayCounts {
   sceneOCalendarDayCounts: Array<{ date: string; count: number }>;
+}
+
+function mergeDayCountsCustom(main: IDayCounts, amateur: IDayCounts) {
+  return {
+    sceneOCalendarDayCounts: sumCountsByKeyCustom(
+      main.sceneOCalendarDayCounts,
+      amateur.sceneOCalendarDayCounts,
+      (item) => item.date
+    ),
+  };
 }
 
 function dayCountMap(data?: IDayCounts) {
@@ -66,7 +82,8 @@ export const OStatsCalendarHeatmap: React.FC<{
   studioScope?: IOStatsStudioScope;
   // Year in Review shows one year and has its own year navigation.
   fixedYear?: number;
-}> = ({ years, studioScope, fixedYear }) => {
+  amateur: IAmateurOStats; // CUSTOM
+}> = ({ years, studioScope, fixedYear, amateur }) => {
   const currentYear = new Date().getFullYear();
   const defaultYear = years.includes(currentYear)
     ? currentYear
@@ -79,18 +96,34 @@ export const OStatsCalendarHeatmap: React.FC<{
   }, [defaultYear, pickedYear, years]);
 
   const variables = getOStatsStudioScopeVariables(studioScope);
-  const { data, error, loading } = useQuery<IDayCounts>(
+  // CUSTOM: begin - each year reads both instances when amateur O's are on.
+  const yearOptions = (offset: number) => ({
+    variables: { year: year + offset, ...variables },
+    skip: offset > 0 && year >= currentYear,
+  });
+  const { data, error, loading } = useBothOStatsQueriesCustom<IDayCounts>(
+    amateur,
     SCENE_O_CALENDAR_DAY_COUNTS,
-    { variables: { year, ...variables } }
+    yearOptions(0),
+    yearOptions(0),
+    mergeDayCountsCustom
   );
   // The neighbouring years complete a streak that runs over New Year.
-  const { data: before } = useQuery<IDayCounts>(SCENE_O_CALENDAR_DAY_COUNTS, {
-    variables: { year: year - 1, ...variables },
-  });
-  const { data: after } = useQuery<IDayCounts>(SCENE_O_CALENDAR_DAY_COUNTS, {
-    variables: { year: year + 1, ...variables },
-    skip: year >= currentYear,
-  });
+  const { data: before } = useBothOStatsQueriesCustom<IDayCounts>(
+    amateur,
+    SCENE_O_CALENDAR_DAY_COUNTS,
+    yearOptions(-1),
+    yearOptions(-1),
+    mergeDayCountsCustom
+  );
+  const { data: after } = useBothOStatsQueriesCustom<IDayCounts>(
+    amateur,
+    SCENE_O_CALENDAR_DAY_COUNTS,
+    yearOptions(1),
+    yearOptions(1),
+    mergeDayCountsCustom
+  );
+  // CUSTOM: end
   const counts = useMemo(() => dayCountMap(data), [data]);
   const calendar = useMemo(
     () => buildOStatsCalendar(year, counts),

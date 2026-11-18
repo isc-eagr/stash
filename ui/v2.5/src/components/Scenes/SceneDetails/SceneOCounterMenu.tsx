@@ -1,5 +1,6 @@
 import React from "react";
 import { Dropdown } from "react-bootstrap";
+import { Link } from "react-router-dom";
 import { OCounterButton } from "src/components/Shared/CountButton";
 
 interface ISceneOCounterMenuProps {
@@ -8,6 +9,7 @@ interface ISceneOCounterMenuProps {
   valueTitle?: string;
   onIncrement: () => void;
   onRetroactive: () => void;
+  oStatsUrl: string;
 }
 
 const SceneOCounterMenuToggle = React.forwardRef<
@@ -29,13 +31,15 @@ const SceneOCounterMenuToggle = React.forwardRef<
 ));
 
 // The scene toolbar's O button opens a choice between a regular O and a
-// retroactive O (no date, no video timestamp).
+// retroactive O (no date, no video timestamp), plus a link to the scene's
+// O Stats page.
 export const SceneOCounterMenu: React.FC<ISceneOCounterMenuProps> = ({
   value,
   className,
   valueTitle,
   onIncrement,
   onRetroactive,
+  oStatsUrl,
 }) => (
   <Dropdown className="scene-o-counter-menu">
     <Dropdown.Toggle as={SceneOCounterMenuToggle} id="scene-o-counter-menu">
@@ -54,6 +58,16 @@ export const SceneOCounterMenu: React.FC<ISceneOCounterMenuProps> = ({
         onClick={onRetroactive}
       >
         Retroactive O
+      </Dropdown.Item>
+      <Dropdown.Divider />
+      <Dropdown.Item
+        as={Link}
+        to={oStatsUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="bg-secondary text-white"
+      >
+        O Stats
       </Dropdown.Item>
     </Dropdown.Menu>
   </Dropdown>

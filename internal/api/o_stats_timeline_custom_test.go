@@ -87,3 +87,30 @@ INSERT INTO scenes_o_dates(scene_id, o_date, video_timestamp) VALUES
 	require.NoError(t, err)
 	require.Equal(t, []int{3, 2, 1}, oStatsTimelineIDsCustom(t, db, "", nil, 1, 5), "sub-second O dates take priority over video timestamps; timezone offsets describe the same instant")
 }
+
+// Moments follow the timeline order, so a merged timeline can split pages
+// between instances, and carry UTC times plus the local chart day.
+func TestOStatsEventMomentsFollowTimelineOrderCustom(t *testing.T) {
+	db := openOStatsAggregateDBCustom(t)
+	_, err := db.Exec(`DELETE FROM scenes_o_dates;
+INSERT INTO scenes_o_dates(scene_id, o_date, video_timestamp) VALUES
+ (1, '2026-01-02T12:00:00Z', 5),
+ (2, '2026-01-02T12:00:00Z', 10),
+ (1, '2026-01-01T06:00:00-06:00', NULL),
+ (1, NULL, NULL);`)
+	require.NoError(t, err)
+
+	rows, err := db.Query(sceneOEventMomentsQueryCustom(""))
+	require.NoError(t, err)
+	defer rows.Close()
+	ats := []string{}
+	for rows.Next() {
+		var at, day string
+		require.NoError(t, rows.Scan(&at, &day))
+		require.Len(t, day, 10)
+		ats = append(ats, at)
+	}
+	require.NoError(t, rows.Err())
+	require.Equal(t, []string{"2026-01-02T12:00:00.000Z", "2026-01-02T12:00:00.000Z", "2026-01-01T12:00:00.000Z"}, ats)
+	require.Len(t, ats, len(oStatsTimelineIDsCustom(t, db, "", nil, 1, 25)))
+}

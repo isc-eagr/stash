@@ -51,6 +51,7 @@ func performerFacialCountExprForTagsCustom(facialTagID int, secondCameraTagID in
 		FROM scene_marker_performers smp
 		JOIN scene_markers sm ON smp.scene_marker_id = sm.id
 		WHERE smp.performer_id = performers.id
+		AND sm.release_id IS NULL
 		AND smp.role IN ('top', 'bottom')
 		AND %s
 		%s

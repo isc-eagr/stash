@@ -20,7 +20,7 @@ func facialCountTestDBCustom(t *testing.T) *sql.DB {
 		`CREATE TABLE studios (id INTEGER PRIMARY KEY)`,
 		`CREATE TABLE performers (id INTEGER PRIMARY KEY)`,
 		`CREATE TABLE scenes (id INTEGER PRIMARY KEY, studio_id INTEGER)`,
-		`CREATE TABLE scene_markers (id INTEGER PRIMARY KEY, scene_id INTEGER, primary_tag_id INTEGER)`,
+		`CREATE TABLE scene_markers (id INTEGER PRIMARY KEY, scene_id INTEGER, release_id INTEGER, primary_tag_id INTEGER)`,
 		`CREATE TABLE scene_markers_tags (scene_marker_id INTEGER, tag_id INTEGER)`,
 		`CREATE TABLE scene_marker_performers (scene_marker_id INTEGER, performer_id INTEGER, role TEXT)`,
 		`CREATE TABLE tags_relations (parent_id INTEGER, child_id INTEGER)`,

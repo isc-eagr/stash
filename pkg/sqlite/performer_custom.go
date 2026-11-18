@@ -77,6 +77,7 @@ func (qb *PerformerStore) sortByPerformerMarkerSceneCount(tagID int, excludeTagI
 		FROM scene_marker_performers smp
 		JOIN scene_markers sm ON smp.scene_marker_id = sm.id
 		WHERE smp.performer_id = performers.id
+		AND sm.release_id IS NULL
 		AND %s
 		%s
 		%s
@@ -119,6 +120,7 @@ func (qb *PerformerStore) sortByPerformerOrgasmCount(direction string, studioSQL
 		FROM scene_marker_performers smp
 		JOIN scene_markers sm ON smp.scene_marker_id = sm.id
 		WHERE smp.performer_id = performers.id
+		AND sm.release_id IS NULL
 		AND smp.role = 'top'
 		AND %s
 		%s
@@ -137,6 +139,7 @@ func (qb *PerformerStore) sortByPerformerFeetMarkerCount(direction string, studi
 		FROM scene_marker_performers smp
 		JOIN scene_markers sm ON smp.scene_marker_id = sm.id
 		WHERE smp.performer_id = performers.id
+		AND sm.release_id IS NULL
 		AND smp.role = 'top'
 		AND %s
 		%s
@@ -156,6 +159,7 @@ func (qb *PerformerStore) sortByPerformerFacialMarkerCount(role string, directio
 		FROM scene_marker_performers smp
 		JOIN scene_markers sm ON smp.scene_marker_id = sm.id
 		WHERE smp.performer_id = performers.id
+		AND sm.release_id IS NULL
 		AND smp.role = '%s'
 		AND %s
 		%s
@@ -186,6 +190,7 @@ func (qb *PerformerStore) sortByPerformerUniquePartners(category string, directi
 		JOIN scene_markers sm ON smp1.scene_marker_id = sm.id
 		JOIN scene_marker_performers smp2 ON smp2.scene_marker_id = smp1.scene_marker_id
 		WHERE smp1.performer_id = performers.id
+		AND sm.release_id IS NULL
 		AND smp2.performer_id != performers.id
 		AND ((smp1.role = 'top' AND smp2.role = 'bottom') OR (smp1.role = 'bottom' AND smp2.role = 'top'))
 		AND %s
@@ -222,6 +227,7 @@ func (qb *PerformerStore) sortByPerformerRolePartners(category string, role stri
 		JOIN scene_markers sm ON smp1.scene_marker_id = sm.id
 		JOIN scene_marker_performers smp2 ON smp2.scene_marker_id = smp1.scene_marker_id
 		WHERE smp1.performer_id = performers.id
+		AND sm.release_id IS NULL
 		AND smp1.role = '%s'
 		AND smp2.role = '%s'
 		AND smp2.performer_id != performers.id

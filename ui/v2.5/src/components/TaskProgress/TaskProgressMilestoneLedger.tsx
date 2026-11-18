@@ -74,6 +74,7 @@ const MilestoneRow: React.FC<{
   color?: string;
   range: TaskProgressComparisonPeriod;
   anchor: string;
+  movedOnly: boolean;
   busy: boolean;
   onDetails: () => void;
   onEdit: () => void;
@@ -83,6 +84,7 @@ const MilestoneRow: React.FC<{
   color,
   range,
   anchor,
+  movedOnly,
   busy,
   onDetails,
   onEdit,
@@ -245,6 +247,7 @@ const MilestoneRow: React.FC<{
             trackers={milestone.trackers}
             range={range}
             anchor={anchor}
+            movedOnly={movedOnly}
             onOpenTracker={onOpenTracker}
           />
         </div>
@@ -393,6 +396,7 @@ export const TaskProgressMilestoneLedger: React.FC<{
               color={index >= 0 ? milestoneSeriesColors[index] : undefined}
               range={range}
               anchor={anchor}
+              movedOnly={movedOnly}
               busy={busy}
               onDetails={() => onDetails(milestone.id)}
               onEdit={() => onEdit(milestone)}

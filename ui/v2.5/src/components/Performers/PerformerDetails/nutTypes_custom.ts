@@ -8,8 +8,9 @@ export type NutQualityCustom = "plain" | "really_hot" | "goat";
 type LabeledTag = { id: string; label: string };
 
 // Marker tags behind one pip: nuts leave out facials, Really Hot leaves out
-// GOAT, plain leaves out both, and 2nd camera markers never count. Undefined
-// when a needed tag isn't configured.
+// GOAT, and plain leaves out both. The list keeps 2nd camera markers, which
+// the count skips; their cards are marked. Undefined when a needed tag isn't
+// configured.
 export function nutTypeMarkerTagsCustom(
   row: NutTypeRowCustom,
   quality: NutQualityCustom,
@@ -31,7 +32,6 @@ export function nutTypeMarkerTagsCustom(
       ...(row === "nut" ? facial : []),
       ...(quality === "plain" ? [...reallyHot, ...goat] : []),
       ...(quality === "really_hot" ? goat : []),
-      ...tag(roleTagIds?.secondCameraTagId, "2nd Camera"),
     ],
   };
 }

@@ -669,6 +669,15 @@
       "scene_tools": "Scene Tools"
     },
     "ui": {
+      "amateur_instance": {
+        "section": "Amateur Instance",
+        "include": "Include amateur O's in O Stats",
+        "include_desc": "O Stats and Year in Review add the amateur instance's O's. Its scenes, vatos, and studios stay separate.",
+        "url": "Amateur instance URL",
+        "url_desc": "For example http://localhost:9997",
+        "api_key": "Amateur instance API key",
+        "api_key_desc": "From the amateur instance's Settings > Security. Needed when it has a login."
+      },
       "application_theme": {
         "section": "Application Theme",
         "heading": "Visual theme",

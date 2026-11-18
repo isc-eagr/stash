@@ -43,6 +43,7 @@ import {
   isCatalogCardSortHighlightedCustom,
 } from "../Shared/catalogCardSortHighlight_custom"; // CUSTOM
 import { useScenePerformerOverview } from "./SceneDetails/ScenePerformerOverviewPanel_custom"; // CUSTOM
+import { isSecondCameraMarkerCustom } from "./secondCameraMarker_custom"; // CUSTOM
 
 interface ISceneMarkerCardProps {
   marker: GQL.SceneMarkerDataFragment;
@@ -369,6 +370,11 @@ const SceneMarkerCardImage = PatchComponent(
   "SceneMarkerCard.Image",
   (props: ISceneMarkerCardProps) => {
     const { configuration } = useConfigurationContext();
+    // CUSTOM: 2nd camera markers carry a corner badge
+    const isSecondCamera = isSecondCameraMarkerCustom(
+      [props.marker.primary_tag, ...props.marker.tags],
+      configuration?.ui?.roleTagIds?.secondCameraTagId
+    );
 
     const file = useMemo(
       () =>
@@ -415,6 +421,15 @@ const SceneMarkerCardImage = PatchComponent(
           isPortrait={isPortrait()}
         />
         {maybeRenderSceneSpecsOverlay()}
+        {/* CUSTOM */}
+        {isSecondCamera && (
+          <span
+            className="scene-marker-card__second-camera"
+            title="2nd camera angle: not counted as its own nut"
+          >
+            2nd Cam
+          </span>
+        )}
       </>
     );
   }
@@ -430,6 +445,10 @@ export const SceneMarkerCard = PatchComponent(
     const markerTags = useMemo(
       () => [props.marker.primary_tag, ...props.marker.tags],
       [props.marker.primary_tag, props.marker.tags]
+    );
+    const isSecondCamera = isSecondCameraMarkerCustom(
+      markerTags,
+      configuration?.ui?.roleTagIds?.secondCameraTagId
     );
     const ratingCardClass = getRatingCardClass({
       tags: markerTags,
@@ -457,7 +476,9 @@ export const SceneMarkerCard = PatchComponent(
 
     return (
       <GridCard
-        className={cx("scene-marker-card", zoomIndex(), ratingCardClass)} // CUSTOM
+        className={cx("scene-marker-card", zoomIndex(), ratingCardClass, {
+          "scene-marker-card--second-camera": isSecondCamera,
+        })} // CUSTOM
         url={NavUtils.makeSceneMarkerUrl(props.marker)}
         title={markerTitle(props.marker)}
         width={props.cardWidth}

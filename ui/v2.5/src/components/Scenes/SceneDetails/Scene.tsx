@@ -30,6 +30,7 @@ import { SceneEditPanel } from "./SceneEditPanel";
 import { SceneReleaseDeleteDialog } from "./SceneReleaseDeleteDialog"; // CUSTOM
 import { sceneReleaseEditInputCustom } from "./sceneReleaseEditInput_custom"; // CUSTOM
 import { SceneOCounterMenu } from "./SceneOCounterMenu"; // CUSTOM
+import { makeSceneOStatsUrl } from "src/utils/oStatsNavigation_custom"; // CUSTOM
 import { ErrorMessage } from "src/components/Shared/ErrorMessage";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { Icon } from "src/components/Shared/Icon";
@@ -1289,6 +1290,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
                     valueTitle={oTotalHint.title}
                     onIncrement={() => onIncrementOClick()}
                     onRetroactive={() => onRetroactiveOClick()}
+                    oStatsUrl={makeSceneOStatsUrl(ownerScene.id)}
                   />
                 )}
               </span>

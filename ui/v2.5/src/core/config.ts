@@ -202,6 +202,13 @@ export interface IUIConfig {
     oStatsExcludedTagIds?: string[]; // Tag IDs hidden from O Stats marker-tag charts
     outstandingActivityCommonTagIds?: string[]; // CUSTOM: exact tags hidden from the thumbnail caption (subtags still show)
   };
+  // CUSTOM: the amateur Stash instance O Stats and Year in Review can include.
+  // The backend reads url and apiKey to bridge requests under /amateur.
+  amateurInstance?: {
+    url?: string;
+    apiKey?: string;
+    includeInOStats?: boolean;
+  };
   // CUSTOM: end
 }
 

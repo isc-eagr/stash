@@ -172,7 +172,7 @@ func (qb *tagFilterHandler) criterionHandler() criterionHandler {
 				SELECT mt.scene_marker_id AS marker_id, mt.tag_id AS tag_id FROM scene_markers_tags mt
 				UNION
 				SELECT m.id, m.primary_tag_id FROM scene_markers m
-				)`)
+				)`) // CUSTOM: the marker filter itself leaves out release markers
 				f.addInnerJoin("markers_tags", "", "markers_tags.tag_id = tags.id")
 			},
 		},
@@ -317,10 +317,10 @@ func (qb *tagFilterHandler) markerCountCriterionHandler(markerCount *models.Hier
 			qb.addHierarchicalCountCTE(f, cteAlias, *markerCount.Depth)
 			f.addLeftJoin(cteAlias, "", fmt.Sprintf("%s.root_id = tags.id", cteAlias))
 			f.addLeftJoin("scene_markers_tags", "", fmt.Sprintf("scene_markers_tags.tag_id = %s.descendant_id", cteAlias))
-			f.addLeftJoin("scene_markers", "", "scene_markers_tags.scene_marker_id = scene_markers.id OR scene_markers.primary_tag_id = "+cteAlias+".descendant_id")
+			f.addLeftJoin("scene_markers", "", "(scene_markers_tags.scene_marker_id = scene_markers.id OR scene_markers.primary_tag_id = "+cteAlias+".descendant_id) AND scene_markers.release_id IS NULL") // CUSTOM: no release markers
 		} else {
 			f.addLeftJoin("scene_markers_tags", "", "scene_markers_tags.tag_id = tags.id")
-			f.addLeftJoin("scene_markers", "", "scene_markers_tags.scene_marker_id = scene_markers.id OR scene_markers.primary_tag_id = tags.id")
+			f.addLeftJoin("scene_markers", "", "(scene_markers_tags.scene_marker_id = scene_markers.id OR scene_markers.primary_tag_id = tags.id) AND scene_markers.release_id IS NULL") // CUSTOM: no release markers
 		}
 
 		clause, args := getIntCriterionWhereClause("count(distinct scene_markers.id)", intInput)

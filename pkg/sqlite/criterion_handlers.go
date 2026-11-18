@@ -166,12 +166,12 @@ func pathCriterionHandler(c *models.StringCriterionInput, pathColumn string, bas
 					not = true
 					f.whereClauses = append(f.whereClauses, getPathSearchClauseMany(pathColumn, basenameColumn, c.Value, addWildcards, not))
 				case models.CriterionModifierEquals:
-					addWildcards = false
-					f.whereClauses = append(f.whereClauses, getPathSearchClause(pathColumn, basenameColumn, c.Value, addWildcards, not))
+					// CUSTOM: also match files directly inside the folder
+					f.whereClauses = append(f.whereClauses, pathEqualsClauseCustom(pathColumn, basenameColumn, c.Value, not))
 				case models.CriterionModifierNotEquals:
-					addWildcards = false
 					not = true
-					f.whereClauses = append(f.whereClauses, getPathSearchClause(pathColumn, basenameColumn, c.Value, addWildcards, not))
+					// CUSTOM: also exclude files directly inside the folder
+					f.whereClauses = append(f.whereClauses, pathEqualsClauseCustom(pathColumn, basenameColumn, c.Value, not))
 				case models.CriterionModifierMatchesRegex:
 					if _, err := regexp.Compile(c.Value); err != nil {
 						f.setError(err)

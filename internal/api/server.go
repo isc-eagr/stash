@@ -216,6 +216,7 @@ func Initialize() (*Server, error) {
 	r.Mount("/scene", server.getSceneRoutes())
 	r.Mount("/scene-release", server.getSceneReleaseRoutes())  // CUSTOM: scene release routes
 	r.Mount("/gevi-latest-data", server.getGEVILatestRoutes()) // CUSTOM: GEVI latest scenes/vatos API
+	r.Mount(amateurRoutePrefixCustom, getAmateurRoutesCustom()) // CUSTOM: read-only amateur instance bridge for O Stats
 	r.Mount("/gallery", server.getGalleryRoutes())
 	r.Mount("/image", server.getImageRoutes())
 	r.Mount("/studio", server.getStudioRoutes())

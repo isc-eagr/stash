@@ -1456,56 +1456,10 @@ export const makeScenesWithExclusiveMarkerTagUrl = (
   return `${url}&sortby=date&z=2`;
 };
 
-// Navigate to scene markers where performer is "top" for a given tag (e.g., orgasm markers)
-export const makePerformerOrgasmMarkersUrl = (
-  performer: Partial<GQL.PerformerDataFragment>,
-  tagId: string,
-  tagLabel: string
-) => {
-  if (!performer.id || !tagId) return "#";
-
-  const filter = new ListFilterModel(GQL.FilterMode.SceneMarkers, undefined);
-
-  // Add marker performers criterion with the performer as top and the tag filter
-  const criterion = new MarkerPerformersCriterion(
-    MarkerPerformersCriterionOption
-  );
-  criterion.modifier = GQL.CriterionModifier.IncludesAll;
-  criterion.value = {
-    tag_ids: [{ id: tagId, label: tagLabel }],
-    include_subtags: true,
-    require_overlap: false,
-    top_performer_ids: [
-      {
-        id: performer.id,
-        label: performer.name || `Vato ${performer.id}`,
-      },
-    ],
-    top_any_count: 0,
-    top_ethnicities: [],
-    top_countries: [],
-    top_rating: null,
-    bottom_performer_ids: [],
-    bottom_any_count: 0,
-    bottom_ethnicities: [],
-    bottom_countries: [],
-    bottom_rating: null,
-    unnamed_performers: [],
-    performer_mode: "AND",
-  };
-  filter.criteria.push(criterion);
-  filter.sortBy = "title";
-
-  return `/scenes/markers?${filter.makeQueryParameters()}`;
-};
-
-// Navigate to scene markers where performer has feet markers
-export const makePerformerFeetMarkersUrl = makePerformerOrgasmMarkersUrl;
-
 // Markers with all of `tags` (subtags included) and none of `excludeTags` or
 // their subtags, topped by every `topPerformers` vato (any when empty): the
-// Vato and Studio Detail Nut tile pips. Only each marker's own tags count and
-// release markers are left out, so the list matches the pip count.
+// Vato and Studio Detail Nut and Feet tiles and pips. Only each marker's own
+// tags count, like the tile counts; marker lists never show release markers.
 export const makeTopMarkersWithTagsUrlCustom = (
   topPerformers: Array<{ id: string; label: string }>,
   tags: Array<{ id: string; label: string }>,

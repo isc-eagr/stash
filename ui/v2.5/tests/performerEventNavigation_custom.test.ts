@@ -6,36 +6,42 @@ import {
   type SceneMarkerFilterType,
 } from "../src/core/generated-graphql.ts";
 import {
-  makePerformerFeetMarkersUrl,
-  makePerformerOrgasmMarkersUrl,
   makePerformerTopMarkersWithTagsUrlCustom,
   makeTopMarkersWithTagsUrlCustom,
 } from "../src/utils/navigation_custom.ts";
 import { nutTypeMarkerTagsCustom } from "../src/components/Performers/PerformerDetails/nutTypes_custom.ts";
 
-test("Nut and Feet count tiles open the vato's top-role markers including subtags", () => {
-  for (const [navigate, tagId, label] of [
-    [makePerformerOrgasmMarkersUrl, "10", "Nut"],
-    [makePerformerFeetMarkersUrl, "20", "Feet"],
+test("Nut and Feet count tiles open his top markers by their own tags", () => {
+  for (const [tagId, label] of [
+    ["10", "Nut"],
+    ["20", "Feet"],
   ] as const) {
     const url = new URL(
-      navigate({ id: "42", name: "Beto" }, tagId, label),
+      makePerformerTopMarkersWithTagsUrlCustom({ id: "42", name: "Beto" }, [
+        { id: tagId, label },
+      ]),
       "http://stash"
     );
     assert.equal(url.pathname, "/scenes/markers");
     const filter = new ListFilterModel(FilterMode.SceneMarkers);
     filter.configureFromQueryString(url.search);
-    assert.equal(filter.criteria.length, 1);
     const input = filter.makeFilter() as SceneMarkerFilterType;
-    const group = input.scene_marker_tags?.groups_extended?.[0];
+    const group = input.scene_marker_tags?.groups_extended?.[0] as
+      | (NonNullable<
+          NonNullable<
+            SceneMarkerFilterType["scene_marker_tags"]
+          >["groups_extended"]
+        >[number] & { exclude_tag_ids_on_marker?: string[] })
+      | undefined;
     assert.ok(group);
-    assert.equal(group.depth, -1);
     assert.deepEqual(group.tag_ids, [tagId]);
     assert.deepEqual(group.top_performer_ids, ["42"]);
-    assert.deepEqual(group.bottom_performer_ids ?? [], []);
-    assert.equal(url.searchParams.get("sortby"), "title");
-    assert.equal(navigate({}, tagId, label), "#");
-    assert.equal(navigate({ id: "42" }, "", label), "#");
+    assert.deepEqual(
+      group.exclude_tag_ids_on_marker ?? [],
+      [],
+      "2nd camera markers stay listed"
+    );
+    assert.equal(group.own_tags_only, true, "the list matches the count");
   }
 });
 
@@ -77,7 +83,7 @@ test("Nut tile pips open his top markers with the quality tag and without the ex
   );
 });
 
-test("Nut tile pip tags: nuts leave out facials, Really Hot leaves out GOAT, plain leaves out both", () => {
+test("Nut tile pip tags: nuts leave out facials, Really Hot leaves out GOAT, plain leaves out both, 2nd camera stays", () => {
   const roleTagIds = {
     orgasmTagId: "10",
     facialTagId: "30",
@@ -88,10 +94,10 @@ test("Nut tile pip tags: nuts leave out facials, Really Hot leaves out GOAT, pla
   const ids = (tags?: Array<{ id: string }>) => tags?.map((t) => t.id);
   const hotNut = nutTypeMarkerTagsCustom("nut", "really_hot", roleTagIds);
   assert.deepEqual(ids(hotNut?.tags), ["10", "60"]);
-  assert.deepEqual(ids(hotNut?.excludeTags), ["30", "50", "70"]);
+  assert.deepEqual(ids(hotNut?.excludeTags), ["30", "50"]);
   const plainFacial = nutTypeMarkerTagsCustom("facial", "plain", roleTagIds);
   assert.deepEqual(ids(plainFacial?.tags), ["30"]);
-  assert.deepEqual(ids(plainFacial?.excludeTags), ["60", "50", "70"]);
+  assert.deepEqual(ids(plainFacial?.excludeTags), ["60", "50"]);
   assert.equal(
     nutTypeMarkerTagsCustom("nut", "goat", { orgasmTagId: "10" }),
     undefined,

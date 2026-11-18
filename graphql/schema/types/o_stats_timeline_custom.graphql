@@ -5,6 +5,14 @@ type SceneOEventPage {
   events: [SceneOEvent!]!
 }
 
+"One dated O, for combining O Stats with another instance."
+type SceneOEventMoment {
+  "UTC time, comparable across instances"
+  at: String!
+  "Local calendar day, as the O date charts use"
+  day: String!
+}
+
 extend type Query {
   "Recorded O events across the library or studio scope, filtered by O date."
   sceneOEvents(
@@ -13,5 +21,13 @@ extend type Query {
     studio_id: ID
     depth: Int
     date_range: StatsDateRangeInput
+    "Skip this many events instead of whole pages"
+    offset: Int
   ): SceneOEventPage!
+  "Every dated O in scope, newest first in the sceneOEvents order."
+  sceneOEventMoments(
+    studio_id: ID
+    depth: Int
+    date_range: StatsDateRangeInput
+  ): [SceneOEventMoment!]!
 }

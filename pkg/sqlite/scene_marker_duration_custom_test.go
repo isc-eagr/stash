@@ -17,11 +17,11 @@ func TestSceneMarkerDurationCustom(t *testing.T) {
 CREATE TABLE scenes(id INTEGER PRIMARY KEY, title TEXT);
 CREATE TABLE tags(id INTEGER PRIMARY KEY, name TEXT);
 CREATE TABLE scene_markers(id INTEGER PRIMARY KEY, scene_id INTEGER, title TEXT,
-  seconds REAL, end_seconds REAL, primary_tag_id INTEGER);
+  seconds REAL, end_seconds REAL, primary_tag_id INTEGER, release_id INTEGER);
 CREATE TABLE scene_markers_tags(scene_marker_id INTEGER, tag_id INTEGER);
 INSERT INTO scenes VALUES(1, 'Scene match'), (2, 'Other');
 INSERT INTO tags VALUES(1, 'Tag match'), (2, 'Other');
-INSERT INTO scene_markers VALUES
+INSERT INTO scene_markers(id, scene_id, title, seconds, end_seconds, primary_tag_id) VALUES
   (1, 1, 'Needle', 2.5, 10, 1), (2, 1, '', 0, 5, 2),
   (3, 2, '', 10, NULL, 2), (4, 2, '', 10, 5, 2),
   (5, 2, '', 10, 10, 2), (6, 2, '', -2, 0, 2);

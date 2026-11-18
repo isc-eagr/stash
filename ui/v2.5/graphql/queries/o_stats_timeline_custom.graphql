@@ -35,6 +35,7 @@ query OStatsEventPage(
   $studioId: ID
   $depth: Int
   $dateRange: StatsDateRangeInput
+  $offset: Int
 ) {
   sceneOEvents(
     page: $page
@@ -42,11 +43,28 @@ query OStatsEventPage(
     studio_id: $studioId
     depth: $depth
     date_range: $dateRange
+    offset: $offset
   ) {
     count
     page
     events {
       ...OStatsTimelineEvent
     }
+  }
+}
+
+# CUSTOM: dated O moments, to merge records and timeline pages with the amateur instance.
+query OStatsEventMoments(
+  $studioId: ID
+  $depth: Int
+  $dateRange: StatsDateRangeInput
+) {
+  moments: sceneOEventMoments(
+    studio_id: $studioId
+    depth: $depth
+    date_range: $dateRange
+  ) {
+    at
+    day
   }
 }

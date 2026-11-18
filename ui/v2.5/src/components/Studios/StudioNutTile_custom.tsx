@@ -30,10 +30,7 @@ export const StudioNutTile: React.FC<{
       ? scoped(
           makeTopMarkersWithTagsUrlCustom(
             [],
-            [{ id: roleTagIds.orgasmTagId, label: "Nut" }],
-            roleTagIds.secondCameraTagId
-              ? [{ id: roleTagIds.secondCameraTagId, label: "2nd Camera" }]
-              : []
+            [{ id: roleTagIds.orgasmTagId, label: "Nut" }]
           )
         )
       : undefined;

@@ -809,20 +809,10 @@
   flex: 0 1 8rem;
 }
 
-.milestone-subrows-empty,
-.milestone-subrows-idle > summary {
+.milestone-subrows-empty {
   color: var(--score-muted);
   font-size: 0.85rem;
   margin: 0.25rem 0;
-}
-
-.milestone-subrows-idle {
-  display: grid;
-  gap: 0.35rem;
-
-  > summary {
-    cursor: pointer;
-  }
 }
 
 .milestone-ledger-empty {

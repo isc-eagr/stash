@@ -1,7 +1,7 @@
 // CUSTOM: Year in Review. One calendar year of O's: totals, streaks, top
 // vatos, scenes and nuts, first-time vatos, months and the O Calendar.
 import React, { useMemo } from "react";
-import { gql, useQuery } from "@apollo/client";
+import { gql } from "@apollo/client";
 import { Alert } from "react-bootstrap";
 import { Helmet } from "react-helmet";
 import { Link, useParams } from "react-router-dom";
@@ -42,6 +42,29 @@ import {
   yearInReviewYears,
 } from "./yearInReview_custom";
 
+// CUSTOM: begin - amateur instance O's join the year.
+import {
+  OStatsEventMomentsDocument,
+  type OStatsEventMomentsQuery,
+} from "src/core/generated-graphql";
+import { OStatsAmateurNotice } from "src/components/OStats/OStatsAmateurNotice_custom";
+import {
+  useAmateurOStatsCustom,
+  useBothOStatsQueriesCustom,
+  type IAmateurOStats,
+} from "src/components/OStats/useAmateurOStats_custom";
+import {
+  amateurRowKeyCustom,
+  byCountDescCustom,
+  markAmateurCustom,
+  mergeSortedCustom,
+  oStatsRecordsCustom,
+  oStatsRecordsEndDayCustom,
+  sumCountsByKeyCustom,
+  withAmateurSourceCustom,
+} from "src/components/OStats/oStatsAmateur_custom";
+import { formatStatsLocalDate } from "src/utils/statsDateRange_custom";
+// CUSTOM: end
 import "src/components/OStats/OStats.scss";
 import "./YearInReview.scss";
 
@@ -118,6 +141,7 @@ interface IYearInReviewData {
     screenshot_path: string;
     rating100?: number | null;
     count: number;
+    amateur?: boolean; // CUSTOM
   }>;
   byPerformer: Array<{
     performer_id: string;
@@ -125,10 +149,16 @@ interface IYearInReviewData {
     image_path?: string | null;
     rating100?: number | null;
     count: number;
+    amateur?: boolean; // CUSTOM
   }>;
-  performersBefore: Array<{ performer_id: string }>;
+  performersBefore: Array<{ performer_id: string; amateur?: boolean }>;
   byStudio: {
-    counts: Array<{ studio_id: string; studio_name: string; count: number }>;
+    counts: Array<{
+      studio_id: string;
+      studio_name: string;
+      count: number;
+      amateur?: boolean; // CUSTOM
+    }>;
   };
   longestPeriodWithoutO?: {
     days: number;
@@ -139,6 +169,70 @@ interface IYearInReviewData {
   daysBefore: IDayCount[];
   daysAfter: IDayCount[];
 }
+
+// CUSTOM: begin - the year across both instances. Scenes, vatos and studios
+// stay separate; day counts add up; the dry spell uses both instances' days.
+interface IYearInReviewYearsData {
+  years: Array<{ year: number; count: number }>;
+}
+
+function mergeYearInReviewYearsCustom(
+  main: IYearInReviewYearsData,
+  amateur: IYearInReviewYearsData
+): IYearInReviewYearsData {
+  return {
+    years: sumCountsByKeyCustom(
+      main.years,
+      amateur.years,
+      (item) => item.year
+    ).sort((a, b) => a.year - b.year),
+  };
+}
+
+function sumDaysCustom(main: IDayCount[], amateur: IDayCount[]) {
+  return sumCountsByKeyCustom(main, amateur, (day) => day.date);
+}
+
+function mergeYearInReviewCustom(
+  main: IYearInReviewData,
+  amateur: IYearInReviewData
+): IYearInReviewData {
+  return {
+    byScene: mergeSortedCustom(
+      main.byScene,
+      markAmateurCustom(amateur.byScene),
+      byCountDescCustom
+    ),
+    byPerformer: mergeSortedCustom(
+      main.byPerformer,
+      markAmateurCustom(amateur.byPerformer),
+      byCountDescCustom
+    ),
+    performersBefore: [
+      ...main.performersBefore,
+      ...markAmateurCustom(amateur.performersBefore),
+    ],
+    byStudio: {
+      counts: mergeSortedCustom(
+        main.byStudio.counts,
+        markAmateurCustom(amateur.byStudio.counts),
+        byCountDescCustom
+      ),
+    },
+    longestPeriodWithoutO: main.longestPeriodWithoutO,
+    days: sumDaysCustom(main.days, amateur.days),
+    daysBefore: sumDaysCustom(main.daysBefore, amateur.daysBefore),
+    daysAfter: sumDaysCustom(main.daysAfter, amateur.daysAfter),
+  };
+}
+
+function mergeYearInReviewMomentsCustom(
+  main: OStatsEventMomentsQuery,
+  amateur: OStatsEventMomentsQuery
+): OStatsEventMomentsQuery {
+  return { moments: [...main.moments, ...amateur.moments] };
+}
+// CUSTOM: end
 
 const O_UNIT: [string, string] = ["O", "O's"];
 const TOP_NUT_COUNT = 5;
@@ -215,18 +309,38 @@ const YearInReviewContent: React.FC<{
   year: number;
   years: number[];
   yearCounts: ReadonlyMap<number, number>;
-}> = ({ year, years, yearCounts }) => {
-  const { data, error, loading } = useQuery<IYearInReviewData>(
-    YEAR_IN_REVIEW,
-    {
-      variables: {
-        year,
-        yearBefore: year - 1,
-        yearAfter: year + 1,
-        ...yearInReviewRanges(year),
-      },
-    }
+  amateur: IAmateurOStats; // CUSTOM
+}> = ({ year, years, yearCounts, amateur }) => {
+  // CUSTOM: begin - the year's numbers also read the amateur instance.
+  const options = {
+    variables: {
+      year,
+      yearBefore: year - 1,
+      yearAfter: year + 1,
+      ...yearInReviewRanges(year),
+    },
+  };
+  const { data, error, loading, amateurFailed } =
+    useBothOStatsQueriesCustom<IYearInReviewData>(
+      amateur,
+      YEAR_IN_REVIEW,
+      options,
+      options,
+      mergeYearInReviewCustom
+    );
+  const yearRange = yearInReviewRanges(year).range;
+  const momentsOptions = {
+    variables: { dateRange: yearRange },
+    skip: !amateur.active,
+  };
+  const moments = useBothOStatsQueriesCustom<OStatsEventMomentsQuery>(
+    amateur,
+    OStatsEventMomentsDocument,
+    momentsOptions,
+    momentsOptions,
+    mergeYearInReviewMomentsCustom
   );
+  // CUSTOM: end
   const calendar = useMemo(
     () =>
       summarizeOStatsCalendar(
@@ -247,7 +361,7 @@ const YearInReviewContent: React.FC<{
   );
 
   if (error) return <ErrorMessage error={error.message} />;
-  if (loading || !data) {
+  if (loading || moments.loading || !data) {
     return (
       <div className="stats-page-loading">
         <StatsPageSkeleton message="Loading the year..." />
@@ -258,22 +372,39 @@ const YearInReviewContent: React.FC<{
   const total = data.byScene.reduce((sum, scene) => sum + scene.count, 0);
   const change = yearInReviewChange(total, yearCounts.get(year - 1), year - 1);
   const topStudio = data.byStudio.counts[0];
-  const dry = data.longestPeriodWithoutO;
+  // CUSTOM: begin - the dry spell over both instances' O days.
+  const dry =
+    amateur.active && moments.data && !moments.amateurFailed
+      ? oStatsRecordsCustom(
+          moments.data.moments.map((moment) => moment.day),
+          oStatsRecordsEndDayCustom(
+            yearRange.to,
+            formatStatsLocalDate(new Date())
+          )
+        ).longestPeriodWithoutO
+      : data.longestPeriodWithoutO;
+  // An amateur vato is new against the amateur's earlier vatos only.
   const newVatos = yearInReviewNewcomers(
     data.byPerformer,
-    data.performersBefore.map((performer) => performer.performer_id),
-    (performer) => performer.performer_id
+    data.performersBefore.map((performer) =>
+      amateurRowKeyCustom(performer.performer_id, performer.amateur)
+    ),
+    (performer) =>
+      amateurRowKeyCustom(performer.performer_id, performer.amateur)
   );
-  const oStats = (path: string) => yearInReviewOStatsPath(path, year);
+  const oStats = (path: string, isAmateur?: boolean) =>
+    withAmateurSourceCustom(yearInReviewOStatsPath(path, year), isAmateur);
   const vatoCard = (performer: IYearInReviewData["byPerformer"][number]) => ({
-    key: performer.performer_id,
+    key: amateurRowKeyCustom(performer.performer_id, performer.amateur),
     title: performer.performer_name,
     imagePath: performer.image_path,
     rating100: performer.rating100,
     value: units(performer.count, O_UNIT),
     detail: formatStatsBarPercent(performer.count, total),
-    to: oStats(`/ostats/vato/${performer.performer_id}`),
+    meta: performer.amateur ? "Amateur" : undefined,
+    to: oStats(`/ostats/vato/${performer.performer_id}`, performer.amateur),
   });
+  // CUSTOM: end
 
   const kpis: IStatsKpi[] = [
     {
@@ -327,9 +458,15 @@ const YearInReviewContent: React.FC<{
           {
             key: "studio",
             label: "Top studio",
-            value: topStudio.studio_name,
+            // CUSTOM: an amateur studio says so.
+            value: topStudio.amateur
+              ? `${topStudio.studio_name} (Amateur)`
+              : topStudio.studio_name,
             detail: units(topStudio.count, O_UNIT),
-            to: oStats(`/ostats/studio/${topStudio.studio_id}`),
+            to: oStats(
+              `/ostats/studio/${topStudio.studio_id}`,
+              topStudio.amateur
+            ),
           },
         ]
       : []),
@@ -337,6 +474,11 @@ const YearInReviewContent: React.FC<{
 
   return (
     <>
+      {/* CUSTOM */}
+      <OStatsAmateurNotice
+        amateur={amateur}
+        failed={amateurFailed || moments.amateurFailed}
+      />
       <StatsKpiRow items={kpis} label={`${year} key numbers`} />
       <StatsTopCards
         title={`Top Vatos of ${year}`}
@@ -350,13 +492,14 @@ const YearInReviewContent: React.FC<{
         variant="scene"
         emptyLabel={`No O's in ${year}.`}
         items={data.byScene.map((scene) => ({
-          key: scene.scene_id,
+          key: amateurRowKeyCustom(scene.scene_id, scene.amateur), // CUSTOM
           title: scene.title || `Scene ${scene.scene_id}`,
           imagePath: scene.screenshot_path,
           rating100: scene.rating100,
           value: units(scene.count, O_UNIT),
           detail: formatStatsBarPercent(scene.count, total),
-          to: oStats(`/ostats/scene/${scene.scene_id}`),
+          meta: scene.amateur ? "Amateur" : undefined, // CUSTOM
+          to: oStats(`/ostats/scene/${scene.scene_id}`, scene.amateur),
         }))}
       />
       {newVatos.length > 0 && (
@@ -378,21 +521,31 @@ const YearInReviewContent: React.FC<{
             key: month.key,
             label: month.label,
             count: month.count,
-            to:
-              month.count > 0 ? `/ostats/${year}/${month.month}` : undefined,
+            to: month.count > 0 ? `/ostats/${year}/${month.month}` : undefined,
           }))}
         />
       </div>
-      <OStatsCalendarHeatmap fixedYear={year} years={years} />
+      <OStatsCalendarHeatmap
+        fixedYear={year}
+        years={years}
+        amateur={amateur} // CUSTOM
+      />
     </>
   );
 };
 
 const YearInReview: React.FC = () => {
   const params = useParams<{ year?: string }>();
-  const { data, error, loading } = useQuery<{
-    years: Array<{ year: number; count: number }>;
-  }>(YEAR_IN_REVIEW_YEARS);
+  // CUSTOM: years with O's on either instance.
+  const amateur = useAmateurOStatsCustom();
+  const { data, error, loading } =
+    useBothOStatsQueriesCustom<IYearInReviewYearsData>(
+      amateur,
+      YEAR_IN_REVIEW_YEARS,
+      {},
+      {},
+      mergeYearInReviewYearsCustom
+    );
   const { years, year, previous, next } = useMemo(
     () =>
       yearInReviewYears(data?.years ?? [], parseYearInReviewYear(params.year)),
@@ -444,6 +597,7 @@ const YearInReview: React.FC = () => {
           year={year}
           years={years}
           yearCounts={yearCounts}
+          amateur={amateur} // CUSTOM
         />
       )}
     </StatsPage>

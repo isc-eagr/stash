@@ -565,6 +565,10 @@ func (j *GenerateJob) queueSceneJobs(ctx context.Context, g *generate.Generator,
 }
 
 func (j *GenerateJob) queueMarkerJob(g *generate.Generator, marker *models.SceneMarker, queue chan<- Task) {
+	// CUSTOM: release markers are timestamps only and get no previews
+	if marker.ReleaseID != nil {
+		return
+	}
 	task := &GenerateMarkersTask{
 		repository:                 j.repository,
 		Marker:                     marker,

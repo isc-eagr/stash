@@ -1190,6 +1190,27 @@ textarea.scene-description {
   }
 }
 
+/* CUSTOM: 2nd camera markers: another angle of a nut counted elsewhere */
+.scene-marker-card.scene-marker-card--second-camera {
+  outline: 2px dashed rgba(255, 255, 255, 0.55);
+  outline-offset: -2px;
+}
+
+.scene-marker-card__second-camera {
+  background-color: rgba(0, 0, 0, 0.7);
+  border: 1px dashed rgba(255, 255, 255, 0.7);
+  border-radius: 0.25rem;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0 0.35rem;
+  pointer-events: none;
+  position: absolute;
+  right: 0.4rem;
+  top: 0.4rem;
+  z-index: 1;
+}
+
 /* Scene marker card performer display */
 .scene-marker-card__performers {
   display: flex;

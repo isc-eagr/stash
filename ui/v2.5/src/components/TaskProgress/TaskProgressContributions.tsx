@@ -43,14 +43,15 @@ export function taskProgressPeriodName(
 
 /**
  * A milestone's trackers as nested scoreboard rows for the period containing
- * `anchor`: busiest first, trackers that completed nothing folded away.
+ * `anchor`, busiest first. Moved only hides trackers that completed nothing.
  */
 export const TaskProgressContributions: React.FC<{
   trackers: readonly ContributionTracker[];
   range: TaskProgressComparisonPeriod;
   anchor: string;
+  movedOnly?: boolean;
   onOpenTracker: (id: string) => void;
-}> = ({ trackers, range, anchor, onOpenTracker }) => {
+}> = ({ trackers, range, anchor, movedOnly = false, onOpenTracker }) => {
   const t = useProgressText();
   const today = progressToday();
   const period = taskProgressReportPeriod(range, anchor, today);
@@ -78,8 +79,9 @@ export const TaskProgressContributions: React.FC<{
         b.comparison.current.completed - a.comparison.current.completed ||
         a.tracker.title.localeCompare(b.tracker.title)
     );
-  const active = rows.filter((row) => row.comparison.current.completed > 0);
-  const idle = rows.filter((row) => row.comparison.current.completed === 0);
+  const shown = movedOnly
+    ? rows.filter((row) => row.comparison.current.completed > 0)
+    : rows;
   const renderRow = ({
     tracker,
     completed,
@@ -127,20 +129,12 @@ export const TaskProgressContributions: React.FC<{
 
   return (
     <div className="milestone-subrows">
-      {active.length ? (
-        active.map(renderRow)
+      {shown.length ? (
+        shown.map(renderRow)
       ) : (
         <p className="milestone-subrows-empty">
           {t("No tracker completed anything in this period.")}
         </p>
-      )}
-      {!!idle.length && (
-        <details className="milestone-subrows-idle">
-          <summary>
-            {idle.length} {t("trackers with no activity")} · {t(periodName)}
-          </summary>
-          {idle.map(renderRow)}
-        </details>
       )}
     </div>
   );

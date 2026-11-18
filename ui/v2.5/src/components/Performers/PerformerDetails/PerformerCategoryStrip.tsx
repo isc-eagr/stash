@@ -995,12 +995,11 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
             : `${p.name || "Vato"} has ${orgasmTopCount} total nut${
                 orgasmTopCount !== 1 ? "s" : ""
               }`,
+          // Same marker match as the pips: no release markers, 2nd camera listed
           url: scopeToStudio(
-            NavUtils.makePerformerOrgasmMarkersUrl(
-              performer,
-              orgasmTagId,
-              "Nut"
-            )
+            makePerformerTopMarkersWithTagsUrlCustom(performer, [
+              { id: orgasmTagId, label: "Nut" },
+            ])
           ),
           icon: <img src={spermsSvg} alt="Nut" className="category-icon" />,
           count: orgasmTopCount,
@@ -1028,7 +1027,9 @@ export const PerformerCategoryStrip: React.FC<IPerformerCategoryStripProps> = ({
                 feetTopCount !== 1 ? "s" : ""
               }`,
           url: scopeToStudio(
-            NavUtils.makePerformerFeetMarkersUrl(performer, feetTagId, "Feet")
+            makePerformerTopMarkersWithTagsUrlCustom(performer, [
+              { id: feetTagId, label: "Feet" },
+            ])
           ),
           icon: <img src={feetSvg} alt="Feet" className="category-icon" />,
           count: feetTopCount,

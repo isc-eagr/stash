@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -303,4 +304,21 @@ WHERE {sm}.scene_id = {primaryTable}.id
 
 	args := append(stringArgsCustom(tagIDs), stringArgsCustom(tagIDs)...)
 	f.addWhere("NOT "+hasTag("sm_excl", getInBinding(len(tagIDs))), args...)
+}
+
+// pathEqualsClauseCustom matches the full file path, or files directly inside
+// the folder p, so a folder picked in the path filter works without a trailing
+// separator.
+func pathEqualsClauseCustom(pathColumn, basenameColumn, p string, not bool) sqlClause {
+	fileClause := getPathSearchClause(pathColumn, basenameColumn, p, false, not)
+	folder := strings.TrimRight(p, `\/`)
+	folderWithSep := folder + string(filepath.Separator)
+
+	if not {
+		folderClause := makeClause(fmt.Sprintf("(%s NOT LIKE ? AND %[1]s NOT LIKE ?)", pathColumn), folder, folderWithSep)
+		return andClauses(fileClause, folderClause)
+	}
+
+	folderClause := makeClause(fmt.Sprintf("(%s LIKE ? OR %[1]s LIKE ?)", pathColumn), folder, folderWithSep)
+	return orClauses(fileClause, folderClause)
 }
